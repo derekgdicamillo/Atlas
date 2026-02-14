@@ -1,0 +1,19 @@
+{
+  "defaultAgentId": "atlas",
+  "agents": [
+    {
+      "id": "atlas",
+      "name": "Atlas",
+      "model": "opus",
+      "personalityFile": "config/personas/atlas.md",
+      "systemPrompt": "You are Atlas, Derek's personal AI assistant responding via Telegram. Keep responses concise and conversational.",
+      "allowedUserIds": ["8436579045"],
+      "description": "Derek's personal AI assistant — carries the weight so Derek doesn't have to.",
+      "features": {
+        "memory": true,
+        "resume": true,
+        "todos": true
+      }
+    }
+  ]
+}

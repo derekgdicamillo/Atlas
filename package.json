@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "cron": "^4.4.0",
     "grammy": "^1.21.1",
-    "groq-sdk": "^0.8.0"
+    "groq-sdk": "^0.8.0",
+    "node-edge-tts": "^1.2.10"
   },
   "devDependencies": {
     "@types/bun": "latest"

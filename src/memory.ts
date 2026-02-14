@@ -6,12 +6,15 @@
  *   [REMEMBER: fact]
  *   [GOAL: text | DEADLINE: date]
  *   [DONE: search text]
+ *   [TODO: task text]        → adds to Obsidian MASTER TODO
+ *   [TODO_DONE: search text] → checks off matching task
  *
  * The relay parses these tags, saves to Supabase, and strips them
  * from the response before sending to the user.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addTodo, completeTodo } from "./todo.ts";
 
 /**
  * Parse Claude's response for memory intent tags.
@@ -25,12 +28,23 @@ export async function processMemoryIntents(
 
   let clean = response;
 
-  // [REMEMBER: fact to store]
+  // [REMEMBER: fact to store] — with dedup via semantic similarity
   for (const match of response.matchAll(/\[REMEMBER:\s*(.+?)\]/gi)) {
-    await supabase.from("memory").insert({
-      type: "fact",
-      content: match[1],
-    });
+    const newFact = match[1];
+    const existing = await findSimilarFact(supabase, newFact);
+
+    if (existing) {
+      // Update existing fact instead of creating a duplicate
+      await supabase
+        .from("memory")
+        .update({ content: newFact, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+    } else {
+      await supabase.from("memory").insert({
+        type: "fact",
+        content: newFact,
+      });
+    }
     clean = clean.replace(match[0], "");
   }
 
@@ -67,7 +81,115 @@ export async function processMemoryIntents(
     clean = clean.replace(match[0], "");
   }
 
+  // [TODO: task text] — add to Obsidian MASTER TODO INBOX
+  for (const match of response.matchAll(/\[TODO:\s*(.+?)\]/gi)) {
+    await addTodo(match[1]);
+    clean = clean.replace(match[0], "");
+  }
+
+  // [TODO_DONE: search text] — check off matching task in MASTER TODO
+  for (const match of response.matchAll(/\[TODO_DONE:\s*(.+?)\]/gi)) {
+    await completeTodo(match[1]);
+    clean = clean.replace(match[0], "");
+  }
+
   return clean.trim();
+}
+
+/**
+ * Find an existing fact semantically similar to the new one (dedup).
+ * Uses the search Edge Function to check the memory table.
+ * Returns the matching row if similarity >= 0.85, else null.
+ */
+async function findSimilarFact(
+  supabase: SupabaseClient,
+  content: string
+): Promise<{ id: string; content: string } | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("search", {
+      body: {
+        query: content,
+        table: "memory",
+        match_count: 1,
+        match_threshold: 0.85,
+      },
+    });
+
+    if (error || !data?.length) return null;
+
+    // Only dedup facts, not goals
+    const match = data[0];
+    if (match.type !== "fact") return null;
+
+    return { id: match.id, content: match.content };
+  } catch {
+    // Edge Function not available, skip dedup
+    return null;
+  }
+}
+
+/**
+ * Browse stored facts and goals. Used by /memory command.
+ */
+export async function browseMemory(
+  supabase: SupabaseClient | null,
+  options: { type?: string; search?: string; limit?: number } = {}
+): Promise<string> {
+  if (!supabase) return "Memory not available (Supabase not configured).";
+
+  const { type, search, limit = 20 } = options;
+
+  try {
+    let query = supabase
+      .from("memory")
+      .select("id, type, content, created_at, deadline, completed_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (type) {
+      query = query.eq("type", type);
+    } else {
+      // Exclude completed goals by default
+      query = query.neq("type", "completed_goal");
+    }
+
+    if (search) {
+      query = query.ilike("content", `%${search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) return `Memory error: ${error.message}`;
+    if (!data?.length) return "No memories found.";
+
+    const lines = data.map((m: any) => {
+      const date = new Date(m.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      const prefix = m.type === "goal" ? "GOAL" : m.type === "fact" ? "FACT" : m.type.toUpperCase();
+      const deadline = m.deadline
+        ? ` (by ${new Date(m.deadline).toLocaleDateString()})`
+        : "";
+      return `[${prefix}] ${date} — ${m.content}${deadline}`;
+    });
+
+    return lines.join("\n");
+  } catch (error) {
+    return `Memory error: ${error}`;
+  }
+}
+
+/**
+ * Delete a memory entry by ID.
+ */
+export async function deleteMemory(
+  supabase: SupabaseClient | null,
+  id: string
+): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("memory").delete().eq("id", id);
+  return !error;
 }
 
 /**

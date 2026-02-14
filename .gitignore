@@ -1,30 +1,39 @@
 # Environment
 .env
-.env.local
+.env.*
 
 # Dependencies
 node_modules/
 
-# Bun
+# Runtime
+*.lock
 bun.lockb
 
-# Personal config (keep examples, ignore actual)
-config/profile.md
-config/schedule.json
-
-# Runtime files
-*.lock
-*.log
+# Data
+data/
+memory/
 logs/
-temp/
-uploads/
-session.json
+
+# Daemon
+*.pid
+*.lock
+
+# Relay temp files
+.claude-relay/
+session-*.json
+.last_update_id
 
 # OS
 .DS_Store
 Thumbs.db
 
 # IDE
-.idea/
 .vscode/
-*.swp
+.idea/
+
+# Don't commit evolved personality files to avoid merge conflicts
+# (backed up to OneDrive daily via cron)
+# Uncomment these if you want git to track personality evolution:
+# SOUL.md
+# IDENTITY.md
+# USER.md
