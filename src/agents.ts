@@ -22,6 +22,7 @@ export interface AgentConfig {
     memory: boolean;
     resume: boolean;
     todos: boolean;
+    google?: boolean;
   };
 }
 

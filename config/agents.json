@@ -12,7 +12,8 @@
       "features": {
         "memory": true,
         "resume": true,
-        "todos": true
+        "todos": true,
+        "google": true
       }
     }
   ]

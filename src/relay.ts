@@ -31,7 +31,7 @@ import {
   getHealthStatus,
 } from "./logger.ts";
 import { DEFAULT_MODEL, type ModelTier } from "./constants.ts";
-import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout } from "./claude.ts";
+import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript } from "./claude.ts";
 import {
   loadAgents,
   getAgentForUser,
@@ -39,6 +39,15 @@ import {
   type AgentRuntime,
 } from "./agents.ts";
 import { getTodoContext } from "./todo.ts";
+import {
+  initGoogle,
+  isGoogleEnabled,
+  getGoogleContext,
+  processGoogleIntents,
+  listUnreadEmails,
+  listTodayEvents,
+} from "./google.ts";
+import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 
@@ -95,11 +104,13 @@ process.on("exit", () => {
 });
 process.on("SIGINT", async () => {
   stopCronJobs();
+  await saveDedupCache();
   await releaseLock();
   process.exit(0);
 });
 process.on("SIGTERM", async () => {
   stopCronJobs();
+  await saveDedupCache();
   await releaseLock();
   process.exit(0);
 });
@@ -141,6 +152,13 @@ try {
   info("startup", "Agent configurations loaded");
 } catch (err) {
   warn("startup", `Could not load agents.json, using fallback single-user mode: ${err}`);
+}
+
+// Initialize Google integration (optional)
+if (initGoogle()) {
+  info("startup", "Google integration initialized (Gmail + Calendar)");
+} else {
+  info("startup", "Google integration not configured (missing env vars)");
 }
 
 async function saveMessage(
@@ -240,7 +258,53 @@ function isDuplicate(userId: string, text: string): boolean {
     }
   }
 
+  maybeSaveDedupCache();
   return !!lastSeen && now - lastSeen < DEDUP_WINDOW_MS;
+}
+
+// Dedup cache persistence: survive restarts without losing dedup state
+const DEDUP_CACHE_FILE = join(PROJECT_ROOT, "data", "dedup-cache.json");
+let lastDedupSave = 0;
+const DEDUP_SAVE_INTERVAL = 30_000; // throttle saves to every 30s
+
+async function loadDedupCache(): Promise<void> {
+  try {
+    const raw = await readFile(DEDUP_CACHE_FILE, "utf-8");
+    const entries: [string, number][] = JSON.parse(raw);
+    const now = Date.now();
+    let loaded = 0;
+    let expired = 0;
+    for (const [key, ts] of entries) {
+      if (now - ts < DEDUP_WINDOW_MS) {
+        recentMessages.set(key, ts);
+        loaded++;
+      } else {
+        expired++;
+      }
+    }
+    info("dedup", `Loaded ${loaded} dedup entries (${expired} expired)`);
+  } catch {
+    // No cache file or invalid, start fresh
+  }
+}
+
+async function saveDedupCache(): Promise<void> {
+  try {
+    const dataDir = join(PROJECT_ROOT, "data");
+    await mkdir(dataDir, { recursive: true });
+    const entries = Array.from(recentMessages.entries());
+    await writeFile(DEDUP_CACHE_FILE, JSON.stringify(entries));
+    lastDedupSave = Date.now();
+  } catch (err) {
+    warn("dedup", `Failed to save dedup cache: ${err}`);
+  }
+}
+
+// Throttled save: call inside isDuplicate to persist periodically
+function maybeSaveDedupCache(): void {
+  if (Date.now() - lastDedupSave > DEDUP_SAVE_INTERVAL) {
+    saveDedupCache().catch(() => {});
+  }
 }
 
 // ============================================================
@@ -296,6 +360,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       // an infinite restart loop.
       try {
         stopCronJobs();
+        await saveDedupCache();
         await bot.stop();
       } catch (e) {
         warn("command", `Error during graceful stop: ${e}`);
@@ -330,11 +395,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const session = await getSession(agentId, userId);
 
       if (sub === "reset" || sub === "clear") {
+        const oldSessionId = session.sessionId;
         session.sessionId = null;
         session.lastActivity = new Date().toISOString();
         await saveSessionState(agentId, userId, session);
         await ctx.reply("Session cleared. Next message starts fresh.");
-        info("command", `Session reset by ${userId}`);
+        info("command", `Session reset by ${userId} (was: ${oldSessionId || "none"})`);
+        if (oldSessionId) {
+          archiveSessionTranscript(oldSessionId, agentId, userId).catch(() => {});
+        }
       } else {
         const sid = session.sessionId || "none";
         const lastAct = session.lastActivity
@@ -427,6 +496,54 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/inbox": {
+      if (!isGoogleEnabled()) {
+        await ctx.reply("Google not configured. Run: bun run setup/google-auth.ts");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const emails = await listUnreadEmails(10);
+        if (emails.length === 0) {
+          await ctx.reply("Inbox zero. No unread emails.");
+        } else {
+          const lines = emails.map((e, i) =>
+            `${i + 1}. ${e.from}\n   ${e.subject}\n   ${e.date}`
+          );
+          await ctx.reply(`Unread emails (${emails.length}):\n\n${lines.join("\n\n")}`);
+        }
+      } catch (err) {
+        logError("google", `Inbox command failed: ${err}`);
+        await ctx.reply("Failed to fetch inbox. Check logs.");
+      }
+      return true;
+    }
+
+    case "/cal":
+    case "/calendar": {
+      if (!isGoogleEnabled()) {
+        await ctx.reply("Google not configured. Run: bun run setup/google-auth.ts");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const events = await listTodayEvents();
+        if (events.length === 0) {
+          await ctx.reply("No events today. Calendar is clear.");
+        } else {
+          const lines = events.map((e) => {
+            const who = e.attendees?.length ? ` (with: ${e.attendees.join(", ")})` : "";
+            return `${e.start}-${e.end} ${e.title}${who}`;
+          });
+          await ctx.reply(`Today's calendar:\n\n${lines.join("\n")}`);
+        }
+      } catch (err) {
+        logError("google", `Calendar command failed: ${err}`);
+        await ctx.reply("Failed to fetch calendar. Check logs.");
+      }
+      return true;
+    }
+
     case "/help": {
       await ctx.reply(
         "Admin commands:\n" +
@@ -438,6 +555,8 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/model <opus|sonnet|haiku> - switch model\n" +
         "/timeout - show/set timeout (seconds)\n" +
         "/memory - browse stored facts and goals\n" +
+        "/inbox - unread emails\n" +
+        "/cal - today's calendar\n" +
         "/restart - restart the bot process"
       );
       return true;
@@ -449,10 +568,30 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
 }
 
 // ============================================================
+// PRE-PROMPT DIAGNOSTICS (OpenClaw #8930)
+// ============================================================
+
+function logPrePrompt(
+  prompt: string,
+  agentId: string,
+  model: string,
+  sessionId: string | null,
+  isResume: boolean
+): void {
+  info("pre-prompt",
+    `[${agentId}] chars=${prompt.length} model=${model} ` +
+    `session=${sessionId || "new"} resume=${isResume}`
+  );
+}
+
+// ============================================================
 // MESSAGE HANDLERS
 // ============================================================
 
 // Text messages
+// BACKSLASH SAFETY: User message text passes to Claude as-is.
+// No backslash normalization is applied. Internal paths use path.join().
+// See OpenClaw #11547 for context on this pattern.
 bot.on("message:text", async (ctx) => {
   const text = ctx.message.text;
   const userId = ctx.from?.id.toString() || "";
@@ -483,6 +622,7 @@ bot.on("message:text", async (ctx) => {
   const hasMemory = agent?.config.features.memory ?? true;
   const hasResume = agent?.config.features.resume ?? true;
   const hasTodos = agent?.config.features.todos ?? false;
+  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
 
   info("message", `[${agentId}] Text from ${userId}: ${text.substring(0, 80)}...`);
 
@@ -490,13 +630,16 @@ bot.on("message:text", async (ctx) => {
   await saveMessage("user", text, { agentId });
 
   // Gather context based on agent features
-  const [relevantContext, memoryContext, todoContext] = await Promise.all([
+  const [relevantContext, memoryContext, todoContext, googleContext] = await Promise.all([
     hasMemory ? getRelevantContext(supabase, text) : "",
     hasMemory ? getMemoryContext(supabase) : "",
     hasTodos ? getTodoContext() : "",
+    hasGoogle ? getGoogleContext() : "",
   ]);
 
-  const enrichedPrompt = buildPrompt(text, agent, relevantContext, memoryContext, todoContext);
+  const enrichedPrompt = buildPrompt(text, agent, relevantContext, memoryContext, todoContext, googleContext);
+  const session = await getSession(agentId, userId);
+  logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
   const rawResponse = await callClaude(enrichedPrompt, {
     resume: hasResume,
     model: agentModel,
@@ -506,9 +649,13 @@ bot.on("message:text", async (ctx) => {
     onStatus: (msg) => ctx.reply(msg).catch(() => {}),
   });
 
-  const response = hasMemory
+  let response = hasMemory
     ? await processMemoryIntents(supabase, rawResponse)
     : rawResponse;
+
+  if (hasGoogle) {
+    response = await processGoogleIntents(response);
+  }
 
   await saveMessage("assistant", response, { agentId });
   await sendResponse(ctx, response);
@@ -535,6 +682,7 @@ bot.on("message:voice", async (ctx) => {
   const hasMemory = agent?.config.features.memory ?? true;
   const hasResume = agent?.config.features.resume ?? true;
   const hasTodos = agent?.config.features.todos ?? false;
+  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
 
   info("message", `[${agentId}] Voice from ${userId}: ${voice.duration}s`);
   await ctx.replyWithChatAction("typing");
@@ -561,10 +709,11 @@ bot.on("message:voice", async (ctx) => {
 
     await saveMessage("user", `[Voice ${voice.duration}s]: ${transcription}`, { agentId });
 
-    const [relevantContext, memoryContext, todoContext] = await Promise.all([
+    const [relevantContext, memoryContext, todoContext, googleContext] = await Promise.all([
       hasMemory ? getRelevantContext(supabase, transcription) : "",
       hasMemory ? getMemoryContext(supabase) : "",
       hasTodos ? getTodoContext() : "",
+      hasGoogle ? getGoogleContext() : "",
     ]);
 
     const enrichedPrompt = buildPrompt(
@@ -572,8 +721,11 @@ bot.on("message:voice", async (ctx) => {
       agent,
       relevantContext,
       memoryContext,
-      todoContext
+      todoContext,
+      googleContext
     );
+    const session = await getSession(agentId, userId);
+    logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
     const rawResponse = await callClaude(enrichedPrompt, {
       resume: hasResume,
       model: agentModel,
@@ -582,9 +734,13 @@ bot.on("message:voice", async (ctx) => {
       onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
       onStatus: (msg) => ctx.reply(msg).catch(() => {}),
     });
-    const claudeResponse = hasMemory
+    let claudeResponse = hasMemory
       ? await processMemoryIntents(supabase, rawResponse)
       : rawResponse;
+
+    if (hasGoogle) {
+      claudeResponse = await processGoogleIntents(claudeResponse);
+    }
 
     await saveMessage("assistant", claudeResponse, { agentId });
 
@@ -643,6 +799,8 @@ bot.on("message:photo", async (ctx) => {
 
     await saveMessage("user", `[Image]: ${caption}`, { agentId });
 
+    const session = await getSession(agentId, userId);
+    logPrePrompt(prompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
     const claudeResponse = await callClaude(prompt, {
       resume: hasResume,
       model: agentModel,
@@ -698,6 +856,8 @@ bot.on("message:document", async (ctx) => {
 
     await saveMessage("user", `[Document: ${doc.file_name}]: ${caption}`, { agentId });
 
+    const session = await getSession(agentId, userId);
+    logPrePrompt(prompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
     const claudeResponse = await callClaude(prompt, {
       resume: hasResume,
       model: agentModel,
@@ -740,7 +900,8 @@ function buildPrompt(
   agent: AgentRuntime | null,
   relevantContext?: string,
   memoryContext?: string,
-  todoContext?: string
+  todoContext?: string,
+  googleContext?: string
 ): string {
   const now = new Date();
   const timeStr = now.toLocaleString("en-US", {
@@ -793,6 +954,29 @@ function buildPrompt(
     );
   }
 
+  const hasGoogle = agent?.config.features.google ?? false;
+
+  if (hasGoogle && googleContext) parts.push(`\n${googleContext}`);
+
+  if (hasGoogle) {
+    parts.push(
+      "\nGOOGLE INTEGRATION:" +
+        "\nYou have access to Derek's Gmail (read + draft), Google Calendar, and Google Contacts." +
+        "\nYou also have your own Gmail account (assistant.ai.atlas@gmail.com) that can send emails." +
+        "\nDerek's contacts are listed in the context above. Use them to resolve names to email addresses." +
+        "\nWhen the user says 'email Esther' or 'invite John', look up the email from the CONTACTS list." +
+        "\nUse these tags in your response (processed automatically, hidden from the user):" +
+        "\n[DRAFT: to=email@example.com | subject=Subject line | body=Full email body text]" +
+        "\n  Creates a draft in Derek's Gmail. Never sends." +
+        "\n[SEND: to=email@example.com | subject=Subject line | body=Full email body text]" +
+        "\n  Sends an email from your Atlas account (assistant.ai.atlas@gmail.com)." +
+        "\n[CAL_ADD: title=Event title | date=YYYY-MM-DD | time=HH:MM | duration=minutes | invite=email@example.com]" +
+        "\n  Creates a calendar event. Sends invites to attendees if provided. Duration defaults to 60 min." +
+        "\n[CAL_REMOVE: search text matching event title]" +
+        "\n  Deletes the first matching event in the next 30 days."
+    );
+  }
+
   parts.push(`\nUser: ${userMessage}`);
 
   return parts.join("\n");
@@ -806,33 +990,41 @@ async function sendResponse(ctx: Context, response: string): Promise<void> {
     return;
   }
 
+  // Write-ahead: persist before delivery so we can retry on crash
+  const chatId = String(ctx.chat?.id || "");
+  const deliveryId = chatId ? await enqueueReply(chatId, response) : null;
+
   const MAX_LENGTH = 4000;
 
   if (response.length <= MAX_LENGTH) {
     await ctx.reply(response);
-    return;
-  }
+  } else {
+    const chunks = [];
+    let remaining = response;
 
-  const chunks = [];
-  let remaining = response;
+    while (remaining.length > 0) {
+      if (remaining.length <= MAX_LENGTH) {
+        chunks.push(remaining);
+        break;
+      }
 
-  while (remaining.length > 0) {
-    if (remaining.length <= MAX_LENGTH) {
-      chunks.push(remaining);
-      break;
+      let splitIndex = remaining.lastIndexOf("\n\n", MAX_LENGTH);
+      if (splitIndex === -1) splitIndex = remaining.lastIndexOf("\n", MAX_LENGTH);
+      if (splitIndex === -1) splitIndex = remaining.lastIndexOf(" ", MAX_LENGTH);
+      if (splitIndex === -1) splitIndex = MAX_LENGTH;
+
+      chunks.push(remaining.substring(0, splitIndex));
+      remaining = remaining.substring(splitIndex).trim();
     }
 
-    let splitIndex = remaining.lastIndexOf("\n\n", MAX_LENGTH);
-    if (splitIndex === -1) splitIndex = remaining.lastIndexOf("\n", MAX_LENGTH);
-    if (splitIndex === -1) splitIndex = remaining.lastIndexOf(" ", MAX_LENGTH);
-    if (splitIndex === -1) splitIndex = MAX_LENGTH;
-
-    chunks.push(remaining.substring(0, splitIndex));
-    remaining = remaining.substring(splitIndex).trim();
+    for (const chunk of chunks) {
+      await ctx.reply(chunk);
+    }
   }
 
-  for (const chunk of chunks) {
-    await ctx.reply(chunk);
+  // Mark delivered after successful send
+  if (deliveryId) {
+    await markDelivered(deliveryId);
   }
 }
 
@@ -867,15 +1059,26 @@ if (agentsLoaded) {
 info("startup", `Project directory: ${process.env.PROJECT_DIR || "(relay working directory)"}`);
 info("startup", `Claude timeout: ${(parseInt(process.env.CLAUDE_TIMEOUT_MS || "120000", 10)) / 1000}s`);
 
-// Register command menu with Telegram
-bot.api.setMyCommands([
+// Register command menu with Telegram (cap at 100 per Telegram limit, OpenClaw #15844)
+const botCommands = [
   { command: "ping", description: "Alive check with uptime" },
   { command: "status", description: "Metrics, health, uptime" },
   { command: "session", description: "Show or reset session" },
   { command: "model", description: "Show or switch model" },
+  { command: "inbox", description: "Show unread emails" },
+  { command: "cal", description: "Today's calendar events" },
   { command: "restart", description: "Restart the bot" },
   { command: "help", description: "List all commands" },
-]).catch((err) => warn("startup", `Could not register commands: ${err}`));
+];
+if (botCommands.length > 100) {
+  warn("startup", `${botCommands.length} commands exceeds Telegram's 100 limit. Truncating.`);
+  botCommands.length = 100;
+}
+bot.api.setMyCommands(botCommands)
+  .catch((err) => warn("startup", `Could not register commands: ${err}`));
+
+// Load persisted dedup cache (survive restarts without losing dedup state)
+loadDedupCache();
 
 // Start cron jobs (pass supabase for heartbeat memory context)
 startCronJobs(supabase);
@@ -897,6 +1100,10 @@ loadLastUpdateId().then((id) => {
     drop_pending_updates: dropPending,
     onStart: () => {
       info("startup", "Bot is running!");
+      // Drain any replies that were enqueued but not delivered before the last crash
+      drainPendingReplies(async (chatId, text) => {
+        await bot.api.sendMessage(chatId, text);
+      }).catch((err) => warn("delivery", `Failed to drain pending replies: ${err}`));
     },
   });
 });
