@@ -11,7 +11,7 @@ import { existsSync, copyFileSync, mkdirSync } from "fs";
 import { writeFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getMetrics, getHealthStatus } from "./logger.ts";
+import { getMetrics, getHealthStatus, error as logError } from "./logger.ts";
 import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
 import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
@@ -34,6 +34,20 @@ function today(): string {
 function log(job: string, message: string): void {
   const ts = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
   console.log(`[cron:${job}] ${ts} — ${message}`);
+}
+
+// ============================================================
+// SAFE TICK WRAPPER (OpenClaw #15108 — prevent cron silent death)
+// ============================================================
+
+function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promise<void> {
+  return async () => {
+    try {
+      await fn();
+    } catch (err) {
+      logError("cron", `[${jobName}] onTick crashed: ${err}`);
+    }
+  };
 }
 
 // ============================================================
@@ -130,7 +144,7 @@ const jobs: CronJob[] = [];
 jobs.push(
   CronJob.from({
     cronTime: "1 0 * * *",
-    onTick: () => {
+    onTick: safeTick("journal", () => {
       const date = today();
       const journalPath = join(MEMORY_DIR, `${date}.md`);
 
@@ -144,7 +158,7 @@ jobs.push(
       } else {
         log("journal", `${date}.md already exists`);
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -155,13 +169,13 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 2 * * *",
-    onTick: async () => {
+    onTick: safeTick("reflect", async () => {
       log("reflect", "Starting daily reflection...");
       const result = await runSkill("reflect", MODELS.sonnet);
       if (result) {
         log("reflect", `Completed: ${result.substring(0, 100)}`);
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -170,7 +184,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 6 * * *",
-    onTick: async () => {
+    onTick: safeTick("morning-brief", async () => {
       log("morning-brief", "Generating morning brief...");
       const result = await runSkill("pv-morning-brief", MODELS.sonnet);
       if (result) {
@@ -179,7 +193,7 @@ jobs.push(
       } else {
         log("morning-brief", "No output generated");
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -188,7 +202,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 7 * * *",
-    onTick: async () => {
+    onTick: safeTick("content-engine", async () => {
       log("content-engine", "Running content waterfall...");
       const result = await runSkill("pv-content-waterfall", MODELS.sonnet);
       if (result) {
@@ -200,7 +214,7 @@ jobs.push(
       } else {
         log("content-engine", "No output generated");
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -209,7 +223,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 4 * * *",
-    onTick: () => {
+    onTick: safeTick("backup", () => {
       log("backup", "Backing up personality files to OneDrive...");
 
       if (!existsSync(BACKUP_DIR)) {
@@ -228,7 +242,7 @@ jobs.push(
       }
 
       log("backup", `Backed up ${copied}/${files.length} files`);
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -237,7 +251,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 5 * * *",
-    onTick: async () => {
+    onTick: safeTick("git-backup", async () => {
       log("git-backup", "Starting git backup...");
 
       try {
@@ -301,7 +315,7 @@ jobs.push(
       } catch (err) {
         log("git-backup", `ERROR: ${err}`);
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -310,7 +324,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "*/15 * * * *",
-    onTick: () => {
+    onTick: safeTick("health-dump", () => {
       try {
         if (!existsSync(DATA_DIR)) {
           mkdirSync(DATA_DIR, { recursive: true });
@@ -329,7 +343,7 @@ jobs.push(
       } catch (err) {
         log("health-dump", `ERROR: ${err}`);
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -338,7 +352,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 3 1 * *",
-    onTick: () => {
+    onTick: safeTick("cleanup", () => {
       log("cleanup", "Archiving old journal entries...");
 
       const archiveDir = join(MEMORY_DIR, "archive");
@@ -371,7 +385,7 @@ jobs.push(
       } catch (error) {
         log("cleanup", `ERROR: ${error}`);
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -381,7 +395,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 19 * * 0",
-    onTick: async () => {
+    onTick: safeTick("todo-review", async () => {
       log("todo-review", "Running weekly todo review...");
 
       const todoContent = await readTodoFile();
@@ -406,7 +420,7 @@ jobs.push(
       } else {
         log("todo-review", "No summary generated");
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -416,7 +430,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 8 * * *",
-    onTick: async () => {
+    onTick: safeTick("openclaw", async () => {
       log("openclaw", "Checking openclaw/openclaw for updates...");
 
       const { commits, newRelease } = await checkOpenClaw();
@@ -436,7 +450,7 @@ jobs.push(
         );
         log("openclaw", "Sent summary to Derek");
       }
-    },
+    }),
     timeZone: TIMEZONE,
   })
 );
@@ -450,7 +464,7 @@ export function startCronJobs(supabase: SupabaseClient | null): void {
   jobs.push(
     CronJob.from({
       cronTime: HEARTBEAT_CRON,
-      onTick: async () => {
+      onTick: safeTick("heartbeat", async () => {
         const result = await runHeartbeat(supabase);
         if (result.skipped) {
           log("heartbeat", "Skipped (session busy)");
@@ -460,7 +474,7 @@ export function startCronJobs(supabase: SupabaseClient | null): void {
         } else {
           log("heartbeat", "OK (suppressed)");
         }
-      },
+      }),
       timeZone: TIMEZONE,
     })
   );

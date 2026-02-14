@@ -16,7 +16,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaude } from "./claude.ts";
 import { processMemoryIntents, getMemoryContext } from "./memory.ts";
 import { getTodoContext } from "./todo.ts";
-import { getMetrics, getHealthStatus } from "./logger.ts";
+import { getMetrics, getHealthStatus, error as logError } from "./logger.ts";
 import type { ModelTier } from "./constants.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
@@ -41,12 +41,18 @@ interface HeartbeatState {
   lastResult: "ok" | "notified" | "skipped" | "error";
   lastTimestamp: string;
   notes: string[];
+  consecutiveFailures: number;
+  nextRetryAfter: string | null;
 }
 
 async function loadState(): Promise<HeartbeatState> {
   try {
     const content = await readFile(STATE_FILE, "utf-8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Backward compat: add fields missing from old state files
+    if (parsed.consecutiveFailures === undefined) parsed.consecutiveFailures = 0;
+    if (parsed.nextRetryAfter === undefined) parsed.nextRetryAfter = null;
+    return parsed as HeartbeatState;
   } catch {
     return {
       tickCount: 0,
@@ -54,6 +60,8 @@ async function loadState(): Promise<HeartbeatState> {
       lastResult: "ok",
       lastTimestamp: new Date().toISOString(),
       notes: [],
+      consecutiveFailures: 0,
+      nextRetryAfter: null,
     };
   }
 }
@@ -193,10 +201,22 @@ export interface HeartbeatResult {
   message: string;
 }
 
+/** Compute backoff delay in ms: 1m, 2m, 4m, 8m... capped at 30m */
+function backoffMs(failures: number): number {
+  const base = 60_000; // 1 minute
+  const cap = 30 * 60_000; // 30 minutes
+  return Math.min(base * Math.pow(2, failures - 1), cap);
+}
+
 export async function runHeartbeat(
   supabase: SupabaseClient | null
 ): Promise<HeartbeatResult> {
   const state = await loadState();
+
+  // Check backoff: skip if we're still in a cooldown period
+  if (state.nextRetryAfter && new Date() < new Date(state.nextRetryAfter)) {
+    return { skipped: true, shouldNotify: false, message: "" };
+  }
 
   // Determine next check type (rotate)
   const currentIdx = CHECK_TYPES.indexOf(state.lastCheckType);
@@ -205,14 +225,34 @@ export async function runHeartbeat(
 
   const prompt = await buildHeartbeatPrompt(checkType, state, supabase);
 
-  // Call Claude in Derek's session with skip-if-busy lock
-  const rawResponse = await callClaude(prompt, {
-    resume: true,
-    model: HEARTBEAT_MODEL,
-    agentId: "atlas",
-    userId: DEREK_USER_ID,
-    lockBehavior: "skip",
-  });
+  let rawResponse: string;
+  try {
+    // Call Claude in Derek's session with skip-if-busy lock
+    rawResponse = await callClaude(prompt, {
+      resume: true,
+      model: HEARTBEAT_MODEL,
+      agentId: "atlas",
+      userId: DEREK_USER_ID,
+      lockBehavior: "skip",
+    });
+  } catch (err) {
+    // Heartbeat call crashed. Apply exponential backoff.
+    state.consecutiveFailures++;
+    state.lastResult = "error";
+    state.lastTimestamp = new Date().toISOString();
+    const delayMs = backoffMs(state.consecutiveFailures);
+    state.nextRetryAfter = new Date(Date.now() + delayMs).toISOString();
+    await saveState(state);
+
+    const msg = `Heartbeat callClaude failed (attempt ${state.consecutiveFailures}, backoff ${Math.round(delayMs / 60000)}m): ${err}`;
+    if (state.consecutiveFailures >= 3) {
+      logError("heartbeat", msg);
+    } else {
+      console.log(`[heartbeat] ${msg}`);
+    }
+
+    return { skipped: false, shouldNotify: false, message: "" };
+  }
 
   // Empty response means lock was busy (session in use)
   if (!rawResponse) {
@@ -221,6 +261,10 @@ export async function runHeartbeat(
     await saveState(state);
     return { skipped: true, shouldNotify: false, message: "" };
   }
+
+  // Success path: reset failure counter
+  state.consecutiveFailures = 0;
+  state.nextRetryAfter = null;
 
   // Process memory intents ([REMEMBER:], [TODO:], etc.)
   const response = await processMemoryIntents(supabase, rawResponse);

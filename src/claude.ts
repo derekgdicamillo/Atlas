@@ -10,10 +10,11 @@
  */
 
 import { spawn } from "bun";
-import { writeFile, readFile } from "fs/promises";
+import { writeFile, readFile, appendFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import {
   info,
+  warn,
   error as logError,
   trackClaudeCall,
   trackTimeout,
@@ -393,7 +394,31 @@ export async function callClaude(
     const { stderr, exitCode } = raceResult;
 
     if (exitCode !== 0) {
+      const wasResuming = options?.resume && session.sessionId;
+      const stderrEmpty = !stderr.trim();
+
       logError("claude", `Exit code ${exitCode}: ${stderr.substring(0, 200)}`);
+
+      // Auto-recover: if resume caused a crash with no stderr, the session
+      // is likely corrupted. Clear it and retry once without --resume.
+      if (wasResuming && stderrEmpty && exitCode === 1) {
+        const oldSid = session.sessionId;
+        warn("claude", `[${agentId}] Session ${oldSid} appears corrupted (exit 1, empty stderr). Clearing and retrying without resume.`);
+        session.sessionId = null;
+        session.lastActivity = new Date().toISOString();
+        await saveSessionState(agentId, userId, session);
+        archiveSessionTranscript(oldSid!, agentId, userId).catch(() => {});
+
+        // Release lock + typing interval before recursive retry
+        if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+        release();
+
+        return callClaude(prompt, {
+          ...options,
+          resume: false,  // Force fresh session
+        });
+      }
+
       return `Error: ${stderr || "Claude exited with code " + exitCode}`;
     }
 
@@ -422,5 +447,32 @@ export async function callClaude(
   } finally {
     if (typingInterval) clearInterval(typingInterval);
     release();
+  }
+}
+
+// ============================================================
+// SESSION TRANSCRIPT ARCHIVAL
+// ============================================================
+
+const SESSION_ARCHIVE_DIR = join(RELAY_DIR, "session-archive");
+
+/** Log a session ID to the archive when a session is reset, for audit trail. */
+export async function archiveSessionTranscript(
+  sessionId: string,
+  agentId: string,
+  userId: string
+): Promise<void> {
+  try {
+    await mkdir(SESSION_ARCHIVE_DIR, { recursive: true });
+    const entry = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      sessionId,
+      agentId,
+      userId,
+    });
+    await appendFile(join(SESSION_ARCHIVE_DIR, "archive-log.jsonl"), entry + "\n");
+    info("session", `Archived session ${sessionId} for ${agentId}/${userId}`);
+  } catch (err) {
+    logError("session", `Failed to archive session: ${err}`);
   }
 }

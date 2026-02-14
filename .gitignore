@@ -31,6 +31,11 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Test artifacts
+*.mp3
+*.ogg
+nul
+
 # Don't commit evolved personality files to avoid merge conflicts
 # (backed up to OneDrive daily via cron)
 # Uncomment these if you want git to track personality evolution:
