@@ -16,6 +16,7 @@ import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
 import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
 import { runHeartbeat } from "./heartbeat.ts";
+import { runSummarization } from "./summarize.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
@@ -455,11 +456,29 @@ jobs.push(
   })
 );
 
+// 10. Conversation summarization — 1:00 AM nightly (needs supabase, added in startCronJobs)
+
 // ============================================================
 // START ALL JOBS
 // ============================================================
 
 export function startCronJobs(supabase: SupabaseClient | null): void {
+  // Create summarization job (needs supabase for message access)
+  if (supabase) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 1 * * *",
+        onTick: safeTick("summarize", async () => {
+          log("summarize", "Starting nightly conversation summarization...");
+          const count = await runSummarization(supabase, async (prompt) => {
+            return runPrompt(prompt, MODELS.haiku);
+          });
+          log("summarize", `Created ${count} summaries`);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
   // Create heartbeat job (needs supabase for memory context)
   jobs.push(
     CronJob.from({
@@ -495,6 +514,7 @@ export function startCronJobs(supabase: SupabaseClient | null): void {
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
   console.log("  - 8:00 AM      OpenClaw monitoring (haiku)");
+  console.log("  - 1:00 AM      Conversation summarization (haiku)");
 }
 
 export function stopCronJobs(): void {

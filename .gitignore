@@ -31,6 +31,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Supabase
+supabase/.temp/
+
 # Test artifacts
 *.mp3
 *.ogg

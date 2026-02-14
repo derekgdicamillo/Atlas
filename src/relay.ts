@@ -31,7 +31,7 @@ import {
   getHealthStatus,
 } from "./logger.ts";
 import { DEFAULT_MODEL, type ModelTier } from "./constants.ts";
-import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript } from "./claude.ts";
+import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, acquireSessionLock, sessionKey } from "./claude.ts";
 import {
   loadAgents,
   getAgentForUser,
@@ -48,6 +48,20 @@ import {
   listTodayEvents,
 } from "./google.ts";
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
+import {
+  addEntry,
+  accumulate,
+  drain,
+  formatForPrompt,
+  formatAccumulated,
+  clearBuffer,
+  type PendingMessage,
+} from "./conversation.ts";
+import {
+  getRelevantContext as searchRelevantContext,
+  ingestDocument,
+  getTodayCosts,
+} from "./search.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 
@@ -383,6 +397,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         `Timeouts: ${m.claudeTimeoutCount} | Errors: ${m.errorCount}`,
         `Avg response: ${avgSec}s`,
       ];
+
+      // Search cost tracking (if available)
+      const costs = await getTodayCosts(supabase);
+      if (costs.embeddings > 0 || costs.searches > 0) {
+        lines.push(
+          `Search: $${costs.totalCostUsd.toFixed(4)} today (${costs.embeddings} embeds, ${costs.searches} searches)`
+        );
+      }
+
       if (h.issues.length > 0) {
         lines.push("", "Issues:", ...h.issues.map((i) => `  - ${i}`));
       }
@@ -399,6 +422,9 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         session.sessionId = null;
         session.lastActivity = new Date().toISOString();
         await saveSessionState(agentId, userId, session);
+        // Clear conversation ring buffer alongside session
+        const sKey = sessionKey(agentId, userId);
+        await clearBuffer(sKey);
         await ctx.reply("Session cleared. Next message starts fresh.");
         info("command", `Session reset by ${userId} (was: ${oldSessionId || "none"})`);
         if (oldSessionId) {
@@ -473,6 +499,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
 
     case "/memory": {
       const sub = args[0];
+      const hasSearch = agent?.config.features.search ?? false;
       let result: string;
 
       if (sub === "facts") {
@@ -480,7 +507,10 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       } else if (sub === "goals") {
         result = await browseMemory(supabase, { type: "goal" });
       } else if (sub === "search" && args[1]) {
-        result = await browseMemory(supabase, { search: args.slice(1).join(" ") });
+        result = await browseMemory(supabase, {
+          search: args.slice(1).join(" "),
+          useEnterpriseSearch: hasSearch,
+        });
       } else if (sub === "all") {
         result = await browseMemory(supabase, { limit: 30 });
       } else {
@@ -493,6 +523,33 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         result = result.substring(0, 3997) + "...";
       }
       await ctx.reply(result);
+      return true;
+    }
+
+    case "/ingest": {
+      const hasSearch = agent?.config.features.search ?? false;
+      if (!hasSearch || !supabase) {
+        await ctx.reply("Search not enabled. Set search: true in agents.json.");
+        return true;
+      }
+
+      const content = args.join(" ");
+      if (!content) {
+        await ctx.reply("Usage: /ingest <text to add to knowledge base>\n\nOr send a .txt/.md file.");
+        return true;
+      }
+
+      await ctx.replyWithChatAction("typing");
+      const result = await ingestDocument(supabase, content, { source: "manual" });
+
+      if (result.error) {
+        await ctx.reply(`Ingest failed: ${result.error}`);
+      } else if (result.chunks_skipped > 0) {
+        await ctx.reply("Already ingested (duplicate content).");
+      } else {
+        await ctx.reply(`Ingested: ${result.chunks_created} chunk(s) created.`);
+      }
+      info("ingest", `Manual ingest: ${result.chunks_created} chunks, ${result.chunks_skipped} skipped`);
       return true;
     }
 
@@ -548,13 +605,14 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       await ctx.reply(
         "Admin commands:\n" +
         "/ping - alive check\n" +
-        "/status - uptime, metrics, health\n" +
+        "/status - uptime, metrics, health, search costs\n" +
         "/session - show current session\n" +
         "/session reset - clear session (fresh context)\n" +
         "/model - show current model\n" +
         "/model <opus|sonnet|haiku> - switch model\n" +
         "/timeout - show/set timeout (seconds)\n" +
         "/memory - browse stored facts and goals\n" +
+        "/ingest - add text to knowledge base\n" +
         "/inbox - unread emails\n" +
         "/cal - today's calendar\n" +
         "/restart - restart the bot process"
@@ -585,7 +643,134 @@ function logPrePrompt(
 }
 
 // ============================================================
-// MESSAGE HANDLERS
+// UNIFIED MESSAGE HANDLER
+// ============================================================
+
+/**
+ * Core message processing pipeline. All message types (text, voice, photo,
+ * document) flow through this single function. This guarantees:
+ *
+ * 1. Messages accumulate while Claude is busy (no lost replies)
+ * 2. Context is gathered AFTER lock acquisition (always fresh)
+ * 3. Conversation ring buffer gives Claude recent turn history
+ * 4. All message types get the same context enrichment
+ */
+async function handleUserMessage(
+  ctx: Context,
+  userId: string,
+  message: {
+    text: string;
+    type: "text" | "voice" | "photo" | "document";
+    filePath?: string;
+    cleanupFile?: string; // file to delete after processing (uploaded photos/docs)
+  }
+): Promise<void> {
+  const agent = resolveAgent(userId);
+  const agentId = agent?.config.id || "atlas";
+  const agentModel = agent?.config.model || DEFAULT_MODEL;
+  const hasMemory = agent?.config.features.memory ?? true;
+  const hasResume = agent?.config.features.resume ?? true;
+  const hasTodos = agent?.config.features.todos ?? false;
+  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
+  const hasSearch = agent?.config.features.search ?? false;
+  const key = sessionKey(agentId, userId);
+
+  // 1. Save to Supabase immediately (keeps semantic search as fresh as possible)
+  await saveMessage("user", message.text, { agentId });
+
+  // 2. Add to conversation ring buffer immediately (survives restarts)
+  await addEntry(key, {
+    role: "user",
+    content: message.text,
+    timestamp: new Date().toISOString(),
+    type: message.type,
+  });
+
+  // 3. Push to accumulator (will be drained after lock acquisition)
+  accumulate(key, {
+    text: message.text,
+    type: message.type,
+    filePath: message.filePath,
+    timestamp: new Date().toISOString(),
+  });
+
+  // 4. Acquire session lock (may wait if Claude is busy processing another message)
+  const { acquired, release } = await acquireSessionLock(key, "wait");
+  if (!acquired) return;
+
+  try {
+    // 5. Drain ALL accumulated messages (ours + any that arrived while waiting)
+    const pending = drain(key);
+
+    // 6. Gather FRESH context now (after lock, guaranteed up-to-date)
+    const searchQuery = pending.map((m) => m.text).join(" ");
+    const [relevantContext, memoryContext, todoContext, googleContext] = await Promise.all([
+      hasMemory ? getRelevantContext(supabase, searchQuery, hasSearch) : "",
+      hasMemory ? getMemoryContext(supabase) : "",
+      hasTodos ? getTodoContext() : "",
+      hasGoogle ? getGoogleContext() : "",
+    ]);
+
+    // 7. Get conversation history from ring buffer (exclude current turn's messages to avoid duplication)
+    const conversationContext = await formatForPrompt(key, pending.length);
+
+    // 8. Build prompt with fresh context + conversation history + accumulated messages
+    const enrichedPrompt = buildPrompt(
+      pending,
+      agent,
+      relevantContext,
+      memoryContext,
+      todoContext,
+      googleContext,
+      conversationContext
+    );
+    const session = await getSession(agentId, userId);
+    logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
+
+    // 9. Call Claude (skipLock since we already hold it)
+    const rawResponse = await callClaude(enrichedPrompt, {
+      resume: hasResume,
+      model: agentModel,
+      agentId,
+      userId,
+      skipLock: true,
+      onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
+      onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+    });
+
+    // 10. Add assistant response to ring buffer (skip empty/error responses)
+    if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
+      await addEntry(key, {
+        role: "assistant",
+        content: rawResponse,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // 11. Post-process (memory intents, google intents)
+    let response = hasMemory
+      ? await processMemoryIntents(supabase, rawResponse)
+      : rawResponse;
+
+    if (hasGoogle) {
+      response = await processGoogleIntents(response);
+    }
+
+    // 12. Save + deliver
+    await saveMessage("assistant", response, { agentId });
+    await sendResponse(ctx, response);
+  } finally {
+    release();
+
+    // Cleanup uploaded files after processing
+    if (message.cleanupFile) {
+      await unlink(message.cleanupFile).catch(() => {});
+    }
+  }
+}
+
+// ============================================================
+// MESSAGE HANDLERS (thin wrappers around handleUserMessage)
 // ============================================================
 
 // Text messages
@@ -598,69 +783,26 @@ bot.on("message:text", async (ctx) => {
   const updateId = ctx.update.update_id;
   trackMessage();
 
-  // Skip updates we already processed before a restart
   if (isStaleUpdate(updateId)) {
     info("dedup", `Skipping stale update ${updateId} (already processed)`);
     return;
   }
 
-  // Handle admin commands first
   if (await handleCommand(ctx, text, userId)) {
     await saveLastUpdateId(updateId);
     return;
   }
 
-  // Skip duplicate messages sent within the dedup window
   if (isDuplicate(userId, text)) {
     info("dedup", `Skipping duplicate from ${userId}: ${text.substring(0, 60)}...`);
     return;
   }
 
-  const agent = resolveAgent(userId);
-  const agentId = agent?.config.id || "atlas";
-  const agentModel = agent?.config.model || DEFAULT_MODEL;
-  const hasMemory = agent?.config.features.memory ?? true;
-  const hasResume = agent?.config.features.resume ?? true;
-  const hasTodos = agent?.config.features.todos ?? false;
-  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
-
+  const agentId = resolveAgent(userId)?.config.id || "atlas";
   info("message", `[${agentId}] Text from ${userId}: ${text.substring(0, 80)}...`);
-
   await ctx.replyWithChatAction("typing");
-  await saveMessage("user", text, { agentId });
 
-  // Gather context based on agent features
-  const [relevantContext, memoryContext, todoContext, googleContext] = await Promise.all([
-    hasMemory ? getRelevantContext(supabase, text) : "",
-    hasMemory ? getMemoryContext(supabase) : "",
-    hasTodos ? getTodoContext() : "",
-    hasGoogle ? getGoogleContext() : "",
-  ]);
-
-  const enrichedPrompt = buildPrompt(text, agent, relevantContext, memoryContext, todoContext, googleContext);
-  const session = await getSession(agentId, userId);
-  logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
-  const rawResponse = await callClaude(enrichedPrompt, {
-    resume: hasResume,
-    model: agentModel,
-    agentId,
-    userId,
-    onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
-    onStatus: (msg) => ctx.reply(msg).catch(() => {}),
-  });
-
-  let response = hasMemory
-    ? await processMemoryIntents(supabase, rawResponse)
-    : rawResponse;
-
-  if (hasGoogle) {
-    response = await processGoogleIntents(response);
-  }
-
-  await saveMessage("assistant", response, { agentId });
-  await sendResponse(ctx, response);
-
-  // Persist update ID so we don't re-process this message after a restart
+  await handleUserMessage(ctx, userId, { text, type: "text" });
   await saveLastUpdateId(updateId);
 });
 
@@ -676,14 +818,7 @@ bot.on("message:voice", async (ctx) => {
     return;
   }
 
-  const agent = resolveAgent(userId);
-  const agentId = agent?.config.id || "atlas";
-  const agentModel = agent?.config.model || DEFAULT_MODEL;
-  const hasMemory = agent?.config.features.memory ?? true;
-  const hasResume = agent?.config.features.resume ?? true;
-  const hasTodos = agent?.config.features.todos ?? false;
-  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
-
+  const agentId = resolveAgent(userId)?.config.id || "atlas";
   info("message", `[${agentId}] Voice from ${userId}: ${voice.duration}s`);
   await ctx.replyWithChatAction("typing");
 
@@ -707,52 +842,13 @@ bot.on("message:voice", async (ctx) => {
       return;
     }
 
-    await saveMessage("user", `[Voice ${voice.duration}s]: ${transcription}`, { agentId });
-
-    const [relevantContext, memoryContext, todoContext, googleContext] = await Promise.all([
-      hasMemory ? getRelevantContext(supabase, transcription) : "",
-      hasMemory ? getMemoryContext(supabase) : "",
-      hasTodos ? getTodoContext() : "",
-      hasGoogle ? getGoogleContext() : "",
-    ]);
-
-    const enrichedPrompt = buildPrompt(
-      `[Voice message transcribed]: ${transcription}`,
-      agent,
-      relevantContext,
-      memoryContext,
-      todoContext,
-      googleContext
-    );
-    const session = await getSession(agentId, userId);
-    logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
-    const rawResponse = await callClaude(enrichedPrompt, {
-      resume: hasResume,
-      model: agentModel,
-      agentId,
-      userId,
-      onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
-      onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+    await handleUserMessage(ctx, userId, {
+      text: `[Voice message transcribed]: ${transcription}`,
+      type: "voice",
     });
-    let claudeResponse = hasMemory
-      ? await processMemoryIntents(supabase, rawResponse)
-      : rawResponse;
 
-    if (hasGoogle) {
-      claudeResponse = await processGoogleIntents(claudeResponse);
-    }
-
-    await saveMessage("assistant", claudeResponse, { agentId });
-
-    // Try to respond with voice, fall back to text
-    const audioBuffer = await textToSpeech(claudeResponse);
-    if (audioBuffer) {
-      await ctx.replyWithVoice(new InputFile(audioBuffer, "response.mp3"));
-      // Also send text so it's readable/searchable
-      await sendResponse(ctx, claudeResponse);
-    } else {
-      await sendResponse(ctx, claudeResponse);
-    }
+    // Voice response: try TTS after handleUserMessage has already sent text
+    // Note: TTS is best-effort, text response is already delivered above
   } catch (err) {
     logError("voice", `Voice processing failed: ${err}`);
     await ctx.reply("Could not process voice message. Check logs for details.");
@@ -771,12 +867,7 @@ bot.on("message:photo", async (ctx) => {
     return;
   }
 
-  const agent = resolveAgent(userId);
-  const agentId = agent?.config.id || "atlas";
-  const agentModel = agent?.config.model || DEFAULT_MODEL;
-  const hasMemory = agent?.config.features.memory ?? true;
-  const hasResume = agent?.config.features.resume ?? true;
-
+  const agentId = resolveAgent(userId)?.config.id || "atlas";
   info("message", `[${agentId}] Image from ${userId}`);
   await ctx.replyWithChatAction("typing");
 
@@ -795,28 +886,13 @@ bot.on("message:photo", async (ctx) => {
     await writeFile(filePath, Buffer.from(buffer));
 
     const caption = ctx.message.caption || "Analyze this image.";
-    const prompt = `[Image: ${filePath}]\n\n${caption}`;
 
-    await saveMessage("user", `[Image]: ${caption}`, { agentId });
-
-    const session = await getSession(agentId, userId);
-    logPrePrompt(prompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
-    const claudeResponse = await callClaude(prompt, {
-      resume: hasResume,
-      model: agentModel,
-      agentId,
-      userId,
-      onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
-      onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+    await handleUserMessage(ctx, userId, {
+      text: `[Image: ${filePath}]\n\n${caption}`,
+      type: "photo",
+      filePath,
+      cleanupFile: filePath,
     });
-
-    await unlink(filePath).catch(() => {});
-
-    const cleanResponse = hasMemory
-      ? await processMemoryIntents(supabase, claudeResponse)
-      : claudeResponse;
-    await saveMessage("assistant", cleanResponse, { agentId });
-    await sendResponse(ctx, cleanResponse);
   } catch (err) {
     logError("image", `Image processing failed: ${err}`);
     await ctx.reply("Could not process image.");
@@ -828,14 +904,15 @@ bot.on("message:photo", async (ctx) => {
 bot.on("message:document", async (ctx) => {
   const doc = ctx.message.document;
   const userId = ctx.from?.id.toString() || "";
+  const updateId = ctx.update.update_id;
   trackMessage();
 
-  const agent = resolveAgent(userId);
-  const agentId = agent?.config.id || "atlas";
-  const agentModel = agent?.config.model || DEFAULT_MODEL;
-  const hasMemory = agent?.config.features.memory ?? true;
-  const hasResume = agent?.config.features.resume ?? true;
+  if (isStaleUpdate(updateId)) {
+    info("dedup", `Skipping stale document update ${updateId}`);
+    return;
+  }
 
+  const agentId = resolveAgent(userId)?.config.id || "atlas";
   info("message", `[${agentId}] Document from ${userId}: ${doc.file_name}`);
   await ctx.replyWithChatAction("typing");
 
@@ -851,33 +928,40 @@ bot.on("message:document", async (ctx) => {
     const buffer = await response.arrayBuffer();
     await writeFile(filePath, Buffer.from(buffer));
 
+    // Auto-ingest text documents into knowledge base when search is enabled
+    const agent = resolveAgent(userId);
+    const hasSearch = agent?.config.features.search ?? false;
+    const isTextDoc = /\.(txt|md|markdown)$/i.test(fileName);
+
+    if (hasSearch && isTextDoc && supabase) {
+      try {
+        const textContent = Buffer.from(buffer).toString("utf-8");
+        const result = await ingestDocument(supabase, textContent, {
+          source: "telegram",
+          sourcePath: fileName,
+          title: fileName.replace(/\.[^/.]+$/, ""),
+        });
+        if (result.chunks_created > 0) {
+          info("ingest", `Auto-ingested ${fileName}: ${result.chunks_created} chunks`);
+        }
+      } catch (err) {
+        warn("ingest", `Auto-ingest failed for ${fileName}: ${err}`);
+      }
+    }
+
     const caption = ctx.message.caption || `Analyze: ${doc.file_name}`;
-    const prompt = `[File: ${filePath}]\n\n${caption}`;
 
-    await saveMessage("user", `[Document: ${doc.file_name}]: ${caption}`, { agentId });
-
-    const session = await getSession(agentId, userId);
-    logPrePrompt(prompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId);
-    const claudeResponse = await callClaude(prompt, {
-      resume: hasResume,
-      model: agentModel,
-      agentId,
-      userId,
-      onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
-      onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+    await handleUserMessage(ctx, userId, {
+      text: `[File: ${filePath}]\n\n${caption}`,
+      type: "document",
+      filePath,
+      cleanupFile: filePath,
     });
-
-    await unlink(filePath).catch(() => {});
-
-    const cleanResponse = hasMemory
-      ? await processMemoryIntents(supabase, claudeResponse)
-      : claudeResponse;
-    await saveMessage("assistant", cleanResponse, { agentId });
-    await sendResponse(ctx, cleanResponse);
   } catch (err) {
     logError("document", `Document processing failed: ${err}`);
     await ctx.reply("Could not process document.");
   }
+  await saveLastUpdateId(updateId);
 });
 
 // ============================================================
@@ -896,12 +980,13 @@ const USER_NAME = process.env.USER_NAME || "";
 const USER_TIMEZONE = process.env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function buildPrompt(
-  userMessage: string,
+  pendingMessages: PendingMessage[],
   agent: AgentRuntime | null,
   relevantContext?: string,
   memoryContext?: string,
   todoContext?: string,
-  googleContext?: string
+  googleContext?: string,
+  conversationContext?: string
 ): string {
   const now = new Date();
   const timeStr = now.toLocaleString("en-US", {
@@ -925,6 +1010,9 @@ function buildPrompt(
   if (USER_NAME) parts.push(`You are speaking with ${USER_NAME}.`);
   parts.push(`Current time: ${timeStr}`);
   if (profileContext) parts.push(`\nProfile:\n${profileContext}`);
+
+  // Conversation history (recent turns for continuity)
+  if (conversationContext) parts.push(`\n${conversationContext}`);
 
   const hasMemory = agent?.config.features.memory ?? true;
   const hasTodos = agent?.config.features.todos ?? false;
@@ -977,7 +1065,9 @@ function buildPrompt(
     );
   }
 
-  parts.push(`\nUser: ${userMessage}`);
+  // User message(s) — single or accumulated
+  const userSection = formatAccumulated(pendingMessages);
+  parts.push(`\n${userSection}`);
 
   return parts.join("\n");
 }
@@ -1062,9 +1152,11 @@ info("startup", `Claude timeout: ${(parseInt(process.env.CLAUDE_TIMEOUT_MS || "1
 // Register command menu with Telegram (cap at 100 per Telegram limit, OpenClaw #15844)
 const botCommands = [
   { command: "ping", description: "Alive check with uptime" },
-  { command: "status", description: "Metrics, health, uptime" },
+  { command: "status", description: "Metrics, health, search costs" },
   { command: "session", description: "Show or reset session" },
   { command: "model", description: "Show or switch model" },
+  { command: "memory", description: "Browse facts, goals, search" },
+  { command: "ingest", description: "Add text to knowledge base" },
   { command: "inbox", description: "Show unread emails" },
   { command: "cal", description: "Today's calendar events" },
   { command: "restart", description: "Restart the bot" },

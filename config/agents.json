@@ -13,7 +13,8 @@
         "memory": true,
         "resume": true,
         "todos": true,
-        "google": true
+        "google": true,
+        "search": true
       }
     }
   ]

@@ -20,6 +20,7 @@ import {
   trackTimeout,
 } from "./logger.ts";
 import { MODELS, DEFAULT_MODEL, type ModelTier } from "./constants.ts";
+import { addEntry } from "./conversation.ts";
 
 // ============================================================
 // CONFIGURATION
@@ -193,6 +194,7 @@ export async function callClaude(
     agentId?: string;
     userId?: string;
     lockBehavior?: "wait" | "skip";
+    skipLock?: boolean; // caller already holds the session lock
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
   }
@@ -203,12 +205,18 @@ export async function callClaude(
   const userId = options?.userId || process.env.TELEGRAM_USER_ID || "";
   const lockBehavior = options?.lockBehavior || "wait";
 
-  // Acquire session lock
+  // Acquire session lock (unless caller already holds it)
   const key = sessionKey(agentId, userId);
-  const { acquired, release } = await acquireSessionLock(key, lockBehavior);
+  let release: () => void;
 
-  if (!acquired) {
-    return ""; // Caller checks for empty string (heartbeat skips)
+  if (options?.skipLock) {
+    release = () => {}; // caller manages the lock
+  } else {
+    const lock = await acquireSessionLock(key, lockBehavior);
+    if (!lock.acquired) {
+      return ""; // Caller checks for empty string (heartbeat skips)
+    }
+    release = lock.release;
   }
 
   // Hoist so finally can always clean up
@@ -262,6 +270,7 @@ export async function callClaude(
     let isError = false;
     let errorInfo = "";
     let lineBuffer = "";
+    let gotResultEvent = false;
 
     const reader = proc.stdout.getReader();
     const decoder = new TextDecoder();
@@ -318,6 +327,7 @@ export async function callClaude(
 
                 case "result":
                   // Final result
+                  gotResultEvent = true;
                   if (event.result) {
                     resultText = event.result;
                   }
@@ -409,6 +419,13 @@ export async function callClaude(
         await saveSessionState(agentId, userId, session);
         archiveSessionTranscript(oldSid!, agentId, userId).catch(() => {});
 
+        // Note in conversation buffer that session was reset (so Claude knows context may be incomplete)
+        await addEntry(key, {
+          role: "system",
+          content: "Session was reset due to an error. Previous conversation context may be incomplete.",
+          timestamp: new Date().toISOString(),
+        });
+
         // Release lock + typing interval before recursive retry
         if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
         release();
@@ -416,10 +433,16 @@ export async function callClaude(
         return callClaude(prompt, {
           ...options,
           resume: false,  // Force fresh session
+          skipLock: false, // Retry must acquire its own lock
         });
       }
 
       return `Error: ${stderr || "Claude exited with code " + exitCode}`;
+    }
+
+    // Warn if process exited without a result event (CLI bug #1920)
+    if (!gotResultEvent) {
+      warn("claude", `[${agentId}] Process exited without result event (CLI bug #1920). Using any captured text.`);
     }
 
     info(

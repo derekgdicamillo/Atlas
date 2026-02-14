@@ -15,6 +15,10 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addTodo, completeTodo } from "./todo.ts";
+import {
+  getRelevantContext as searchRelevantContext,
+  semanticMemorySearch,
+} from "./search.ts";
 
 /**
  * Parse Claude's response for memory intent tags.
@@ -130,15 +134,40 @@ async function findSimilarFact(
 
 /**
  * Browse stored facts and goals. Used by /memory command.
+ * When a search term is provided and enterprise search is enabled,
+ * uses semantic search (hybrid vector + FTS) instead of basic ilike.
  */
 export async function browseMemory(
   supabase: SupabaseClient | null,
-  options: { type?: string; search?: string; limit?: number } = {}
+  options: { type?: string; search?: string; limit?: number; useEnterpriseSearch?: boolean } = {}
 ): Promise<string> {
   if (!supabase) return "Memory not available (Supabase not configured).";
 
-  const { type, search, limit = 20 } = options;
+  const { type, search, limit = 20, useEnterpriseSearch = false } = options;
 
+  // Semantic search path: use hybrid search from search.ts
+  if (search && useEnterpriseSearch) {
+    try {
+      const results = await semanticMemorySearch(supabase, search, limit);
+      if (!results.length) return "No memories found.";
+
+      const lines = results.map((r) => {
+        const date = new Date(r.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        const prefix = (r.source_type || "fact").toUpperCase();
+        const sim = (r.similarity * 100).toFixed(0);
+        return `[${prefix}] ${date} — ${r.content} (${sim}% match)`;
+      });
+
+      return lines.join("\n");
+    } catch {
+      // Fall through to basic search if semantic fails
+    }
+  }
+
+  // Basic search path: ilike text matching
   try {
     let query = supabase
       .from("memory")
@@ -149,7 +178,6 @@ export async function browseMemory(
     if (type) {
       query = query.eq("type", type);
     } else {
-      // Exclude completed goals by default
       query = query.neq("type", "completed_goal");
     }
 
@@ -239,13 +267,24 @@ export async function getMemoryContext(
 /**
  * Semantic search for relevant past messages via the search Edge Function.
  * The Edge Function handles embedding generation (OpenAI key stays in Supabase).
+ *
+ * When enterprise search is enabled, delegates to search.ts which uses
+ * hybrid multi-table search (messages + summaries + documents).
+ * Falls back to basic single-table vector search otherwise.
  */
 export async function getRelevantContext(
   supabase: SupabaseClient | null,
-  query: string
+  query: string,
+  useEnterpriseSearch = false
 ): Promise<string> {
   if (!supabase) return "";
 
+  // Enterprise search: hybrid multi-table via search.ts
+  if (useEnterpriseSearch) {
+    return searchRelevantContext(supabase, query);
+  }
+
+  // Legacy: basic vector-only search on messages table
   try {
     const { data, error } = await supabase.functions.invoke("search", {
       body: { query, match_count: 5, table: "messages" },
@@ -260,7 +299,6 @@ export async function getRelevantContext(
         .join("\n")
     );
   } catch {
-    // Search not available yet (Edge Functions not deployed) — that's fine
     return "";
   }
 }
