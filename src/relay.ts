@@ -1887,11 +1887,19 @@ function buildPrompt(
       '\n[TASK: Research GLP-1 clinical trials | OUTPUT: glp1-research.md | PROMPT: Find and summarize the latest GLP-1 receptor agonist clinical trial results from 2025-2026, focusing on weight loss outcomes and side effect profiles]' +
       '\n[TASK: Analyze competitor pricing | OUTPUT: competitor-analysis.md | PROMPT: Research the top 5 weight loss clinics in the area and compare their GLP-1 medication pricing, packages, and marketing approaches]' +
       "\n\nCODE TASKS:" +
-      "\nWhen a task requires multi-step coding (file edits, features, debugging, builds, test runs), delegate to a code agent:" +
+      "\nYou MUST proactively delegate coding work to a code agent whenever the user asks you to build, fix, add, refactor, or debug code in a project." +
+      "\nDo NOT attempt multi-file coding tasks inline. You will hit the tool call limit and get killed." +
+      "\nAny request involving file edits, new features, bug fixes, test writing, builds, or debugging across a codebase should be delegated." +
+      "\nIf the user mentions a project or directory, use that as cwd. If unclear, ask which project before delegating." +
+      "\nKnown project directories:" +
+      "\n  - Atlas: C:\\Users\\derek\\Projects\\atlas" +
+      "\n  - PV Dashboard: C:\\Users\\derek\\Projects\\pv-dashboard" +
+      "\n  - OpenClaw: C:\\Users\\derek\\.openclaw" +
+      "\nTag format:" +
       "\n[CODE_TASK: cwd=<project directory path> | PROMPT: detailed coding instructions]" +
       "\nThe code agent runs autonomously with Claude Code (opus, up to 200 tool calls, 30 min limit) and sends progress updates." +
-      "\nDo NOT attempt multi-file coding tasks inline. You will hit the tool call limit and get killed." +
-      "\nThe user can also use /code <dir> <task> to spawn a code agent directly." +
+      "\nThe user can also use /code <dir> <task> to spawn a code agent directly, but you should self-delegate without being asked." +
+      "\nWhen delegating, tell the user what you're spawning and why. Write a thorough PROMPT with full context so the code agent can work independently." +
       "\nExample:" +
       '\n[CODE_TASK: cwd=C:\\Users\\derek\\Projects\\pv-dashboard | PROMPT: Add a /api/health endpoint that returns { status: "ok", timestamp } and add a test for it]'
   );
