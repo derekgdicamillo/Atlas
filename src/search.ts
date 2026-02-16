@@ -12,6 +12,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { warn } from "./logger.ts";
 
 // ============================================================
 // TYPES
@@ -73,14 +74,26 @@ export async function search(
       },
     });
 
-    if (error || !data) return [];
+    if (error) {
+      warn("search", `Search Edge Function error: ${error.message || error}`);
+      return [];
+    }
+    if (!data) {
+      warn("search", "Search returned null data");
+      return [];
+    }
 
     // Handle both array results and error objects
     if (Array.isArray(data)) return data;
-    if (data.error) return [];
+    if (data.error) {
+      warn("search", `Search returned error: ${data.error}`);
+      return [];
+    }
 
+    warn("search", `Search returned unexpected data type: ${typeof data}`);
     return [];
-  } catch {
+  } catch (err) {
+    warn("search", `Search exception: ${err}`);
     return [];
   }
 }
@@ -143,7 +156,8 @@ export async function getRelevantContext(
     }
 
     return parts.join("\n\n");
-  } catch {
+  } catch (err) {
+    warn("search", `getRelevantContext failed: ${err}`);
     return "";
   }
 }
@@ -254,7 +268,8 @@ export async function getTodayCosts(
     }
 
     return { embeddings, searches, totalCostUsd };
-  } catch {
+  } catch (err) {
+    warn("search", `getTodayCosts failed: ${err}`);
     return { embeddings: 0, searches: 0, totalCostUsd: 0 };
   }
 }

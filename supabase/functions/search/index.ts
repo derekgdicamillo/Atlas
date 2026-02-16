@@ -155,7 +155,8 @@ Deno.serve(async (req) => {
     const tokensUsed = usage?.total_tokens || Math.ceil(query.length / 4);
     const costUsd = (tokensUsed / 1000) * COST_PER_1K_TOKENS;
 
-    await supabase
+    // Best-effort cost logging (fire-and-forget)
+    supabase
       .from("logs")
       .insert({
         level: "info",
@@ -170,7 +171,7 @@ Deno.serve(async (req) => {
           cost_usd: costUsd,
         },
       })
-      .catch(() => {});
+      .then(() => {});
 
     return json(results || []);
   } catch (error) {

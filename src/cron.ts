@@ -7,16 +7,21 @@
 
 import { CronJob } from "cron";
 import { spawn } from "bun";
-import { existsSync, copyFileSync, mkdirSync } from "fs";
-import { writeFileSync } from "fs";
+import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getMetrics, getHealthStatus, error as logError } from "./logger.ts";
+import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn } from "./logger.ts";
 import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
 import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
+import { loadTasks, checkTasks } from "./supervisor.ts";
+import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
+import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from "./ghl.ts";
+import { isGBPReady, getGBPContext } from "./gbp.ts";
+import { isGA4Ready, getGA4Context } from "./analytics.ts";
+import { buildWeeklySummary, formatWeeklySummary } from "./executive.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
@@ -175,6 +180,7 @@ jobs.push(
       const result = await runSkill("reflect", MODELS.sonnet);
       if (result) {
         log("reflect", `Completed: ${result.substring(0, 100)}`);
+        markJobRan("reflect");
       }
     }),
     timeZone: TIMEZONE,
@@ -189,8 +195,35 @@ jobs.push(
       log("morning-brief", "Generating morning brief...");
       const result = await runSkill("pv-morning-brief", MODELS.sonnet);
       if (result) {
-        await sendTelegramMessage(DEREK_CHAT_ID, result);
-        log("morning-brief", "Sent to Derek");
+        // Append Atlas system digest (costs, health, errors)
+        const digest = buildSystemDigest();
+
+        // Append business pulse from dashboard (financials + pipeline + marketing)
+        let businessPulse = "";
+        try {
+          const pulsePromises: Promise<string>[] = [];
+          if (isDashboardReady()) {
+            pulsePromises.push(getFinancialPulse().catch(() => ""));
+            pulsePromises.push(getPipelinePulse().catch(() => ""));
+          }
+          if (isGBPReady()) {
+            pulsePromises.push(getGBPContext().catch(() => ""));
+          }
+          if (isGA4Ready()) {
+            pulsePromises.push(getGA4Context().catch(() => ""));
+          }
+          if (pulsePromises.length > 0) {
+            const results = await Promise.all(pulsePromises);
+            const pulseLines = results.filter(Boolean);
+            if (pulseLines.length > 0) businessPulse = pulseLines.join("\n\n");
+          }
+        } catch (err) {
+          warn("morning-brief", `Business pulse failed: ${err}`);
+        }
+
+        const fullBrief = [result, businessPulse, digest].filter(Boolean).join("\n\n");
+        await sendTelegramMessage(DEREK_CHAT_ID, fullBrief);
+        log("morning-brief", "Sent to Derek (with system digest + business pulse)");
       } else {
         log("morning-brief", "No output generated");
       }
@@ -335,6 +368,7 @@ jobs.push(
           timestamp: new Date().toISOString(),
           metrics: getMetrics(),
           health: getHealthStatus(),
+          costs: getTodayClaudeCosts(),
         };
 
         writeFileSync(
@@ -365,7 +399,7 @@ jobs.push(
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       try {
-        const entries = require("fs").readdirSync(MEMORY_DIR);
+        const entries = readdirSync(MEMORY_DIR);
         let archived = 0;
 
         for (const entry of entries) {
@@ -377,7 +411,7 @@ jobs.push(
             const src = join(MEMORY_DIR, entry);
             const dest = join(archiveDir, entry);
             copyFileSync(src, dest);
-            require("fs").unlinkSync(src);
+            unlinkSync(src);
             archived++;
           }
         }
@@ -426,6 +460,30 @@ jobs.push(
   })
 );
 
+// 8b. Weekly executive summary — Sunday at 6:00 PM
+//     Full-funnel report + anomalies + channel scorecards + insights
+jobs.push(
+  CronJob.from({
+    cronTime: "0 18 * * 0",
+    onTick: safeTick("weekly-exec", async () => {
+      if (!isDashboardReady()) {
+        log("weekly-exec", "Dashboard not configured, skipping");
+        return;
+      }
+      log("weekly-exec", "Building weekly executive summary...");
+      try {
+        const summary = await buildWeeklySummary();
+        const formatted = formatWeeklySummary(summary);
+        await sendTelegramMessage(DEREK_CHAT_ID, formatted);
+        log("weekly-exec", "Sent weekly executive summary to Derek");
+      } catch (err) {
+        logError("cron", `Weekly executive summary failed: ${err}`);
+      }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // 9. OpenClaw monitoring — daily at 8:00 AM ET
 //    Checks openclaw/openclaw for new commits/releases, summarizes via Haiku
 jobs.push(
@@ -458,11 +516,141 @@ jobs.push(
 
 // 10. Conversation summarization — 1:00 AM nightly (needs supabase, added in startCronJobs)
 
+// 11. GHL new lead polling — every 15 minutes during business hours
+jobs.push(
+  CronJob.from({
+    cronTime: "*/15 7-20 * * 1-6",
+    onTick: safeTick("ghl-leads", async () => {
+      if (!isGHLReady()) return;
+
+      try {
+        const { leads } = await getNewLeadsSince();
+        if (leads.length > 0) {
+          const names = leads.map((l) => {
+            const name = l.contact?.name || l.name || "Unknown";
+            const src = l.source ? ` (${l.source})` : "";
+            return `${name}${src}`;
+          });
+          const msg = `New lead${leads.length > 1 ? "s" : ""}: ${names.join(", ")}`;
+          await sendTelegramMessage(DEREK_CHAT_ID, msg);
+          log("ghl-leads", `${leads.length} new lead(s) alerted`);
+        }
+      } catch (err) {
+        log("ghl-leads", `ERROR: ${err}`);
+      }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================
 
-export function startCronJobs(supabase: SupabaseClient | null): void {
+// ============================================================
+// SYSTEM DIGEST (appended to morning brief)
+// ============================================================
+
+function buildSystemDigest(): string {
+  try {
+    const healthPath = join(DATA_DIR, "health.json");
+    if (!existsSync(healthPath)) return "";
+
+    const raw = readFileSync(healthPath, "utf-8");
+    const data = JSON.parse(raw);
+    const m = data.metrics;
+    const h = data.health;
+    const c = data.costs;
+
+    const lines = ["--- Atlas System ---"];
+
+    // Health status
+    const status = h?.status === "healthy" ? "OK" : (h?.status || "unknown").toUpperCase();
+    lines.push(`Health: ${status}`);
+
+    // Yesterday's usage
+    if (m) {
+      const avgSec = m.claudeCallCount > 0 ? ((m.totalResponseTimeMs / m.claudeCallCount) / 1000).toFixed(1) : "n/a";
+      lines.push(`Messages: ${m.messageCount} | Calls: ${m.claudeCallCount} | Avg: ${avgSec}s`);
+      if (m.errorCount > 0) lines.push(`Errors: ${m.errorCount} | Timeouts: ${m.claudeTimeoutCount}`);
+    }
+
+    // Cost breakdown
+    if (c && c.totalCostUsd > 0) {
+      lines.push(`API cost: $${c.totalCostUsd.toFixed(4)} (${c.calls} calls, ${c.inputTokens?.toLocaleString() || 0}in/${c.outputTokens?.toLocaleString() || 0}out)`);
+      if (c.byModel) {
+        for (const [model, info] of Object.entries(c.byModel) as [string, any][]) {
+          lines.push(`  ${model}: ${info.calls} calls, $${info.costUsd.toFixed(4)}`);
+        }
+      }
+    }
+
+    // Issues
+    if (h?.issues?.length > 0) {
+      lines.push(`Issues: ${h.issues.join(", ")}`);
+    }
+
+    return lines.join("\n");
+  } catch {
+    return "";
+  }
+}
+
+// ============================================================
+// MISSED-JOB DETECTION (OpenClaw v2026.2.14 cron resilience)
+// ============================================================
+// If Atlas was down when a critical job was scheduled, detect and catch up
+// on startup. Prevents nightly summarization, morning briefs, etc. from
+// being silently skipped after a restart.
+
+const LAST_RUN_FILE = join(DATA_DIR, "cron-last-run.json");
+
+interface CronRunLog {
+  [jobName: string]: string; // ISO timestamp of last successful run
+}
+
+async function loadCronRunLog(): Promise<CronRunLog> {
+  try {
+    if (!existsSync(LAST_RUN_FILE)) return {};
+    const raw = readFileSync(LAST_RUN_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function saveCronRunLog(runLog: CronRunLog): void {
+  try {
+    if (!existsSync(DATA_DIR)) {
+      mkdirSync(DATA_DIR, { recursive: true });
+    }
+    writeFileSync(LAST_RUN_FILE, JSON.stringify(runLog, null, 2));
+  } catch (err) {
+    log("cron", `Failed to save run log: ${err}`);
+  }
+}
+
+/** Mark a job as having run successfully. */
+function markJobRan(jobName: string): void {
+  const runLog = JSON.parse(
+    existsSync(LAST_RUN_FILE)
+      ? readFileSync(LAST_RUN_FILE, "utf-8")
+      : "{}"
+  );
+  runLog[jobName] = new Date().toISOString();
+  saveCronRunLog(runLog);
+}
+
+/** Check if a job's last run was more than maxAgeMs ago. */
+function isJobOverdue(runLog: CronRunLog, jobName: string, maxAgeMs: number): boolean {
+  const lastRun = runLog[jobName];
+  if (!lastRun) return true; // never ran
+  return Date.now() - new Date(lastRun).getTime() > maxAgeMs;
+}
+
+export async function startCronJobs(supabase: SupabaseClient | null): Promise<void> {
+  // Load persisted task state from disk
+  await loadTasks();
   // Create summarization job (needs supabase for message access)
   if (supabase) {
     jobs.push(
@@ -474,11 +662,29 @@ export function startCronJobs(supabase: SupabaseClient | null): void {
             return runPrompt(prompt, MODELS.haiku);
           });
           log("summarize", `Created ${count} summaries`);
+          markJobRan("summarize");
         }),
         timeZone: TIMEZONE,
       })
     );
   }
+  // Task supervisor check — every 5 minutes (no Claude call, just file checks)
+  jobs.push(
+    CronJob.from({
+      cronTime: "*/5 * * * *",
+      onTick: safeTick("supervisor", async () => {
+        const result = await checkTasks();
+        if (result.alerts.length > 0) {
+          for (const alert of result.alerts) {
+            await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] ${alert}`);
+          }
+          log("supervisor", `${result.alerts.length} alerts sent`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   // Create heartbeat job (needs supabase for memory context)
   jobs.push(
     CronJob.from({
@@ -512,9 +718,50 @@ export function startCronJobs(supabase: SupabaseClient | null): void {
   console.log("  - 7:00 AM      Content waterfall (sonnet)");
   console.log("  - Every 15min  Health state dump");
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
+  console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
   console.log("  - 8:00 AM      OpenClaw monitoring (haiku)");
   console.log("  - 1:00 AM      Conversation summarization (haiku)");
+  console.log("  - Every 5min   Task supervisor check");
+
+  // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
+  // If Atlas restarted and a critical daily job was missed, run it now.
+  // Only catches up jobs that are safe to replay (idempotent or append-only).
+  const runLog = await loadCronRunLog();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  const catchUpJobs: { name: string; maxAge: number; fn: () => Promise<void> }[] = [
+    {
+      name: "summarize",
+      maxAge: DAY_MS,
+      fn: async () => {
+        if (!supabase) return;
+        log("catch-up", "Running missed summarization...");
+        const count = await runSummarization(supabase, async (prompt) => {
+          return runPrompt(prompt, MODELS.haiku);
+        });
+        log("catch-up", `Summarization catch-up: ${count} summaries created`);
+        markJobRan("summarize");
+      },
+    },
+    {
+      name: "reflect",
+      maxAge: DAY_MS,
+      fn: async () => {
+        log("catch-up", "Running missed reflection...");
+        const result = await runSkill("reflect", MODELS.sonnet);
+        if (result) log("catch-up", `Reflection catch-up done`);
+        markJobRan("reflect");
+      },
+    },
+  ];
+
+  for (const job of catchUpJobs) {
+    if (isJobOverdue(runLog, job.name, job.maxAge)) {
+      log("catch-up", `Job "${job.name}" is overdue, running catch-up`);
+      job.fn().catch((err) => logError("catch-up", `Catch-up for ${job.name} failed: ${err}`));
+    }
+  }
 }
 
 export function stopCronJobs(): void {

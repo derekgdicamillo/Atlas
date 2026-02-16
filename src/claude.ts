@@ -19,7 +19,7 @@ import {
   trackClaudeCall,
   trackTimeout,
 } from "./logger.ts";
-import { MODELS, DEFAULT_MODEL, type ModelTier } from "./constants.ts";
+import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, type ModelTier } from "./constants.ts";
 import { addEntry } from "./conversation.ts";
 
 // ============================================================
@@ -41,6 +41,13 @@ const MODEL_TIMEOUT_MULTIPLIERS: Record<string, number> = {
   opus: 3.0,   // 15 min with 300s base
   sonnet: 2.0, // 10 min
   haiku: 1.0,  // 5 min
+};
+
+// Fallback chain: if a model fails with rate-limit or unavailability, try next
+const MODEL_FALLBACK: Record<string, ModelTier | null> = {
+  opus: "sonnet",
+  sonnet: "haiku",
+  haiku: null, // nowhere to fall back to
 };
 
 // ============================================================
@@ -154,6 +161,109 @@ export async function acquireSessionLock(
 }
 
 // ============================================================
+// STREAM PARSER (reusable for callClaude + code agents)
+// ============================================================
+
+export interface StreamEvent {
+  type: "system" | "assistant" | "result";
+  sessionId?: string;
+  toolName?: string;
+  toolInput?: Record<string, any>;
+  isError?: boolean;
+  errorSubtype?: string;
+  resultText?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+/**
+ * Reusable JSON-stream parser for Claude CLI output.
+ * Handles line buffering, JSON parsing, and event extraction.
+ * Both callClaude() and spawnCodeAgent() use this.
+ */
+export function createStreamParser(onEvent: (event: StreamEvent) => void) {
+  let lineBuffer = "";
+
+  return {
+    /** Feed raw chunk data from the stream */
+    feed(chunk: string): void {
+      lineBuffer += chunk;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        try {
+          const raw = JSON.parse(trimmed);
+          const sessionId = raw.session_id || undefined;
+
+          switch (raw.type) {
+            case "system":
+              onEvent({ type: "system", sessionId });
+              break;
+
+            case "assistant":
+              if (raw.message?.content) {
+                for (const block of raw.message.content) {
+                  if (block.type === "tool_use") {
+                    onEvent({
+                      type: "assistant",
+                      sessionId,
+                      toolName: block.name || "unknown",
+                      toolInput: block.input,
+                    });
+                  }
+                }
+              }
+              break;
+
+            case "result":
+              onEvent({
+                type: "result",
+                sessionId,
+                resultText: raw.result || "",
+                isError: !!raw.is_error,
+                errorSubtype: raw.subtype,
+                inputTokens: raw.usage?.input_tokens || 0,
+                outputTokens: raw.usage?.output_tokens || 0,
+              });
+              break;
+          }
+        } catch {
+          // Not valid JSON, skip
+        }
+      }
+    },
+
+    /** Flush remaining buffer (call after stream ends) */
+    flush(): void {
+      if (lineBuffer.trim()) {
+        // Try to parse any remaining buffered data
+        try {
+          const raw = JSON.parse(lineBuffer.trim());
+          if (raw.type === "result") {
+            onEvent({
+              type: "result",
+              sessionId: raw.session_id,
+              resultText: raw.result || "",
+              isError: !!raw.is_error,
+              errorSubtype: raw.subtype,
+              inputTokens: raw.usage?.input_tokens || 0,
+              outputTokens: raw.usage?.output_tokens || 0,
+            });
+          }
+        } catch {
+          // Not valid JSON
+        }
+        lineBuffer = "";
+      }
+    },
+  };
+}
+
+// ============================================================
 // CORE: Call Claude CLI
 // ============================================================
 
@@ -197,6 +307,7 @@ export async function callClaude(
     skipLock?: boolean; // caller already holds the session lock
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
+    _isFallback?: boolean; // internal: prevents infinite fallback chains
   }
 ): Promise<string> {
   const modelTier = options?.model || DEFAULT_MODEL;
@@ -224,6 +335,9 @@ export async function callClaude(
 
   try {
     const session = await getSession(agentId, userId);
+    // SAFETY: prompt is passed as a direct spawn argument (not through shell).
+    // Bun's spawn() uses libuv/CreateProcess which handles argument quoting,
+    // so shell metacharacter injection is not possible here.
     const args = [CLAUDE_PATH, "-p", prompt];
 
     if (options?.resume && session.sessionId) {
@@ -261,7 +375,7 @@ export async function callClaude(
       typingInterval = setInterval(() => options.onTyping!(), 4000);
     }
 
-    // Stream-JSON parsing: each line is a JSON event
+    // Stream-JSON parsing via reusable stream parser
     let resultText = "";
     let sessionId = "";
     let lastActivityAt = Date.now();
@@ -269,8 +383,47 @@ export async function callClaude(
     let timeoutReason = "";
     let isError = false;
     let errorInfo = "";
-    let lineBuffer = "";
     let gotResultEvent = false;
+    let toolCallCount = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    const parser = createStreamParser((event) => {
+      if (event.sessionId) sessionId = event.sessionId;
+
+      switch (event.type) {
+        case "assistant":
+          toolCallCount++;
+          // Loop detection: kill process if tool calls exceed threshold
+          if (toolCallCount > MAX_TOOL_CALLS_PER_REQUEST) {
+            warn("claude", `[${agentId}] Tool call loop detected: ${toolCallCount} calls (limit: ${MAX_TOOL_CALLS_PER_REQUEST}). Killing process.`);
+            proc.kill();
+            timeoutReason = `tool call loop (${toolCallCount} calls)`;
+            break;
+          }
+          // Send progress indicator on tool use
+          {
+            const now = Date.now();
+            if (now - lastStatusAt > STATUS_INTERVAL_MS && options?.onStatus) {
+              const elapsed = Math.round((now - startTime) / 1000);
+              options.onStatus(`${event.toolName || "working"}... (${elapsed}s, ${toolCallCount} tool calls)`);
+              lastStatusAt = now;
+            }
+          }
+          break;
+
+        case "result":
+          gotResultEvent = true;
+          resultText = event.resultText || "";
+          if (event.isError) {
+            isError = true;
+            errorInfo = event.errorSubtype || "unknown error";
+          }
+          inputTokens = event.inputTokens || 0;
+          outputTokens = event.outputTokens || 0;
+          break;
+      }
+    });
 
     const reader = proc.stdout.getReader();
     const decoder = new TextDecoder();
@@ -282,65 +435,8 @@ export async function callClaude(
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          lineBuffer += chunk;
           lastActivityAt = Date.now();
-
-          // Process complete JSON lines
-          const lines = lineBuffer.split("\n");
-          lineBuffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            try {
-              const event = JSON.parse(trimmed);
-
-              // Extract session ID from any event that has it
-              if (event.session_id) {
-                sessionId = event.session_id;
-              }
-
-              // Handle different event types
-              switch (event.type) {
-                case "system":
-                  // Init event, session info
-                  break;
-
-                case "assistant":
-                  // Text or tool use from Claude
-                  if (event.message?.content) {
-                    for (const block of event.message.content) {
-                      if (block.type === "tool_use") {
-                        // Send progress indicator on tool use
-                        const now = Date.now();
-                        if (now - lastStatusAt > STATUS_INTERVAL_MS && options?.onStatus) {
-                          const elapsed = Math.round((now - startTime) / 1000);
-                          const toolName = block.name || "working";
-                          options.onStatus(`${toolName}... (${elapsed}s)`);
-                          lastStatusAt = now;
-                        }
-                      }
-                    }
-                  }
-                  break;
-
-                case "result":
-                  // Final result
-                  gotResultEvent = true;
-                  if (event.result) {
-                    resultText = event.result;
-                  }
-                  if (event.is_error) {
-                    isError = true;
-                    errorInfo = event.subtype || "unknown error";
-                  }
-                  break;
-              }
-            } catch {
-              // Not valid JSON, skip
-            }
-          }
+          parser.feed(chunk);
 
           // Periodic status (for non-tool-use periods)
           const now = Date.now();
@@ -350,6 +446,7 @@ export async function callClaude(
             lastStatusAt = now;
           }
         }
+        parser.flush();
       } catch {
         // Stream closed or errored, handled below
       }
@@ -391,23 +488,81 @@ export async function callClaude(
       proc.kill();
       const elapsed = Math.round((Date.now() - startTime) / 1000);
       trackTimeout();
-      logError("claude", `Timed out after ${elapsed}s: ${timeoutReason}`, {
+      const isLoop = timeoutReason.includes("tool call loop");
+      logError("claude", `${isLoop ? "Loop killed" : "Timed out"} after ${elapsed}s: ${timeoutReason}`, {
         prompt: prompt.substring(0, 200),
         model: modelTier,
+        toolCallCount,
       });
+      if (isLoop) {
+        return `I got stuck in a loop (${toolCallCount} tool calls). Try rephrasing or breaking the task into smaller steps.`;
+      }
       return `Sorry, that took too long (${timeoutReason}). Try again or simplify your request.`;
     }
 
     const durationMs = Date.now() - startTime;
-    trackClaudeCall(durationMs);
+
+    // Calculate cost from token usage
+    const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
+    const callCostUsd = (inputTokens * costRates.input + outputTokens * costRates.output) / 1_000_000;
+
+    trackClaudeCall(durationMs, {
+      model: modelTier,
+      inputTokens,
+      outputTokens,
+      costUsd: callCostUsd,
+    });
 
     const { stderr, exitCode } = raceResult;
 
     if (exitCode !== 0) {
       const wasResuming = options?.resume && session.sessionId;
       const stderrEmpty = !stderr.trim();
+      const stderrLower = stderr.toLowerCase();
 
       logError("claude", `Exit code ${exitCode}: ${stderr.substring(0, 200)}`);
+
+      // Tool call loop: process was killed by our own loop detector (SIGTERM = 143)
+      if (timeoutReason.includes("tool call loop")) {
+        trackTimeout();
+        const elapsed = Math.round(durationMs / 1000);
+        logError("claude", `Loop killed after ${elapsed}s: ${timeoutReason}`, {
+          prompt: prompt.substring(0, 200),
+          model: modelTier,
+          toolCallCount,
+        });
+
+        // Clear the session so next message starts fresh (loop often means bad session state)
+        if (session.sessionId) {
+          const oldSid = session.sessionId;
+          warn("claude", `[${agentId}] Clearing session ${oldSid} after tool call loop`);
+          session.sessionId = null;
+          session.lastActivity = new Date().toISOString();
+          await saveSessionState(agentId, userId, session);
+          archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
+        }
+
+        return `I got stuck in a loop (${toolCallCount} tool calls). Try rephrasing or breaking the task into smaller steps.`;
+      }
+
+      // Model fallback: if rate-limited or model unavailable, retry with next tier
+      const isRateLimit = stderrLower.includes("rate limit") || stderrLower.includes("429") || stderrLower.includes("overloaded");
+      const isModelError = stderrLower.includes("model") && (stderrLower.includes("unavailable") || stderrLower.includes("not found") || stderrLower.includes("capacity"));
+      const fallbackModel = MODEL_FALLBACK[modelTier];
+
+      if ((isRateLimit || isModelError) && fallbackModel && !options?._isFallback) {
+        warn("claude", `[${agentId}] ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel}`);
+
+        if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+        release();
+
+        return callClaude(prompt, {
+          ...options,
+          model: fallbackModel,
+          skipLock: false,
+          _isFallback: true,
+        } as any);
+      }
 
       // Auto-recover: if resume caused a crash with no stderr, the session
       // is likely corrupted. Clear it and retry once without --resume.
@@ -447,7 +602,8 @@ export async function callClaude(
 
     info(
       "claude",
-      `[${agentId}] Responded in ${Math.round(durationMs / 1000)}s (${modelTier})`
+      `[${agentId}] Responded in ${Math.round(durationMs / 1000)}s (${modelTier}) | ` +
+      `${inputTokens}in/${outputTokens}out | $${callCostUsd.toFixed(4)} | ${toolCallCount} tools`
     );
 
     // Save session ID

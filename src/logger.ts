@@ -16,6 +16,15 @@ interface ErrorEntry {
   message: string;
 }
 
+interface CostEntry {
+  timestamp: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  traceId?: string;
+}
+
 interface Metrics {
   startedAt: string;
   messageCount: number;
@@ -26,6 +35,12 @@ interface Metrics {
   lastErrorTime: string | null;
   lastErrorEvent: string | null;
   recentErrors: ErrorEntry[];
+  // Cost tracking
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostUsd: number;
+  todayCosts: CostEntry[];
+  modelCallCounts: Record<string, number>;
 }
 
 interface HealthStatus {
@@ -48,6 +63,11 @@ const metrics: Metrics = {
   lastErrorTime: null,
   lastErrorEvent: null,
   recentErrors: [],
+  totalInputTokens: 0,
+  totalOutputTokens: 0,
+  totalCostUsd: 0,
+  todayCosts: [],
+  modelCallCounts: {},
 };
 
 function timestamp(): string {
@@ -116,9 +136,67 @@ export function trackMessage(): void {
   metrics.messageCount++;
 }
 
-export function trackClaudeCall(durationMs: number): void {
+export function trackClaudeCall(durationMs: number, costInfo?: {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  traceId?: string;
+}): void {
   metrics.claudeCallCount++;
   metrics.totalResponseTimeMs += durationMs;
+
+  if (costInfo) {
+    metrics.totalInputTokens += costInfo.inputTokens;
+    metrics.totalOutputTokens += costInfo.outputTokens;
+    metrics.totalCostUsd += costInfo.costUsd;
+    metrics.modelCallCounts[costInfo.model] = (metrics.modelCallCounts[costInfo.model] || 0) + 1;
+
+    // Prune old entries (keep today only)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    metrics.todayCosts = metrics.todayCosts.filter((c) => c.timestamp.startsWith(todayStr));
+    metrics.todayCosts.push({
+      timestamp: new Date().toISOString(),
+      model: costInfo.model,
+      inputTokens: costInfo.inputTokens,
+      outputTokens: costInfo.outputTokens,
+      costUsd: costInfo.costUsd,
+      traceId: costInfo.traceId,
+    });
+  }
+}
+
+export function getTodayClaudeCosts(): {
+  totalCostUsd: number;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  byModel: Record<string, { calls: number; costUsd: number }>;
+} {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayEntries = metrics.todayCosts.filter((c) => c.timestamp.startsWith(todayStr));
+
+  const byModel: Record<string, { calls: number; costUsd: number }> = {};
+  let totalCost = 0;
+  let totalInput = 0;
+  let totalOutput = 0;
+
+  for (const entry of todayEntries) {
+    totalCost += entry.costUsd;
+    totalInput += entry.inputTokens;
+    totalOutput += entry.outputTokens;
+    if (!byModel[entry.model]) byModel[entry.model] = { calls: 0, costUsd: 0 };
+    byModel[entry.model].calls++;
+    byModel[entry.model].costUsd += entry.costUsd;
+  }
+
+  return {
+    totalCostUsd: totalCost,
+    calls: todayEntries.length,
+    inputTokens: totalInput,
+    outputTokens: totalOutput,
+    byModel,
+  };
 }
 
 export function trackTimeout(): void {

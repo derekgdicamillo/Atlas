@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
     }
 
     // Log cost (best-effort, don't fail the request)
-    await supabase.from("logs").insert({
+    // Best-effort cost logging
+    supabase.from("logs").insert({
       level: "info",
       event: "embedding",
       message: `Embedded ${table} row ${record.id}`,
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
         tokens_est: tokensUsed,
         cost_usd: costUsd,
       },
-    }).catch(() => {});
+    }).then(() => {});
 
     return new Response("ok");
   } catch (error) {

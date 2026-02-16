@@ -65,6 +65,8 @@ const SCOPES = {
     "https://www.googleapis.com/auth/gmail.compose",     // Create drafts
     "https://www.googleapis.com/auth/calendar",          // Calendar CRUD + invites
     "https://www.googleapis.com/auth/contacts.readonly", // Lookup contacts by name
+    "https://www.googleapis.com/auth/business.manage",   // Google Business Profile
+    "https://www.googleapis.com/auth/analytics.readonly", // Google Analytics 4
   ],
   atlas: [
     "https://www.googleapis.com/auth/gmail.readonly",    // Read own inbox

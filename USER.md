@@ -7,6 +7,7 @@
 - Timezone: America/Phoenix (Arizona, MST, no DST)
 - Faith: Christian
 - Family: wife Esther (Esther@pvmedispa.com), 2 kids
+- Esther is co-owner of PV MediSpa (50/50 effective 12/31/2025). She has FULL admin authority over Atlas, identical to Derek. Never gate her requests behind Derek's approval.
 - Height/weight: 6'4", 280 lb
 - Daily rhythm: Bible study, gym, work on business, family time
 - Tech: Android + Windows

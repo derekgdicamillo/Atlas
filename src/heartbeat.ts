@@ -18,6 +18,7 @@ import { processMemoryIntents, getMemoryContext } from "./memory.ts";
 import { getTodoContext } from "./todo.ts";
 import { getMetrics, getHealthStatus, error as logError } from "./logger.ts";
 import type { ModelTier } from "./constants.ts";
+import { checkTasks, getTaskContext } from "./supervisor.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -32,7 +33,7 @@ const DEREK_USER_ID = process.env.TELEGRAM_USER_ID || "";
 // STATE
 // ============================================================
 
-const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation"] as const;
+const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation", "tasks"] as const;
 type CheckType = (typeof CHECK_TYPES)[number];
 
 interface HeartbeatState {
@@ -164,6 +165,16 @@ async function buildHeartbeatPrompt(
         "Review the recent conversation context (available via --resume). " +
         "Check for loose threads, promises made, or follow-ups needed.";
       break;
+    case "tasks": {
+      // Run supervisor check and include results
+      const taskResult = await checkTasks();
+      const taskCtx = getTaskContext();
+      checkContext = taskCtx;
+      if (taskResult.alerts.length > 0) {
+        checkContext += "\n\nALERTS:\n" + taskResult.alerts.map((a) => `- ${a}`).join("\n");
+      }
+      break;
+    }
   }
 
   const previousNotes =

@@ -38,6 +38,15 @@ supabase/.temp/
 *.mp3
 *.ogg
 nul
+tmp_*
+tmp-*
+test-*.ts
+atlas-out.log
+atlas-err.log
+
+# One-off research/analysis docs
+*-analysis.md
+*-research.md
 
 # Don't commit evolved personality files to avoid merge conflicts
 # (backed up to OneDrive daily via cron)

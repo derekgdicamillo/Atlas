@@ -107,6 +107,11 @@ export function isGoogleEnabled(): boolean {
   return !!derekAuth;
 }
 
+/** Expose Derek's OAuth2 client for GBP/GA4 integrations that share the same credentials. */
+export function getDerekAuth(): OAuth2Client | null {
+  return derekAuth;
+}
+
 // ============================================================
 // GMAIL — DEREK'S ACCOUNT (read + draft)
 // ============================================================
