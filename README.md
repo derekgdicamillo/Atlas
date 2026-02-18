@@ -276,9 +276,9 @@ Atlas can spawn independent Claude instances for background work.
 
 ### Code Agents
 - Autonomous coding with streamed progress updates to Telegram
-- Default model: opus, 200 tool call limit, 30 min wall clock, $5 budget cap
+- Default model: opus, 200 tool call limit, 90 min wall clock, $5 budget cap
 - Command: `/code <project_dir> <instructions>`
-- Self-delegation tag: `[CODE_TASK: cwd=<dir> | PROMPT: instructions]`
+- Self-delegation tag: `[CODE_TASK: cwd=<dir> | PROMPT: instructions]` (optional: `| TIMEOUT: 120m`)
 - Progress updates every 30s showing tool name, file, and running cost
 
 ## Process Management

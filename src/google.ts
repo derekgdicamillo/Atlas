@@ -461,6 +461,20 @@ export async function listContacts(max = 20): Promise<Array<{ name: string; emai
 // CONTEXT BUILDER (injected into Claude's prompt)
 // ============================================================
 
+// Contacts cache: 1 hour TTL (contacts rarely change mid-conversation)
+let cachedContacts: { data: { name: string; email: string }[]; ts: number } | null = null;
+const CONTACTS_CACHE_TTL = 3_600_000; // 1 hour
+
+async function getCachedContacts(count: number): Promise<{ name: string; email: string }[]> {
+  const now = Date.now();
+  if (cachedContacts && now - cachedContacts.ts < CONTACTS_CACHE_TTL) {
+    return cachedContacts.data;
+  }
+  const contacts = await listContacts(count).catch(() => []);
+  cachedContacts = { data: contacts, ts: now };
+  return contacts;
+}
+
 export async function getGoogleContext(): Promise<string> {
   if (!derekAuth) return "";
 
@@ -470,7 +484,7 @@ export async function getGoogleContext(): Promise<string> {
     const [emails, events, contacts] = await Promise.all([
       listUnreadEmails(5).catch(() => []),
       listTodayEvents().catch(() => []),
-      listContacts(15).catch(() => []),
+      getCachedContacts(15),
     ]);
 
     if (emails.length > 0) {
@@ -512,67 +526,90 @@ export async function getGoogleContext(): Promise<string> {
 /**
  * Parse and execute Google intent tags from Claude's response.
  * Strips processed tags from the response text.
+ *
+ * Uses [\s\S]+? (not .+?) so content can span lines and contain brackets.
  */
 export async function processGoogleIntents(response: string): Promise<string> {
   let clean = response;
 
   // [DRAFT: to=addr | subject=Subj | body=Body text]
-  for (const match of response.matchAll(/\[DRAFT:\s*(.+?)\]/gis)) {
+  for (const match of response.matchAll(/\[DRAFT:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
-      const draftId = await createDraft(params.to, params.subject, params.body);
-      if (draftId) {
-        info("google", `Intent: Draft created (${draftId})`);
+      try {
+        const draftId = await createDraft(params.to, params.subject, params.body);
+        if (draftId) {
+          info("google", `Intent: Draft created (${draftId})`);
+        }
+      } catch (err) {
+        warn("google", `DRAFT failed: ${err}`);
       }
     } else {
-      warn("google", `Malformed DRAFT tag: ${match[0].substring(0, 100)}`);
+      warn("google", `Malformed DRAFT tag (missing ${!params.to ? "to" : !params.subject ? "subject" : "body"}): ${match[0].substring(0, 100)}`);
     }
     clean = clean.replace(match[0], "");
   }
 
   // [SEND: to=addr | subject=Subj | body=Body text]
-  for (const match of response.matchAll(/\[SEND:\s*(.+?)\]/gis)) {
+  for (const match of response.matchAll(/\[SEND:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
-      const msgId = await sendEmail(params.to, params.subject, params.body);
-      if (msgId) {
-        info("google", `Intent: Email sent (${msgId})`);
+      try {
+        const msgId = await sendEmail(params.to, params.subject, params.body);
+        if (msgId) {
+          info("google", `Intent: Email sent (${msgId})`);
+        }
+      } catch (err) {
+        warn("google", `SEND failed: ${err}`);
       }
     } else {
-      warn("google", `Malformed SEND tag: ${match[0].substring(0, 100)}`);
+      warn("google", `Malformed SEND tag (missing ${!params.to ? "to" : !params.subject ? "subject" : "body"}): ${match[0].substring(0, 100)}`);
     }
     clean = clean.replace(match[0], "");
   }
 
   // [CAL_ADD: title=Title | date=YYYY-MM-DD | time=HH:MM | duration=60 | invite=email]
-  for (const match of response.matchAll(/\[CAL_ADD:\s*(.+?)\]/gis)) {
+  for (const match of response.matchAll(/\[CAL_ADD:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.title) {
-      const eventParams: CreateEventParams = {
-        title: params.title,
-        date: params.date || todayDateStr(),
-        time: params.time || "09:00",
-        duration: params.duration ? parseInt(params.duration, 10) : 60,
-        invite: params.invite ? params.invite.split(",").map((e) => e.trim()) : undefined,
-        location: params.location,
-        description: params.description,
-      };
-      const event = await createEvent(eventParams);
-      if (event) {
-        info("google", `Intent: Calendar event created (${event.title})`);
+      try {
+        const eventParams: CreateEventParams = {
+          title: params.title,
+          date: params.date || todayDateStr(),
+          time: params.time || "09:00",
+          duration: params.duration ? parseInt(params.duration, 10) : 60,
+          invite: params.invite ? params.invite.split(",").map((e) => e.trim()) : undefined,
+          location: params.location,
+          description: params.description,
+        };
+        const event = await createEvent(eventParams);
+        if (event) {
+          info("google", `Intent: Calendar event created (${event.title})`);
+        }
+      } catch (err) {
+        warn("google", `CAL_ADD failed: ${err}`);
       }
     } else {
-      warn("google", `Malformed CAL_ADD tag: ${match[0].substring(0, 100)}`);
+      warn("google", `Malformed CAL_ADD tag (missing title): ${match[0].substring(0, 100)}`);
     }
     clean = clean.replace(match[0], "");
   }
 
   // [CAL_REMOVE: search text]
-  for (const match of response.matchAll(/\[CAL_REMOVE:\s*(.+?)\]/gi)) {
+  for (const match of response.matchAll(/\[CAL_REMOVE:\s*([\s\S]+?)\]/gi)) {
     const searchText = match[1].trim();
-    const deleted = await deleteEvent(searchText);
-    if (deleted) {
-      info("google", `Intent: Calendar event deleted (${searchText})`);
+    if (!searchText) {
+      warn("google", `Empty CAL_REMOVE tag`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
+    try {
+      const deleted = await deleteEvent(searchText);
+      if (deleted) {
+        info("google", `Intent: Calendar event deleted (${searchText})`);
+      }
+    } catch (err) {
+      warn("google", `CAL_REMOVE failed: ${err}`);
     }
     clean = clean.replace(match[0], "");
   }

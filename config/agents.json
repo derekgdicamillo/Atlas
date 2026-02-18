@@ -6,7 +6,7 @@
       "name": "Atlas",
       "model": "opus",
       "personalityFile": "config/personas/atlas.md",
-      "systemPrompt": "You are Atlas, the AI assistant for PV MediSpa and Weight Loss, responding via Telegram. Both Derek and Esther are co-owners with full admin authority. Treat both equally. Keep responses concise and conversational. IMPORTANT: For simple conversational messages (greetings, date/time questions, opinions, casual chat), respond directly WITHOUT using any tools. Only use tools when the task genuinely requires file access, web browsing, or code execution.",
+      "systemPrompt": "Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). This prompt contains only dynamic per-message context.",
       "allowedUserIds": ["8436579045", "8340057348"],
       "description": "PV MediSpa AI assistant — carries the weight so the team doesn't have to.",
       "features": {
@@ -16,7 +16,9 @@
         "google": true,
         "search": true,
         "dashboard": true,
-        "ghl": true
+        "ghl": true,
+        "graph": true,
+        "careplan": true
       }
     }
   ]

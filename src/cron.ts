@@ -11,12 +11,15 @@ import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, unlinkS
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn } from "./logger.ts";
+import { getAllBreakerStats } from "./circuit-breaker.ts";
 import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
 import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { loadTasks, checkTasks } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, type CompletedTaskInfo } from "./supervisor.ts";
+import { callClaude, sessionKey } from "./claude.ts";
+import { addEntry } from "./conversation.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
 import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from "./ghl.ts";
 import { isGBPReady, getGBPContext } from "./gbp.ts";
@@ -99,15 +102,20 @@ async function runSkill(skill: string, model?: string): Promise<string> {
 /** Run an ad-hoc prompt via Claude CLI (for cron summaries) */
 async function runPrompt(prompt: string, model?: string): Promise<string> {
   try {
-    const args = [CLAUDE_PATH, "-p", prompt, "--output-format", "json"];
+    const args = [CLAUDE_PATH, "-p", "--output-format", "json"];
     if (model) args.push("--model", model);
 
     const proc = spawn(args, {
+      stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR,
       env: { ...process.env },
     });
+
+    // Pipe prompt via stdin (avoids Windows command-line length limits)
+    proc.stdin.write(prompt);
+    proc.stdin.end();
 
     const output = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
@@ -369,6 +377,7 @@ jobs.push(
           metrics: getMetrics(),
           health: getHealthStatus(),
           costs: getTodayClaudeCosts(),
+          circuitBreakers: getAllBreakerStats(),
         };
 
         writeFileSync(
@@ -517,6 +526,8 @@ jobs.push(
 // 10. Conversation summarization — 1:00 AM nightly (needs supabase, added in startCronJobs)
 
 // 11. GHL new lead polling — every 15 minutes during business hours
+// FALLBACK: Webhooks via supabase/functions/ghl-webhook are the primary alert mechanism.
+// This poll catches anything webhooks miss (downtime, missed events, etc.)
 jobs.push(
   CronJob.from({
     cronTime: "*/15 7-20 * * 1-6",
@@ -537,6 +548,100 @@ jobs.push(
         }
       } catch (err) {
         log("ghl-leads", `ERROR: ${err}`);
+      }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 12. Weekly self-improvement — Sunday at 8:00 PM MST
+//     Spawns a sonnet subagent to research external updates, review past week's
+//     journals for friction points, and produce a structured improvement report.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 20 * * 0",
+    onTick: safeTick("self-improve", async () => {
+      log("self-improve", "Starting weekly self-improvement review...");
+
+      // Collect the past 7 days of journal filenames for the subagent prompt
+      const journalFiles: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+        const jPath = join(MEMORY_DIR, `${dateStr}.md`);
+        if (existsSync(jPath)) {
+          journalFiles.push(jPath);
+        }
+      }
+
+      const journalList = journalFiles.length > 0
+        ? journalFiles.map((f) => `- ${f}`).join("\n")
+        : "No journal files found for the past week.";
+
+      const outputFile = "data/task-output/self-improvement-weekly.md";
+
+      const prompt = [
+        "You are Atlas's weekly self-improvement agent. Your job is to identify ways Atlas can get better.",
+        "",
+        "Do these three things:",
+        "",
+        "## 1. External Opportunities",
+        "Check these sources for new features, patterns, or tools worth adopting:",
+        "- OpenClaw GitHub releases: https://github.com/openclaw/openclaw/releases",
+        "  Fetch this page and look for recent releases. Note any features relevant to a Telegram bot built on Claude Code CLI.",
+        "- Claude Code updates: Search the web for 'Claude Code changelog 2026' or 'Claude Code new features 2026'.",
+        "  Note anything that could improve Atlas (new tools, better prompting patterns, MCP improvements, etc.).",
+        "- Notable AI assistant projects: Search for 'AI assistant framework open source 2026' or 'Claude agent patterns'.",
+        "  Look for patterns or architectures other projects use that Atlas could adopt.",
+        "",
+        "For each finding, note: what it is, why it matters to Atlas, and effort to adopt (low/medium/high).",
+        "",
+        "## 2. Internal Friction Points",
+        "Read the following journal files from the past week and look for:",
+        "- Recurring errors or failures",
+        "- Tasks that failed or timed out",
+        "- Things Derek had to repeat or got frustrated about",
+        "- Workarounds or manual steps that could be automated",
+        "- Any pattern of friction (slow responses, missing capabilities, confusion)",
+        "",
+        "Journal files to read:",
+        journalList,
+        "",
+        "## 3. Recommended Actions",
+        "Based on your findings, produce a prioritized list of recommended actions.",
+        "Each action should have:",
+        "- Priority: P1 (do this week), P2 (do this month), P3 (backlog)",
+        "- Description: What to do",
+        "- Source: Which finding led to this recommendation",
+        "- Effort: Low (< 1 hour), Medium (1-4 hours), High (4+ hours)",
+        "",
+        "## Output Format",
+        "Write a clean markdown report with these three sections.",
+        "Include a date header and a brief executive summary at the top.",
+        "Be specific and actionable. Skip generic advice.",
+      ].join("\n");
+
+      try {
+        const taskId = await registerTask({
+          description: "Weekly self-improvement review",
+          outputFile,
+          prompt,
+          model: "sonnet",
+          timeoutMs: 15 * 60 * 1000, // 15 min (web research takes time)
+          maxRetries: 1,
+          requestedBy: "cron:self-improve",
+        });
+
+        log("self-improve", `Spawned subagent: ${taskId}`);
+
+        // Send a brief heads-up to Derek
+        await sendTelegramMessage(
+          DEREK_CHAT_ID,
+          "Running weekly self-improvement review. I'll check OpenClaw releases, Claude Code updates, and this week's journals for friction points. Report incoming."
+        );
+      } catch (err) {
+        logError("cron", `Self-improvement task failed to spawn: ${err}`);
       }
     }),
     timeZone: TIMEZONE,
@@ -668,17 +773,70 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
       })
     );
   }
-  // Task supervisor check — every 5 minutes (no Claude call, just file checks)
+  // Task supervisor check — every 5 minutes
   jobs.push(
     CronJob.from({
       cronTime: "*/5 * * * *",
       onTick: safeTick("supervisor", async () => {
         const result = await checkTasks();
-        if (result.alerts.length > 0) {
-          for (const alert of result.alerts) {
-            await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] ${alert}`);
+
+        // For completed tasks, generate a conversational summary via Claude
+        for (const task of result.completedTasks) {
+          if (task.status === "completed" && task.outputPreview) {
+            try {
+              const prompt =
+                `A background task just finished. Summarize what was done and let the user know the output is ready.\n\n` +
+                `Task: "${task.description}"\n` +
+                `Output file: ${task.outputFile || "none"}\n` +
+                `Preview of output:\n${task.outputPreview}\n\n` +
+                `Keep it brief (2-3 sentences). Mention the output file so they can review it. Be conversational, not robotic.`;
+
+              const summary = await callClaude(prompt, {
+                model: "haiku",
+                agentId: "atlas",
+                userId: DEREK_CHAT_ID,
+                resume: false,
+                lockBehavior: "skip", // don't block if user is chatting
+              });
+
+              if (summary && summary.trim() && !summary.startsWith("Error:") && summary !== "No response generated.") {
+                await sendTelegramMessage(DEREK_CHAT_ID, summary);
+                // Add to conversation ring buffer so Atlas has context
+                const key = sessionKey("atlas", DEREK_CHAT_ID);
+                await addEntry(key, {
+                  role: "assistant",
+                  content: summary,
+                  timestamp: new Date().toISOString(),
+                });
+                log("supervisor", `Sent Claude summary for task ${task.id}`);
+              } else {
+                // Fallback to raw alert
+                await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] Task completed: "${task.description}" — output at ${task.outputFile}`);
+              }
+            } catch (err) {
+              warn("supervisor", `Claude summary failed for task ${task.id}: ${err}`);
+              await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] Task completed: "${task.description}" — output at ${task.outputFile}`);
+            }
+          } else {
+            // Failed/timeout tasks get the raw alert (already in result.alerts)
           }
-          log("supervisor", `${result.alerts.length} alerts sent`);
+        }
+
+        // Send raw alerts for non-completion events (retries, failures, timeouts)
+        const summarizedDescriptions = new Set(
+          result.completedTasks
+            .filter(t => t.status === "completed" && t.outputPreview)
+            .map(t => t.description)
+        );
+        for (const alert of result.alerts) {
+          // Skip alerts for tasks that already got a Claude summary
+          const alreadySummarized = [...summarizedDescriptions].some(d => alert.includes(`"${d}"`));
+          if (alreadySummarized) continue;
+          await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] ${alert}`);
+        }
+
+        if (result.alerts.length > 0) {
+          log("supervisor", `${result.alerts.length} alerts processed (${result.completedTasks.length} with summaries)`);
         }
       }),
       timeZone: TIMEZONE,
@@ -704,6 +862,32 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
     })
   );
 
+  // 12. GHL webhook health check — daily at 7:05 AM
+  if (supabase) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "5 7 * * *",
+        onTick: safeTick("ghl-webhook-health", async () => {
+          const { count, error } = await supabase
+            .from("ghl_events")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+
+          if (!error && (count || 0) === 0) {
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              "GHL webhook health: 0 events in last 24h. Check webhook configuration in GHL Settings."
+            );
+            log("ghl-webhook-health", "WARNING: No webhook events in 24h");
+          } else {
+            log("ghl-webhook-health", `OK: ${count} events in last 24h`);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
   for (const job of jobs) {
     job.start();
   }
@@ -720,9 +904,11 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
+  console.log("  - Sunday 8 PM  Weekly self-improvement review (sonnet)");
   console.log("  - 8:00 AM      OpenClaw monitoring (haiku)");
   console.log("  - 1:00 AM      Conversation summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
+  console.log("  - 7:05 AM      GHL webhook health check");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.

@@ -12,6 +12,7 @@
  */
 
 import { info, warn, error as logError } from "./logger.ts";
+import { dashboardBreaker } from "./circuit-breaker.ts";
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "https://pv-dashboard-ten.vercel.app";
 const API_TOKEN = process.env.DASHBOARD_API_TOKEN || "";
@@ -155,11 +156,30 @@ export function initDashboard(): boolean {
   return true;
 }
 
+/** Quick auth check. Returns true if token is valid, false if 401/403. */
+export async function checkDashboardHealth(): Promise<boolean> {
+  if (!API_TOKEN) return false;
+  try {
+    const res = await fetch(new URL("/api/metrics/overview", DASHBOARD_URL).toString(), {
+      headers: { Authorization: `Bearer ${API_TOKEN}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.status === 401 || res.status === 403) {
+      logError("dashboard", `Health check failed: ${res.status}. DASHBOARD_API_TOKEN may be stale.`);
+      return false;
+    }
+    return res.ok;
+  } catch (err) {
+    warn("dashboard", `Health check error: ${err}`);
+    return false;
+  }
+}
+
 // ============================================================
 // FETCH HELPER
 // ============================================================
 
-async function dashboardFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function dashboardFetchRaw<T>(path: string, params?: Record<string, string>): Promise<T> {
   if (!API_TOKEN) throw new Error("Dashboard API token not configured");
 
   const url = new URL(path, DASHBOARD_URL);
@@ -171,7 +191,7 @@ async function dashboardFetch<T>(path: string, params?: Record<string, string>):
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${API_TOKEN}` },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(dashboardBreaker.getTimeoutMs()),
   });
 
   if (!res.ok) {
@@ -180,6 +200,11 @@ async function dashboardFetch<T>(path: string, params?: Record<string, string>):
   }
 
   return res.json() as Promise<T>;
+}
+
+/** Dashboard fetch with circuit breaker protection */
+async function dashboardFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
+  return dashboardBreaker.exec(() => dashboardFetchRaw<T>(path, params));
 }
 
 // ============================================================

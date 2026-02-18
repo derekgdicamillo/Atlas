@@ -212,11 +212,23 @@ export function getMetrics(): Metrics & { avgResponseMs: number } {
   };
 }
 
+/**
+ * Optional health check hook for external subsystems (e.g., circuit breakers).
+ * Registered via registerHealthCheck() to avoid circular dependencies.
+ * Each hook returns { issues: string[], degraded: boolean }.
+ */
+type HealthCheckHook = () => { issues: string[]; degraded: boolean };
+const healthCheckHooks: HealthCheckHook[] = [];
+
+/** Register an additional health check (called by getHealthStatus). */
+export function registerHealthCheck(hook: HealthCheckHook): void {
+  healthCheckHooks.push(hook);
+}
+
 export function getHealthStatus(): HealthStatus {
   const issues: string[] = [];
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
-  const thirtyMinAgo = now - 30 * 60 * 1000;
 
   // Check recent errors (within last hour)
   const recentErrorCount = metrics.recentErrors.filter(
@@ -246,6 +258,18 @@ export function getHealthStatus(): HealthStatus {
     issues.push(`${recentErrorCount} errors in the last hour`);
   }
 
+  // Run registered health check hooks (circuit breakers, etc.)
+  let hookDegraded = false;
+  for (const hook of healthCheckHooks) {
+    try {
+      const result = hook();
+      if (result.issues.length > 0) issues.push(...result.issues);
+      if (result.degraded) hookDegraded = true;
+    } catch {
+      // Health check hooks should never crash the health check
+    }
+  }
+
   // Determine status
   let status: "healthy" | "degraded" | "unhealthy" = "healthy";
 
@@ -254,7 +278,7 @@ export function getHealthStatus(): HealthStatus {
     recentErrorCount > 10
   ) {
     status = "unhealthy";
-  } else if (recentErrorCount > 0 || avgMs > 60000) {
+  } else if (recentErrorCount > 0 || avgMs > 60000 || hookDegraded) {
     status = "degraded";
   }
 

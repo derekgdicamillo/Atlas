@@ -1,0 +1,239 @@
+% GLP-1 CME Course — LaTeX Template for Pandoc
+% Designed for XeLaTeX with professional typography
+\documentclass[11pt,letterpaper]{report}
+
+% ── Page geometry ──
+\usepackage[
+  letterpaper,
+  top=1in,
+  bottom=1in,
+  left=1.15in,
+  right=1.15in,
+  headheight=14pt
+]{geometry}
+
+% ── Fonts (XeLaTeX) ──
+\usepackage{fontspec}
+\setmainfont{Cambria}
+\setsansfont{Calibri}
+\setmonofont{Consolas}[Scale=0.9]
+
+% ── Language & typography ──
+\usepackage{polyglossia}
+\setmainlanguage{english}
+\usepackage{microtype}
+\usepackage{csquotes}
+
+% ── Color ──
+\usepackage[dvipsnames,svgnames]{xcolor}
+\definecolor{pvblue}{HTML}{1B4F72}
+\definecolor{pvgray}{HTML}{5D6D7E}
+\definecolor{pvlight}{HTML}{EBF5FB}
+\definecolor{rulecolor}{HTML}{AEB6BF}
+
+% ── Headers and footers ──
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily\color{pvgray}$module-name$}
+\fancyhead[R]{\small\sffamily\color{pvgray}GLP-1 CME Course}
+\fancyfoot[C]{\small\sffamily\color{pvgray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Title page and TOC use plain style
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\small\sffamily\color{pvgray}\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% ── Section formatting ──
+\usepackage{titlesec}
+
+% Chapter = each lesson
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\Huge\bfseries\color{pvblue}}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+
+% Section
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries\color{pvblue}}
+  {\thesection}{0.5em}{}
+\titlespacing*{\section}{0pt}{1.5ex plus 0.5ex}{0.8ex plus 0.2ex}
+
+% Subsection
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries\color{pvblue!80!black}}
+  {\thesubsection}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.3ex}{0.5ex plus 0.1ex}
+
+% Subsubsection
+\titleformat{\subsubsection}
+  {\normalfont\sffamily\normalsize\bfseries\color{pvblue!70!black}}
+  {\thesubsubsection}{0.5em}{}
+
+% ── Table of contents ──
+\usepackage{tocloft}
+\renewcommand{\cftchapfont}{\sffamily\bfseries\color{pvblue}}
+\renewcommand{\cftchappagefont}{\sffamily\bfseries\color{pvblue}}
+\renewcommand{\cftsecfont}{\sffamily}
+\renewcommand{\cftsecpagefont}{\sffamily}
+\setlength{\cftbeforechapskip}{6pt}
+
+% Remove chapter numbering from TOC but keep formatting
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+
+% ── Tables ──
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+
+% Better table defaults
+\renewcommand{\arraystretch}{1.3}
+\arrayrulecolor{rulecolor}
+
+% ── Lists ──
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.5em, itemsep=2pt, parsep=1pt}
+\setlist[enumerate]{leftmargin=1.5em, itemsep=2pt, parsep=1pt}
+\setlist[itemize,1]{label=\textcolor{pvblue}{\textbullet}}
+\setlist[itemize,2]{label=\textcolor{pvgray}{--}}
+
+% ── Code blocks ──
+\usepackage{fancyvrb}
+\usepackage{framed}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{codeborder}{HTML}{D5DBDB}
+
+% Pandoc code highlighting support
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% Redefine Shaded environment for code blocks
+\renewenvironment{Shaded}{
+  \begin{snugshade}
+}{\end{snugshade}}
+\definecolor{shadecolor}{HTML}{F4F6F7}
+
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{
+  commandchars=\\{\},
+  fontsize=\small,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  frame=leftline,
+  framerule=2pt,
+  rulecolor=\color{codeborder}
+}
+
+% ── Links ──
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=pvblue,
+  urlcolor=pvblue!80!black,
+  citecolor=pvblue,
+  pdfauthor={PV MediSpa and Weight Loss},
+  pdftitle={$module-name$},
+  pdfsubject={GLP-1 CME Course},
+  bookmarks=true,
+  bookmarksnumbered=false
+}
+\usepackage{bookmark}
+
+% ── Block quotes ──
+\usepackage{mdframed}
+\renewenvironment{quote}{%
+  \begin{mdframed}[
+    linewidth=3pt,
+    linecolor=pvblue!40,
+    backgroundcolor=pvlight,
+    leftmargin=0pt,
+    rightmargin=0pt,
+    innerleftmargin=12pt,
+    innerrightmargin=12pt,
+    innertopmargin=8pt,
+    innerbottommargin=8pt,
+    skipabove=8pt,
+    skipbelow=8pt
+  ]
+  \itshape\color{pvgray!80!black}
+}{%
+  \end{mdframed}
+}
+
+% ── Paragraph spacing ──
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+
+% ── Pandoc tightlist support ──
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{2pt}\setlength{\parskip}{0pt}}
+
+% ── Prevent overfull hboxes in tables ──
+\usepackage{calc}
+
+% ══════════════════════════════════════════
+% DOCUMENT
+% ══════════════════════════════════════════
+\begin{document}
+
+% ── Title page ──
+\begin{titlepage}
+\newgeometry{top=2.5in, bottom=1.5in, left=1.5in, right=1.5in}
+\begin{center}
+
+{\color{rulecolor}\rule{\linewidth}{1pt}}
+\vspace{0.5cm}
+
+{\fontsize{28}{34}\selectfont\sffamily\bfseries\color{pvblue}%
+$module-name$\par}
+
+\vspace{0.4cm}
+{\color{rulecolor}\rule{\linewidth}{1pt}}
+
+\vspace{1.5cm}
+
+{\Large\sffamily\color{pvgray}GLP-1 Receptor Agonists for Obesity Management}
+
+\vspace{0.3cm}
+
+{\large\sffamily\color{pvgray}A Comprehensive Provider Course}
+
+\vspace{2cm}
+
+$if(lesson-count)$
+{\large\sffamily\color{pvgray}$lesson-count$ Lessons}
+\vspace{0.3cm}
+$endif$
+
+\vfill
+
+{\sffamily\color{pvgray}PV MediSpa and Weight Loss}
+
+\vspace{0.2cm}
+
+{\small\sffamily\color{pvgray}\today}
+
+\end{center}
+\restoregeometry
+\end{titlepage}
+
+% ── Table of contents ──
+\thispagestyle{plain}
+{
+\hypersetup{linkcolor=pvblue}
+\tableofcontents
+}
+\clearpage
+
+% ── Body ──
+$body$
+
+\end{document}

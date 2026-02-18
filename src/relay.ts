@@ -34,6 +34,7 @@ import {
   getTodayClaudeCosts,
 } from "./logger.ts";
 import { DEFAULT_MODEL, type ModelTier } from "./constants.ts";
+import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, acquireSessionLock, sessionKey } from "./claude.ts";
 import {
   loadAgents,
@@ -66,7 +67,7 @@ import {
   ingestDocument,
   getTodayCosts,
 } from "./search.ts";
-import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
 import {
   loadModes,
   resolveMode,
@@ -95,6 +96,15 @@ import {
   getOpsSnapshot,
   formatOpsSnapshot,
   getGHLContext,
+  resolveContact,
+  getConversations,
+  getMessages,
+  getAppointments,
+  listWorkflows,
+  formatConversationMessages,
+  formatAppointments,
+  formatWorkflows,
+  processGHLIntents,
 } from "./ghl.ts";
 import {
   initGBP,
@@ -151,7 +161,23 @@ import {
   formatAttribution,
   getDeepFinancials,
   getFinancialContext,
+  checkDashboardHealth,
 } from "./dashboard.ts";
+import {
+  processGraphIntents,
+  getEntityContext,
+  getGraphContext,
+  browseGraph,
+} from "./graph.ts";
+import {
+  initCarePlan,
+  isCarePlanReady,
+  generateCarePlan,
+  formatCarePlan,
+  formatCarePlanBrief,
+  parsePatientFromText,
+  buildCarePlanPrompt,
+} from "./careplan.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 
@@ -206,17 +232,30 @@ process.on("exit", () => {
     require("fs").unlinkSync(LOCK_FILE);
   } catch {}
 });
-process.on("SIGINT", async () => {
-  stopCronJobs();
-  await saveDedupCache();
-  await releaseLock();
-  process.exit(0);
+process.on("SIGINT", () => gracefulShutdown(0));
+process.on("SIGTERM", () => gracefulShutdown(0));
+
+// Crash safety: catch unhandled rejections and uncaught exceptions.
+// Without these, a rejected promise inside Grammy's polling loop
+// (or any async context) silently kills functionality while pm2
+// reports the process as "online".
+process.on("unhandledRejection", (reason, promise) => {
+  logError("process", `Unhandled rejection: ${reason}`);
+  // If this happens 3+ times in 60s, the process is unstable. Exit and let pm2 restart.
+  unhandledCount++;
+  if (unhandledCount >= 3) {
+    logError("process", `${unhandledCount} unhandled rejections in window. Exiting for pm2 restart.`);
+    gracefulShutdown(1);
+    return;
+  }
+  setTimeout(() => { unhandledCount = Math.max(0, unhandledCount - 1); }, 60_000);
 });
-process.on("SIGTERM", async () => {
-  stopCronJobs();
-  await saveDedupCache();
-  await releaseLock();
-  process.exit(0);
+let unhandledCount = 0;
+
+process.on("uncaughtException", (err) => {
+  logError("process", `Uncaught exception: ${err.message}\n${err.stack}`);
+  // Uncaught exceptions are always fatal. Graceful shutdown commits the polling offset.
+  gracefulShutdown(1);
 });
 
 // ============================================================
@@ -307,6 +346,12 @@ if (derekOAuth && initGA4(derekOAuth)) {
 loadModes(PROJECT_ROOT);
 info("startup", "Mode system loaded");
 
+// Initialize Care Plan module (loads knowledge base)
+initCarePlan().then((ready) => {
+  if (ready) info("startup", "Care plan module initialized");
+  else warn("startup", "Care plan module failed to initialize");
+});
+
 async function saveMessage(
   role: string,
   content: string,
@@ -344,6 +389,41 @@ if (!(await acquireLock())) {
 }
 
 const bot = new Bot(BOT_TOKEN);
+
+// ============================================================
+// GRACEFUL SHUTDOWN
+// ============================================================
+let isShuttingDown = false;
+
+/**
+ * Gracefully stop Grammy, cron jobs, and caches before exiting.
+ * Calling bot.stop() tells Grammy to acknowledge processed updates
+ * to Telegram (commits the offset) and cleanly close the polling
+ * connection. Without this, Telegram keeps the old connection open
+ * for ~30-40s, causing 409 conflicts or silent stalls on restart.
+ */
+async function gracefulShutdown(exitCode: number): Promise<never> {
+  if (isShuttingDown) process.exit(exitCode); // prevent re-entry
+  isShuttingDown = true;
+
+  // Hard deadline: if bot.stop() hangs, force exit after 5s
+  const forceExit = setTimeout(() => {
+    warn("shutdown", "Graceful shutdown timed out after 5s. Forcing exit.");
+    process.exit(exitCode);
+  }, 5_000);
+  forceExit.unref(); // don't keep process alive just for this timer
+
+  try {
+    stopCronJobs();
+    await killAllRunningSubagents("Atlas process shutting down").catch(() => {});
+    await saveDedupCache();
+    await bot.stop();
+  } catch (e) {
+    warn("shutdown", `Error during graceful stop: ${e}`);
+  }
+  await releaseLock().catch(() => {});
+  process.exit(exitCode);
+}
 
 // ============================================================
 // SECURITY: Route to authorized agents
@@ -394,6 +474,13 @@ const DEDUP_WINDOW_MS = 300_000; // 5 minutes (covers long CLI processing cycles
 // Context provider cache: avoids re-fetching slow external APIs on rapid successive messages.
 // 5 min TTL. Entries: { value: string, ts: number }
 const contextCache: Map<string, { value: string; ts: number }> = new Map();
+
+// Circuit breaker: when multiple context sources timeout simultaneously, skip external
+// fetches for a cooldown period. This prevents hammering dead APIs and wasting 25s per message.
+let contextCircuitOpen = false;
+let contextCircuitOpenedAt = 0;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 60_000; // skip external context for 60s after cascade failure
+const CIRCUIT_BREAKER_THRESHOLD = 4; // trip if 4+ sources timeout in a single fetch
 
 function isDuplicate(userId: string, text: string): boolean {
   const key = `${userId}:${text.substring(0, 200)}`;
@@ -487,6 +574,54 @@ function isStaleUpdate(updateId: number): boolean {
 }
 
 // ============================================================
+// POLLING WATCHDOG (detect silent Grammy polling death)
+// ============================================================
+// Grammy's long-polling can silently stall if the TCP connection drops
+// or Telegram's API becomes unresponsive. The process stays "online" in
+// pm2 but stops receiving updates. This watchdog detects the stall and
+// forces a process restart.
+
+let lastUpdateReceivedAt = Date.now();
+let pollingWatchdogTimer: ReturnType<typeof setInterval> | null = null;
+
+// How long without any Telegram update before we suspect a stall.
+// Grammy's long poll returns every 30s even with no messages, so 5 minutes
+// without ANY update (including empty polls) is a strong signal of a stall.
+const WATCHDOG_STALE_THRESHOLD_MS = 5 * 60_000;
+// How often to check.
+const WATCHDOG_CHECK_INTERVAL_MS = 60_000;
+
+/** Called from every message handler to reset the watchdog timer. */
+function touchPollingWatchdog(): void {
+  lastUpdateReceivedAt = Date.now();
+}
+
+/** Start the polling watchdog. Call after bot.start() succeeds. */
+function startPollingWatchdog(bot: Bot): void {
+  if (pollingWatchdogTimer) return;
+
+  pollingWatchdogTimer = setInterval(async () => {
+    const silentMs = Date.now() - lastUpdateReceivedAt;
+    if (silentMs < WATCHDOG_STALE_THRESHOLD_MS) return;
+
+    // Polling may have stalled. Verify by pinging Telegram's API.
+    try {
+      const me = await bot.api.getMe();
+      if (me?.id) {
+        // Telegram API is reachable but no updates received. Polling is dead.
+        logError("watchdog", `No Telegram updates for ${Math.round(silentMs / 1000)}s but getMe() succeeded. Polling loop is stalled. Restarting.`);
+        gracefulShutdown(1); // bot.stop() commits offset + closes polling socket cleanly
+      }
+    } catch (err) {
+      // getMe() failed. Telegram API might be down. Don't restart yet.
+      // Reset timer to avoid repeated restarts during Telegram outages.
+      warn("watchdog", `No updates for ${Math.round(silentMs / 1000)}s and getMe() failed: ${err}. Assuming Telegram outage, waiting.`);
+      lastUpdateReceivedAt = Date.now(); // reset to re-check later
+    }
+  }, WATCHDOG_CHECK_INTERVAL_MS);
+}
+
+// ============================================================
 // ADMIN COMMANDS (intercepted before Claude)
 // ============================================================
 
@@ -504,18 +639,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
     case "/restart": {
       await ctx.reply("Restarting in 2 seconds...");
       info("command", `Restart requested by ${userId}`);
-      // Gracefully stop the bot so grammy acknowledges processed updates
-      // to Telegram (commits the offset). Without this, Telegram re-delivers
-      // all pending messages on restart, including /restart itself, causing
-      // an infinite restart loop.
-      try {
-        stopCronJobs();
-        await saveDedupCache();
-        await bot.stop();
-      } catch (e) {
-        warn("command", `Error during graceful stop: ${e}`);
-      }
-      setTimeout(() => process.exit(0), 1000);
+      gracefulShutdown(0);
       return true;
     }
 
@@ -527,11 +651,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const uptimeM = Math.floor((uptimeMs % 3_600_000) / 60_000);
       const avgSec = m.avgResponseMs > 0 ? (m.avgResponseMs / 1000).toFixed(1) : "n/a";
 
+      const pollingSilentSec = Math.round((Date.now() - lastUpdateReceivedAt) / 1000);
+      const pollingStatus = pollingSilentSec < 120 ? "OK" : `${pollingSilentSec}s silent`;
+
       const lines = [
         `${h.status === "healthy" ? "OK" : h.status.toUpperCase()} | Uptime: ${uptimeH}h ${uptimeM}m`,
         `Messages: ${m.messageCount} | Claude calls: ${m.claudeCallCount}`,
         `Timeouts: ${m.claudeTimeoutCount} | Errors: ${m.errorCount}`,
         `Avg response: ${avgSec}s`,
+        `Polling: ${pollingStatus}`,
       ];
 
       // Search cost tracking (if available)
@@ -540,6 +668,16 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         lines.push(
           `Search: $${costs.totalCostUsd.toFixed(4)} today (${costs.embeddings} embeds, ${costs.searches} searches)`
         );
+      }
+
+      // Circuit breaker status
+      const breakerStats = getAllBreakerStats();
+      const openBreakers = breakerStats.filter((b) => b.state === "open");
+      if (openBreakers.length > 0) {
+        lines.push("", "Circuit breakers OPEN:");
+        for (const b of openBreakers) {
+          lines.push(`  ${b.name}: ${b.lastError?.substring(0, 60) || "unknown error"}`);
+        }
       }
 
       if (h.issues.length > 0) {
@@ -933,6 +1071,106 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/messages":
+    case "/sms": {
+      if (!isGHLReady()) {
+        await ctx.reply("GoHighLevel not configured.");
+        return true;
+      }
+      const nameQuery = text.replace(/^\/(messages|sms)\s*/i, "").trim();
+      if (!nameQuery) {
+        await ctx.reply("Usage: /messages <contact name>");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const { contact, candidates } = await resolveContact(nameQuery);
+        if (!contact) {
+          const hint = candidates.length > 0
+            ? `Did you mean: ${candidates.map(c => `${c.firstName || ""} ${c.lastName || ""}`.trim()).join(", ")}?`
+            : "No contacts found.";
+          await ctx.reply(hint);
+          return true;
+        }
+        const convos = await getConversations(contact.id);
+        if (convos.length === 0) {
+          await ctx.reply(`No conversations found for ${contact.firstName} ${contact.lastName}.`);
+          return true;
+        }
+        const messages = await getMessages(convos[0].id, 15);
+        const name = `${contact.firstName || ""} ${contact.lastName || ""}`.trim();
+        await ctx.reply(formatConversationMessages(messages, name));
+      } catch (err) {
+        logError("ghl", `Messages command failed: ${err}`);
+        await ctx.reply(`Failed to fetch messages: ${err}`);
+      }
+      return true;
+    }
+
+    case "/appointments":
+    case "/appts": {
+      if (!isGHLReady()) {
+        await ctx.reply("GoHighLevel not configured.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const days = parseInt(args[0]) || 7;
+        const appts = await getAppointments({ days });
+        await ctx.reply(formatAppointments(appts, `(next ${days} days)`));
+      } catch (err) {
+        logError("ghl", `Appointments command failed: ${err}`);
+        await ctx.reply(`Failed to fetch appointments: ${err}`);
+      }
+      return true;
+    }
+
+    case "/workflows": {
+      if (!isGHLReady()) {
+        await ctx.reply("GoHighLevel not configured.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const wfs = await listWorkflows();
+        const published = wfs.filter(w => w.status === "published");
+        await ctx.reply(formatWorkflows(published));
+      } catch (err) {
+        logError("ghl", `Workflows command failed: ${err}`);
+        await ctx.reply(`Failed to fetch workflows: ${err}`);
+      }
+      return true;
+    }
+
+    case "/graph": {
+      const hasGraphFlag = agent?.config.features.graph ?? false;
+      if (!hasGraphFlag || !supabase) {
+        await ctx.reply("Graph memory not enabled. Set graph: true in agents.json.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const sub = args[0];
+        let result: string;
+
+        if (sub === "search" && args[1]) {
+          result = await browseGraph(supabase, { search: args.slice(1).join(" ") });
+        } else if (["person", "org", "program", "tool", "concept", "location"].includes(sub)) {
+          result = await browseGraph(supabase, { type: sub });
+        } else {
+          result = await browseGraph(supabase);
+          result += "\n\nUsage: /graph [person|org|tool|concept|search <term>]";
+        }
+
+        if (result.length > 4000) result = result.substring(0, 3997) + "...";
+        await ctx.reply(result);
+      } catch (err) {
+        logError("graph", `Graph command failed: ${err}`);
+        await ctx.reply(`Failed to browse graph: ${err}`);
+      }
+      return true;
+    }
+
     case "/reviews": {
       if (!isGBPReady()) {
         await ctx.reply("Google Business Profile not configured. Add GBP_ACCOUNT_ID and GBP_LOCATION_ID to .env.");
@@ -1088,6 +1326,79 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/careplan": {
+      const hasCarePlan = agent?.config.features.careplan ?? false;
+      if (!hasCarePlan) {
+        await ctx.reply("Care plan feature not enabled. Set careplan: true in agents.json.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const sub = args[0]?.toLowerCase();
+        if (!sub || sub === "help") {
+          await ctx.reply(
+            "Care Plan Generator - GLP-1 Weight Management\n\n" +
+            "Usage:\n" +
+            "/careplan <paste patient data> - generate care plan from measurements + provider note\n" +
+            "/careplan demo - run with mock patient data\n\n" +
+            "Paste body comp measurements, labs, and provider notes. The system will:\n" +
+            "1. Analyze composition trends\n" +
+            "2. Map to 5-Pillar framework\n" +
+            "3. Recommend adjunct therapies\n" +
+            "4. Generate side effect management\n" +
+            "5. Build escalation pathway\n\n" +
+            "Tip: Include previous measurements in parentheses for trend analysis."
+          );
+          return true;
+        }
+
+        // Parse the full message text (not lowercased args) for patient data
+        const rawInput = text.replace(/^\/careplan\s*/i, "").trim();
+
+        let patient;
+        if (sub === "demo") {
+          // Demo patient for testing
+          patient = parsePatientFromText(
+            "Thigh: 30.0 (31.0) Hips: 52.0 (55.0) Waist: 47.25 (46.5) Arm: 15 (16) " +
+            "BMI: 39.3 (41.6) Body Fat %: 52.7 (53.3) Muscle Mass%: 21.1 (21.1) Visceral Fat: 11 (11) " +
+            "Insulin: 6.3 down from 20.4 at baseline. Protein: 7.1. Albumin: 4.4. AST/ALT: 10 down from 17. " +
+            "GLP-1 therapy semaglutide 100 units. Insulin resistance. " +
+            "Vitamin D3 with K2 currently taking. " +
+            "Appetite suppressed. Weight lost approximately 4 pounds over the past month. " +
+            "patient is having difficulty with seeing weight loss"
+          );
+        } else {
+          patient = parsePatientFromText(rawInput);
+        }
+
+        const plan = await generateCarePlan(patient);
+        const formatted = formatCarePlan(plan);
+
+        // Split into chunks for Telegram (4096 char limit)
+        const chunks: string[] = [];
+        let current = "";
+        for (const line of formatted.split("\n")) {
+          if (current.length + line.length + 1 > 3900) {
+            chunks.push(current);
+            current = line;
+          } else {
+            current += (current ? "\n" : "") + line;
+          }
+        }
+        if (current) chunks.push(current);
+
+        for (const chunk of chunks) {
+          await ctx.reply(chunk);
+        }
+
+        info("careplan", `Care plan generated for ${patient.name || "unnamed"} with ${plan.adjunctTherapies.length} adjunct recs`);
+      } catch (err) {
+        logError("careplan", `Care plan command failed: ${err}`);
+        await ctx.reply(`Failed to generate care plan: ${err}`);
+      }
+      return true;
+    }
+
     case "/social": {
       const key = sessionKey(agentId, userId);
       const { modeName } = setMode(key, "social");
@@ -1169,6 +1480,10 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/leads [week|month|quarter] - lead overview + attribution by source\n" +
         "/stl [week|month|quarter] - speed to lead metrics\n" +
         "/ops - live operations dashboard (pipeline, no-shows, stale leads)\n" +
+        "/messages <name> - read recent SMS/email threads for a contact\n" +
+        "/appointments [days] - upcoming appointments (default 7 days)\n" +
+        "/workflows - list published GHL workflows\n" +
+        "/graph [type|search <term>] - browse entity relationships\n" +
         "\nMarketing Intelligence:\n" +
         "/reviews - Google reviews summary + ratings\n" +
         "/visibility [7|14|30] - GBP impressions, clicks, calls, keywords\n" +
@@ -1181,6 +1496,9 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/weekly - comprehensive weekly executive summary\n" +
         "\nCode Agent:\n" +
         "/code <dir> <task> - spawn autonomous coding agent\n" +
+        "\nClinical:\n" +
+        "/careplan <data> - generate 5-pillar care plan from patient data\n" +
+        "/careplan demo - run with mock patient\n" +
         "\nContent modes:\n" +
         "/social - social media content & strategy\n" +
         "/marketing - ads, funnels, campaigns\n" +
@@ -1266,6 +1584,196 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
 }
 
 // ============================================================
+// INTENT CLASSIFICATION + CONTEXT BUDGET (prompt optimization)
+// ============================================================
+
+/**
+ * Intent flags determine which context sources and instruction blocks
+ * get injected into the prompt. This prevents bloating every message
+ * with 50K+ chars of irrelevant context.
+ *
+ * Cost impact: casual messages drop from ~55K chars to ~8-12K chars,
+ * saving ~40-60% on token costs.
+ */
+interface MessageIntent {
+  /** User is asking about business metrics, revenue, P&L, costs */
+  financial: boolean;
+  /** User is asking about pipeline, leads, patients, ops, no-shows */
+  pipeline: boolean;
+  /** User is asking about email, calendar, contacts, scheduling */
+  google: boolean;
+  /** User is asking about reviews, visibility, SEO, GBP */
+  reputation: boolean;
+  /** User is asking about website traffic, conversions, analytics */
+  analytics: boolean;
+  /** User is asking about ads, marketing spend, campaigns, content */
+  marketing: boolean;
+  /** User is requesting code work, builds, debugging, project changes */
+  coding: boolean;
+  /** User is introducing new people, orgs, concepts worth graphing */
+  graphWorthy: boolean;
+  /** User is delegating or requesting background research */
+  taskDelegation: boolean;
+  /** User mentions tasks, to-dos, action items */
+  todos: boolean;
+  /** Simple casual conversation (greetings, chit-chat, opinions) */
+  casual: boolean;
+}
+
+/** Keyword patterns for intent classification */
+const INTENT_PATTERNS = {
+  financial: /\b(financ|revenue|profit|cost|money|spend|budget|p&l|cash|margin|cogs|expense|invoice|quickbooks|roi|roas|cac|unit econom)/i,
+  pipeline: /\b(pipeline|lead[s]?|patient[s]?|consult|no.?show|close rate|funnel|stage|won|lost|stale|speed.?to.?lead|ops|ghl|gohighlevel|operation|sms|message thread|conversation[s]?|appointment[s]?|workflow[s]?|note[s]? for|tag[s]? (?:on|for))/i,
+  google: /\b(email|inbox|gmail|calendar|schedule|meeting|invite|send (?:email|message|an email)|draft|contact[s]?|esther)\b/i,
+  reputation: /\b(review[s]?|rating|star[s]?|gbp|google business|visibility|impression|reputation)/i,
+  analytics: /\b(traffic|session[s]?|bounce|conversion|ga4|analytics|website|landing page|click|visitor)/i,
+  marketing: /\b(ad[s]?\b|campaign|creative|ctr|cpl|cpa|meta ads|facebook|social|content|post|market|funnel|hook|headline|copy)/i,
+  coding: /\b(build|fix.?(?:bug|code|error|issue)|implement|refactor|debug|deploy|code (?:agent|task)|codebase|bug|feature request|test(?:s| suite| fail| pass)|endpoint|api (?:error|endpoint|call)|crash(?:ed|ing|es)|atlas (?:code|project|src|fix)|pv.?dashboard|openclaw)\b/i,
+  graphWorthy: /\b(meet|introduce|hire|partner|vendor|client|work with|new (?:person|team|company|tool|program))/i,
+  taskDelegation: /\b(research|analyze|deep dive|compare|investigate|background|delegate|subagent|find out|look into)/i,
+  todos: /\b(todo|to.?do list|task list|remind me|action item|don't forget|checklist|add.?(?:to|a) (?:task|todo|list))\b/i,
+};
+
+/** Casual message heuristic: short + no strong intent signals */
+const CASUAL_MAX_LENGTH = 120;
+
+function classifyIntent(messages: PendingMessage[], activeMode: string | null): MessageIntent {
+  const combined = messages.map((m) => m.text).join(" ");
+
+  const intent: MessageIntent = {
+    financial: INTENT_PATTERNS.financial.test(combined),
+    pipeline: INTENT_PATTERNS.pipeline.test(combined),
+    google: INTENT_PATTERNS.google.test(combined),
+    reputation: INTENT_PATTERNS.reputation.test(combined),
+    analytics: INTENT_PATTERNS.analytics.test(combined),
+    marketing: INTENT_PATTERNS.marketing.test(combined),
+    coding: INTENT_PATTERNS.coding.test(combined),
+    graphWorthy: INTENT_PATTERNS.graphWorthy.test(combined),
+    taskDelegation: INTENT_PATTERNS.taskDelegation.test(combined),
+    todos: INTENT_PATTERNS.todos.test(combined),
+    casual: false,
+  };
+
+  // Mode context: if a mode is active, auto-enable its related intents
+  if (activeMode === "marketing" || activeMode === "social") {
+    intent.marketing = true;
+  }
+  if (activeMode === "skool") {
+    intent.marketing = true; // Skool content often references metrics
+  }
+
+  // Casual detection: no strong intent + short message
+  const hasAnyIntent = intent.financial || intent.pipeline || intent.google ||
+    intent.reputation || intent.analytics || intent.marketing ||
+    intent.coding || intent.taskDelegation || intent.todos;
+
+  if (!hasAnyIntent && combined.length <= CASUAL_MAX_LENGTH) {
+    intent.casual = true;
+  }
+
+  return intent;
+}
+
+/**
+ * Determine which context sources to fetch based on intent.
+ * Returns a set of source names that should be fetched.
+ * This runs BEFORE the Promise.all to avoid fetching irrelevant sources.
+ */
+interface ContextPlan {
+  /** Always fetch these */
+  memory: boolean;
+  search: boolean;
+  conversation: boolean;
+  /** Conditionally fetch based on intent */
+  todos: boolean;
+  google: boolean;
+  dashboard: boolean;
+  ghl: boolean;
+  financials: boolean;
+  gbp: boolean;
+  ga4: boolean;
+  graph: boolean;
+  entitySearch: boolean;
+}
+
+function planContextSources(
+  intent: MessageIntent,
+  features: {
+    memory: boolean;
+    todos: boolean;
+    google: boolean;
+    dashboard: boolean;
+    ghl: boolean;
+    search: boolean;
+    graph: boolean;
+    gbp: boolean;
+    ga4: boolean;
+  }
+): ContextPlan {
+  // Gate search behind meaningful intent. Short follow-ups ("yes", "ok", "do it")
+  // don't benefit from vector search and waste an embedding call.
+  const hasSubstantiveIntent = intent.financial || intent.pipeline || intent.google ||
+    intent.reputation || intent.analytics || intent.marketing ||
+    intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy;
+
+  return {
+    // Memory facts/goals: cached (see cachedContext), cheap to include when non-casual
+    memory: features.memory && !intent.casual,
+    // Search: only for substantive queries (skip "yes", "ok", "thanks", short follow-ups)
+    search: features.search && features.memory && hasSubstantiveIntent,
+    conversation: true,
+
+    // Conditional sources: only fetch when relevant intent detected
+    todos: features.todos && (intent.todos || intent.coding || intent.taskDelegation),
+    google: features.google && intent.google,
+    dashboard: features.dashboard && (intent.financial || intent.pipeline || intent.marketing || intent.taskDelegation),
+    ghl: features.ghl && (intent.pipeline || intent.financial),
+    financials: features.dashboard && (intent.financial || intent.marketing),
+    gbp: features.gbp && (intent.reputation || intent.marketing || intent.analytics),
+    ga4: features.ga4 && (intent.analytics || intent.marketing || intent.reputation),
+    graph: features.graph && !intent.casual,
+    entitySearch: features.graph && (intent.graphWorthy || intent.pipeline || intent.google),
+  };
+}
+
+/**
+ * Hard character budget for prompts. Priority-based assembly ensures
+ * we never exceed this even if all sources return maximum content.
+ *
+ * 25K chars ~ 6K tokens. Plenty for any response, keeps costs sane.
+ * At opus pricing ($15/MTok input), 6K tokens = $0.09/message input cost.
+ * Compare to unbounded 55K chars (14K tokens) = $0.21/message.
+ */
+const MAX_PROMPT_CHARS = 25_000;
+
+/**
+ * Estimate char count of a section. Used for budget tracking.
+ * ~4 chars per token is the standard rough estimate.
+ */
+function charCount(text: string | undefined): number {
+  return text?.length || 0;
+}
+
+/**
+ * Trim text to fit a character budget. Tries to cut at paragraph or
+ * sentence boundary. Returns the trimmed text.
+ */
+function trimToFit(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  // Try paragraph break
+  let cut = text.lastIndexOf("\n\n", maxChars);
+  if (cut < maxChars * 0.5) {
+    // Try sentence break
+    cut = text.lastIndexOf(". ", maxChars);
+  }
+  if (cut < maxChars * 0.3) {
+    // Hard cut
+    cut = maxChars;
+  }
+  return text.substring(0, cut) + "\n[...trimmed for budget]";
+}
+
+// ============================================================
 // PRE-PROMPT DIAGNOSTICS (OpenClaw #8930)
 // ============================================================
 
@@ -1348,33 +1856,69 @@ async function handleUserMessage(
     // 5. Drain ALL accumulated messages (ours + any that arrived while waiting)
     const pending = drain(key);
 
-    // 6. Gather FRESH context now (after lock, guaranteed up-to-date)
-    //    Tiered timeout: fast local sources (5s), medium Supabase (12s), slow external APIs (25s).
-    //    All tiers run in parallel. Fast sources resolve immediately while slow ones keep working.
+    // 6. Resolve mode FIRST (needed for intent classification)
+    const combinedText = pending.map((m) => m.text).join(" ");
+    const modeResult = resolveMode(key, combinedText);
+    if (modeResult.switched && modeResult.modeName) {
+      ctx.reply(`[${modeResult.modeName} mode activated]`).catch(() => {});
+    }
+
+    // 6a. Classify intent to determine which context sources to fetch.
+    //     This is the key optimization: casual messages skip expensive API calls entirely.
+    const activeMode = getActiveMode(key);
+    const intent = classifyIntent(pending, activeMode);
+
+    const featureFlags = {
+      memory: hasMemory,
+      todos: hasTodos,
+      google: hasGoogle,
+      dashboard: hasDashboard,
+      ghl: hasGHL,
+      search: hasSearch,
+      graph: agent?.config.features.graph ?? false,
+      gbp: isGBPReady(),
+      ga4: isGA4Ready(),
+    };
+    const contextPlan = planContextSources(intent, featureFlags);
+
+    const intentFlags = Object.entries(intent).filter(([, v]) => v).map(([k]) => k).join(",");
+    const skippedSources = Object.entries(contextPlan).filter(([, v]) => !v).map(([k]) => k).join(",");
+    info("trace", `[${traceId}] intent=[${intentFlags}] skipped=[${skippedSources}]`);
+
+    // 6b. Gather FRESH context now (after lock, guaranteed up-to-date)
+    //     Only fetch sources identified by the context plan.
+    //     Tiered timeouts: fast local (5s), medium Supabase (12s), slow external APIs (25s).
     const searchQuery = pending.map((m) => m.text).join(" ");
 
+    // Circuit breaker: if open, check if cooldown has elapsed
+    if (contextCircuitOpen && Date.now() - contextCircuitOpenedAt > CIRCUIT_BREAKER_COOLDOWN_MS) {
+      contextCircuitOpen = false;
+      info("context", "Circuit breaker reset, resuming external context fetches");
+    }
+
+    let timeoutCount = 0;
     function withTimeout<T>(promise: Promise<T>, fallback: T, label: string, timeoutMs: number): Promise<T> {
+      let timer: ReturnType<typeof setTimeout>;
       return Promise.race([
-        promise.catch((err) => {
-          warn("context", `${label} failed: ${err}`);
-          return fallback;
-        }),
-        new Promise<T>((resolve) =>
-          setTimeout(() => {
+        promise
+          .catch((err) => {
+            warn("context", `${label} failed: ${err}`);
+            return fallback;
+          })
+          .finally(() => clearTimeout(timer)),
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => {
+            timeoutCount++;
             warn("context", `${label} timed out after ${timeoutMs / 1000}s`);
             resolve(fallback);
-          }, timeoutMs)
-        ),
+          }, timeoutMs);
+        }),
       ]);
     }
 
-    // Timeout tiers: local/file (5s), Supabase (12s), external APIs (25s)
     const FAST_MS = 5_000;
     const MEDIUM_MS = 12_000;
     const SLOW_MS = 25_000;
-
-    const hasGBP = isGBPReady();
-    const hasGA4 = isGA4Ready();
 
     // Cache slow external context providers (5 min TTL). These don't change per-message.
     function cachedContext(label: string, fn: () => Promise<string>, ttlMs = 300_000): Promise<string> {
@@ -1387,51 +1931,81 @@ async function handleUserMessage(
       });
     }
 
-    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context] = await Promise.all([
-      withTimeout(hasMemory ? getRelevantContext(supabase, searchQuery, hasSearch) : Promise.resolve(""), "", "search", MEDIUM_MS),
-      withTimeout(hasMemory ? getMemoryContext(supabase) : Promise.resolve(""), "", "memory", MEDIUM_MS),
-      withTimeout(hasTodos ? getTodoContext() : Promise.resolve(""), "", "todos", FAST_MS),
-      withTimeout(hasGoogle ? cachedContext("google", getGoogleContext) : Promise.resolve(""), "", "google", SLOW_MS),
-      withTimeout(hasDashboard ? cachedContext("dashboard", getDashboardContext) : Promise.resolve(""), "", "dashboard", SLOW_MS),
-      withTimeout(hasGHL ? cachedContext("ghl", getGHLContext) : Promise.resolve(""), "", "ghl", SLOW_MS),
-      withTimeout(hasDashboard ? cachedContext("financials", getFinancialContext) : Promise.resolve(""), "", "financials", SLOW_MS),
-      withTimeout(hasGBP ? cachedContext("gbp", getGBPContext) : Promise.resolve(""), "", "gbp", SLOW_MS),
-      withTimeout(hasGA4 ? cachedContext("ga4", getGA4Context) : Promise.resolve(""), "", "ga4", SLOW_MS),
-    ]);
-
-    // 6b. Resolve mode (auto-detect from message content or use existing)
-    const combinedText = pending.map((m) => m.text).join(" ");
-    const modeResult = resolveMode(key, combinedText);
-    if (modeResult.switched && modeResult.modeName) {
-      // Notify user of mode switch (non-blocking)
-      ctx.reply(`[${modeResult.modeName} mode activated]`).catch(() => {});
+    // When circuit breaker is open, skip slow external fetches (use cache or empty)
+    const skipExternal = contextCircuitOpen;
+    if (skipExternal) {
+      info("context", "Circuit breaker open, skipping slow external context fetches");
     }
 
-    // 7. Get conversation history from ring buffer (exclude current turn's messages to avoid duplication)
-    const conversationContext = await formatForPrompt(key, pending.length);
+    // Fetch only planned sources (unplanned sources resolve as empty string immediately)
+    // Circuit breaker skips SLOW tier (external APIs) but still fetches FAST/MEDIUM (local + Supabase)
+    // Memory (5min) + graph (15min) are cached since they change infrequently.
+    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext] = await Promise.all([
+      contextPlan.search   ? withTimeout(getRelevantContext(supabase, searchQuery, hasSearch), "", "search", MEDIUM_MS)  : Promise.resolve(""),
+      contextPlan.memory   ? withTimeout(cachedContext("memory", () => getMemoryContext(supabase), 300_000), "", "memory", MEDIUM_MS) : Promise.resolve(""),
+      contextPlan.todos    ? withTimeout(getTodoContext(), "", "todos", FAST_MS)                                         : Promise.resolve(""),
+      contextPlan.google && !skipExternal   ? withTimeout(cachedContext("google", getGoogleContext), "", "google", SLOW_MS)               : Promise.resolve(contextCache.get("google")?.value || ""),
+      contextPlan.dashboard && !skipExternal ? withTimeout(cachedContext("dashboard", getDashboardContext), "", "dashboard", SLOW_MS)     : Promise.resolve(contextCache.get("dashboard")?.value || ""),
+      contextPlan.ghl && !skipExternal       ? withTimeout(cachedContext("ghl", getGHLContext), "", "ghl", SLOW_MS)                        : Promise.resolve(contextCache.get("ghl")?.value || ""),
+      contextPlan.financials && !skipExternal ? withTimeout(cachedContext("financials", getFinancialContext), "", "financials", SLOW_MS)   : Promise.resolve(contextCache.get("financials")?.value || ""),
+      contextPlan.gbp && !skipExternal       ? withTimeout(cachedContext("gbp", getGBPContext), "", "gbp", SLOW_MS)                        : Promise.resolve(contextCache.get("gbp")?.value || ""),
+      contextPlan.ga4 && !skipExternal       ? withTimeout(cachedContext("ga4", getGA4Context), "", "ga4", SLOW_MS)                        : Promise.resolve(contextCache.get("ga4")?.value || ""),
+      contextPlan.graph    ? withTimeout(cachedContext("graph", () => getGraphContext(supabase), 900_000), "", "graph", MEDIUM_MS) : Promise.resolve(""),
+      contextPlan.entitySearch ? withTimeout(getEntityContext(supabase, searchQuery), "", "entity-search", MEDIUM_MS)    : Promise.resolve(""),
+    ]);
+
+    // Trip circuit breaker if too many sources timed out (network-level issue)
+    if (timeoutCount >= CIRCUIT_BREAKER_THRESHOLD && !contextCircuitOpen) {
+      contextCircuitOpen = true;
+      contextCircuitOpenedAt = Date.now();
+      warn("context", `Circuit breaker tripped: ${timeoutCount} sources timed out. Skipping external fetches for ${CIRCUIT_BREAKER_COOLDOWN_MS / 1000}s`);
+    }
+
+    // 7. Determine resume BEFORE building prompt (affects conversation buffer inclusion)
+    const session = await getSession(agentId, userId);
+    const shouldResume = hasResume && !intent.casual;
+    if (hasResume && intent.casual) {
+      info("trace", `[${traceId}] Skipping session resume for casual message(s): "${pending.map(m => m.text).join(" | ").substring(0, 80)}"`);
+    }
+
+    // 7b. Get conversation history from ring buffer.
+    //     When resuming a session, Claude already has recent turns in session state.
+    //     Skip the ring buffer to avoid duplicating 3-8K chars of conversation.
+    const conversationContext = shouldResume && session.sessionId
+      ? "" // Session already carries conversation context
+      : await formatForPrompt(key, pending.length);
+
+    if (shouldResume && session.sessionId) {
+      info("trace", `[${traceId}] Skipping conversation buffer injection (session ${session.sessionId} has history)`);
+    }
 
     // 8. Build prompt with fresh context + conversation history + accumulated messages
+    //    Now uses intent classification and hard character budget.
     const enrichedPrompt = buildPrompt(
       pending,
       agent,
-      relevantContext,
-      memoryContext,
-      todoContext,
-      googleContext,
-      conversationContext,
-      modeResult.modePrompt,
-      dashboardContext,
-      ghlContext,
-      financialContext,
-      gbpContext,
-      ga4Context
+      intent,
+      {
+        relevantContext,
+        memoryContext,
+        todoContext,
+        googleContext,
+        conversationContext,
+        modePrompt: modeResult.modePrompt,
+        dashboardContext,
+        ghlContext,
+        financialContext,
+        gbpContext,
+        ga4Context,
+        graphContext,
+        entityContext,
+      }
     );
-    const session = await getSession(agentId, userId);
-    logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, hasResume && !!session.sessionId, traceId);
+    logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, shouldResume && !!session.sessionId, traceId);
 
     // 9. Call Claude (skipLock since we already hold it)
     const rawResponse = await callClaude(enrichedPrompt, {
-      resume: hasResume,
+      resume: shouldResume,
       model: agentModel,
       agentId,
       userId,
@@ -1449,13 +2023,26 @@ async function handleUserMessage(
       });
     }
 
-    // 11. Post-process (memory intents, google intents)
+    // 11. Post-process (memory intents, graph intents, google intents)
+    // Tag recovery: capture any incomplete (unclosed) tags before they're lost
+    let preProcessed = await captureIncompleteTags(rawResponse);
+    // Recover any pending tags from previous session rollovers
+    preProcessed = await recoverPendingTags(preProcessed);
+
     let response = hasMemory
-      ? await processMemoryIntents(supabase, rawResponse)
-      : rawResponse;
+      ? await processMemoryIntents(supabase, preProcessed)
+      : preProcessed;
+
+    if (featureFlags.graph) {
+      response = await processGraphIntents(supabase, response);
+    }
 
     if (hasGoogle) {
       response = await processGoogleIntents(response);
+    }
+
+    if (featureFlags.ghl) {
+      response = await processGHLIntents(response);
     }
 
     // Process background task delegations
@@ -1484,6 +2071,23 @@ async function handleUserMessage(
       },
     );
 
+    // 11b. Tag recovery: all tags processed successfully, clear pending queue
+    await confirmTagRecovery();
+
+    // 11c. Clear session after task delegation (prevents stale session hijacking follow-up messages)
+    const taskWasSpawned = response.includes("Background task started:") || response.includes("[Code]");
+    if (taskWasSpawned) {
+      const session = await getSession(agentId, userId);
+      if (session.sessionId) {
+        const oldSid = session.sessionId;
+        info("trace", `[${traceId}] Clearing session ${oldSid} after task delegation (next message starts fresh)`);
+        archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
+        session.sessionId = null;
+        session.lastActivity = new Date().toISOString();
+        await saveSessionState(agentId, userId, session);
+      }
+    }
+
     // 12. Quality gate: catch degenerate responses before delivery
     const qualityIssue = checkResponseQuality(response, pending);
     if (qualityIssue) {
@@ -1507,6 +2111,13 @@ async function handleUserMessage(
 // ============================================================
 // MESSAGE HANDLERS (thin wrappers around handleUserMessage)
 // ============================================================
+
+// Middleware: reset polling watchdog on every incoming update.
+// This proves Grammy's polling loop is alive and receiving data.
+bot.use((ctx, next) => {
+  touchPollingWatchdog();
+  return next();
+});
 
 // Text messages
 // BACKSLASH SAFETY: User message text passes to Claude as-is.
@@ -1703,15 +2314,7 @@ bot.on("message:document", async (ctx) => {
 // HELPERS
 // ============================================================
 
-// Load profile once at startup
-let profileContext = "";
-try {
-  profileContext = await readFile(join(PROJECT_ROOT, "config", "profile.md"), "utf-8");
-} catch {
-  // No profile yet — that's fine
-}
-
-const USER_NAME = process.env.USER_NAME || "";
+// Profile + personality now handled by CLAUDE.md (@USER.md, @SOUL.md references).
 const USER_TIMEZONE = process.env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // ============================================================
@@ -1735,7 +2338,7 @@ function sanitizeContext(text: string): string {
   //  - "Ignore previous instructions" / "disregard above" style attacks
   return text
     .replace(/^(SYSTEM|ADMIN|INSTRUCTION|OVERRIDE|IMPORTANT INSTRUCTION)\s*:/gim, "[filtered]:")
-    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK)\s*:/gi, "[data:")
+    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK|ENTITY|RELATE)\s*:/gi, "[data:")
     .replace(/ignore\s+(all\s+)?previous\s+instructions/gi, "[filtered]")
     .replace(/disregard\s+(all\s+)?(above|previous|prior)/gi, "[filtered]")
     .replace(/you\s+are\s+now\s+(a|an)\s+/gi, "[filtered] ")
@@ -1797,20 +2400,41 @@ function checkResponseQuality(
   return null; // passes quality check
 }
 
+/**
+ * Budget-aware prompt builder. Replaces the old buildPrompt() which injected
+ * everything unconditionally (~55K chars worst case).
+ *
+ * Architecture:
+ *   P0 (required): system + personality + time + profile + user message
+ *   P1 (required): conversation ring buffer
+ *   P2 (active mode): mode prompt (only when mode is active)
+ *   P3 (core memory): memory facts + search results + todos
+ *   P4 (intent-gated): instruction blocks (only tags the message might trigger)
+ *   P5 (intent-gated): business context (dashboard, GHL, financials, GBP, GA4, Google)
+ *   P6 (ambient): graph context, entity context, supervised task status
+ *
+ * Each section is measured and the lowest-priority sections get trimmed or
+ * skipped when we approach MAX_PROMPT_CHARS.
+ */
 function buildPrompt(
   pendingMessages: PendingMessage[],
   agent: AgentRuntime | null,
-  relevantContext?: string,
-  memoryContext?: string,
-  todoContext?: string,
-  googleContext?: string,
-  conversationContext?: string,
-  modePrompt?: string,
-  dashboardContext?: string,
-  ghlContext?: string,
-  financialContext?: string,
-  gbpContext?: string,
-  ga4Context?: string
+  intent: MessageIntent,
+  contexts: {
+    relevantContext?: string;
+    memoryContext?: string;
+    todoContext?: string;
+    googleContext?: string;
+    conversationContext?: string;
+    modePrompt?: string;
+    dashboardContext?: string;
+    ghlContext?: string;
+    financialContext?: string;
+    gbpContext?: string;
+    ga4Context?: string;
+    graphContext?: string;
+    entityContext?: string;
+  }
 ): string {
   const now = new Date();
   const timeStr = now.toLocaleString("en-US", {
@@ -1823,125 +2447,155 @@ function buildPrompt(
     minute: "2-digit",
   });
 
-  // Use agent's system prompt or fall back to default
-  const systemPrompt = agent?.config.systemPrompt ||
-    "You are a personal AI assistant responding via Telegram. Keep responses concise and conversational.";
-  const parts = [systemPrompt];
+  // Track budget consumption per section (for logging)
+  const sectionSizes: Record<string, number> = {};
+  let usedChars = 0;
 
-  // Inject agent personality if available
-  if (agent?.personality) parts.push(`\n${agent.personality}`);
+  function addSection(name: string, text: string): string {
+    const size = text.length;
+    sectionSizes[name] = size;
+    usedChars += size;
+    return text;
+  }
 
-  // Inject active mode prompt (social, marketing, skool)
-  if (modePrompt) parts.push(`\n${modePrompt}`);
-
-  if (USER_NAME) parts.push(`You are speaking with ${USER_NAME}.`);
-  parts.push(`Current time: ${timeStr}`);
-  if (profileContext) parts.push(`\nProfile:\n${profileContext}`);
-
-  // Conversation history (recent turns for continuity)
-  if (conversationContext) parts.push(`\n${conversationContext}`);
+  function budgetRemaining(): number {
+    return MAX_PROMPT_CHARS - usedChars;
+  }
 
   const hasMemory = agent?.config.features.memory ?? true;
   const hasTodos = agent?.config.features.todos ?? false;
+  const hasGraph = agent?.config.features.graph ?? false;
+  const hasGHL = (agent?.config.features.ghl ?? false) && isGHLReady();
+  const hasGoogle = (agent?.config.features.google ?? false) && isGoogleEnabled();
 
-  // External context is sanitized to prevent injection from recalled data
-  if (hasMemory && memoryContext) parts.push(`\n${wrapContextBoundary(memoryContext, "MEMORY")}`);
-  if (hasMemory && relevantContext) parts.push(`\n${wrapContextBoundary(relevantContext, "SEARCH RESULTS")}`);
-  if (hasTodos && todoContext) parts.push(`\n${wrapContextBoundary(todoContext, "TASKS")}`);
+  // ── P0: Core (always included) ──────────────────────────
+  // Static identity, personality, profile, and tag syntax are in CLAUDE.md
+  // (loaded automatically by Claude Code from cwd). Only dynamic context here.
+  const parts: string[] = [];
 
-  if (hasMemory) {
-    parts.push(
-      "\nMEMORY MANAGEMENT:" +
-        "\nWhen the user shares something worth remembering, sets goals, or completes goals, " +
-        "include these tags in your response (they are processed automatically and hidden from the user):" +
-        "\n[REMEMBER: fact to store]" +
-        "\n[GOAL: goal text | DEADLINE: optional date]" +
-        "\n[DONE: search text for completed goal]"
-    );
+  parts.push(addSection("system", `Current time: ${timeStr}`));
+
+  // User message(s) are P0 - always included, measured early for budget
+  const userSection = formatAccumulated(pendingMessages);
+  const userSectionText = `\n${userSection}`;
+  addSection("user_message", userSectionText);
+  // (appended to parts[] at the very end so it's last in the prompt)
+
+  // ── P1: Conversation history (always included, trimmed if needed) ──
+  if (contexts.conversationContext) {
+    const maxConvoChars = Math.min(charCount(contexts.conversationContext), 8000);
+    const trimmed = trimToFit(contexts.conversationContext, maxConvoChars);
+    parts.push(addSection("conversation", `\n${trimmed}`));
   }
 
-  if (hasTodos) {
-    parts.push(
-      "\nTASK MANAGEMENT:" +
-        "\nWhen the user mentions a task, to-do, or action item, use these tags:" +
-        "\n[TODO: task description as next physical action]" +
-        "\n[TODO_DONE: search text matching completed task]" +
-        "\nThese are parsed automatically, added to the Obsidian MASTER TODO, and hidden from the user."
-    );
+  // ── P2: Active mode prompt ──────────────────────────────
+  if (contexts.modePrompt) {
+    // Mode prompts are 5-8K chars. Trim if budget is tight.
+    const maxMode = Math.min(charCount(contexts.modePrompt), budgetRemaining() > 15000 ? 8000 : 4000);
+    parts.push(addSection("mode", `\n${trimToFit(contexts.modePrompt, maxMode)}`));
   }
 
-  // Supervised tasks context
+  // ── P3: Core memory context ─────────────────────────────
+  if (hasMemory && contexts.memoryContext && budgetRemaining() > 3000) {
+    const maxMem = Math.min(charCount(contexts.memoryContext), 4000);
+    parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY")}`));
+  }
+
+  if (hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
+    const maxSearch = Math.min(charCount(contexts.relevantContext), 5000);
+    parts.push(addSection("search", `\n${wrapContextBoundary(trimToFit(contexts.relevantContext, maxSearch), "SEARCH RESULTS")}`));
+  }
+
+  if (hasTodos && contexts.todoContext && budgetRemaining() > 1500) {
+    parts.push(addSection("todos", `\n${wrapContextBoundary(contexts.todoContext, "TASKS")}`));
+  }
+
+  // ── P4: Active supervised tasks (dynamic, not static instructions) ──
+  // Tag syntax instructions (memory, todo, graph, google, task delegation, GHL)
+  // are now in CLAUDE.md and loaded automatically by Claude Code. Only inject
+  // dynamic task status here.
   const taskCtx = getTaskContext();
   if (taskCtx && !taskCtx.includes("None active")) {
-    parts.push(`\n${taskCtx}`);
+    parts.push(addSection("tasks_active", `\n${taskCtx}`));
   }
 
-  parts.push(
-    "\nBACKGROUND TASKS:" +
-      "\nWhen you need to delegate research, analysis, or content generation to a background agent, use this tag:" +
-      "\n[TASK: short description | OUTPUT: filename.md | PROMPT: detailed instructions for the subagent]" +
-      "\nThe subagent runs independently (sonnet model) and writes output to the specified file in data/task-output/." +
-      "\nYou'll see results in the SUPERVISED TASKS context when complete." +
-      "\nUse this for work that takes >30 seconds, doesn't need real-time interaction, or benefits from parallel execution." +
-      "\nExamples:" +
-      '\n[TASK: Research GLP-1 clinical trials | OUTPUT: glp1-research.md | PROMPT: Find and summarize the latest GLP-1 receptor agonist clinical trial results from 2025-2026, focusing on weight loss outcomes and side effect profiles]' +
-      '\n[TASK: Analyze competitor pricing | OUTPUT: competitor-analysis.md | PROMPT: Research the top 5 weight loss clinics in the area and compare their GLP-1 medication pricing, packages, and marketing approaches]' +
-      "\n\nCODE TASKS:" +
-      "\nYou MUST proactively delegate coding work to a code agent whenever the user asks you to build, fix, add, refactor, or debug code in a project." +
-      "\nDo NOT attempt multi-file coding tasks inline. You will hit the tool call limit and get killed." +
-      "\nAny request involving file edits, new features, bug fixes, test writing, builds, or debugging across a codebase should be delegated." +
-      "\nIf the user mentions a project or directory, use that as cwd. If unclear, ask which project before delegating." +
-      "\nKnown project directories:" +
-      "\n  - Atlas: C:\\Users\\derek\\Projects\\atlas" +
-      "\n  - PV Dashboard: C:\\Users\\derek\\Projects\\pv-dashboard" +
-      "\n  - OpenClaw: C:\\Users\\derek\\.openclaw" +
-      "\nTag format:" +
-      "\n[CODE_TASK: cwd=<project directory path> | PROMPT: detailed coding instructions]" +
-      "\nThe code agent runs autonomously with Claude Code (opus, up to 200 tool calls, 30 min limit) and sends progress updates." +
-      "\nThe user can also use /code <dir> <task> to spawn a code agent directly, but you should self-delegate without being asked." +
-      "\nWhen delegating, tell the user what you're spawning and why. Write a thorough PROMPT with full context so the code agent can work independently." +
-      "\nExample:" +
-      '\n[CODE_TASK: cwd=C:\\Users\\derek\\Projects\\pv-dashboard | PROMPT: Add a /api/health endpoint that returns { status: "ok", timestamp } and add a test for it]'
+  // ── P5: Business context (INTENT-GATED, dynamic data only) ──────
+
+  if (contexts.dashboardContext && (intent.financial || intent.pipeline || intent.marketing) && budgetRemaining() > 2000) {
+    parts.push(addSection("dashboard", `\n${wrapContextBoundary(trimToFit(contexts.dashboardContext, 2000), "BUSINESS METRICS")}`));
+  }
+
+  if (contexts.ghlContext && (intent.pipeline || intent.financial) && budgetRemaining() > 1500) {
+    parts.push(addSection("ghl", `\n${wrapContextBoundary(trimToFit(contexts.ghlContext, 1500), "GHL PIPELINE")}`));
+  }
+
+  if (hasGHL && (intent.pipeline || intent.todos) && budgetRemaining() > 800) {
+    parts.push(addSection("ghl_tags",
+      "\nGHL ACTIONS (use these tags to take actions in GoHighLevel):" +
+      "\nAdd note to contact: [GHL_NOTE: contact name | note body]" +
+      "\nCreate follow-up task: [GHL_TASK: contact name | task title | due=YYYY-MM-DD]" +
+      "\nTag a contact: [GHL_TAG: contact name | tag name | action=add]" +
+      "\nRemove tag: [GHL_TAG: contact name | tag name | action=remove]" +
+      "\nEnroll in workflow: [GHL_WORKFLOW: contact name | workflowId | action=add]" +
+      "\nRemove from workflow: [GHL_WORKFLOW: contact name | workflowId | action=remove]" +
+      "\nWARNING: ALWAYS confirm with the user before using GHL_WORKFLOW (it sends automated messages to patients)."
+    ));
+  }
+
+  if (contexts.financialContext && intent.financial && budgetRemaining() > 2000) {
+    parts.push(addSection("financials", `\n${wrapContextBoundary(trimToFit(contexts.financialContext, 2000), "FINANCIALS")}`));
+  }
+
+  if (contexts.gbpContext && (intent.reputation || intent.marketing) && budgetRemaining() > 1500) {
+    parts.push(addSection("gbp", `\n${wrapContextBoundary(trimToFit(contexts.gbpContext, 1500), "GOOGLE BUSINESS PROFILE")}`));
+  }
+
+  if (contexts.ga4Context && (intent.analytics || intent.marketing) && budgetRemaining() > 1500) {
+    parts.push(addSection("ga4", `\n${wrapContextBoundary(trimToFit(contexts.ga4Context, 1500), "WEBSITE ANALYTICS")}`));
+  }
+
+  // Google context: only when email/calendar/contacts relevant
+  if (hasGoogle && contexts.googleContext && intent.google && budgetRemaining() > 2000) {
+    parts.push(addSection("google", `\n${wrapContextBoundary(trimToFit(contexts.googleContext, 2500), "GOOGLE")}`));
+  }
+
+  // Google/GHL tag syntax now in CLAUDE.md (loaded by Claude Code automatically)
+
+  // ── P6: Ambient context (lowest priority, skip if budget tight) ──
+  if (hasGraph && contexts.graphContext && budgetRemaining() > 2000) {
+    parts.push(addSection("graph", `\n${wrapContextBoundary(trimToFit(contexts.graphContext, 2000), "ENTITY GRAPH")}`));
+  }
+
+  if (hasGraph && contexts.entityContext && budgetRemaining() > 1500) {
+    parts.push(addSection("entities", `\n${wrapContextBoundary(trimToFit(contexts.entityContext, 1500), "RELEVANT ENTITIES")}`));
+  }
+
+  // For casual messages without specific intent, add a brief note about available commands
+  // so Claude knows it CAN access business data if asked, without injecting all of it.
+  if (intent.casual) {
+    parts.push(addSection("capabilities_hint",
+      "\nNote: Business data available on demand (financials, pipeline, ads, reviews, traffic, email, calendar). " +
+      "User can ask about any of these and you'll have the data in a follow-up."
+    ));
+  }
+
+  // ── Append user message last (already measured in P0) ──
+  parts.push(userSectionText);
+
+  // ── Logging ──
+  const totalChars = parts.reduce((sum, p) => sum + p.length, 0);
+  const intentFlags = Object.entries(intent)
+    .filter(([, v]) => v)
+    .map(([k]) => k)
+    .join(",");
+  const topSections = Object.entries(sectionSizes)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, size]) => `${name}=${size}`)
+    .join(" ");
+  info("prompt-budget",
+    `total=${totalChars} intent=[${intentFlags}] sections: ${topSections}`
   );
-
-  const hasDashboardFlag = agent?.config.features.dashboard ?? false;
-  if (hasDashboardFlag && dashboardContext) parts.push(`\n${wrapContextBoundary(dashboardContext, "BUSINESS METRICS")}`);
-
-  const hasGHLFlag = agent?.config.features.ghl ?? false;
-  if (hasGHLFlag && ghlContext) parts.push(`\n${wrapContextBoundary(ghlContext, "GHL PIPELINE")}`);
-
-  if (financialContext) parts.push(`\n${wrapContextBoundary(financialContext, "FINANCIALS")}`);
-
-  if (gbpContext) parts.push(`\n${wrapContextBoundary(gbpContext, "GOOGLE BUSINESS PROFILE")}`);
-  if (ga4Context) parts.push(`\n${wrapContextBoundary(ga4Context, "WEBSITE ANALYTICS")}`);
-
-
-  const hasGoogle = agent?.config.features.google ?? false;
-
-  if (hasGoogle && googleContext) parts.push(`\n${wrapContextBoundary(googleContext, "GOOGLE")}`);
-
-  if (hasGoogle) {
-    parts.push(
-      "\nGOOGLE INTEGRATION:" +
-        "\nYou have access to Derek's Gmail (read + draft), Google Calendar, and Google Contacts." +
-        "\nYou also have your own Gmail account (assistant.ai.atlas@gmail.com) that can send emails." +
-        "\nDerek's contacts are listed in the context above. Use them to resolve names to email addresses." +
-        "\nWhen the user says 'email Esther' or 'invite John', look up the email from the CONTACTS list." +
-        "\nUse these tags in your response (processed automatically, hidden from the user):" +
-        "\n[DRAFT: to=email@example.com | subject=Subject line | body=Full email body text]" +
-        "\n  Creates a draft in Derek's Gmail. Never sends." +
-        "\n[SEND: to=email@example.com | subject=Subject line | body=Full email body text]" +
-        "\n  Sends an email from your Atlas account (assistant.ai.atlas@gmail.com)." +
-        "\n[CAL_ADD: title=Event title | date=YYYY-MM-DD | time=HH:MM | duration=minutes | invite=email@example.com]" +
-        "\n  Creates a calendar event. Sends invites to attendees if provided. Duration defaults to 60 min." +
-        "\n[CAL_REMOVE: search text matching event title]" +
-        "\n  Deletes the first matching event in the next 30 days."
-    );
-  }
-
-  // User message(s) — single or accumulated
-  const userSection = formatAccumulated(pendingMessages);
-  parts.push(`\n${userSection}`);
 
   return parts.join("\n");
 }
@@ -2043,6 +2697,7 @@ const botCommands = [
   { command: "leads", description: "Lead overview + attribution" },
   { command: "stl", description: "Speed to lead metrics" },
   { command: "ops", description: "Live operations dashboard" },
+  { command: "graph", description: "Browse entity graph" },
   { command: "reviews", description: "Google reviews + ratings" },
   { command: "visibility", description: "GBP impressions, clicks, calls" },
   { command: "traffic", description: "Website sessions + sources" },
@@ -2086,14 +2741,52 @@ loadLastUpdateId().then((id) => {
     warn("startup", "No saved update ID found. Dropping pending updates to avoid replay loops.");
   }
 
-  bot.start({
-    drop_pending_updates: dropPending,
-    onStart: () => {
-      info("startup", "Bot is running!");
-      // Drain any replies that were enqueued but not delivered before the last crash
-      drainPendingReplies(async (chatId, text) => {
-        await bot.api.sendMessage(chatId, text);
-      }).catch((err) => warn("delivery", `Failed to drain pending replies: ${err}`));
-    },
-  });
+  // Start bot with 409-resilient retry loop.
+  // Grammy throws unhandled GrammyError(409) when another instance is polling,
+  // which crashes the Bun process. pm2 restarts it, but the old instance may
+  // still be alive, creating a rapid crash loop. This retry loop waits with
+  // exponential backoff instead of crashing.
+  const MAX_START_RETRIES = 8;
+  let startAttempt = 0;
+
+  async function startBot(): Promise<void> {
+    try {
+      await bot.start({
+        drop_pending_updates: dropPending,
+        onStart: () => {
+          info("startup", "Bot is running!");
+          startAttempt = 0; // reset on successful start
+          startPollingWatchdog(bot); // detect silent polling death
+          // Drain any replies that were enqueued but not delivered before the last crash
+          drainPendingReplies(async (chatId, text) => {
+            await bot.api.sendMessage(chatId, text);
+          }).catch((err) => warn("delivery", `Failed to drain pending replies: ${err}`));
+
+          // Post-startup health checks for integrations with external tokens
+          if (isDashboardReady()) {
+            checkDashboardHealth().then((ok) => {
+              if (!ok && ALLOWED_USER_ID) {
+                const msg = "[Startup] PV Dashboard API returning 401. DASHBOARD_API_TOKEN is stale. Re-sync from Vercel env vars.";
+                warn("startup", msg);
+                bot.api.sendMessage(ALLOWED_USER_ID, msg).catch(() => {});
+              }
+            });
+          }
+        },
+      });
+    } catch (err) {
+      const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
+      if (is409 && startAttempt < MAX_START_RETRIES) {
+        startAttempt++;
+        const backoffMs = Math.min(5000 * Math.pow(2, startAttempt - 1), 60_000);
+        warn("startup", `409 conflict on start (attempt ${startAttempt}/${MAX_START_RETRIES}). Old instance may still be polling. Retrying in ${backoffMs / 1000}s...`);
+        await new Promise((r) => setTimeout(r, backoffMs));
+        return startBot();
+      }
+      logError("startup", `Bot start failed after ${startAttempt} attempts: ${err}`);
+      process.exit(1);
+    }
+  }
+
+  startBot();
 });

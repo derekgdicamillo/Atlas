@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
   try {
     const { record, table } = await req.json();
 
-    if (!record?.content || !record?.id) {
+    if (!record?.id) {
       return new Response("Missing record data", { status: 400 });
     }
 
@@ -29,9 +29,16 @@ Deno.serve(async (req) => {
     }
 
     // Validate table name (only embed known tables)
-    const allowedTables = ["messages", "memory", "documents", "summaries"];
+    const allowedTables = ["messages", "memory", "documents", "summaries", "memory_entities"];
     if (!allowedTables.includes(table)) {
       return new Response(`Unknown table: ${table}`, { status: 400 });
+    }
+
+    // Text to embed comes from record.content for all tables.
+    // For memory_entities, the webhook trigger pre-concatenates name + description + aliases.
+    const textToEmbed = record.content;
+    if (!textToEmbed) {
+      return new Response("No text to embed", { status: 200 });
     }
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -50,7 +57,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           model: "text-embedding-3-small",
-          input: record.content,
+          input: textToEmbed,
         }),
       }
     );
@@ -64,7 +71,7 @@ Deno.serve(async (req) => {
     const embedding = data[0].embedding;
 
     // Estimate tokens (use actual usage if available, else approximate)
-    const tokensUsed = usage?.total_tokens || Math.ceil(record.content.length / 4);
+    const tokensUsed = usage?.total_tokens || Math.ceil(textToEmbed.length / 4);
     const costUsd = (tokensUsed / 1000) * COST_PER_1K_TOKENS;
 
     const supabase = createClient(

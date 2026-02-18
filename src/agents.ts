@@ -26,6 +26,7 @@ export interface AgentConfig {
     search?: boolean;
     dashboard?: boolean;
     ghl?: boolean;
+    graph?: boolean;
   };
 }
 

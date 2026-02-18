@@ -33,67 +33,99 @@ export async function processMemoryIntents(
   let clean = response;
 
   // [REMEMBER: fact to store] — with dedup via semantic similarity
-  for (const match of response.matchAll(/\[REMEMBER:\s*(.+?)\]/gi)) {
-    const newFact = match[1];
-    const existing = await findSimilarFact(supabase, newFact);
+  // Uses /s so facts can span multiple lines
+  for (const match of response.matchAll(/\[REMEMBER:\s*([\s\S]+?)\]/gi)) {
+    const newFact = match[1].trim();
+    if (!newFact) continue;
 
-    if (existing) {
-      // Update existing fact instead of creating a duplicate
-      await supabase
-        .from("memory")
-        .update({ content: newFact, updated_at: new Date().toISOString() })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("memory").insert({
-        type: "fact",
-        content: newFact,
-      });
+    try {
+      const existing = await findSimilarFact(supabase, newFact);
+      if (existing) {
+        await supabase
+          .from("memory")
+          .update({ content: newFact, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("memory").insert({
+          type: "fact",
+          content: newFact,
+        });
+      }
+    } catch (err) {
+      console.warn(`[memory] REMEMBER insert failed: ${err}`);
     }
     clean = clean.replace(match[0], "");
   }
 
   // [GOAL: text] or [GOAL: text | DEADLINE: date]
-  for (const match of response.matchAll(
-    /\[GOAL:\s*(.+?)(?:\s*\|\s*DEADLINE:\s*(.+?))?\]/gi
-  )) {
-    await supabase.from("memory").insert({
-      type: "goal",
-      content: match[1],
-      deadline: match[2] || null,
-    });
+  // Split on | only when followed by DEADLINE:
+  for (const match of response.matchAll(/\[GOAL:\s*([\s\S]+?)\]/gi)) {
+    const inner = match[1];
+    const parts = inner.split(/\s*\|\s*(?=DEADLINE\s*:)/i);
+    const goalText = parts[0].trim();
+    let deadline: string | null = null;
+    if (parts.length > 1) {
+      const deadlineMatch = parts[1].match(/^DEADLINE\s*:\s*([\s\S]*)/i);
+      if (deadlineMatch) deadline = deadlineMatch[1].trim() || null;
+    }
+
+    if (goalText) {
+      try {
+        await supabase.from("memory").insert({
+          type: "goal",
+          content: goalText,
+          deadline,
+        });
+      } catch (err) {
+        console.warn(`[memory] GOAL insert failed: ${err}`);
+      }
+    }
     clean = clean.replace(match[0], "");
   }
 
   // [DONE: search text for completed goal]
-  for (const match of response.matchAll(/\[DONE:\s*(.+?)\]/gi)) {
-    const { data } = await supabase
-      .from("memory")
-      .select("id")
-      .eq("type", "goal")
-      .ilike("content", `%${match[1]}%`)
-      .limit(1);
+  for (const match of response.matchAll(/\[DONE:\s*([\s\S]+?)\]/gi)) {
+    const searchText = match[1].trim();
+    if (!searchText) { clean = clean.replace(match[0], ""); continue; }
 
-    if (data?.[0]) {
-      await supabase
+    try {
+      const { data } = await supabase
         .from("memory")
-        .update({
-          type: "completed_goal",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", data[0].id);
+        .select("id")
+        .eq("type", "goal")
+        .ilike("content", `%${searchText}%`)
+        .limit(1);
+
+      if (data?.[0]) {
+        await supabase
+          .from("memory")
+          .update({
+            type: "completed_goal",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", data[0].id);
+      }
+    } catch (err) {
+      console.warn(`[memory] DONE update failed: ${err}`);
     }
     clean = clean.replace(match[0], "");
   }
 
   // [TODO: task text] — add to Obsidian MASTER TODO INBOX
-  for (const match of response.matchAll(/\[TODO:\s*(.+?)\]/gi)) {
-    await addTodo(match[1]);
+  for (const match of response.matchAll(/\[TODO:\s*([\s\S]+?)\]/gi)) {
+    const task = match[1].trim();
+    if (task) {
+      try { await addTodo(task); } catch (err) { console.warn(`[memory] TODO add failed: ${err}`); }
+    }
     clean = clean.replace(match[0], "");
   }
 
   // [TODO_DONE: search text] — check off matching task in MASTER TODO
-  for (const match of response.matchAll(/\[TODO_DONE:\s*(.+?)\]/gi)) {
-    await completeTodo(match[1]);
+  for (const match of response.matchAll(/\[TODO_DONE:\s*([\s\S]+?)\]/gi)) {
+    const search = match[1].trim();
+    if (search) {
+      try { await completeTodo(search); } catch (err) { console.warn(`[memory] TODO_DONE failed: ${err}`); }
+    }
     clean = clean.replace(match[0], "");
   }
 

@@ -111,21 +111,30 @@ export async function saveSessionState(
 
 interface LockState {
   locked: boolean;
+  lockedAt: number; // timestamp when lock was acquired
   waiters: (() => void)[];
 }
 
 const sessionLocks: Map<string, LockState> = new Map();
 
+// Maximum time a lock can be held before auto-release (10 minutes).
+// This prevents deadlocks when a Claude process crashes without releasing.
+const LOCK_TIMEOUT_MS = 10 * 60_000;
+
+// Maximum time a waiter will wait for the lock (12 minutes).
+// Prevents user messages from queuing forever if something goes wrong.
+const LOCK_WAIT_TIMEOUT_MS = 12 * 60_000;
+
 function getLockState(key: string): LockState {
   if (!sessionLocks.has(key)) {
-    sessionLocks.set(key, { locked: false, waiters: [] });
+    sessionLocks.set(key, { locked: false, lockedAt: 0, waiters: [] });
   }
   return sessionLocks.get(key)!;
 }
 
 /**
  * Acquire a per-session lock.
- * - "wait": blocks until the lock is available (for user messages)
+ * - "wait": blocks until the lock is available (for user messages), with timeout
  * - "skip": returns immediately with acquired: false if locked (for heartbeat)
  */
 export async function acquireSessionLock(
@@ -136,15 +145,24 @@ export async function acquireSessionLock(
 
   const release = () => {
     lock.locked = false;
+    lock.lockedAt = 0;
     if (lock.waiters.length > 0) {
       const next = lock.waiters.shift()!;
       lock.locked = true;
+      lock.lockedAt = Date.now();
       next();
     }
   };
 
+  // Check for stale lock: if held longer than LOCK_TIMEOUT_MS, force-release
+  if (lock.locked && lock.lockedAt > 0 && Date.now() - lock.lockedAt > LOCK_TIMEOUT_MS) {
+    warn("claude", `Session lock for ${key} held for ${Math.round((Date.now() - lock.lockedAt) / 1000)}s. Force-releasing stale lock.`);
+    release();
+  }
+
   if (!lock.locked) {
     lock.locked = true;
+    lock.lockedAt = Date.now();
     return { acquired: true, release };
   }
 
@@ -152,11 +170,28 @@ export async function acquireSessionLock(
     return { acquired: false, release: () => {} };
   }
 
-  // behavior === "wait": queue until lock is released
+  // behavior === "wait": queue until lock is released, with timeout
   return new Promise((resolve) => {
-    lock.waiters.push(() => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      // Remove this waiter from the queue
+      const idx = lock.waiters.indexOf(waiterFn);
+      if (idx >= 0) lock.waiters.splice(idx, 1);
+      warn("claude", `Lock wait timeout for ${key} after ${LOCK_WAIT_TIMEOUT_MS / 1000}s. Force-releasing.`);
+      // Force-release the lock so the next message can proceed
+      release();
       resolve({ acquired: true, release });
-    });
+    }, LOCK_WAIT_TIMEOUT_MS);
+
+    const waiterFn = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({ acquired: true, release });
+    };
+    lock.waiters.push(waiterFn);
   });
 }
 
@@ -308,6 +343,8 @@ export async function callClaude(
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
     _isFallback?: boolean; // internal: prevents infinite fallback chains
+    _isEmptyRetry?: boolean; // internal: prevents infinite empty-result retries
+    _isSpawnRetry?: boolean; // internal: prevents infinite spawn-error retries
   }
 ): Promise<string> {
   const modelTier = options?.model || DEFAULT_MODEL;
@@ -335,10 +372,8 @@ export async function callClaude(
 
   try {
     const session = await getSession(agentId, userId);
-    // SAFETY: prompt is passed as a direct spawn argument (not through shell).
-    // Bun's spawn() uses libuv/CreateProcess which handles argument quoting,
-    // so shell metacharacter injection is not possible here.
-    const args = [CLAUDE_PATH, "-p", prompt];
+    // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
+    const args = [CLAUDE_PATH, "-p"];
 
     if (options?.resume && session.sessionId) {
       args.push("--resume", session.sessionId);
@@ -364,11 +399,17 @@ export async function callClaude(
     const startTime = Date.now();
 
     const proc = spawn(args, {
+      stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR || PROJECT_ROOT,
       env: { ...process.env },
+      windowsHide: true,
     });
+
+    // Pipe prompt via stdin (avoids Windows command-line length limits)
+    proc.stdin.write(prompt);
+    proc.stdin.end();
 
     // Keep Telegram typing indicator alive every 4s while waiting
     if (options?.onTyping) {
@@ -388,6 +429,16 @@ export async function callClaude(
     let inputTokens = 0;
     let outputTokens = 0;
 
+    // Smart loop detection: tracks actual repeated tool calls, not just tool types.
+    // A "loop" = same tool with same/similar input called multiple times (spinning).
+    // Sequential search tools with DIFFERENT inputs = normal research, not a loop.
+    const SEARCH_TOOLS = new Set(["Glob", "Read", "Grep", "Search", "ListDirectory"]);
+    const toolCallSignatures: string[] = []; // "ToolName:inputHash" for dedup detection
+    const DUPLICATE_THRESHOLD = 4; // same exact call 4+ times = definitely stuck
+    const FRUITLESS_SEARCH_THRESHOLD = 15; // 15+ search calls without any non-search call = warn
+    let consecutiveSearchCalls = 0;
+    let warningInjected = false; // true if we already sent a "slow down" signal
+
     const parser = createStreamParser((event) => {
       if (event.sessionId) sessionId = event.sessionId;
 
@@ -400,6 +451,42 @@ export async function callClaude(
             proc.kill();
             timeoutReason = `tool call loop (${toolCallCount} calls)`;
             break;
+          }
+          // Smart loop detection: detect actual repeated calls, not just sequential search use
+          {
+            const toolName = event.toolName || "unknown";
+            const isSearch = SEARCH_TOOLS.has(toolName);
+
+            // Build a signature from tool name + key input to detect duplicate calls
+            const inputStr = event.toolInput ? JSON.stringify(event.toolInput).substring(0, 200) : "";
+            const sig = `${toolName}:${inputStr}`;
+            toolCallSignatures.push(sig);
+
+            // Check for exact duplicate calls (same tool + same input repeated)
+            const dupeCount = toolCallSignatures.filter(s => s === sig).length;
+            if (dupeCount >= DUPLICATE_THRESHOLD) {
+              warn("claude", `[${agentId}] Duplicate call loop: "${toolName}" called ${dupeCount} times with same input at call #${toolCallCount}. Killing.`);
+              proc.kill();
+              timeoutReason = `duplicate call loop (${toolName} x${dupeCount})`;
+              break;
+            }
+
+            // Track consecutive search calls for fruitless search detection
+            if (isSearch) {
+              consecutiveSearchCalls++;
+            } else {
+              consecutiveSearchCalls = 0; // reset on any non-search tool
+            }
+
+            // After many consecutive search calls, log a warning but don't kill.
+            // Claude might still find what it needs. Only kill at hard cap.
+            if (consecutiveSearchCalls === FRUITLESS_SEARCH_THRESHOLD && !warningInjected) {
+              warningInjected = true;
+              warn("claude", `[${agentId}] ${FRUITLESS_SEARCH_THRESHOLD} consecutive search calls without progress. Monitoring but not killing yet.`);
+              if (options?.onStatus) {
+                options.onStatus(`Deep searching... (${toolCallCount} tool calls, still working)`);
+              }
+            }
           }
           // Send progress indicator on tool use
           {
@@ -488,14 +575,17 @@ export async function callClaude(
       proc.kill();
       const elapsed = Math.round((Date.now() - startTime) / 1000);
       trackTimeout();
-      const isLoop = timeoutReason.includes("tool call loop");
+      const isLoop = timeoutReason.includes("tool call loop") || timeoutReason.includes("duplicate call loop");
       logError("claude", `${isLoop ? "Loop killed" : "Timed out"} after ${elapsed}s: ${timeoutReason}`, {
         prompt: prompt.substring(0, 200),
         model: modelTier,
         toolCallCount,
       });
+      if (timeoutReason.includes("duplicate call loop")) {
+        return `I got stuck repeating the same operation (${timeoutReason}). Try rephrasing or breaking this into smaller steps.`;
+      }
       if (isLoop) {
-        return `I got stuck in a loop (${toolCallCount} tool calls). Try rephrasing or breaking the task into smaller steps.`;
+        return `Hit the tool call limit (${toolCallCount} calls). For complex tasks like this, try the /code command or break it into smaller pieces.`;
       }
       return `Sorry, that took too long (${timeoutReason}). Try again or simplify your request.`;
     }
@@ -523,7 +613,7 @@ export async function callClaude(
       logError("claude", `Exit code ${exitCode}: ${stderr.substring(0, 200)}`);
 
       // Tool call loop: process was killed by our own loop detector (SIGTERM = 143)
-      if (timeoutReason.includes("tool call loop")) {
+      if (timeoutReason.includes("tool call loop") || timeoutReason.includes("duplicate call loop")) {
         trackTimeout();
         const elapsed = Math.round(durationMs / 1000);
         logError("claude", `Loop killed after ${elapsed}s: ${timeoutReason}`, {
@@ -542,7 +632,10 @@ export async function callClaude(
           archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
         }
 
-        return `I got stuck in a loop (${toolCallCount} tool calls). Try rephrasing or breaking the task into smaller steps.`;
+        if (timeoutReason.includes("duplicate call loop")) {
+          return `I got stuck repeating the same operation (${timeoutReason}). Try rephrasing or breaking this into smaller steps.`;
+        }
+        return `Hit the tool call limit (${toolCallCount} calls). For complex tasks like this, try the /code command or break it into smaller pieces.`;
       }
 
       // Model fallback: if rate-limited or model unavailable, retry with next tier
@@ -619,10 +712,50 @@ export async function callClaude(
       return `Claude ran into an issue during execution. No output was produced. Try again or rephrase.`;
     }
 
+    // Retry once on empty result with clean exit (CLI bug #1920: no result event)
+    if (!resultText.trim() && !isError && !options?._isEmptyRetry) {
+      warn("claude", `[${agentId}] Empty result with clean exit (CLI bug #1920). Retrying without resume.`);
+
+      // Clear potentially corrupted session
+      if (session.sessionId) {
+        const oldSid = session.sessionId;
+        session.sessionId = null;
+        session.lastActivity = new Date().toISOString();
+        await saveSessionState(agentId, userId, session);
+        archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
+      }
+
+      // Release lock + typing before retry (retry acquires its own)
+      if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+      release();
+
+      return callClaude(prompt, {
+        ...options,
+        resume: false,
+        skipLock: false,
+        _isEmptyRetry: true,
+      });
+    }
+
     return resultText.trim() || "No response generated.";
   } catch (err) {
     logError("claude", `Spawn error: ${err}`);
-    return `Error: Could not run Claude CLI`;
+
+    // Auto-retry once on transient spawn errors (ENAMETOOLONG, EPERM, etc.)
+    if (!options?._isSpawnRetry) {
+      warn("claude", `[${agentId}] Spawn failed, retrying in 2s: ${err}`);
+      await new Promise((r) => setTimeout(r, 2000));
+      return callClaude(prompt, {
+        ...options,
+        resume: false, // fresh session on retry
+        skipLock: false,
+        _isSpawnRetry: true,
+      });
+    }
+
+    // Second spawn failure: notify user with actionable message
+    logError("claude", `[${agentId}] Spawn failed twice: ${err}`);
+    return "I couldn't start the Claude CLI. This is usually a transient Windows issue. Try sending your message again in a moment.";
   } finally {
     if (typingInterval) clearInterval(typingInterval);
     release();
