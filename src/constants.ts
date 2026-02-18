@@ -39,6 +39,47 @@ export const CODE_AGENT_MAX_BUDGET_USD = 5.00;
 export const ANNOUNCE_MAX_RETRIES = 3;
 export const ANNOUNCE_BACKOFF_BASE_MS = 2_000;  // 2s, 4s, 8s
 
+// Swarm system
+export const MAX_QUEUE_SIZE = 25;
+export const MAX_SWARM_NODES = 15;
+export const DEFAULT_SWARM_BUDGET_USD = 3.00;
+export const MAX_SWARM_BUDGET_USD = 10.00;
+export const DEFAULT_SWARM_WALL_CLOCK_MS = 30 * 60 * 1000;   // 30 min
+export const SWARM_TICK_INTERVAL_MS = 30_000;                  // 30s DAG tick
+export const CIRCUIT_BREAKER_THRESHOLD = 3;
+export const CIRCUIT_BREAKER_RESET_MS = 5 * 60 * 1000;        // 5 min
+
+// Model routing defaults per task type
+export const RESEARCH_DEFAULT_MODEL: ModelTier = "sonnet";
+export const CODE_DEFAULT_MODEL: ModelTier = "opus";
+export const SYNTHESIZE_DEFAULT_MODEL: ModelTier = "sonnet";
+export const VALIDATE_DEFAULT_MODEL: ModelTier = "haiku";
+export const BUDGET_PRESSURE_THRESHOLD = 0.10;                 // $/node triggers haiku
+
+// Convergent Exploration system
+export type StrategyLens = "orthodox" | "lateral" | "contrarian" | "minimalist" | "speculative" | "empirical" | "historical";
+
+export interface ExplorationTierConfig {
+  tier: 0 | 1 | 2 | 3;
+  branchCount: number;
+  branchModel: ModelTier;
+  scorerModel: ModelTier;
+  synthModel: ModelTier;
+  maxBudgetUsd: number;
+  maxWallClockMs: number;
+  maxAgents: number;
+}
+
+export const EXPLORATION_TIERS: Record<number, ExplorationTierConfig> = {
+  0: { tier: 0, branchCount: 0, branchModel: "haiku", scorerModel: "haiku", synthModel: "haiku", maxBudgetUsd: 0, maxWallClockMs: 0, maxAgents: 0 },
+  1: { tier: 1, branchCount: 2, branchModel: "haiku", scorerModel: "haiku", synthModel: "haiku", maxBudgetUsd: 0.50, maxWallClockMs: 10 * 60 * 1000, maxAgents: 3 },
+  2: { tier: 2, branchCount: 3, branchModel: "sonnet", scorerModel: "sonnet", synthModel: "sonnet", maxBudgetUsd: 2.00, maxWallClockMs: 15 * 60 * 1000, maxAgents: 4 },
+  3: { tier: 3, branchCount: 4, branchModel: "sonnet", scorerModel: "sonnet", synthModel: "opus", maxBudgetUsd: 5.00, maxWallClockMs: 25 * 60 * 1000, maxAgents: 5 },
+};
+
+export const EXPLORATION_LOG_MAX_ENTRIES = 100;
+export const STRATEGY_LENSES: readonly StrategyLens[] = ["orthodox", "lateral", "contrarian", "minimalist", "speculative", "empirical", "historical"] as const;
+
 // URL allowlist for web search/fetch tools (OpenClaw tool-policy pattern)
 // When non-empty, Claude's web tools will be instructed to only access these domains.
 // Empty array = no restrictions (default). Applied via prompt injection.

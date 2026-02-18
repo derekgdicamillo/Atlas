@@ -68,6 +68,11 @@ import {
   getTodayCosts,
 } from "./search.ts";
 import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { initSwarmSystem, handleSwarmCommand, processSwarmIntents, registerDeliveryCallback, cleanupSwarms } from "./orchestrator.ts";
+import { handleExploreCommand, processExploreIntents, autoExplore } from "./exploration.ts";
+import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager.ts";
+import { getQueueContext, expireStaleTasks } from "./queue.ts";
+import { getSwarmContext, pauseSwarm, getActiveSwarms } from "./dag.ts";
 import {
   loadModes,
   resolveMode,
@@ -414,7 +419,16 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
   forceExit.unref(); // don't keep process alive just for this timer
 
   try {
+    // Clear watchdog first to prevent re-entry during shutdown
+    if (pollingWatchdogTimer) {
+      clearInterval(pollingWatchdogTimer);
+      pollingWatchdogTimer = null;
+    }
     stopCronJobs();
+    // Pause all active swarms (they'll resume on restart)
+    for (const dag of getActiveSwarms()) {
+      await pauseSwarm(dag.id).catch(() => {});
+    }
     await killAllRunningSubagents("Atlas process shutting down").catch(() => {});
     await saveDedupCache();
     await bot.stop();
@@ -583,10 +597,12 @@ function isStaleUpdate(updateId: number): boolean {
 
 let lastUpdateReceivedAt = Date.now();
 let pollingWatchdogTimer: ReturnType<typeof setInterval> | null = null;
+let pollingRestartInProgress = false; // suppress watchdog during polling restart
 
-// How long without any Telegram update before we suspect a stall.
-// Grammy's long poll returns every 30s even with no messages, so 5 minutes
-// without ANY update (including empty polls) is a strong signal of a stall.
+// How long without any polling activity before we suspect a stall.
+// Grammy's getUpdates cycle runs every ~30s. We track outgoing getUpdates
+// calls via an API transformer, so silence means the polling loop itself died,
+// not just that no users sent messages.
 const WATCHDOG_STALE_THRESHOLD_MS = 5 * 60_000;
 // How often to check.
 const WATCHDOG_CHECK_INTERVAL_MS = 60_000;
@@ -601,6 +617,7 @@ function startPollingWatchdog(bot: Bot): void {
   if (pollingWatchdogTimer) return;
 
   pollingWatchdogTimer = setInterval(async () => {
+    if (pollingRestartInProgress) return; // already handling it
     const silentMs = Date.now() - lastUpdateReceivedAt;
     if (silentMs < WATCHDOG_STALE_THRESHOLD_MS) return;
 
@@ -620,6 +637,17 @@ function startPollingWatchdog(bot: Bot): void {
     }
   }, WATCHDOG_CHECK_INTERVAL_MS);
 }
+
+// API transformer: touch watchdog on every outgoing getUpdates call.
+// This proves the polling loop is alive even when no messages arrive.
+// Without this, the watchdog only resets on actual user messages (bot.use
+// middleware), causing false-positive restarts during quiet periods.
+bot.api.config.use((prev, method, payload, signal) => {
+  if (method === "getUpdates") {
+    touchPollingWatchdog();
+  }
+  return prev(method, payload, signal);
+});
 
 // ============================================================
 // ADMIN COMMANDS (intercepted before Claude)
@@ -680,6 +708,14 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         }
       }
 
+      // Queue status
+      const queueCtx = getQueueContext();
+      if (queueCtx) lines.push("", queueCtx);
+
+      // Swarm status
+      const swarmCtx = getSwarmContext();
+      if (swarmCtx) lines.push("", swarmCtx);
+
       if (h.issues.length > 0) {
         lines.push("", "Issues:", ...h.issues.map((i) => `  - ${i}`));
       }
@@ -708,6 +744,16 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       lines.push(`\nTotal today: $${totalToday.toFixed(4)}`);
 
       await ctx.reply(lines.join("\n"));
+      return true;
+    }
+
+    case "/logs": {
+      const result = await handleLogsCommand(args);
+      // Chunk if needed (Telegram 4096 char limit)
+      const logChunks = chunkMessage(result, 4000);
+      for (const chunk of logChunks) {
+        await ctx.reply(chunk);
+      }
       return true;
     }
 
@@ -1496,6 +1542,17 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/weekly - comprehensive weekly executive summary\n" +
         "\nCode Agent:\n" +
         "/code <dir> <task> - spawn autonomous coding agent\n" +
+        "\nSwarm:\n" +
+        "/swarm <description> - spawn multi-agent swarm\n" +
+        "/swarm status - show active swarms\n" +
+        "/swarm cancel <id> - cancel a swarm\n" +
+        "/swarm template <name> - use pre-built template\n" +
+        "\nExploration:\n" +
+        "/explore <question> - multi-perspective exploration\n" +
+        "/explore quick <question> - fast exploration (Tier 1)\n" +
+        "/explore deep <question> - deep exploration (Tier 3)\n" +
+        "/explore log - recent exploration history\n" +
+        "/explore stats - strategy performance\n" +
         "\nClinical:\n" +
         "/careplan <data> - generate 5-pillar care plan from patient data\n" +
         "/careplan demo - run with mock patient\n" +
@@ -1504,6 +1561,11 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/marketing - ads, funnels, campaigns\n" +
         "/skool - Vitality Unchained community content\n" +
         "/mode - show/switch/clear active mode\n" +
+        "\nLogs:\n" +
+        "/logs - current errors + archive list\n" +
+        "/logs errors|output - last 50 lines of error/output log\n" +
+        "/logs <#> - view archived log by index\n" +
+        "/logs clear - truncate current logs\n" +
         "\n/restart - restart the bot process"
       );
       return true;
@@ -1575,6 +1637,26 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       } catch (err) {
         await ctx.reply(`Failed to spawn code agent: ${err}`);
       }
+      return true;
+    }
+
+    case "/swarm": {
+      const swarmArgs = args.length > 0 ? args : text.replace(/^\/swarm\s*/i, "").trim().split(/\s+/);
+      const result = await handleSwarmCommand(
+        swarmArgs.filter(Boolean),
+        userId,
+      );
+      await ctx.reply(result);
+      return true;
+    }
+
+    case "/explore": {
+      const exploreArgs = args.length > 0 ? args : text.replace(/^\/explore\s*/i, "").trim().split(/\s+/);
+      const result = await handleExploreCommand(
+        exploreArgs.filter(Boolean),
+        userId,
+      );
+      await ctx.reply(result);
       return true;
     }
 
@@ -1750,6 +1832,22 @@ const MAX_PROMPT_CHARS = 25_000;
  * Estimate char count of a section. Used for budget tracking.
  * ~4 chars per token is the standard rough estimate.
  */
+/** Split text into chunks respecting Telegram's 4096 char limit. */
+function chunkMessage(text: string, maxLen = 4000): string[] {
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of text.split("\n")) {
+    if (current.length + line.length + 1 > maxLen) {
+      if (current) chunks.push(current);
+      current = line;
+    } else {
+      current += (current ? "\n" : "") + line;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length > 0 ? chunks : [""];
+}
+
 function charCount(text: string | undefined): number {
   return text?.length || 0;
 }
@@ -1884,6 +1982,17 @@ async function handleUserMessage(
     const intentFlags = Object.entries(intent).filter(([, v]) => v).map(([k]) => k).join(",");
     const skippedSources = Object.entries(contextPlan).filter(([, v]) => !v).map(([k]) => k).join(",");
     info("trace", `[${traceId}] intent=[${intentFlags}] skipped=[${skippedSources}]`);
+
+    // 6c. Auto-explore: fire-and-forget if the message looks like a complex question.
+    //     Runs in parallel with the normal Claude flow. Exploration results arrive
+    //     asynchronously via the swarm delivery callback.
+    autoExplore(combinedText, userId).then((launchMsg) => {
+      if (launchMsg) {
+        ctx.reply(`🔍 ${launchMsg}`).catch(() => {});
+      }
+    }).catch((err) => {
+      warn("exploration", `Auto-explore failed (non-fatal): ${err}`);
+    });
 
     // 6b. Gather FRESH context now (after lock, guaranteed up-to-date)
     //     Only fetch sources identified by the context plan.
@@ -2070,6 +2179,12 @@ async function handleUserMessage(
         }).catch(() => {});
       },
     );
+
+    // Process swarm delegations
+    response = await processSwarmIntents(response, userId);
+
+    // Process exploration delegations
+    response = await processExploreIntents(response, userId);
 
     // 11b. Tag recovery: all tags processed successfully, clear pending queue
     await confirmTagRecovery();
@@ -2668,6 +2783,10 @@ bot.catch((err) => {
 // START
 // ============================================================
 
+// Rotate logs from previous session into archive before we start writing new ones
+await rotateLogs();
+await cleanupOldArchives();
+
 info("startup", "Starting Atlas Telegram Relay...");
 if (agentsLoaded) {
   info("startup", "Multi-agent mode active");
@@ -2710,6 +2829,7 @@ const botCommands = [
   { command: "marketing", description: "Ads, funnels, campaigns mode" },
   { command: "skool", description: "Vitality Unchained content mode" },
   { command: "mode", description: "Show/switch/clear active mode" },
+  { command: "logs", description: "View/archive error & output logs" },
   { command: "restart", description: "Restart the bot" },
   { command: "help", description: "List all commands" },
 ];
@@ -2727,6 +2847,28 @@ loadDedupCache();
 startCronJobs(supabase).catch((err) =>
   console.error("[startup] Failed to start cron jobs:", err)
 );
+
+// Initialize swarm system (queue, DAG engine, orchestrator)
+initSwarmSystem().then(() => {
+  // Register delivery callback so swarm results get sent via Telegram
+  registerDeliveryCallback(async (chatId: string, header: string, body: string) => {
+    try {
+      await bot.api.sendMessage(Number(chatId), header);
+      if (body && body.trim()) {
+        // Chunk body if needed (Telegram 4096 char limit)
+        const chunks = chunkMessage(body, 4000);
+        for (const chunk of chunks) {
+          await bot.api.sendMessage(Number(chatId), chunk);
+        }
+      }
+    } catch (err) {
+      warn("swarm-delivery", `Failed to deliver swarm result: ${err}`);
+    }
+  });
+  info("startup", "Swarm system initialized");
+}).catch((err) => {
+  warn("startup", `Swarm init failed (non-fatal): ${err}`);
+});
 
 // Load persisted update offset to skip already-processed messages after restart
 loadLastUpdateId().then((id) => {
@@ -2746,11 +2888,17 @@ loadLastUpdateId().then((id) => {
   // which crashes the Bun process. pm2 restarts it, but the old instance may
   // still be alive, creating a rapid crash loop. This retry loop waits with
   // exponential backoff instead of crashing.
+  //
+  // IMPORTANT: Grammy's bot.start() resolves when polling stops (e.g. after a
+  // mid-polling 409). This is NOT an error from Grammy's perspective, it just
+  // means the polling loop exited. We detect this and restart automatically.
   const MAX_START_RETRIES = 8;
   let startAttempt = 0;
+  let pollingStartedAt = 0;
 
   async function startBot(): Promise<void> {
     try {
+      pollingStartedAt = Date.now();
       await bot.start({
         drop_pending_updates: dropPending,
         onStart: () => {
@@ -2774,6 +2922,19 @@ loadLastUpdateId().then((id) => {
           }
         },
       });
+
+      // bot.start() resolved, meaning polling stopped. If we're not shutting
+      // down, this is unexpected (usually a mid-polling 409 that Grammy caught
+      // internally). Wait for the old connection to clear, then restart polling.
+      if (!isShuttingDown) {
+        const aliveMs = Date.now() - pollingStartedAt;
+        warn("startup", `Polling loop exited after ${Math.round(aliveMs / 1000)}s (not shutting down). Likely 409 conflict. Waiting 35s for old connection to clear, then restarting polling.`);
+        pollingRestartInProgress = true;
+        await new Promise((r) => setTimeout(r, 35_000));
+        pollingRestartInProgress = false;
+        touchPollingWatchdog(); // reset watchdog so it doesn't fire immediately after restart
+        return startBot();
+      }
     } catch (err) {
       const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
       if (is409 && startAttempt < MAX_START_RETRIES) {

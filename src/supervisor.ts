@@ -30,6 +30,14 @@ import {
   type ModelTier,
 } from "./constants.ts";
 import { createStreamParser } from "./claude.ts";
+import {
+  enqueue,
+  tryDispatch,
+  TaskPriority,
+  DEFAULT_TTL_MS,
+  SWARM_TTL_MS,
+  type QueuedTask,
+} from "./queue.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -95,6 +103,10 @@ export interface SupervisedTask {
   lastAnnounceAt: string | null;
   /** Whether the completion was successfully announced */
   announced: boolean;
+  /** Swarm ID if part of a swarm (set via registerTask opts) */
+  _swarmId?: string | null;
+  /** DAG node ID if part of a swarm */
+  _dagNodeId?: string | null;
 }
 
 interface TaskStore {
@@ -194,6 +206,16 @@ const TASK_OUTPUT_DIR = join(DATA_DIR, "task-output");
 
 function getRunningSubagentCount(): number {
   return store.tasks.filter((t) => t.status === "running" && t.pid !== null).length;
+}
+
+/** Exported for queue.ts to check available slots */
+export function getRunningCount(): number {
+  return getRunningSubagentCount();
+}
+
+/** Exported for queue.ts to check concurrency limit */
+export function getMaxConcurrent(): number {
+  return MAX_CONCURRENT_SUBAGENTS;
 }
 
 function wrapPrompt(userPrompt: string, outputFile: string): string {
@@ -328,6 +350,12 @@ export async function registerTask(opts: {
   prompt?: string;
   /** Model for the subagent (default: sonnet) */
   model?: ModelTier;
+  /** Queue priority (default: NORMAL) */
+  priority?: TaskPriority;
+  /** Swarm ID if part of a swarm */
+  swarmId?: string;
+  /** DAG node ID if part of a swarm */
+  dagNodeId?: string;
 }): Promise<string> {
   // Auto-generate output path if prompt provided but no outputFile
   const outputFile =
@@ -362,6 +390,8 @@ export async function registerTask(opts: {
     announceRetryCount: 0,
     lastAnnounceAt: null,
     announced: false,
+    _swarmId: opts.swarmId || null,
+    _dagNodeId: opts.dagNodeId || null,
   };
 
   store.tasks.push(task);
@@ -370,19 +400,52 @@ export async function registerTask(opts: {
 
   // Auto-spawn subagent if prompt and output file are available
   if (opts.prompt && task.outputFile) {
-    try {
-      await spawnSubagent({
-        taskId: task.id,
+    const running = getRunningSubagentCount();
+    if (running < MAX_CONCURRENT_SUBAGENTS) {
+      // Slot available, spawn immediately
+      try {
+        await spawnSubagent({
+          taskId: task.id,
+          prompt: opts.prompt,
+          outputFile: task.outputFile,
+          model: opts.model,
+        });
+      } catch (err) {
+        task.error = `Spawn failed: ${err}`;
+        task.status = "failed";
+        store.totalFailed++;
+        await saveTasks();
+        warn("supervisor", `Failed to spawn subagent for ${task.id}: ${err}`);
+      }
+    } else {
+      // All slots full, enqueue for later dispatch
+      task.status = "pending";
+      await saveTasks();
+      const queued = await enqueue({
+        id: task.id,
+        priority: opts.priority ?? TaskPriority.NORMAL,
+        enqueuedAt: new Date().toISOString(),
+        ttl: opts.swarmId ? SWARM_TTL_MS : DEFAULT_TTL_MS,
+        taskType: "research",
+        description: task.description,
         prompt: opts.prompt,
         outputFile: task.outputFile,
-        model: opts.model,
+        cwd: null,
+        model: opts.model || "sonnet",
+        timeoutMs: task.timeoutMs,
+        maxRetries: task.maxRetries,
+        requestedBy: task.requestedBy,
+        swarmId: opts.swarmId || null,
+        dagNodeId: opts.dagNodeId || null,
       });
-    } catch (err) {
-      task.error = `Spawn failed: ${err}`;
-      task.status = "failed";
-      store.totalFailed++;
-      await saveTasks();
-      warn("supervisor", `Failed to spawn subagent for ${task.id}: ${err}`);
+      if (!queued) {
+        task.error = "Queue full, task rejected";
+        task.status = "failed";
+        store.totalFailed++;
+        await saveTasks();
+      } else {
+        info("supervisor", `Task ${task.id} queued (all ${MAX_CONCURRENT_SUBAGENTS} slots busy)`);
+      }
     }
   }
 
@@ -408,6 +471,9 @@ export async function completeTask(id: string, result?: string): Promise<void> {
 
   info("supervisor", `Task completed: ${task.id} — ${task.description} (${Math.round(durationMs / 1000)}s)`);
   await saveTasks();
+
+  // Notify queue + swarm orchestrator
+  await onTaskFinished(task.id);
 }
 
 /**
@@ -429,6 +495,9 @@ export async function failTask(id: string, error: string): Promise<void> {
 
   logError("supervisor", `Task failed: ${task.id} — ${task.description}: ${error} (${Math.round(durationMs / 1000)}s)`);
   await saveTasks();
+
+  // Notify queue + swarm orchestrator
+  await onTaskFinished(task.id);
 }
 
 // ============================================================
@@ -540,6 +609,8 @@ export async function checkTasks(): Promise<{
           taskType: task.taskType,
           status: "completed",
         });
+        // Notify queue + swarm
+        await onTaskFinished(task.id);
         continue;
       }
     }
@@ -811,6 +882,13 @@ export function getRunningTasks(): SupervisedTask[] {
 }
 
 /**
+ * Get a specific task by ID.
+ */
+export function getTask(taskId: string): SupervisedTask | null {
+  return store.tasks.find(t => t.id === taskId) || null;
+}
+
+/**
  * Cancel a running task by ID.
  */
 export async function cancelTask(id: string, reason?: string): Promise<boolean> {
@@ -872,6 +950,87 @@ export async function killAllRunningSubagents(reason = "Process shutdown"): Prom
   }
 
   return killed;
+}
+
+// ============================================================
+// QUEUE DISPATCH HANDLER
+// ============================================================
+
+/**
+ * Called by the queue when a slot opens and a task is ready to dispatch.
+ * Spawns the appropriate agent type for the queued task.
+ */
+export async function dispatchQueuedTask(queued: QueuedTask): Promise<void> {
+  const task = store.tasks.find(t => t.id === queued.id);
+  if (!task) {
+    warn("supervisor", `Queued task ${queued.id} not found in task store, skipping dispatch`);
+    return;
+  }
+
+  task.status = "running";
+  task.startedAt = new Date().toISOString();
+  await saveTasks();
+
+  if (queued.taskType === "code" && queued.cwd) {
+    await spawnCodeAgent({
+      taskId: queued.id,
+      prompt: queued.prompt,
+      cwd: queued.cwd,
+      model: queued.model,
+      maxToolCalls: queued.maxToolCalls,
+      wallClockMs: queued.wallClockMs,
+      inactivityMs: queued.inactivityMs,
+      budgetUsd: queued.budgetUsd,
+    });
+  } else if (queued.outputFile) {
+    await spawnSubagent({
+      taskId: queued.id,
+      prompt: queued.prompt,
+      outputFile: queued.outputFile,
+      model: queued.model,
+    });
+  } else {
+    warn("supervisor", `Queued task ${queued.id} has no output file or cwd, cannot dispatch`);
+    task.status = "failed";
+    task.error = "Missing output file or cwd for dispatch";
+    store.totalFailed++;
+    await saveTasks();
+  }
+}
+
+// ============================================================
+// TASK COMPLETION CALLBACK (triggers queue dispatch)
+// ============================================================
+
+/** Swarm completion callback, registered by orchestrator */
+let swarmCompletionCallback: ((taskId: string, swarmId: string, dagNodeId: string, cost: number) => Promise<void>) | null = null;
+
+export function registerSwarmCompletionCallback(
+  cb: (taskId: string, swarmId: string, dagNodeId: string, cost: number) => Promise<void>
+): void {
+  swarmCompletionCallback = cb;
+}
+
+/**
+ * Called internally when any task completes (research or code).
+ * Triggers queue dispatch to fill the freed slot.
+ * If the task is part of a swarm, notifies the orchestrator.
+ */
+async function onTaskFinished(taskId: string): Promise<void> {
+  // Try to fill the freed slot
+  await tryDispatch();
+
+  // Check if this task was part of a swarm
+  const task = store.tasks.find(t => t.id === taskId);
+  if (task && swarmCompletionCallback) {
+    // Look for swarm metadata. We store it on the QueuedTask, but we need
+    // to find it. Check if the task has swarm fields (added via registerTask opts).
+    const swarmId = (task as any)._swarmId;
+    const dagNodeId = (task as any)._dagNodeId;
+    if (swarmId && dagNodeId) {
+      await swarmCompletionCallback(taskId, swarmId, dagNodeId, task.costUsd);
+    }
+  }
 }
 
 // ============================================================
@@ -1497,6 +1656,8 @@ const RECOVERABLE_TAG_PREFIXES = [
   "TODO_DONE:",
   "ENTITY:",
   "RELATE:",
+  "SWARM:",
+  "EXPLORE:",
 ];
 
 interface PendingTag {
