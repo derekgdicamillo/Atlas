@@ -17,7 +17,8 @@ import { readTodoFile } from "./todo.ts";
 import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { loadTasks, checkTasks, registerTask, type CompletedTaskInfo } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
+import { checkScheduledMessages } from "./scheduled.ts";
 import { callClaude, sessionKey } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
@@ -554,6 +555,18 @@ jobs.push(
   })
 );
 
+// 11b. Scheduled messages — check every minute for due one-off messages
+jobs.push(
+  CronJob.from({
+    cronTime: "* * * * *",
+    onTick: safeTick("scheduled-msgs", async () => {
+      const sent = await checkScheduledMessages(sendTelegramMessage);
+      if (sent > 0) log("scheduled-msgs", `Sent ${sent} scheduled message(s)`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // 12. Weekly self-improvement — Sunday at 8:00 PM MST
 //     Spawns a sonnet subagent to research external updates, review past week's
 //     journals for friction points, and produce a structured improvement report.
@@ -801,6 +814,7 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
 
               if (summary && summary.trim() && !summary.startsWith("Error:") && summary !== "No response generated.") {
                 await sendTelegramMessage(DEREK_CHAT_ID, summary);
+                await markAnnounced(task.id);
                 // Add to conversation ring buffer so Atlas has context
                 const key = sessionKey("atlas", DEREK_CHAT_ID);
                 await addEntry(key, {
@@ -812,10 +826,17 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
               } else {
                 // Fallback to raw alert
                 await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] Task completed: "${task.description}" — output at ${task.outputFile}`);
+                await markAnnounced(task.id);
               }
             } catch (err) {
               warn("supervisor", `Claude summary failed for task ${task.id}: ${err}`);
-              await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] Task completed: "${task.description}" — output at ${task.outputFile}`);
+              try {
+                await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] Task completed: "${task.description}" — output at ${task.outputFile}`);
+                await markAnnounced(task.id);
+              } catch {
+                await incrementAnnounceRetry(task.id);
+                warn("supervisor", `Telegram send also failed for task ${task.id}, will retry next tick`);
+              }
             }
           } else {
             // Failed/timeout tasks get the raw alert (already in result.alerts)
@@ -835,8 +856,33 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
           await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] ${alert}`);
         }
 
-        if (result.alerts.length > 0) {
-          log("supervisor", `${result.alerts.length} alerts processed (${result.completedTasks.length} with summaries)`);
+        // Retry delivery for previously unannounced tasks (max 5 retries)
+        const MAX_ANNOUNCE_RETRIES = 5;
+        const completedTaskIds = new Set(result.completedTasks.map(t => t.id));
+        for (const task of result.unannouncedTasks) {
+          // Skip tasks we just processed above (they were newly completed this tick)
+          if (completedTaskIds.has(task.id)) continue;
+          // Skip tasks that have exceeded retry limit
+          if (task.announceRetryCount >= MAX_ANNOUNCE_RETRIES) {
+            warn("supervisor", `Task ${task.id} exceeded ${MAX_ANNOUNCE_RETRIES} announce retries, giving up`);
+            await markAnnounced(task.id); // stop retrying
+            continue;
+          }
+          try {
+            const status = task.status === "completed" ? "completed" : task.status === "failed" ? "failed" : "timed out";
+            const detail = task.result || task.error || "";
+            const msg = `[Task Supervisor] Task ${status}: "${task.description}"${detail ? ` — ${detail.substring(0, 200)}` : ""}`;
+            await sendTelegramMessage(DEREK_CHAT_ID, msg);
+            await markAnnounced(task.id);
+            log("supervisor", `Retry-announced task ${task.id} (attempt ${task.announceRetryCount + 1})`);
+          } catch {
+            await incrementAnnounceRetry(task.id);
+            warn("supervisor", `Retry announce failed for task ${task.id} (attempt ${task.announceRetryCount})`);
+          }
+        }
+
+        if (result.alerts.length > 0 || result.unannouncedTasks.length > 0) {
+          log("supervisor", `${result.alerts.length} alerts, ${result.completedTasks.length} summaries, ${result.unannouncedTasks.length} unannounced`);
         }
       }),
       timeZone: TIMEZONE,
@@ -908,6 +954,7 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
   console.log("  - 8:00 AM      OpenClaw monitoring (haiku)");
   console.log("  - 1:00 AM      Conversation summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
+  console.log("  - Every 1min   Scheduled message delivery");
   console.log("  - 7:05 AM      GHL webhook health check");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----

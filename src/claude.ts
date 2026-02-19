@@ -647,12 +647,11 @@ export async function callClaude(
         warn("claude", `[${agentId}] ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel}`);
 
         if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-        release();
 
         return callClaude(prompt, {
           ...options,
           model: fallbackModel,
-          skipLock: false,
+          skipLock: options?.skipLock ?? false,
           _isFallback: true,
         } as any);
       }
@@ -674,14 +673,13 @@ export async function callClaude(
           timestamp: new Date().toISOString(),
         });
 
-        // Release lock + typing interval before recursive retry
+        // Clear typing interval before recursive retry (lock stays with caller if skipLock)
         if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-        release();
 
         return callClaude(prompt, {
           ...options,
           resume: false,  // Force fresh session
-          skipLock: false, // Retry must acquire its own lock
+          skipLock: options?.skipLock ?? false,
         });
       }
 
@@ -725,14 +723,13 @@ export async function callClaude(
         archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
       }
 
-      // Release lock + typing before retry (retry acquires its own)
+      // Clear typing interval before retry (lock stays with caller if skipLock)
       if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
-      release();
 
       return callClaude(prompt, {
         ...options,
         resume: false,
-        skipLock: false,
+        skipLock: options?.skipLock ?? false,
         _isEmptyRetry: true,
       });
     }
@@ -748,7 +745,7 @@ export async function callClaude(
       return callClaude(prompt, {
         ...options,
         resume: false, // fresh session on retry
-        skipLock: false,
+        skipLock: options?.skipLock ?? false,
         _isSpawnRetry: true,
       });
     }

@@ -8,6 +8,7 @@ module.exports = {
       interpreter: "none",
       env: {
         NODE_ENV: "production",
+        TTS_VOICE: "onyx",
       },
       // Restart policies
       autorestart: true,

@@ -53,6 +53,7 @@ import {
   getDerekAuth,
 } from "./google.ts";
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
+import { scheduleMessage, processScheduleIntents } from "./scheduled.ts";
 import {
   addEntry,
   accumulate,
@@ -67,7 +68,7 @@ import {
   ingestDocument,
   getTodayCosts,
 } from "./search.ts";
-import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, getUnannouncedTasks, markAnnounced, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
 import { initSwarmSystem, handleSwarmCommand, processSwarmIntents, registerDeliveryCallback, cleanupSwarms } from "./orchestrator.ts";
 import { handleExploreCommand, processExploreIntents, autoExplore } from "./exploration.ts";
 import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager.ts";
@@ -1622,7 +1623,9 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
             const body = result.resultText
               ? `\n\n${result.resultText.substring(0, 3500)}`
               : "";
-            ctx.reply(header + body).catch(() => {});
+            ctx.reply(header + body)
+              .then(() => markAnnounced(taskId))
+              .catch(() => {});
 
             // Add to conversation ring buffer so Atlas has context
             const convKey = sessionKey(agentId, userId);
@@ -1911,7 +1914,7 @@ async function handleUserMessage(
     filePath?: string;
     cleanupFile?: string; // file to delete after processing (uploaded photos/docs)
   }
-): Promise<void> {
+): Promise<string> {
   const traceId = randomUUID().slice(0, 8); // short trace ID for log correlation
   const agent = resolveAgent(userId);
   const agentId = agent?.config.id || "atlas";
@@ -1948,7 +1951,7 @@ async function handleUserMessage(
 
   // 4. Acquire session lock (may wait if Claude is busy processing another message)
   const { acquired, release } = await acquireSessionLock(key, "wait");
-  if (!acquired) return;
+  if (!acquired) return "";
 
   try {
     // 5. Drain ALL accumulated messages (ours + any that arrived while waiting)
@@ -2154,6 +2157,9 @@ async function handleUserMessage(
       response = await processGHLIntents(response);
     }
 
+    // Process scheduled message intents
+    response = processScheduleIntents(response, userId);
+
     // Process background task delegations
     response = await processTaskIntents(response);
 
@@ -2166,12 +2172,14 @@ async function handleUserMessage(
         ctx.reply(msg).catch(() => {});
       },
       // onComplete: send final summary to Telegram + add to conversation
-      (_taskId, result) => {
+      (completedTaskId, result) => {
         const dur = Math.round(result.durationMs / 1000);
         const status = result.success ? "Done" : `Failed (${result.exitReason})`;
         const header = `[Code] ${status} | ${dur}s | ${result.toolCallCount} tools | $${result.costUsd.toFixed(2)}`;
         const body = result.resultText ? `\n\n${result.resultText.substring(0, 3500)}` : "";
-        ctx.reply(header + body).catch(() => {});
+        ctx.reply(header + body)
+          .then(() => markAnnounced(completedTaskId))
+          .catch(() => {});
         addEntry(key, {
           role: "system",
           content: `Code agent completed (${result.exitReason}): ${result.resultText?.substring(0, 500) || "no output"}`,
@@ -2213,6 +2221,7 @@ async function handleUserMessage(
     await saveMessage("assistant", response, { agentId, traceId });
     await sendResponse(ctx, response);
     info("trace", `[${traceId}] END ${response.length} chars delivered`);
+    return response;
   } finally {
     release();
 
@@ -2303,13 +2312,23 @@ bot.on("message:voice", async (ctx) => {
       return;
     }
 
-    await handleUserMessage(ctx, userId, {
+    const responseText = await handleUserMessage(ctx, userId, {
       text: `[Voice message transcribed]: ${transcription}`,
       type: "voice",
     });
 
-    // Voice response: try TTS after handleUserMessage has already sent text
-    // Note: TTS is best-effort, text response is already delivered above
+    // Voice response: TTS is best-effort, text response is already delivered above
+    if (responseText) {
+      try {
+        await ctx.replyWithChatAction("record_voice");
+        const audioBuffer = await textToSpeech(responseText);
+        if (audioBuffer) {
+          await ctx.replyWithVoice(new InputFile(audioBuffer, "response.ogg"));
+        }
+      } catch (ttsErr) {
+        logError("tts", `TTS failed (non-fatal): ${ttsErr}`);
+      }
+    }
   } catch (err) {
     logError("voice", `Voice processing failed: ${err}`);
     await ctx.reply("Could not process voice message. Check logs for details.");
@@ -2453,7 +2472,7 @@ function sanitizeContext(text: string): string {
   //  - "Ignore previous instructions" / "disregard above" style attacks
   return text
     .replace(/^(SYSTEM|ADMIN|INSTRUCTION|OVERRIDE|IMPORTANT INSTRUCTION)\s*:/gim, "[filtered]:")
-    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK|ENTITY|RELATE)\s*:/gi, "[data:")
+    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK|ENTITY|RELATE|SCHEDULE)\s*:/gi, "[data:")
     .replace(/ignore\s+(all\s+)?previous\s+instructions/gi, "[filtered]")
     .replace(/disregard\s+(all\s+)?(above|previous|prior)/gi, "[filtered]")
     .replace(/you\s+are\s+now\s+(a|an)\s+/gi, "[filtered] ")
@@ -2848,23 +2867,24 @@ startCronJobs(supabase).catch((err) =>
   console.error("[startup] Failed to start cron jobs:", err)
 );
 
+// Register delivery callback BEFORE init so it's available when tickAllSwarms() completes swarms
+registerDeliveryCallback(async (chatId: string, header: string, body: string) => {
+  try {
+    await bot.api.sendMessage(Number(chatId), header);
+    if (body && body.trim()) {
+      // Chunk body if needed (Telegram 4096 char limit)
+      const chunks = chunkMessage(body, 4000);
+      for (const chunk of chunks) {
+        await bot.api.sendMessage(Number(chatId), chunk);
+      }
+    }
+  } catch (err) {
+    warn("swarm-delivery", `Failed to deliver swarm result: ${err}`);
+  }
+});
+
 // Initialize swarm system (queue, DAG engine, orchestrator)
 initSwarmSystem().then(() => {
-  // Register delivery callback so swarm results get sent via Telegram
-  registerDeliveryCallback(async (chatId: string, header: string, body: string) => {
-    try {
-      await bot.api.sendMessage(Number(chatId), header);
-      if (body && body.trim()) {
-        // Chunk body if needed (Telegram 4096 char limit)
-        const chunks = chunkMessage(body, 4000);
-        for (const chunk of chunks) {
-          await bot.api.sendMessage(Number(chatId), chunk);
-        }
-      }
-    } catch (err) {
-      warn("swarm-delivery", `Failed to deliver swarm result: ${err}`);
-    }
-  });
   info("startup", "Swarm system initialized");
 }).catch((err) => {
   warn("startup", `Swarm init failed (non-fatal): ${err}`);
@@ -2909,6 +2929,28 @@ loadLastUpdateId().then((id) => {
           drainPendingReplies(async (chatId, text) => {
             await bot.api.sendMessage(chatId, text);
           }).catch((err) => warn("delivery", `Failed to drain pending replies: ${err}`));
+
+          // Drain unannounced task completions that were missed before crash/restart
+          if (ALLOWED_USER_ID) {
+            (async () => {
+              try {
+                const unannounced = getUnannouncedTasks();
+                if (unannounced.length > 0) {
+                  info("startup", `Found ${unannounced.length} unannounced task(s), delivering now`);
+                  for (const task of unannounced) {
+                    const status = task.status === "completed" ? "completed" : task.status === "failed" ? "failed" : "timed out";
+                    const detail = task.result || task.error || "";
+                    const msg = `[Startup Recovery] Task ${status}: "${task.description}"${detail ? ` — ${detail.substring(0, 200)}` : ""}`;
+                    await bot.api.sendMessage(ALLOWED_USER_ID, msg);
+                    await markAnnounced(task.id);
+                  }
+                  info("startup", `Delivered ${unannounced.length} missed task result(s)`);
+                }
+              } catch (err) {
+                warn("startup", `Failed to drain unannounced tasks: ${err}`);
+              }
+            })();
+          }
 
           // Post-startup health checks for integrations with external tokens
           if (isDashboardReady()) {

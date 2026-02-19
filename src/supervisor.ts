@@ -733,6 +733,16 @@ export async function checkTasks(): Promise<{
 }
 
 /**
+ * Get all tasks that completed but were never announced.
+ * Used by startup recovery to drain undelivered results.
+ */
+export function getUnannouncedTasks(): SupervisedTask[] {
+  return store.tasks.filter(
+    (t) => (t.status === "completed" || t.status === "failed" || t.status === "timeout") && !t.announced
+  );
+}
+
+/**
  * Mark a task as announced (completion message delivered to user).
  * Supports the OpenClaw announce-retry pattern.
  */
