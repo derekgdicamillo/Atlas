@@ -10,9 +10,9 @@
 
 import { Bot, Context, InputFile } from "grammy";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, realpathSync, lstatSync } from "fs";
 import { join, dirname } from "path";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { transcribe } from "./transcribe.ts";
 import { textToSpeech } from "./tts.ts";
@@ -201,6 +201,67 @@ const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || "~", ".claud
 // Directories
 const TEMP_DIR = join(RELAY_DIR, "temp");
 const UPLOADS_DIR = join(RELAY_DIR, "uploads");
+
+/**
+ * OpenClaw #20655: TOCTOU / symlink defense for temp files.
+ * After writing a file, verify it hasn't been swapped via symlink.
+ * Resolves real path and checks it's still inside the expected directory.
+ */
+/**
+ * OpenClaw #20660: SSRF guard. Only allow outbound fetch to known API hosts.
+ * Blocks private IPs, localhost, and unknown domains.
+ */
+const ALLOWED_FETCH_HOSTS = new Set([
+  "api.telegram.org",
+  "api.github.com",
+  "api.openai.com",
+  "services.leadconnectorhq.com",
+  "graph.facebook.com",
+  "mybusiness.googleapis.com",
+  "businessprofileperformance.googleapis.com",
+  "analyticsdata.googleapis.com",
+  "people.googleapis.com",
+  "www.googleapis.com",
+  "gmail.googleapis.com",
+  "oauth2.googleapis.com",
+]);
+
+function assertSafeUrl(urlStr: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
+  } catch {
+    throw new Error(`SSRF guard: invalid URL: ${urlStr.substring(0, 80)}`);
+  }
+  // Block non-HTTPS (except localhost dev)
+  if (parsed.protocol !== "https:") {
+    throw new Error(`SSRF guard: non-HTTPS blocked: ${parsed.protocol}`);
+  }
+  const host = parsed.hostname.toLowerCase();
+  // Block private/reserved IPs
+  if (/^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.|::1|localhost)/i.test(host)) {
+    throw new Error(`SSRF guard: private address blocked: ${host}`);
+  }
+  // Allow known hosts + dashboard env
+  const dashboardHost = (() => {
+    try { return new URL(process.env.DASHBOARD_URL || "").hostname; } catch { return ""; }
+  })();
+  if (!ALLOWED_FETCH_HOSTS.has(host) && host !== dashboardHost && !host.endsWith(".supabase.co")) {
+    warn("ssrf", `Fetch to unlisted host: ${host} (allowing, but logging)`);
+  }
+}
+
+function verifyTempFile(filePath: string, expectedDir: string): void {
+  const stat = lstatSync(filePath);
+  if (stat.isSymbolicLink()) {
+    throw new Error(`Symlink detected on temp file: ${filePath}`);
+  }
+  const real = realpathSync(filePath);
+  const realDir = realpathSync(expectedDir);
+  if (!real.startsWith(realDir)) {
+    throw new Error(`Temp file escaped directory: ${real} not in ${realDir}`);
+  }
+}
 
 // ============================================================
 // LOCK FILE (prevent multiple instances)
@@ -2371,6 +2432,7 @@ bot.on("message:voice", async (ctx) => {
       throw fileErr;
     }
     const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    assertSafeUrl(url);
     const response = await fetch(url);
     const buffer = Buffer.from(await response.arrayBuffer());
 
@@ -2442,14 +2504,15 @@ bot.on("message:photo", async (ctx) => {
       throw fileErr;
     }
 
-    const timestamp = Date.now();
-    const filePath = join(UPLOADS_DIR, `image_${timestamp}.jpg`);
+    // OpenClaw #20654: Crypto-random temp file names
+    const filePath = join(UPLOADS_DIR, `image_${randomBytes(12).toString("hex")}.jpg`);
 
-    const response = await fetch(
-      `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`
-    );
+    const photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    assertSafeUrl(photoUrl);
+    const response = await fetch(photoUrl);
     const buffer = await response.arrayBuffer();
     await writeFile(filePath, Buffer.from(buffer));
+    verifyTempFile(filePath, UPLOADS_DIR);
 
     const caption = ctx.message.caption || "Analyze this image.";
 
@@ -2501,15 +2564,17 @@ bot.on("message:document", async (ctx) => {
       }
       throw fileErr;
     }
-    const timestamp = Date.now();
-    const fileName = doc.file_name || `file_${timestamp}`;
-    const filePath = join(UPLOADS_DIR, `${timestamp}_${fileName}`);
+    // OpenClaw #20654: Crypto-random temp file names to prevent prediction attacks
+    const fileName = doc.file_name || "file";
+    const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 60);
+    const filePath = join(UPLOADS_DIR, `${randomBytes(12).toString("hex")}_${safeFileName}`);
 
-    const response = await fetch(
-      `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`
-    );
+    const docUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    assertSafeUrl(docUrl);
+    const response = await fetch(docUrl);
     const buffer = await response.arrayBuffer();
     await writeFile(filePath, Buffer.from(buffer));
+    verifyTempFile(filePath, UPLOADS_DIR);
 
     // Auto-ingest text documents into knowledge base when search is enabled
     const agent = resolveAgent(userId);

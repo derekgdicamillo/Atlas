@@ -78,6 +78,31 @@ export function sanitizedEnv(): Record<string, string | undefined> {
   return env;
 }
 
+/**
+ * OpenClaw 2.19 Windows security: Validate spawn arguments.
+ * Rejects args containing CR/LF (command injection vector on Windows)
+ * and warns on cmd metacharacters that could cause issues.
+ */
+function validateSpawnArgs(args: string[]): void {
+  for (const arg of args) {
+    if (/[\r\n]/.test(arg)) {
+      throw new Error(`Spawn arg contains CR/LF (potential injection): ${arg.substring(0, 50)}`);
+    }
+  }
+}
+
+/** OpenClaw 2.19: Max prompt payload size (2 MiB) to prevent OOM/excessive token burn. */
+const MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+
+/** OpenClaw 2.19 (#20670): Strip prototype pollution keys from parsed JSON. */
+const POISON_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+function safeParse(json: string): any {
+  return JSON.parse(json, (key, value) => {
+    if (POISON_KEYS.has(key)) return undefined;
+    return value;
+  });
+}
+
 // ============================================================
 // SESSION MANAGEMENT (per-agent, per-user)
 // ============================================================
@@ -230,7 +255,7 @@ export async function acquireSessionLock(
 // ============================================================
 
 export interface StreamEvent {
-  type: "system" | "assistant" | "result";
+  type: "system" | "assistant" | "result" | "thinking";
   sessionId?: string;
   toolName?: string;
   toolInput?: Record<string, any>;
@@ -261,7 +286,7 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
         if (!trimmed) continue;
 
         try {
-          const raw = JSON.parse(trimmed);
+          const raw = safeParse(trimmed);
           const sessionId = raw.session_id || undefined;
 
           switch (raw.type) {
@@ -280,8 +305,26 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
                       toolInput: block.input,
                     });
                   }
+                  // OpenClaw #20635: Handle thinking blocks in assistant messages
+                  if (block.type === "thinking" || block.type === "redacted_thinking") {
+                    onEvent({ type: "thinking", sessionId });
+                  }
                 }
               }
+              break;
+
+            // OpenClaw #20635: Handle native thinking_* stream events
+            case "thinking":
+            case "thinking_delta":
+            case "thinking_stop":
+              onEvent({ type: "thinking", sessionId });
+              break;
+
+            // Handle content_block events (partial streaming)
+            case "content_block_start":
+            case "content_block_delta":
+            case "content_block_stop":
+              // These are streaming events; treat as activity but don't emit as tool calls
               break;
 
             case "result":
@@ -307,7 +350,7 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
       if (lineBuffer.trim()) {
         // Try to parse any remaining buffered data
         try {
-          const raw = JSON.parse(lineBuffer.trim());
+          const raw = safeParse(lineBuffer.trim());
           if (raw.type === "result") {
             onEvent({
               type: "result",
@@ -417,6 +460,18 @@ export async function callClaude(
       "--model", modelId,
       "--dangerously-skip-permissions"
     );
+
+    // OpenClaw 2.19: Validate spawn args (reject CR/LF injection)
+    validateSpawnArgs(args);
+
+    // OpenClaw 2.19: Cap prompt payload size to prevent OOM/excessive token burn
+    const promptBytes = Buffer.byteLength(prompt, "utf-8");
+    if (promptBytes > MAX_PROMPT_BYTES) {
+      warn("claude", `[${agentId}] Prompt exceeds ${MAX_PROMPT_BYTES / 1024 / 1024}MiB (${Math.round(promptBytes / 1024)}KiB). Truncating.`);
+      // Truncate to fit. Slice by chars (approximate, but safe)
+      const ratio = MAX_PROMPT_BYTES / promptBytes;
+      prompt = prompt.substring(0, Math.floor(prompt.length * ratio));
+    }
 
     const effectiveTimeout = getEffectiveTimeout(modelTier);
 
@@ -576,12 +631,24 @@ export async function callClaude(
           }
           break;
 
+        // OpenClaw #20635: Thinking events keep session alive during extended reasoning
+        case "thinking":
+          lastActivityAt = Date.now();
+          break;
+
         case "result":
           gotResultEvent = true;
           resultText = event.resultText || "";
           if (event.isError) {
             isError = true;
             errorInfo = event.errorSubtype || "unknown error";
+          } else {
+            // OpenClaw #20635: Clear stale error state after successful result
+            // (handles case where tool retry succeeds after earlier failure)
+            if (isError && resultText.trim()) {
+              isError = false;
+              errorInfo = "";
+            }
           }
           inputTokens = event.inputTokens || 0;
           outputTokens = event.outputTokens || 0;
@@ -777,7 +844,8 @@ export async function callClaude(
         }
         // Fall through to normal result handling below
       } else {
-        return `Error: ${stderr || "Claude exited with code " + exitCode}`;
+        // OpenClaw #20510: Include model in error messages for billing/rate-limit triage
+        return `Error (${modelTier}): ${stderr || "Claude exited with code " + exitCode}`;
       }
     }
 

@@ -557,30 +557,107 @@ jobs.push(
   })
 );
 
-// 9. OpenClaw monitoring — daily at 8:00 AM ET
-//    Checks openclaw/openclaw for new commits/releases, summarizes via Haiku
+// 9. Nightly Evolution — 11:00 PM MST
+//    Consolidated job: checks OpenClaw GitHub for new releases/commits,
+//    scans error logs for recurring failures, reads recent journals for friction,
+//    then spawns a code agent (opus) to auto-implement improvements and fixes.
+//    Replaces the old daily OpenClaw monitor + weekly self-improvement scout.
 jobs.push(
   CronJob.from({
-    cronTime: "0 8 * * *",
-    onTick: safeTick("openclaw", async () => {
-      log("openclaw", "Checking openclaw/openclaw for updates...");
+    cronTime: "0 23 * * *",
+    onTick: safeTick("evolution", async () => {
+      log("evolution", "Starting nightly evolution check...");
 
-      const { commits, newRelease } = await checkOpenClaw();
-      const prompt = formatForSummary(commits, newRelease);
+      // 1. Check OpenClaw GitHub for new activity
+      const { commits, newRelease, releaseNotes } = await checkOpenClaw();
+
+      // 2. Scan error logs (last 48 hours)
+      const failures = getRecentFailures(48);
+      const failureSummary = formatFailureSummary(failures);
+
+      // 3. Collect journal context (last 3 days of friction points)
+      let journalContext = "";
+      for (let i = 0; i < 3; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+        const jPath = join(MEMORY_DIR, `${dateStr}.md`);
+        if (existsSync(jPath)) {
+          try {
+            const content = readFileSync(jPath, "utf-8");
+            // Extract lines mentioning errors, issues, friction, bugs, fixes
+            const relevant = content
+              .split("\n")
+              .filter((l) =>
+                /error|fail|bug|fix|broke|crash|timeout|retry|friction|issue|problem/i.test(l)
+              )
+              .join("\n");
+            if (relevant) {
+              journalContext += `### ${dateStr}\n${relevant}\n\n`;
+            }
+          } catch { /* skip unreadable */ }
+        }
+      }
+
+      // 4. Build evolution prompt
+      const prompt = buildEvolutionPrompt({
+        commits,
+        newRelease,
+        releaseNotes,
+        recentFailures: failureSummary,
+        journalContext,
+      });
 
       if (!prompt) {
-        log("openclaw", "No new activity");
+        log("evolution", "No new OpenClaw activity and no errors. Skipping.");
         return;
       }
 
-      const summary = await runPrompt(prompt, MODELS.haiku);
+      // 5. Spawn code agent to implement improvements
+      try {
+        const taskId = await registerCodeTask({
+          description: "Nightly evolution: OpenClaw upgrades + error fixes",
+          prompt,
+          cwd: PROJECT_DIR,
+          model: "opus",
+          requestedBy: "cron:evolution",
+          wallClockMs: 60 * 60 * 1000, // 60 min max
+          budgetUsd: 5.00,
+          onComplete: async (result) => {
+            // Report results to Derek
+            const status = result.exitReason === "completed" ? "completed" : `stopped (${result.exitReason})`;
+            const cost = result.costUsd?.toFixed(2) || "?";
+            const changes = newRelease ? `OpenClaw ${newRelease.tag}` : `${commits.length} commits`;
+            const errors = failures.length > 0 ? `, ${failures.length} errors addressed` : "";
 
-      if (summary) {
+            const msg = [
+              `**Nightly Evolution ${status}**`,
+              `Analyzed: ${changes}${errors}`,
+              `Cost: $${cost} | Duration: ${Math.round((result.durationMs || 0) / 1000)}s`,
+              "",
+              "Report: data/task-output/nightly-evolution.md",
+            ].join("\n");
+
+            await sendTelegramMessage(DEREK_CHAT_ID, msg);
+          },
+        });
+
+        log("evolution", `Spawned code agent: ${taskId}`);
+
+        // Brief heads-up to Derek
+        const preview = newRelease
+          ? `New OpenClaw release: ${newRelease.tag}`
+          : `${commits.length} new commit(s)`;
+        const errorNote = failures.length > 0
+          ? ` + ${failures.length} error(s) to investigate`
+          : "";
+
         await sendTelegramMessage(
           DEREK_CHAT_ID,
-          `OpenClaw Update:\n\n${summary}`
+          `**Nightly evolution started.** ${preview}${errorNote}. Code agent is analyzing and implementing improvements. I'll report back when done.`
         );
-        log("openclaw", "Sent summary to Derek");
+      } catch (err) {
+        logError("cron", `Evolution code agent failed to spawn: ${err}`);
       }
     }),
     timeZone: TIMEZONE,
@@ -630,100 +707,7 @@ jobs.push(
   })
 );
 
-// 12. Weekly self-improvement — Sunday at 8:00 PM MST
-//     Spawns a sonnet subagent to research external updates, review past week's
-//     journals for friction points, and produce a structured improvement report.
-jobs.push(
-  CronJob.from({
-    cronTime: "0 20 * * 0",
-    onTick: safeTick("self-improve", async () => {
-      log("self-improve", "Starting weekly self-improvement review...");
-
-      // Collect the past 7 days of journal filenames for the subagent prompt
-      const journalFiles: string[] = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-        const jPath = join(MEMORY_DIR, `${dateStr}.md`);
-        if (existsSync(jPath)) {
-          journalFiles.push(jPath);
-        }
-      }
-
-      const journalList = journalFiles.length > 0
-        ? journalFiles.map((f) => `- ${f}`).join("\n")
-        : "No journal files found for the past week.";
-
-      const outputFile = "data/task-output/self-improvement-weekly.md";
-
-      const prompt = [
-        "You are Atlas's weekly self-improvement agent. Your job is to identify ways Atlas can get better.",
-        "",
-        "Do these three things:",
-        "",
-        "## 1. External Opportunities",
-        "Check these sources for new features, patterns, or tools worth adopting:",
-        "- OpenClaw GitHub releases: https://github.com/openclaw/openclaw/releases",
-        "  Fetch this page and look for recent releases. Note any features relevant to a Telegram bot built on Claude Code CLI.",
-        "- Claude Code updates: Search the web for 'Claude Code changelog 2026' or 'Claude Code new features 2026'.",
-        "  Note anything that could improve Atlas (new tools, better prompting patterns, MCP improvements, etc.).",
-        "- Notable AI assistant projects: Search for 'AI assistant framework open source 2026' or 'Claude agent patterns'.",
-        "  Look for patterns or architectures other projects use that Atlas could adopt.",
-        "",
-        "For each finding, note: what it is, why it matters to Atlas, and effort to adopt (low/medium/high).",
-        "",
-        "## 2. Internal Friction Points",
-        "Read the following journal files from the past week and look for:",
-        "- Recurring errors or failures",
-        "- Tasks that failed or timed out",
-        "- Things Derek had to repeat or got frustrated about",
-        "- Workarounds or manual steps that could be automated",
-        "- Any pattern of friction (slow responses, missing capabilities, confusion)",
-        "",
-        "Journal files to read:",
-        journalList,
-        "",
-        "## 3. Recommended Actions",
-        "Based on your findings, produce a prioritized list of recommended actions.",
-        "Each action should have:",
-        "- Priority: P1 (do this week), P2 (do this month), P3 (backlog)",
-        "- Description: What to do",
-        "- Source: Which finding led to this recommendation",
-        "- Effort: Low (< 1 hour), Medium (1-4 hours), High (4+ hours)",
-        "",
-        "## Output Format",
-        "Write a clean markdown report with these three sections.",
-        "Include a date header and a brief executive summary at the top.",
-        "Be specific and actionable. Skip generic advice.",
-      ].join("\n");
-
-      try {
-        const taskId = await registerTask({
-          description: "Weekly self-improvement review",
-          outputFile,
-          prompt,
-          model: "sonnet",
-          agentId: "researcher", // routed to researcher agent
-          timeoutMs: 15 * 60 * 1000, // 15 min (web research takes time)
-          maxRetries: 1,
-          requestedBy: "cron:self-improve",
-        });
-
-        log("self-improve", `Spawned subagent: ${taskId}`);
-
-        // Send a brief heads-up to Derek
-        await sendTelegramMessage(
-          DEREK_CHAT_ID,
-          "Running weekly self-improvement review. I'll check OpenClaw releases, Claude Code updates, and this week's journals for friction points. Report incoming."
-        );
-      } catch (err) {
-        logError("cron", `Self-improvement task failed to spawn: ${err}`);
-      }
-    }),
-    timeZone: TIMEZONE,
-  })
-);
+// 12. (REMOVED — merged into nightly evolution job #9)
 
 // ============================================================
 // START ALL JOBS
@@ -1023,8 +1007,7 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
-  console.log("  - Sunday 8 PM  Weekly self-improvement review (sonnet)");
-  console.log("  - 8:00 AM      OpenClaw monitoring (haiku)");
+  console.log("  - 11:00 PM     Nightly evolution (opus code agent: OpenClaw + error fixes)");
   console.log("  - 1:00 AM      Conversation summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
   console.log("  - Every 1min   Scheduled message delivery");

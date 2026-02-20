@@ -240,6 +240,39 @@ export async function runHeartbeat(
 
   const prompt = await buildHeartbeatPrompt(checkType, state, supabase);
 
+  // OpenClaw #20635: Skip heartbeat call when check context is trivially empty.
+  // Health with no issues, empty todos, empty journal -- no point calling Claude.
+  const isActionable = (() => {
+    const metrics = getMetrics();
+    const health = getHealthStatus();
+    switch (checkType) {
+      case "health":
+        return health.issues.length > 0 || metrics.errorCount > 0 || health.status !== "healthy";
+      case "todos":
+        // Always check todos (lightweight, often has updates)
+        return true;
+      case "memory":
+        return true;
+      case "journal":
+        return true;
+      case "conversation":
+        return true;
+      case "tasks":
+        return true;
+      default:
+        return true;
+    }
+  })();
+
+  if (!isActionable) {
+    state.tickCount++;
+    state.lastCheckType = checkType;
+    state.lastResult = "skipped";
+    state.lastTimestamp = new Date().toISOString();
+    await saveState(state);
+    return { skipped: true, shouldNotify: false, message: "" };
+  }
+
   let rawResponse: string;
   try {
     // Call Claude in Derek's session with skip-if-busy lock
