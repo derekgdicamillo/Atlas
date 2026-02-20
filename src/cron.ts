@@ -14,10 +14,10 @@ import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, wa
 import { getAllBreakerStats } from "./circuit-breaker.ts";
 import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
-import { checkOpenClaw, formatForSummary } from "./openclaw.ts";
+import { checkOpenClaw, buildEvolutionPrompt } from "./openclaw.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, registerCodeTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
 import { checkScheduledMessages } from "./scheduled.ts";
 import { callClaude, sessionKey } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
@@ -26,7 +26,7 @@ import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from 
 import { isGBPReady, getGBPContext } from "./gbp.ts";
 import { isGA4Ready, getGA4Context } from "./analytics.ts";
 import { buildWeeklySummary, formatWeeklySummary } from "./executive.ts";
-import { appendRun, cleanupOldRuns, type CronRun } from "./run-log.ts";
+import { appendRun, cleanupOldRuns, getRecentFailures, formatFailureSummary, type CronRun } from "./run-log.ts";
 import { fireHooks } from "./hooks.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
@@ -52,8 +52,27 @@ function log(job: string, message: string): void {
 // SAFE TICK WRAPPER (OpenClaw #15108 — prevent cron silent death)
 // ============================================================
 
+// OpenClaw #18073: Minimum refire gap prevents spin loops from node-cron edge cases
+const MIN_REFIRE_GAP_MS = 30_000; // 30 seconds
+const lastFireTimes = new Map<string, number>();
+
 function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promise<void> {
   return async () => {
+    // Spin loop guard: skip if job fired too recently
+    const lastFire = lastFireTimes.get(jobName) || 0;
+    if (Date.now() - lastFire < MIN_REFIRE_GAP_MS) {
+      warn("cron", `[${jobName}] Spin loop guard: skipping refire (${Date.now() - lastFire}ms since last)`);
+      appendRun(jobName, {
+        ts: Date.now(),
+        jobName,
+        status: "skipped",
+        durationMs: 0,
+        summary: "spin loop guard",
+      });
+      return;
+    }
+    lastFireTimes.set(jobName, Date.now());
+
     const startMs = Date.now();
 
     // Fire cron-before hooks (non-blocking on failure)
@@ -172,14 +191,17 @@ async function runPrompt(prompt: string, model?: string): Promise<string> {
   }
 }
 
-/** Send a proactive message to Derek via Telegram Bot API */
-async function sendTelegramMessage(chatId: string, text: string): Promise<void> {
+/** Send a proactive message to Derek via Telegram Bot API.
+ *  Supports optional message_thread_id for topic-based delivery. */
+async function sendTelegramMessage(chatId: string, text: string, threadId?: number): Promise<void> {
   if (!BOT_TOKEN || !chatId) return;
   try {
+    const payload: Record<string, unknown> = { chat_id: chatId, text };
+    if (threadId) payload.message_thread_id = threadId;
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify(payload),
     });
   } catch (err) {
     log("telegram", `Failed to send message: ${err}`);
@@ -899,8 +921,9 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
           await sendTelegramMessage(DEREK_CHAT_ID, `[Task Supervisor] ${alert}`);
         }
 
-        // Retry delivery for previously unannounced tasks (max 5 retries)
+        // Retry delivery for previously unannounced tasks (OpenClaw #18444: max attempts + expiry)
         const MAX_ANNOUNCE_RETRIES = 5;
+        const ANNOUNCE_EXPIRY_MS = 60 * 60_000; // 1 hour: stop retrying after this
         const completedTaskIds = new Set(result.completedTasks.map(t => t.id));
         for (const task of result.unannouncedTasks) {
           // Skip tasks we just processed above (they were newly completed this tick)
@@ -909,6 +932,13 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
           if (task.announceRetryCount >= MAX_ANNOUNCE_RETRIES) {
             warn("supervisor", `Task ${task.id} exceeded ${MAX_ANNOUNCE_RETRIES} announce retries, giving up`);
             await markAnnounced(task.id); // stop retrying
+            continue;
+          }
+          // Skip tasks that are too old (expiry prevents infinite retry across restarts)
+          const completedAt = task.completedAt ? new Date(task.completedAt).getTime() : 0;
+          if (completedAt > 0 && Date.now() - completedAt > ANNOUNCE_EXPIRY_MS) {
+            warn("supervisor", `Task ${task.id} announce expired (completed ${Math.round((Date.now() - completedAt) / 60000)}m ago), giving up`);
+            await markAnnounced(task.id);
             continue;
           }
           try {

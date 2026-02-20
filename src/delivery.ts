@@ -124,6 +124,8 @@ export interface DeliveryConfig {
   channel: DeliveryChannel;
   /** Chat ID or recipient identifier */
   to: string;
+  /** Telegram topic thread ID for topic-based delivery */
+  threadId?: number;
   /** Message format */
   format: "markdown" | "plain";
   /** What to do on delivery failure */
@@ -172,11 +174,11 @@ export async function deliver(
     try {
       switch (cfg.channel) {
         case "telegram":
-          await sendViaTelegram(cfg.to, message);
+          await sendViaTelegram(cfg.to, message, cfg.threadId);
           break;
         default:
           warn("delivery", `Unknown channel: ${cfg.channel}, falling back to telegram`);
-          await sendViaTelegram(cfg.to, message);
+          await sendViaTelegram(cfg.to, message, cfg.threadId);
       }
       return { success: true, attempts: attempt };
     } catch (err) {
@@ -194,22 +196,24 @@ export async function deliver(
   if (cfg.onFailure === "notify") {
     // Try one last notification about the failure itself
     try {
-      await sendViaTelegram(cfg.to, `[Delivery Failed] Could not deliver message after ${cfg.maxRetries} attempts: ${lastError.substring(0, 100)}`);
+      await sendViaTelegram(cfg.to, `[Delivery Failed] Could not deliver message after ${cfg.maxRetries} attempts: ${lastError.substring(0, 100)}`, cfg.threadId);
     } catch { /* give up */ }
   }
 
   return { success: false, attempts: cfg.maxRetries, error: lastError };
 }
 
-/** Send a message via Telegram Bot API (low-level). */
-async function sendViaTelegram(chatId: string, text: string): Promise<void> {
+/** Send a message via Telegram Bot API (low-level). Supports topic threads. */
+async function sendViaTelegram(chatId: string, text: string, threadId?: number): Promise<void> {
   if (!BOT_TOKEN || !chatId) {
     throw new Error("Missing BOT_TOKEN or chatId");
   }
+  const payload: Record<string, unknown> = { chat_id: chatId, text };
+  if (threadId) payload.message_thread_id = threadId;
   const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
     throw new Error(`Telegram API error: ${response.status} ${response.statusText}`);

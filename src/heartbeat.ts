@@ -192,7 +192,11 @@ async function buildHeartbeatPrompt(
     "- Use [REMEMBER: ...] to persist important context before it gets lost\n" +
     "- Use [TODO: ...] to capture tasks you notice that aren't tracked yet\n" +
     "- Do NOT greet Derek. This is an internal system check, not a conversation.\n" +
-    "- Keep it SHORT. This is not a report — it's a quick check.\n\n" +
+    "- Keep it SHORT. This is not a report — it's a quick check.\n" +
+    "- Ignore tool execution warnings/errors during this check (they are expected during heartbeat).\n\n" +
+    "DELIVERY CONTEXT:\n" +
+    `- From: Atlas heartbeat (${HEARTBEAT_MODEL})\n` +
+    `- To: Derek via Telegram (chat ${DEREK_USER_ID})\n\n` +
     `CURRENT CHECK: ${checkType}\n${checkContext}\n\n` +
     "SYSTEM SUMMARY:\n" +
     `- Uptime: ${uptimeHrs}h | Msgs today: ${metrics.messageCount} | Health: ${health.status} | Errors: ${metrics.errorCount}\n` +
@@ -286,7 +290,13 @@ export async function runHeartbeat(
   state.lastTimestamp = new Date().toISOString();
 
   // Check for HEARTBEAT_OK (suppress notification)
-  const isOk = response.trim().toUpperCase().includes("HEARTBEAT_OK");
+  // Strip any configured response prefix before detection (OpenClaw #18602)
+  const RESPONSE_PREFIX = process.env.RESPONSE_PREFIX || "";
+  let checkText = response.trim();
+  if (RESPONSE_PREFIX && checkText.startsWith(RESPONSE_PREFIX)) {
+    checkText = checkText.slice(RESPONSE_PREFIX.length).trim();
+  }
+  const isOk = checkText.toUpperCase().includes("HEARTBEAT_OK");
 
   if (isOk) {
     state.lastResult = "ok";

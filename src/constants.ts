@@ -20,9 +20,9 @@ export const TOKEN_COSTS: Record<ModelTier, { input: number; output: number }> =
 };
 
 // Max tool calls per request before kill (loop detection)
-// 25 was too low — Claude Code uses 100+ on complex tasks.
-// Raised to 75 for main session; code agents keep 200.
-export const MAX_TOOL_CALLS_PER_REQUEST = 75;
+// Removed hard cap — smart loop detection (duplicate signatures) catches real loops.
+// Set high so complex tasks never hit the ceiling.
+export const MAX_TOOL_CALLS_PER_REQUEST = Infinity;
 
 // Concurrent subagent limit (code + research share pool)
 export const MAX_CONCURRENT_SUBAGENTS = 5;

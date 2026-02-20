@@ -10,8 +10,9 @@
  */
 
 import { spawn } from "bun";
-import { writeFile, readFile, appendFile, mkdir } from "fs/promises";
+import { writeFile, readFile, appendFile, mkdir, rename } from "fs/promises";
 import { join, dirname } from "path";
+import { randomBytes } from "crypto";
 import {
   info,
   warn,
@@ -49,6 +50,33 @@ const MODEL_FALLBACK: Record<string, ModelTier | null> = {
   sonnet: "haiku",
   haiku: null, // nowhere to fall back to
 };
+
+// Exec preflight: strip env vars that should never leak to spawned CLI processes
+// (OpenClaw #12836 — shell env var injection guard)
+const STRIP_ENV_VARS = [
+  "GHL_API_TOKEN", "GHL_WEBHOOK_SECRET",
+  "SUPABASE_SERVICE_KEY", "SUPABASE_KEY",
+  "DASHBOARD_API_TOKEN",
+  "OPENAI_API_KEY",
+  "GOOGLE_CLIENT_SECRET",
+  // Atlas tokens that Claude CLI doesn't need
+  "TELEGRAM_BOT_TOKEN",
+];
+
+/** Return a cleaned copy of process.env safe for spawned Claude CLI. */
+export function sanitizedEnv(): Record<string, string | undefined> {
+  const env = { ...process.env };
+  for (const key of STRIP_ENV_VARS) {
+    delete env[key];
+  }
+  // Also strip any var whose key contains "SECRET" or "PASSWORD" (defensive)
+  for (const key of Object.keys(env)) {
+    if (/SECRET|PASSWORD|PRIVATE_KEY/i.test(key) && !key.startsWith("ANTHROPIC")) {
+      delete env[key];
+    }
+  }
+  return env;
+}
 
 // ============================================================
 // SESSION MANAGEMENT (per-agent, per-user)
@@ -93,16 +121,17 @@ export async function getSession(
   }
 }
 
+/** Atomic write: write to temp file then rename to prevent partial writes on crash (OpenClaw #18347). */
 export async function saveSessionState(
   agentId: string,
   userId: string,
   state: SessionState
 ): Promise<void> {
   sessions.set(sessionKey(agentId, userId), state);
-  await writeFile(
-    sessionFilePath(agentId, userId),
-    JSON.stringify(state, null, 2)
-  );
+  const target = sessionFilePath(agentId, userId);
+  const tmp = `${target}.${randomBytes(4).toString("hex")}.tmp`;
+  await writeFile(tmp, JSON.stringify(state, null, 2));
+  await rename(tmp, target);
 }
 
 // ============================================================
@@ -117,13 +146,14 @@ interface LockState {
 
 const sessionLocks: Map<string, LockState> = new Map();
 
-// Maximum time a lock can be held before auto-release (10 minutes).
-// This prevents deadlocks when a Claude process crashes without releasing.
-const LOCK_TIMEOUT_MS = 10 * 60_000;
+// Maximum time a lock can be held before auto-release.
+// Aligned with MAX_WALL_CLOCK_MS + 2min grace so valid long-running opus turns
+// aren't force-unlocked mid-run (OpenClaw #18060).
+const LOCK_TIMEOUT_MS = parseInt(process.env.CLAUDE_MAX_WALL_MS || "900000", 10) + 2 * 60_000; // wall clock + 2min grace
 
-// Maximum time a waiter will wait for the lock (12 minutes).
-// Prevents user messages from queuing forever if something goes wrong.
-const LOCK_WAIT_TIMEOUT_MS = 12 * 60_000;
+// Maximum time a waiter will wait for the lock.
+// Set to lock timeout + 2min so waiters outlive the lock holder.
+const LOCK_WAIT_TIMEOUT_MS = LOCK_TIMEOUT_MS + 2 * 60_000;
 
 function getLockState(key: string): LockState {
   if (!sessionLocks.has(key)) {
@@ -343,7 +373,8 @@ export async function callClaude(
     isolated?: boolean; // don't persist session ID back (cron/background jobs)
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
-    _isFallback?: boolean; // internal: prevents infinite fallback chains
+    _isFallback?: boolean; // internal: tracks fallback depth to prevent infinite chains
+    _fallbackDepth?: number; // internal: how many fallbacks have been attempted (max 2: opus->sonnet->haiku)
     _isEmptyRetry?: boolean; // internal: prevents infinite empty-result retries
     _isSpawnRetry?: boolean; // internal: prevents infinite spawn-error retries
   }
@@ -404,7 +435,7 @@ export async function callClaude(
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR || PROJECT_ROOT,
-      env: { ...process.env },
+      env: sanitizedEnv(),
       windowsHide: true,
     });
 
@@ -430,15 +461,21 @@ export async function callClaude(
     let inputTokens = 0;
     let outputTokens = 0;
 
-    // Smart loop detection: tracks actual repeated tool calls, not just tool types.
-    // A "loop" = same tool with same/similar input called multiple times (spinning).
-    // Sequential search tools with DIFFERENT inputs = normal research, not a loop.
+    // Progress-aware phased loop detection (OpenClaw #16808).
+    // Phases: hard-block known no-progress loops, warn on identical repeats,
+    // detect ping-pong alternation (A-B-A-B), global circuit breaker.
     const SEARCH_TOOLS = new Set(["Glob", "Read", "Grep", "Search", "ListDirectory"]);
+    const NO_PROGRESS_TOOLS = new Set(["process"]); // known no-progress loops (poll/log)
     const toolCallSignatures: string[] = []; // "ToolName:inputHash" for dedup detection
     const DUPLICATE_THRESHOLD = 4; // same exact call 4+ times = definitely stuck
     const FRUITLESS_SEARCH_THRESHOLD = 15; // 15+ search calls without any non-search call = warn
+    const PINGPONG_THRESHOLD = 10; // A-B-A-B alternation 10 times = stuck
+    const GLOBAL_CIRCUIT_BREAKER = 30; // 30 no-progress repeats across all patterns = kill
     let consecutiveSearchCalls = 0;
+    let noProgressRepeats = 0; // global counter for no-progress repeated calls
     let warningInjected = false; // true if we already sent a "slow down" signal
+    let lastTwoSigs: string[] = []; // track last 2 sigs for ping-pong detection
+    let pingPongCount = 0; // consecutive A-B-A-B alternations
 
     const parser = createStreamParser((event) => {
       if (event.sessionId) sessionId = event.sessionId;
@@ -453,22 +490,62 @@ export async function callClaude(
             timeoutReason = `tool call loop (${toolCallCount} calls)`;
             break;
           }
-          // Smart loop detection: detect actual repeated calls, not just sequential search use
+          // Progress-aware phased loop detection (OpenClaw #16808)
           {
             const toolName = event.toolName || "unknown";
             const isSearch = SEARCH_TOOLS.has(toolName);
+            const toolAction = event.toolInput?.action as string | undefined;
 
             // Build a signature from tool name + key input to detect duplicate calls
             const inputStr = event.toolInput ? JSON.stringify(event.toolInput).substring(0, 200) : "";
             const sig = `${toolName}:${inputStr}`;
             toolCallSignatures.push(sig);
 
-            // Check for exact duplicate calls (same tool + same input repeated)
+            // Phase 1: Hard-block known no-progress loops (e.g. process(action=poll|log))
+            if (NO_PROGRESS_TOOLS.has(toolName) && (toolAction === "poll" || toolAction === "log")) {
+              const recentNoProgress = toolCallSignatures.slice(-5).filter(s => s === sig).length;
+              if (recentNoProgress >= 3) {
+                warn("claude", `[${agentId}] No-progress loop: "${toolName}(${toolAction})" repeated ${recentNoProgress}x in last 5 calls. Killing.`);
+                proc.kill();
+                timeoutReason = `no-progress loop (${toolName}.${toolAction})`;
+                break;
+              }
+            }
+
+            // Phase 2: Detect exact duplicate calls (same tool + same input repeated)
             const dupeCount = toolCallSignatures.filter(s => s === sig).length;
             if (dupeCount >= DUPLICATE_THRESHOLD) {
               warn("claude", `[${agentId}] Duplicate call loop: "${toolName}" called ${dupeCount} times with same input at call #${toolCallCount}. Killing.`);
               proc.kill();
               timeoutReason = `duplicate call loop (${toolName} x${dupeCount})`;
+              noProgressRepeats += dupeCount;
+              break;
+            }
+
+            // Phase 3: Ping-pong alternation detection (A-B-A-B)
+            if (lastTwoSigs.length >= 2) {
+              const [prevPrev, prev] = lastTwoSigs;
+              if (sig === prevPrev && sig !== prev) {
+                pingPongCount++;
+                if (pingPongCount >= PINGPONG_THRESHOLD) {
+                  const otherSig = prev.split(":")[0];
+                  warn("claude", `[${agentId}] Ping-pong loop: "${toolName}" <-> "${otherSig}" alternating ${pingPongCount}x at call #${toolCallCount}. Killing.`);
+                  proc.kill();
+                  timeoutReason = `ping-pong loop (${toolName} <-> ${otherSig})`;
+                  break;
+                }
+              } else {
+                pingPongCount = 0;
+              }
+            }
+            lastTwoSigs = [lastTwoSigs.length > 0 ? lastTwoSigs[lastTwoSigs.length - 1] : "", sig];
+
+            // Phase 4: Track no-progress repeats for global circuit breaker
+            if (dupeCount > 1) noProgressRepeats++;
+            if (noProgressRepeats >= GLOBAL_CIRCUIT_BREAKER) {
+              warn("claude", `[${agentId}] Global circuit breaker: ${noProgressRepeats} no-progress repeats across all patterns at call #${toolCallCount}. Killing.`);
+              proc.kill();
+              timeoutReason = `global circuit breaker (${noProgressRepeats} no-progress)`;
               break;
             }
 
@@ -480,7 +557,6 @@ export async function callClaude(
             }
 
             // After many consecutive search calls, log a warning but don't kill.
-            // Claude might still find what it needs. Only kill at hard cap.
             if (consecutiveSearchCalls === FRUITLESS_SEARCH_THRESHOLD && !warningInjected) {
               warningInjected = true;
               warn("claude", `[${agentId}] ${FRUITLESS_SEARCH_THRESHOLD} consecutive search calls without progress. Monitoring but not killing yet.`);
@@ -645,8 +721,10 @@ export async function callClaude(
       const isModelError = stderrLower.includes("model") && (stderrLower.includes("unavailable") || stderrLower.includes("not found") || stderrLower.includes("capacity"));
       const fallbackModel = MODEL_FALLBACK[modelTier];
 
-      if ((isRateLimit || isModelError) && fallbackModel && !options?._isFallback) {
-        warn("claude", `[${agentId}] ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel}`);
+      // OpenClaw #18210: Multi-hop fallback chain (opus -> sonnet -> haiku), max 2 hops
+      const fallbackDepth = (options as any)?._fallbackDepth || 0;
+      if ((isRateLimit || isModelError) && fallbackModel && fallbackDepth < 2) {
+        warn("claude", `[${agentId}] ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel} (depth ${fallbackDepth + 1})`);
 
         if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 
@@ -655,6 +733,7 @@ export async function callClaude(
           model: fallbackModel,
           skipLock: options?.skipLock ?? false,
           _isFallback: true,
+          _fallbackDepth: fallbackDepth + 1,
         } as any);
       }
 
@@ -685,7 +764,21 @@ export async function callClaude(
         });
       }
 
-      return `Error: ${stderr || "Claude exited with code " + exitCode}`;
+      // OpenClaw #18425: Non-zero exit with captured output = completed-with-errors.
+      // Claude CLI exits non-zero when tool calls fail but still produces useful results.
+      // Return the result text instead of discarding it.
+      if (resultText.trim()) {
+        warn("claude", `[${agentId}] Non-zero exit (${exitCode}) but has result text (${resultText.length} chars). Treating as completed.`);
+        // Still update session state normally
+        if (sessionId && !options?.isolated) {
+          session.sessionId = sessionId;
+          session.lastActivity = new Date().toISOString();
+          await saveSessionState(agentId, userId, session);
+        }
+        // Fall through to normal result handling below
+      } else {
+        return `Error: ${stderr || "Claude exited with code " + exitCode}`;
+      }
     }
 
     // Warn if process exited without a result event (CLI bug #1920)

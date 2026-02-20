@@ -2357,7 +2357,19 @@ bot.on("message:voice", async (ctx) => {
   }
 
   try {
-    const file = await ctx.getFile();
+    let file;
+    try {
+      file = await ctx.getFile();
+    } catch (fileErr) {
+      // OpenClaw #18531: Skip retries on 20MB limit and process text if available
+      const errMsg = String(fileErr);
+      if (errMsg.includes("file is too big") || errMsg.includes("20")) {
+        warn("voice", `Voice file exceeds Telegram 20MB limit, skipping download`);
+        await ctx.reply("Voice message is too large (>20MB). Please send a shorter recording.");
+        return;
+      }
+      throw fileErr;
+    }
     const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
     const response = await fetch(url);
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -2410,7 +2422,25 @@ bot.on("message:photo", async (ctx) => {
   try {
     const photos = ctx.message.photo;
     const photo = photos[photos.length - 1];
-    const file = await ctx.api.getFile(photo.file_id);
+    let file;
+    try {
+      file = await ctx.api.getFile(photo.file_id);
+    } catch (fileErr) {
+      const errMsg = String(fileErr);
+      if (errMsg.includes("file is too big") || errMsg.includes("20")) {
+        warn("image", `Photo exceeds Telegram 20MB limit, skipping download`);
+        // Still process the caption as a text message if present
+        const caption = ctx.message.caption;
+        if (caption) {
+          await handleUserMessage(ctx, userId, { text: caption, type: "text" });
+        } else {
+          await ctx.reply("Photo is too large (>20MB) for me to download. Try sending a compressed version.");
+        }
+        await saveLastUpdateId(updateId);
+        return;
+      }
+      throw fileErr;
+    }
 
     const timestamp = Date.now();
     const filePath = join(UPLOADS_DIR, `image_${timestamp}.jpg`);
@@ -2453,7 +2483,24 @@ bot.on("message:document", async (ctx) => {
   await ctx.replyWithChatAction("typing");
 
   try {
-    const file = await ctx.getFile();
+    let file;
+    try {
+      file = await ctx.getFile();
+    } catch (fileErr) {
+      const errMsg = String(fileErr);
+      if (errMsg.includes("file is too big") || errMsg.includes("20")) {
+        warn("document", `Document "${doc.file_name}" exceeds Telegram 20MB limit, skipping download`);
+        const caption = ctx.message.caption;
+        if (caption) {
+          await handleUserMessage(ctx, userId, { text: caption, type: "text" });
+        } else {
+          await ctx.reply(`Document "${doc.file_name}" is too large (>20MB) for me to download.`);
+        }
+        await saveLastUpdateId(updateId);
+        return;
+      }
+      throw fileErr;
+    }
     const timestamp = Date.now();
     const fileName = doc.file_name || `file_${timestamp}`;
     const filePath = join(UPLOADS_DIR, `${timestamp}_${fileName}`);

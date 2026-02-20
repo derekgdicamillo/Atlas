@@ -62,40 +62,89 @@ export async function search(
   } = options;
 
   try {
-    const { data, error } = await supabase.functions.invoke("search", {
-      body: {
-        query,
-        mode,
-        tables,
-        match_count: matchCount,
-        match_threshold: matchThreshold,
-        fts_weight: ftsWeight,
-        semantic_weight: semanticWeight,
-      },
+    const results = await invokeSearch(supabase, {
+      query, mode, tables, matchCount, matchThreshold, ftsWeight, semanticWeight,
     });
 
-    if (error) {
-      warn("search", `Search Edge Function error: ${error.message || error}`);
-      return [];
-    }
-    if (!data) {
-      warn("search", "Search returned null data");
-      return [];
-    }
-
-    // Handle both array results and error objects
-    if (Array.isArray(data)) return data;
-    if (data.error) {
-      warn("search", `Search returned error: ${data.error}`);
-      return [];
+    // OpenClaw #18304: FTS fallback — if hybrid returned nothing, try pure FTS
+    if (results.length === 0 && mode === "hybrid") {
+      const ftsResults = await invokeSearch(supabase, {
+        query: expandQuery(query), mode: "fts" as any, tables, matchCount, matchThreshold,
+        ftsWeight: 1.0, semanticWeight: 0,
+      });
+      if (ftsResults.length > 0) return ftsResults;
     }
 
-    warn("search", `Search returned unexpected data type: ${typeof data}`);
-    return [];
+    return results;
   } catch (err) {
     warn("search", `Search exception: ${err}`);
     return [];
   }
+}
+
+/** Low-level search invocation. */
+async function invokeSearch(
+  supabase: SupabaseClient,
+  params: {
+    query: string; mode: string; tables: string[]; matchCount: number;
+    matchThreshold: number; ftsWeight: number; semanticWeight: number;
+  }
+): Promise<SearchResult[]> {
+  const { data, error } = await supabase.functions.invoke("search", {
+    body: {
+      query: params.query,
+      mode: params.mode,
+      tables: params.tables,
+      match_count: params.matchCount,
+      match_threshold: params.matchThreshold,
+      fts_weight: params.ftsWeight,
+      semantic_weight: params.semanticWeight,
+    },
+  });
+
+  if (error) {
+    warn("search", `Search Edge Function error: ${error.message || error}`);
+    return [];
+  }
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (data.error) {
+    warn("search", `Search returned error: ${data.error}`);
+    return [];
+  }
+  return [];
+}
+
+/**
+ * OpenClaw #18304: Query expansion for short queries.
+ * Converts "GLP" -> "GLP GLP-1 weight loss" etc.
+ * Adds OR-style terms so FTS has more to match.
+ */
+const QUERY_EXPANSIONS: Record<string, string[]> = {
+  glp: ["GLP-1", "semaglutide", "tirzepatide", "weight loss"],
+  seo: ["search engine", "keywords", "rankings", "traffic"],
+  ads: ["Meta ads", "Facebook ads", "advertising", "ad spend"],
+  lead: ["leads", "pipeline", "contact", "prospect"],
+  patient: ["patients", "appointments", "consultations"],
+  content: ["content", "social media", "marketing", "posts"],
+  review: ["reviews", "Google Business", "reputation", "ratings"],
+};
+
+function expandQuery(query: string): string {
+  const lower = query.toLowerCase().trim();
+  const words = lower.split(/\s+/);
+  const expansions: string[] = [query];
+
+  for (const word of words) {
+    const matches = QUERY_EXPANSIONS[word];
+    if (matches) {
+      expansions.push(...matches);
+    }
+  }
+
+  // Only expand if query is short (< 4 words)
+  if (words.length >= 4) return query;
+  return [...new Set(expansions)].join(" ");
 }
 
 // ============================================================

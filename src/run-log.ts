@@ -30,6 +30,11 @@ export interface CronRun {
   durationMs: number;
   summary?: string;
   error?: string;
+  /** Per-run model/token usage telemetry (OpenClaw #18172) */
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
 }
 
 // ============================================================

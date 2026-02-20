@@ -18,6 +18,28 @@ import { join } from "path";
 import { spawn } from "bun";
 import { EventEmitter } from "events";
 import { info, warn, error as logError, trackClaudeCall } from "./logger.ts";
+import { sanitizedEnv } from "./claude.ts";
+
+/**
+ * Graceful process termination: SIGTERM first, SIGKILL after grace period.
+ * OpenClaw #18626: prevents orphaned child processes from dangling.
+ */
+function gracefulKill(pid: number, graceMs = 3000): void {
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    return; // process already dead
+  }
+  // Schedule SIGKILL if process doesn't exit within grace period
+  setTimeout(() => {
+    try {
+      process.kill(pid, 0); // check if still alive
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // already dead, good
+    }
+  }, graceMs).unref();
+}
 import {
   MODELS,
   TOKEN_COSTS,
@@ -310,7 +332,7 @@ export async function spawnSubagent(opts: {
     stdout: "pipe",
     stderr: "pipe",
     cwd: opts.cwd || SUBAGENT_CWD,
-    env: { ...process.env },
+    env: sanitizedEnv(),
     windowsHide: true,
   });
 
@@ -658,8 +680,8 @@ export async function checkTasks(): Promise<{
         // Kill existing process before retry
         if (task.pid) {
           try {
-            process.kill(task.pid);
-            info("supervisor", `Killed subagent PID ${task.pid} before retry for ${task.id}`);
+            gracefulKill(task.pid);
+            info("supervisor", `Terminated subagent PID ${task.pid} before retry for ${task.id}`);
           } catch {
             // Process already dead
           }
@@ -693,8 +715,8 @@ export async function checkTasks(): Promise<{
         // Kill orphaned process
         if (task.pid) {
           try {
-            process.kill(task.pid);
-            info("supervisor", `Killed orphaned subagent PID ${task.pid} for ${task.id}`);
+            gracefulKill(task.pid);
+            info("supervisor", `Terminated orphaned subagent PID ${task.pid} for ${task.id}`);
           } catch {
             // Process already dead
           }
@@ -947,8 +969,8 @@ export async function cancelTask(id: string, reason?: string): Promise<boolean> 
   // Kill subagent process if running
   if (task.pid) {
     try {
-      process.kill(task.pid);
-      info("supervisor", `Killed subagent PID ${task.pid} for cancelled task ${task.id}`);
+      gracefulKill(task.pid);
+      info("supervisor", `Terminated subagent PID ${task.pid} for cancelled task ${task.id}`);
     } catch {
       // Process already dead
     }
@@ -976,8 +998,8 @@ export async function killAllRunningSubagents(reason = "Process shutdown"): Prom
   for (const task of running) {
     if (task.pid) {
       try {
-        process.kill(task.pid);
-        info("supervisor", `Shutdown: killed subagent PID ${task.pid} (${task.id}: ${task.description})`);
+        gracefulKill(task.pid, 1000); // shorter grace on shutdown
+        info("supervisor", `Shutdown: terminated subagent PID ${task.pid} (${task.id}: ${task.description})`);
         killed++;
       } catch {
         // Process already dead
@@ -1299,7 +1321,7 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
     stdout: "pipe",
     stderr: "pipe",
     cwd: opts.cwd,
-    env: { ...process.env },
+    env: sanitizedEnv(),
     windowsHide: true,
   });
 

@@ -51,6 +51,25 @@ interface HealthStatus {
 const TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
 const MAX_RECENT_ERRORS = 20;
 
+/** Redact sensitive tokens from log messages (OpenClaw security hardening). */
+const SENSITIVE_PATTERNS: RegExp[] = [];
+function initSensitivePatterns(): void {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken) SENSITIVE_PATTERNS.push(new RegExp(botToken.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"));
+  const ghlToken = process.env.GHL_API_TOKEN;
+  if (ghlToken) SENSITIVE_PATTERNS.push(new RegExp(ghlToken.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"));
+}
+// Initialize once at module load
+setTimeout(initSensitivePatterns, 0);
+
+function redactSecrets(msg: string): string {
+  let out = msg;
+  for (const pat of SENSITIVE_PATTERNS) {
+    out = out.replace(pat, "[REDACTED]");
+  }
+  return out;
+}
+
 let supabase: SupabaseClient | null = null;
 
 const metrics: Metrics = {
@@ -92,7 +111,8 @@ function persistLog(level: LogLevel, event: string, message: string, metadata?: 
 }
 
 function log(level: LogLevel, event: string, message: string, metadata?: Record<string, unknown>): void {
-  const formatted = formatLog(level, event, message);
+  const safeMsg = redactSecrets(message);
+  const formatted = formatLog(level, event, safeMsg);
 
   if (level === "error") {
     console.error(formatted);
@@ -102,7 +122,7 @@ function log(level: LogLevel, event: string, message: string, metadata?: Record<
     console.log(formatted);
   }
 
-  persistLog(level, event, message, metadata);
+  persistLog(level, event, safeMsg, metadata);
 }
 
 // ============================================================
