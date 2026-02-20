@@ -40,6 +40,7 @@ import {
   loadAgents,
   getAgentForUser,
   isUserAllowed,
+  formatAgentsList,
   type AgentRuntime,
 } from "./agents.ts";
 import { getTodoContext } from "./todo.ts";
@@ -68,10 +69,12 @@ import {
   ingestDocument,
   getTodayCosts,
 } from "./search.ts";
-import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, getUnannouncedTasks, markAnnounced, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, getUnannouncedTasks, markAnnounced, taskEvents, formatTaskResult, type SupervisedTask, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
 import { initSwarmSystem, handleSwarmCommand, processSwarmIntents, registerDeliveryCallback, cleanupSwarms } from "./orchestrator.ts";
 import { handleExploreCommand, processExploreIntents, autoExplore } from "./exploration.ts";
 import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager.ts";
+import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSummary } from "./run-log.ts";
+import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
 import { getSwarmContext, pauseSwarm, getActiveSwarms } from "./dag.ts";
 import {
@@ -755,6 +758,38 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       for (const chunk of logChunks) {
         await ctx.reply(chunk);
       }
+      return true;
+    }
+
+    case "/runs": {
+      if (args.length === 0 || args[0] === "failures") {
+        // Show recent failures or list available jobs
+        const failures = getRecentFailures(24);
+        if (failures.length > 0) {
+          await ctx.reply(formatFailureSummary(failures));
+        } else {
+          const jobs = listJobNames();
+          if (jobs.length === 0) {
+            await ctx.reply("No cron run history yet. Runs will be logged starting now.");
+          } else {
+            await ctx.reply(`Available jobs:\n${jobs.map((j) => `  - ${j}`).join("\n")}\n\nUsage: /runs <jobname>`);
+          }
+        }
+      } else {
+        const jobName = args.join("-");
+        const runs = queryRuns(jobName, 10);
+        await ctx.reply(formatRuns(jobName, runs));
+      }
+      return true;
+    }
+
+    case "/hooks": {
+      await ctx.reply(formatHooksList());
+      return true;
+    }
+
+    case "/agents": {
+      await ctx.reply(formatAgentsList());
       return true;
     }
 
@@ -1953,7 +1988,16 @@ async function handleUserMessage(
   const { acquired, release } = await acquireSessionLock(key, "wait");
   if (!acquired) return "";
 
+  const sessionStartMs = Date.now();
   try {
+    // 4b. Fire session-start hooks (memory preload, context injection, etc.)
+    await fireHooks("session-start", {
+      sessionKey: key,
+      agentId,
+      userId,
+      messageText: message.text,
+    });
+
     // 5. Drain ALL accumulated messages (ours + any that arrived while waiting)
     const pending = drain(key);
 
@@ -2220,7 +2264,19 @@ async function handleUserMessage(
     // 13. Save + deliver
     await saveMessage("assistant", response, { agentId, traceId });
     await sendResponse(ctx, response);
-    info("trace", `[${traceId}] END ${response.length} chars delivered`);
+
+    // 14. Fire session-end hooks (timing, memory save, etc.)
+    const sessionDurationMs = Date.now() - sessionStartMs;
+    fireHooks("session-end", {
+      sessionKey: key,
+      agentId,
+      userId,
+      messageText: message.text,
+      responseText: response,
+      durationMs: sessionDurationMs,
+    }).catch(() => {}); // fire-and-forget, don't block response delivery
+
+    info("trace", `[${traceId}] END ${response.length} chars delivered (${Math.round(sessionDurationMs / 1000)}s)`);
     return response;
   } finally {
     release();
@@ -2849,6 +2905,9 @@ const botCommands = [
   { command: "skool", description: "Vitality Unchained content mode" },
   { command: "mode", description: "Show/switch/clear active mode" },
   { command: "logs", description: "View/archive error & output logs" },
+  { command: "runs", description: "View cron job run history" },
+  { command: "hooks", description: "View lifecycle hooks status" },
+  { command: "agents", description: "View registered agents" },
   { command: "restart", description: "Restart the bot" },
   { command: "help", description: "List all commands" },
 ];
@@ -2866,6 +2925,44 @@ loadDedupCache();
 startCronJobs(supabase).catch((err) =>
   console.error("[startup] Failed to start cron jobs:", err)
 );
+
+// ============================================================
+// EVENT-DRIVEN TASK DELIVERY (OpenClaw gateway pattern)
+// ============================================================
+// Tasks emit events immediately on completion. This listener delivers
+// results to Telegram within seconds, not on the next 5-min cron tick.
+// The cron supervisor becomes a backup retry mechanism.
+
+async function handleTaskEvent(task: SupervisedTask) {
+  // Fire task-complete hooks (delivery, logging, etc.)
+  fireHooks("task-complete", { task }).catch(() => {});
+
+  // Skip if already announced (e.g. code agent onComplete already sent)
+  if (task.announced) return;
+  if (!ALLOWED_USER_ID) return;
+
+  try {
+    const msg = formatTaskResult(task);
+    await bot.api.sendMessage(ALLOWED_USER_ID, msg);
+    await markAnnounced(task.id);
+
+    // Add to conversation ring buffer so Atlas has context
+    const key = sessionKey("atlas", ALLOWED_USER_ID);
+    await addEntry(key, {
+      role: "system",
+      content: `[Task completed] ${msg}`,
+      timestamp: new Date().toISOString(),
+    });
+    info("delivery", `Event-driven delivery for task ${task.id}`);
+  } catch (err) {
+    // Don't markAnnounced. Cron backup will retry on next tick.
+    warn("delivery", `Event-driven delivery failed for task ${task.id}: ${err}`);
+  }
+}
+
+taskEvents.on("task:completed", handleTaskEvent);
+taskEvents.on("task:failed", handleTaskEvent);
+taskEvents.on("task:timeout", handleTaskEvent);
 
 // Register delivery callback BEFORE init so it's available when tickAllSwarms() completes swarms
 registerDeliveryCallback(async (chatId: string, header: string, body: string) => {
@@ -2925,6 +3022,11 @@ loadLastUpdateId().then((id) => {
           info("startup", "Bot is running!");
           startAttempt = 0; // reset on successful start
           startPollingWatchdog(bot); // detect silent polling death
+
+          // Load hooks config and fire startup hooks
+          loadHooksConfig();
+          fireHooks("startup").catch((err) => warn("startup", `Startup hooks failed: ${err}`));
+
           // Drain any replies that were enqueued but not delivered before the last crash
           drainPendingReplies(async (chatId, text) => {
             await bot.api.sendMessage(chatId, text);

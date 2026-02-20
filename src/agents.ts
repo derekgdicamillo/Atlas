@@ -1,14 +1,20 @@
 /**
- * Atlas — Agent Configuration & Routing
+ * Atlas -- Agent Configuration & Routing
  *
  * Loads agent definitions from config/agents.json.
  * Routes Telegram users to their assigned agent persona.
  * Each agent has its own model, personality, and feature flags.
+ *
+ * Multi-agent routing: agents can be specialized by capability.
+ * Cron jobs and tasks specify an agentId to route to the right
+ * model and session namespace.
  */
 
 import { readFileSync } from "fs";
 import { join } from "path";
 import { MODELS, DEFAULT_MODEL, type ModelTier } from "./constants.ts";
+
+export type AgentType = "primary" | "worker" | "specialist";
 
 export interface AgentConfig {
   id: string;
@@ -18,6 +24,10 @@ export interface AgentConfig {
   systemPrompt: string;
   allowedUserIds: string[];
   description: string;
+  /** Agent type: primary (user-facing), worker (background), specialist (domain-specific) */
+  type?: AgentType;
+  /** Capability tags for routing (e.g. "search", "analysis", "content", "marketing") */
+  capabilities?: string[];
   features: {
     memory: boolean;
     resume: boolean;
@@ -27,6 +37,7 @@ export interface AgentConfig {
     dashboard?: boolean;
     ghl?: boolean;
     graph?: boolean;
+    careplan?: boolean;
   };
 }
 
@@ -95,4 +106,52 @@ export function getDefaultAgent(): AgentRuntime | null {
 
 export function getAgentById(id: string): AgentRuntime | null {
   return agentsById.get(id) || null;
+}
+
+/**
+ * Find the best agent for a given capability.
+ * Returns the first agent with the matching capability,
+ * or the default agent if no specialist is found.
+ */
+export function getAgentForCapability(capability: string): AgentRuntime | null {
+  for (const agent of agentsById.values()) {
+    if (agent.config.capabilities?.includes(capability)) {
+      return agent;
+    }
+  }
+  return defaultAgent;
+}
+
+/**
+ * List all registered agents (for /agents command).
+ */
+export function listAgentSummaries(): { id: string; name: string; model: ModelTier; type: AgentType; capabilities: string[]; description: string }[] {
+  const result: { id: string; name: string; model: ModelTier; type: AgentType; capabilities: string[]; description: string }[] = [];
+  for (const agent of agentsById.values()) {
+    result.push({
+      id: agent.config.id,
+      name: agent.config.name,
+      model: agent.config.model,
+      type: agent.config.type || "primary",
+      capabilities: agent.config.capabilities || [],
+      description: agent.config.description,
+    });
+  }
+  return result;
+}
+
+/**
+ * Format agent list for Telegram display.
+ */
+export function formatAgentsList(): string {
+  const agents = listAgentSummaries();
+  if (agents.length === 0) return "No agents configured.";
+
+  const lines: string[] = ["Registered Agents:\n"];
+  for (const a of agents) {
+    const caps = a.capabilities.length > 0 ? ` [${a.capabilities.join(", ")}]` : "";
+    lines.push(`  ${a.id} (${a.model}, ${a.type})${caps}`);
+    lines.push(`    ${a.description}`);
+  }
+  return lines.join("\n");
 }

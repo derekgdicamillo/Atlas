@@ -26,6 +26,8 @@ import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from 
 import { isGBPReady, getGBPContext } from "./gbp.ts";
 import { isGA4Ready, getGA4Context } from "./analytics.ts";
 import { buildWeeklySummary, formatWeeklySummary } from "./executive.ts";
+import { appendRun, cleanupOldRuns, type CronRun } from "./run-log.ts";
+import { fireHooks } from "./hooks.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
@@ -52,10 +54,45 @@ function log(job: string, message: string): void {
 
 function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promise<void> {
   return async () => {
+    const startMs = Date.now();
+
+    // Fire cron-before hooks (non-blocking on failure)
+    await fireHooks("cron-before", { jobName }).catch(() => {});
+
     try {
       await fn();
+      const durationMs = Date.now() - startMs;
+      appendRun(jobName, {
+        ts: Date.now(),
+        jobName,
+        status: "ok",
+        durationMs,
+      });
+
+      // Fire cron-after hooks with success context
+      fireHooks("cron-after", {
+        jobName,
+        jobStatus: "ok",
+        jobDurationMs: durationMs,
+      }).catch(() => {});
     } catch (err) {
+      const durationMs = Date.now() - startMs;
       logError("cron", `[${jobName}] onTick crashed: ${err}`);
+      appendRun(jobName, {
+        ts: Date.now(),
+        jobName,
+        status: "error",
+        durationMs,
+        error: String(err).substring(0, 200),
+      });
+
+      // Fire cron-after hooks with error context
+      fireHooks("cron-after", {
+        jobName,
+        jobStatus: "error",
+        jobDurationMs: durationMs,
+        jobError: String(err).substring(0, 200),
+      }).catch(() => {});
     }
   };
 }
@@ -427,6 +464,10 @@ jobs.push(
         }
 
         log("cleanup", `Archived ${archived} journal entries`);
+
+        // Clean up old cron run logs (>30 days)
+        const trimmed = cleanupOldRuns();
+        if (trimmed > 0) log("cleanup", `Trimmed ${trimmed} old cron run log entries`);
       } catch (error) {
         log("cleanup", `ERROR: ${error}`);
       }
@@ -641,6 +682,7 @@ jobs.push(
           outputFile,
           prompt,
           model: "sonnet",
+          agentId: "researcher", // routed to researcher agent
           timeoutMs: 15 * 60 * 1000, // 15 min (web research takes time)
           maxRetries: 1,
           requestedBy: "cron:self-improve",
@@ -809,6 +851,7 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
                 agentId: "atlas",
                 userId: DEREK_CHAT_ID,
                 resume: false,
+                isolated: true, // don't save session ID back (prevents cron contaminating user session)
                 lockBehavior: "skip", // don't block if user is chatting
               });
 

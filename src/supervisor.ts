@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { spawn } from "bun";
+import { EventEmitter } from "events";
 import { info, warn, error as logError, trackClaudeCall } from "./logger.ts";
 import {
   MODELS,
@@ -103,6 +104,8 @@ export interface SupervisedTask {
   lastAnnounceAt: string | null;
   /** Whether the completion was successfully announced */
   announced: boolean;
+  /** Agent ID for routing (default: atlas) */
+  agentId: string;
   /** Swarm ID if part of a swarm (set via registerTask opts) */
   _swarmId?: string | null;
   /** DAG node ID if part of a swarm */
@@ -128,6 +131,29 @@ let store: TaskStore = {
   totalFailed: 0,
   totalTimedOut: 0,
 };
+
+// ============================================================
+// EVENT EMITTER (OpenClaw gateway pattern)
+// ============================================================
+// Fires events on task state changes so delivery is immediate,
+// not dependent on 5-min cron polling. Cron becomes backup.
+
+export const taskEvents = new EventEmitter();
+
+// Event types:
+//   "task:completed"  (task: SupervisedTask)
+//   "task:failed"     (task: SupervisedTask)
+//   "task:timeout"    (task: SupervisedTask)
+//   "task:progress"   (task: SupervisedTask, update: CodeAgentProgress)
+
+/** Emit a task lifecycle event. Safe (never throws). */
+function emitTaskEvent(event: string, task: SupervisedTask, extra?: any): void {
+  try {
+    taskEvents.emit(event, task, extra);
+  } catch (err) {
+    warn("supervisor", `Event emission error (${event}): ${err}`);
+  }
+}
 
 // ============================================================
 // PERSISTENCE
@@ -352,6 +378,8 @@ export async function registerTask(opts: {
   model?: ModelTier;
   /** Queue priority (default: NORMAL) */
   priority?: TaskPriority;
+  /** Agent ID for routing (default: atlas) */
+  agentId?: string;
   /** Swarm ID if part of a swarm */
   swarmId?: string;
   /** DAG node ID if part of a swarm */
@@ -390,6 +418,7 @@ export async function registerTask(opts: {
     announceRetryCount: 0,
     lastAnnounceAt: null,
     announced: false,
+    agentId: opts.agentId || "atlas",
     _swarmId: opts.swarmId || null,
     _dagNodeId: opts.dagNodeId || null,
   };
@@ -472,6 +501,9 @@ export async function completeTask(id: string, result?: string): Promise<void> {
   info("supervisor", `Task completed: ${task.id} — ${task.description} (${Math.round(durationMs / 1000)}s)`);
   await saveTasks();
 
+  // Event-driven delivery (immediate, doesn't wait for cron)
+  emitTaskEvent("task:completed", task);
+
   // Notify queue + swarm orchestrator
   await onTaskFinished(task.id);
 }
@@ -495,6 +527,9 @@ export async function failTask(id: string, error: string): Promise<void> {
 
   logError("supervisor", `Task failed: ${task.id} — ${task.description}: ${error} (${Math.round(durationMs / 1000)}s)`);
   await saveTasks();
+
+  // Event-driven delivery (immediate)
+  emitTaskEvent("task:failed", task);
 
   // Notify queue + swarm orchestrator
   await onTaskFinished(task.id);
@@ -609,6 +644,8 @@ export async function checkTasks(): Promise<{
           taskType: task.taskType,
           status: "completed",
         });
+        // Event-driven delivery (immediate)
+        emitTaskEvent("task:completed", task);
         // Notify queue + swarm
         await onTaskFinished(task.id);
         continue;
@@ -676,6 +713,8 @@ export async function checkTasks(): Promise<{
           `with ${task.retries} retries. Output file ${task.outputFile ? "never appeared" : "not configured"}.`
         );
         logError("supervisor", `Task timed out permanently: ${task.id} — ${task.description}`);
+        // Event-driven delivery (immediate)
+        emitTaskEvent("task:timeout", task);
         completedTasks.push({
           id: task.id,
           description: task.description,
@@ -1445,6 +1484,9 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
         store.totalFailed++;
       }
       await saveTasks();
+
+      // Event-driven delivery (immediate)
+      emitTaskEvent(success ? "task:completed" : "task:failed", task);
     }
 
     info(
@@ -1513,6 +1555,7 @@ export async function registerCodeTask(opts: {
     announceRetryCount: 0,
     lastAnnounceAt: null,
     announced: false,
+    agentId: "atlas",
   };
 
   store.tasks.push(task);

@@ -1,0 +1,16 @@
+{
+  "startup": [
+    "drain-unannounced",
+    "expire-stale-queue",
+    "cleanup-swarms"
+  ],
+  "session-start": [],
+  "session-end": [
+    "log-session-timing"
+  ],
+  "cron-before": [],
+  "cron-after": [
+    "log-cron-run"
+  ],
+  "task-complete": []
+}

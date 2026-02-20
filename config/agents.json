@@ -5,10 +5,12 @@
       "id": "atlas",
       "name": "Atlas",
       "model": "opus",
+      "type": "primary",
+      "capabilities": ["all"],
       "personalityFile": "config/personas/atlas.md",
       "systemPrompt": "Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). This prompt contains only dynamic per-message context.",
       "allowedUserIds": ["8436579045", "8340057348"],
-      "description": "PV MediSpa AI assistant — carries the weight so the team doesn't have to.",
+      "description": "PV MediSpa AI assistant -- carries the weight so the team doesn't have to.",
       "features": {
         "memory": true,
         "resume": true,
@@ -19,6 +21,40 @@
         "ghl": true,
         "graph": true,
         "careplan": true
+      }
+    },
+    {
+      "id": "researcher",
+      "name": "Researcher",
+      "model": "sonnet",
+      "type": "worker",
+      "capabilities": ["search", "analysis", "research"],
+      "personalityFile": "config/personas/atlas.md",
+      "systemPrompt": "You are a background research agent. Produce thorough, well-sourced analysis. Write results as clean markdown.",
+      "allowedUserIds": [],
+      "description": "Background research and analysis tasks.",
+      "features": {
+        "memory": false,
+        "resume": false,
+        "todos": false,
+        "search": true
+      }
+    },
+    {
+      "id": "content",
+      "name": "Content",
+      "model": "sonnet",
+      "type": "specialist",
+      "capabilities": ["content", "social", "marketing", "email"],
+      "personalityFile": "config/personas/atlas.md",
+      "systemPrompt": "You are a content generation specialist for PV MediSpa. Follow the voice guide and content engine patterns. Produce ready-to-publish content.",
+      "allowedUserIds": [],
+      "description": "Content generation, social media, marketing copy.",
+      "features": {
+        "memory": false,
+        "resume": false,
+        "todos": false,
+        "search": true
       }
     }
   ]

@@ -340,6 +340,7 @@ export async function callClaude(
     userId?: string;
     lockBehavior?: "wait" | "skip";
     skipLock?: boolean; // caller already holds the session lock
+    isolated?: boolean; // don't persist session ID back (cron/background jobs)
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
     _isFallback?: boolean; // internal: prevents infinite fallback chains
@@ -623,7 +624,8 @@ export async function callClaude(
         });
 
         // Clear the session so next message starts fresh (loop often means bad session state)
-        if (session.sessionId) {
+        // Skip for isolated sessions (don't touch the shared session)
+        if (session.sessionId && !options?.isolated) {
           const oldSid = session.sessionId;
           warn("claude", `[${agentId}] Clearing session ${oldSid} after tool call loop`);
           session.sessionId = null;
@@ -697,8 +699,8 @@ export async function callClaude(
       `${inputTokens}in/${outputTokens}out | $${callCostUsd.toFixed(4)} | ${toolCallCount} tools`
     );
 
-    // Save session ID
-    if (sessionId) {
+    // Save session ID (skip for isolated/cron sessions to prevent contamination)
+    if (sessionId && !options?.isolated) {
       session.sessionId = sessionId;
       session.lastActivity = new Date().toISOString();
       await saveSessionState(agentId, userId, session);
@@ -714,8 +716,8 @@ export async function callClaude(
     if (!resultText.trim() && !isError && !options?._isEmptyRetry) {
       warn("claude", `[${agentId}] Empty result with clean exit (CLI bug #1920). Retrying without resume.`);
 
-      // Clear potentially corrupted session
-      if (session.sessionId) {
+      // Clear potentially corrupted session (skip for isolated sessions)
+      if (session.sessionId && !options?.isolated) {
         const oldSid = session.sessionId;
         session.sessionId = null;
         session.lastActivity = new Date().toISOString();
