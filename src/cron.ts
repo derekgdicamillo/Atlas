@@ -14,10 +14,10 @@ import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, wa
 import { getAllBreakerStats } from "./circuit-breaker.ts";
 import { MODELS } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
-import { checkOpenClaw, buildEvolutionPrompt } from "./openclaw.ts";
+import { runEvolution } from "./evolve.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { loadTasks, checkTasks, registerTask, registerCodeTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
 import { checkScheduledMessages } from "./scheduled.ts";
 import { callClaude, sessionKey } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
@@ -26,7 +26,7 @@ import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from 
 import { isGBPReady, getGBPContext } from "./gbp.ts";
 import { isGA4Ready, getGA4Context } from "./analytics.ts";
 import { buildWeeklySummary, formatWeeklySummary } from "./executive.ts";
-import { appendRun, cleanupOldRuns, getRecentFailures, formatFailureSummary, type CronRun } from "./run-log.ts";
+import { appendRun, cleanupOldRuns, type CronRun } from "./run-log.ts";
 import { fireHooks } from "./hooks.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
@@ -558,107 +558,16 @@ jobs.push(
 );
 
 // 9. Nightly Evolution — 11:00 PM MST
-//    Consolidated job: checks OpenClaw GitHub for new releases/commits,
-//    scans error logs for recurring failures, reads recent journals for friction,
-//    then spawns a code agent (opus) to auto-implement improvements and fixes.
-//    Replaces the old daily OpenClaw monitor + weekly self-improvement scout.
+//    Multi-source intelligence: OpenClaw, Anthropic changelog, Claude Code releases,
+//    codebase self-audit, error logs, journal friction. Spawns opus code agent.
+//    Logic lives in src/evolve.ts. Manually triggerable via /evolve skill.
 jobs.push(
   CronJob.from({
     cronTime: "0 23 * * *",
     onTick: safeTick("evolution", async () => {
-      log("evolution", "Starting nightly evolution check...");
-
-      // 1. Check OpenClaw GitHub for new activity
-      const { commits, newRelease, releaseNotes } = await checkOpenClaw();
-
-      // 2. Scan error logs (last 48 hours)
-      const failures = getRecentFailures(48);
-      const failureSummary = formatFailureSummary(failures);
-
-      // 3. Collect journal context (last 3 days of friction points)
-      let journalContext = "";
-      for (let i = 0; i < 3; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-        const jPath = join(MEMORY_DIR, `${dateStr}.md`);
-        if (existsSync(jPath)) {
-          try {
-            const content = readFileSync(jPath, "utf-8");
-            // Extract lines mentioning errors, issues, friction, bugs, fixes
-            const relevant = content
-              .split("\n")
-              .filter((l) =>
-                /error|fail|bug|fix|broke|crash|timeout|retry|friction|issue|problem/i.test(l)
-              )
-              .join("\n");
-            if (relevant) {
-              journalContext += `### ${dateStr}\n${relevant}\n\n`;
-            }
-          } catch { /* skip unreadable */ }
-        }
-      }
-
-      // 4. Build evolution prompt
-      const prompt = buildEvolutionPrompt({
-        commits,
-        newRelease,
-        releaseNotes,
-        recentFailures: failureSummary,
-        journalContext,
-      });
-
-      if (!prompt) {
-        log("evolution", "No new OpenClaw activity and no errors. Skipping.");
-        return;
-      }
-
-      // 5. Spawn code agent to implement improvements
-      try {
-        const taskId = await registerCodeTask({
-          description: "Nightly evolution: OpenClaw upgrades + error fixes",
-          prompt,
-          cwd: PROJECT_DIR,
-          model: "opus",
-          requestedBy: "cron:evolution",
-          wallClockMs: 60 * 60 * 1000, // 60 min max
-          budgetUsd: 5.00,
-          onComplete: async (result) => {
-            // Report results to Derek
-            const status = result.exitReason === "completed" ? "completed" : `stopped (${result.exitReason})`;
-            const cost = result.costUsd?.toFixed(2) || "?";
-            const changes = newRelease ? `OpenClaw ${newRelease.tag}` : `${commits.length} commits`;
-            const errors = failures.length > 0 ? `, ${failures.length} errors addressed` : "";
-
-            const msg = [
-              `**Nightly Evolution ${status}**`,
-              `Analyzed: ${changes}${errors}`,
-              `Cost: $${cost} | Duration: ${Math.round((result.durationMs || 0) / 1000)}s`,
-              "",
-              "Report: data/task-output/nightly-evolution.md",
-            ].join("\n");
-
-            await sendTelegramMessage(DEREK_CHAT_ID, msg);
-          },
-        });
-
-        log("evolution", `Spawned code agent: ${taskId}`);
-
-        // Brief heads-up to Derek
-        const preview = newRelease
-          ? `New OpenClaw release: ${newRelease.tag}`
-          : `${commits.length} new commit(s)`;
-        const errorNote = failures.length > 0
-          ? ` + ${failures.length} error(s) to investigate`
-          : "";
-
-        await sendTelegramMessage(
-          DEREK_CHAT_ID,
-          `**Nightly evolution started.** ${preview}${errorNote}. Code agent is analyzing and implementing improvements. I'll report back when done.`
-        );
-      } catch (err) {
-        logError("cron", `Evolution code agent failed to spawn: ${err}`);
-      }
+      log("evolution", "Starting nightly evolution...");
+      const result = await runEvolution({ manual: false });
+      log("evolution", result.message);
     }),
     timeZone: TIMEZONE,
   })

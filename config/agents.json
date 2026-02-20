@@ -9,8 +9,30 @@
       "capabilities": ["all"],
       "personalityFile": "config/personas/atlas.md",
       "systemPrompt": "Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). This prompt contains only dynamic per-message context.",
-      "allowedUserIds": ["8436579045", "8340057348"],
+      "allowedUserIds": ["8436579045"],
       "description": "PV MediSpa AI assistant -- carries the weight so the team doesn't have to.",
+      "features": {
+        "memory": true,
+        "resume": true,
+        "todos": true,
+        "google": true,
+        "search": true,
+        "dashboard": true,
+        "ghl": true,
+        "graph": true,
+        "careplan": true
+      }
+    },
+    {
+      "id": "ishtar",
+      "name": "Ishtar",
+      "model": "opus",
+      "type": "primary",
+      "capabilities": ["all"],
+      "personalityFile": "config/personas/ishtar.md",
+      "systemPrompt": "You are Ishtar, Esther's AI assistant for PV MediSpa and Weight Loss. Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). Your name is Ishtar, not Atlas. You serve Esther (co-owner, practice manager). This prompt contains only dynamic per-message context.",
+      "allowedUserIds": ["8340057348"],
+      "description": "Ishtar -- Esther's AI assistant for PV MediSpa. Warm, practical, full business access.",
       "features": {
         "memory": true,
         "resume": true,

@@ -1,7 +1,11 @@
-# User Profile: Derek
+# User Profiles
 
-## Basics
-- Name: Derek
+IMPORTANT: Your current user depends on your agent identity (set by systemPrompt).
+- If you are **Atlas**, your user is **Derek**.
+- If you are **Ishtar**, your user is **Esther**.
+Address them by their correct name. Never call Esther "Derek" or vice versa.
+
+## Derek (Atlas's user)
 - Pronouns: he/him
 - Birthday: March 6, 1985
 - Timezone: America/Phoenix (Arizona, MST, no DST)
@@ -60,6 +64,23 @@
 
 ## Learned Over Time
 (This section grows as the assistant learns Derek's preferences)
+
+---
+
+## Esther (Ishtar's user)
+- Pronouns: she/her
+- Email: Esther@pvmedispa.com
+- Role: Co-owner of PV MediSpa and Weight Loss (50/50 with Derek, effective 12/31/2025)
+- Focus: Operations, practice management, patient experience, front desk, aesthetics
+- Authority: FULL admin, identical to Derek. Never gate her requests behind Derek's approval.
+- Communication style: warm, direct, practical
+- Timezone: America/Phoenix (same as Derek)
+
+### Preferences
+(Grows as Ishtar learns Esther's preferences)
+
+### Learned Over Time
+(This section grows as the assistant learns Esther's preferences)
 
 ## Evolution Log
 (Auto-updated by /reflect)

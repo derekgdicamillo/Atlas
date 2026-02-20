@@ -13,19 +13,21 @@ export const DEFAULT_MODEL: ModelTier = "opus";
 
 // Cost per million tokens (USD) — updated Feb 2026
 // https://docs.anthropic.com/en/docs/about-claude/models
+// Haiku 4.5: $1.00/$5.00 (not $0.80/$4.00 — that was Haiku 3.5 pricing)
 export const TOKEN_COSTS: Record<ModelTier, { input: number; output: number }> = {
   opus:   { input: 15.00, output: 75.00 },
   sonnet: { input: 3.00,  output: 15.00 },
-  haiku:  { input: 0.80,  output: 4.00 },
+  haiku:  { input: 1.00,  output: 5.00 },
 };
 
 // Max tool calls per request before kill (loop detection)
-// Removed hard cap — smart loop detection (duplicate signatures) catches real loops.
-// Set high so complex tasks never hit the ceiling.
-export const MAX_TOOL_CALLS_PER_REQUEST = Infinity;
+// Smart loop detection (duplicate signatures, ping-pong, global circuit breaker) catches
+// most real loops. This hard ceiling is a defense-in-depth safety net for novel patterns
+// that evade signature-based detection. Set high enough for complex tasks.
+export const MAX_TOOL_CALLS_PER_REQUEST = 150;
 
 // Concurrent subagent limit (code + research share pool)
-export const MAX_CONCURRENT_SUBAGENTS = 5;
+export const MAX_CONCURRENT_SUBAGENTS = 8;
 
 // Code agent — dedicated coding subagent with higher limits
 export const CODE_AGENT_MAX_TOOL_CALLS = 200;
@@ -41,7 +43,7 @@ export const ANNOUNCE_BACKOFF_BASE_MS = 2_000;  // 2s, 4s, 8s
 
 // Swarm system
 export const MAX_QUEUE_SIZE = 25;
-export const MAX_SWARM_NODES = 15;
+export const MAX_SWARM_NODES = 20;
 export const DEFAULT_SWARM_BUDGET_USD = 3.00;
 export const MAX_SWARM_BUDGET_USD = 10.00;
 export const DEFAULT_SWARM_WALL_CLOCK_MS = 30 * 60 * 1000;   // 30 min

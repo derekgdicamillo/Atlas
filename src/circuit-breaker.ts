@@ -310,42 +310,42 @@ export function resetAllBreakers(): void {
 /** GoHighLevel API — rate-limited, occasionally 500s */
 export const ghlBreaker = getBreaker("GHL", {
   failureThreshold: 3,
-  resetTimeoutMs: 60_000,
+  resetTimeoutMs: 45_000,
   requestTimeoutMs: 20_000,
 });
 
 /** PV Dashboard API (Vercel) — occasionally cold starts or 502s */
 export const dashboardBreaker = getBreaker("Dashboard", {
   failureThreshold: 3,
-  resetTimeoutMs: 60_000,
+  resetTimeoutMs: 45_000,
   requestTimeoutMs: 20_000,
 });
 
 /** Google APIs (Gmail, Calendar) — generally reliable but auth can expire */
 export const googleBreaker = getBreaker("Google", {
   failureThreshold: 4,
-  resetTimeoutMs: 90_000,
+  resetTimeoutMs: 60_000,
   requestTimeoutMs: 25_000,
 });
 
 /** Google Business Profile — less critical, higher tolerance */
 export const gbpBreaker = getBreaker("GBP", {
   failureThreshold: 3,
-  resetTimeoutMs: 120_000,
+  resetTimeoutMs: 60_000,
   requestTimeoutMs: 20_000,
 });
 
 /** Google Analytics 4 — less critical, higher tolerance */
 export const ga4Breaker = getBreaker("GA4", {
   failureThreshold: 3,
-  resetTimeoutMs: 120_000,
+  resetTimeoutMs: 60_000,
   requestTimeoutMs: 20_000,
 });
 
 /** Meta Marketing API — rate limits, occasionally slow */
 export const metaBreaker = getBreaker("Meta", {
   failureThreshold: 3,
-  resetTimeoutMs: 90_000,
+  resetTimeoutMs: 60_000,
   requestTimeoutMs: 25_000,
 });
 

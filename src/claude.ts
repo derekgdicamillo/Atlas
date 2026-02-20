@@ -28,12 +28,28 @@ import { addEntry } from "./conversation.ts";
 // ============================================================
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
+// ============================================================
+// ACTIVE CALL TRACKING (for polling watchdog)
+// ============================================================
+
+/**
+ * Track active Claude CLI invocations so the polling watchdog doesn't
+ * incorrectly fire during long-running calls (Opus can take 6+ minutes).
+ * Simple counter: increment on call start, decrement on call end.
+ */
+let activeClaudeCalls = 0;
+
+/** Returns true if at least one Claude call is currently in progress. */
+export function isClaudeCallActive(): boolean {
+  return activeClaudeCalls > 0;
+}
 const PROJECT_DIR = process.env.PROJECT_DIR || "";
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const RELAY_DIR =
   process.env.RELAY_DIR || join(process.env.HOME || "~", ".claude-relay");
 const CLAUDE_TIMEOUT_MS = parseInt(
-  process.env.CLAUDE_TIMEOUT_MS || "120000",
+  process.env.CLAUDE_TIMEOUT_MS || "180000",
   10
 );
 
@@ -61,6 +77,8 @@ const STRIP_ENV_VARS = [
   "GOOGLE_CLIENT_SECRET",
   // Atlas tokens that Claude CLI doesn't need
   "TELEGRAM_BOT_TOKEN",
+  "ISHTAR_BOT_TOKEN", // OpenClaw 2.19 security: strip all bot tokens from child envs
+  "GROQ_API_KEY",
 ];
 
 /** Return a cleaned copy of process.env safe for spawned Claude CLI. */
@@ -133,7 +151,7 @@ export async function getSession(
       sessionFilePath(agentId, userId),
       "utf-8"
     );
-    const state = JSON.parse(content);
+    const state = safeParse(content);
     sessions.set(key, state);
     return state;
   } catch {
@@ -172,9 +190,10 @@ interface LockState {
 const sessionLocks: Map<string, LockState> = new Map();
 
 // Maximum time a lock can be held before auto-release.
-// Aligned with MAX_WALL_CLOCK_MS + 2min grace so valid long-running opus turns
+// Uses max model multiplier (opus=3.0) so long-running opus turns
 // aren't force-unlocked mid-run (OpenClaw #18060).
-const LOCK_TIMEOUT_MS = parseInt(process.env.CLAUDE_MAX_WALL_MS || "900000", 10) + 2 * 60_000; // wall clock + 2min grace
+const maxModelMultiplier = Math.max(...Object.values(MODEL_TIMEOUT_MULTIPLIERS));
+const LOCK_TIMEOUT_MS = Math.round(parseInt(process.env.CLAUDE_MAX_WALL_MS || "900000", 10) * maxModelMultiplier) + 2 * 60_000;
 
 // Maximum time a waiter will wait for the lock.
 // Set to lock timeout + 2min so waiters outlive the lock holder.
@@ -321,10 +340,16 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
               break;
 
             // Handle content_block events (partial streaming)
+            // OpenClaw #20774: Track content blocks as activity. Reasoning deltas
+            // keep the inactivity timer alive during extended thinking.
             case "content_block_start":
-            case "content_block_delta":
             case "content_block_stop":
-              // These are streaming events; treat as activity but don't emit as tool calls
+              break;
+            case "content_block_delta":
+              // Reasoning deltas should be treated as thinking activity
+              if (raw.delta?.type === "thinking_delta" || raw.content_block?.type === "thinking") {
+                onEvent({ type: "thinking", sessionId });
+              }
               break;
 
             case "result":
@@ -445,6 +470,9 @@ export async function callClaude(
   // Hoist so finally can always clean up
   let typingInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Track active call for polling watchdog (prevents false-positive shutdown during long calls)
+  activeClaudeCalls++;
+
   try {
     const session = await getSession(agentId, userId);
     // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
@@ -475,13 +503,14 @@ export async function callClaude(
 
     const effectiveTimeout = getEffectiveTimeout(modelTier);
 
-    // Scale inactivity timeout by model (Opus tasks have longer gaps between output)
-    const inactivityMultiplier = MODEL_TIMEOUT_MULTIPLIERS[modelTier] ?? 1.0;
-    const effectiveInactivityMs = Math.round(INACTIVITY_TIMEOUT_MS * inactivityMultiplier);
+    // Scale inactivity and wall clock timeouts by model (Opus tasks run longer)
+    const modelMultiplier = MODEL_TIMEOUT_MULTIPLIERS[modelTier] ?? 1.0;
+    const effectiveInactivityMs = Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier);
+    const effectiveWallClockMs = Math.round(MAX_WALL_CLOCK_MS * modelMultiplier);
 
     info(
       "claude",
-      `[${agentId}] Calling ${modelTier}: ${prompt.substring(0, 80)}... (inactivity: ${Math.round(effectiveInactivityMs / 1000)}s, wall: ${Math.round(MAX_WALL_CLOCK_MS / 1000)}s)`
+      `[${agentId}] Calling ${modelTier}: ${prompt.substring(0, 80)}... (inactivity: ${Math.round(effectiveInactivityMs / 1000)}s, wall: ${Math.round(effectiveWallClockMs / 1000)}s)`
     );
     const startTime = Date.now();
 
@@ -690,7 +719,7 @@ export async function callClaude(
         const wallElapsed = now - startTime;
         const idleElapsed = now - lastActivityAt;
 
-        if (wallElapsed > MAX_WALL_CLOCK_MS) {
+        if (wallElapsed > effectiveWallClockMs) {
           timeoutReason = `wall clock exceeded (${Math.round(wallElapsed / 1000)}s)`;
           clearInterval(check);
           resolve("timeout");
@@ -917,6 +946,7 @@ export async function callClaude(
     logError("claude", `[${agentId}] Spawn failed twice: ${err}`);
     return "I couldn't start the Claude CLI. This is usually a transient Windows issue. Try sending your message again in a moment.";
   } finally {
+    activeClaudeCalls--;
     if (typingInterval) clearInterval(typingInterval);
     release();
   }

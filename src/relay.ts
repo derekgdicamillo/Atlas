@@ -8,7 +8,7 @@
  * Run: bun run src/relay.ts
  */
 
-import { Bot, Context, InputFile } from "grammy";
+import { Bot, Composer, Context, InputFile } from "grammy";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
 import { existsSync, realpathSync, lstatSync } from "fs";
 import { join, dirname } from "path";
@@ -35,7 +35,7 @@ import {
 } from "./logger.ts";
 import { DEFAULT_MODEL, type ModelTier } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
-import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, acquireSessionLock, sessionKey } from "./claude.ts";
+import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, acquireSessionLock, sessionKey, isClaudeCallActive } from "./claude.ts";
 import {
   loadAgents,
   getAgentForUser,
@@ -76,6 +76,7 @@ import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager
 import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSummary } from "./run-log.ts";
 import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
+import { PDFParse } from "pdf-parse";
 import { getSwarmContext, pauseSwarm, getActiveSwarms } from "./dag.ts";
 import {
   loadModes,
@@ -195,8 +196,20 @@ const PROJECT_ROOT = dirname(dirname(import.meta.path));
 // ============================================================
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const ISHTAR_BOT_TOKEN = process.env.ISHTAR_BOT_TOKEN || "";
 const ALLOWED_USER_ID = process.env.TELEGRAM_USER_ID || "";
 const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || "~", ".claude-relay");
+
+/** Get the bot token from a Grammy context (for file download URLs in multi-bot setup) */
+function botTokenFromCtx(ctx: Context): string {
+  return (ctx as any).api?.token || BOT_TOKEN;
+}
+
+/** Identify which bot is handling this update (for per-bot update ID tracking) */
+function botIdFromCtx(ctx: Context): string {
+  const token = (ctx as any).api?.token;
+  return token === ISHTAR_BOT_TOKEN ? "ishtar" : "atlas";
+}
 
 // Directories
 const TEMP_DIR = join(RELAY_DIR, "temp");
@@ -459,6 +472,10 @@ if (!(await acquireLock())) {
 }
 
 const bot = new Bot(BOT_TOKEN);
+const ishtarBot = ISHTAR_BOT_TOKEN ? new Bot(ISHTAR_BOT_TOKEN) : null;
+
+/** All active bots for shutdown and startup */
+const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : [])];
 
 // ============================================================
 // GRACEFUL SHUTDOWN
@@ -496,7 +513,7 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
     }
     await killAllRunningSubagents("Atlas process shutting down").catch(() => {});
     await saveDedupCache();
-    await bot.stop();
+    await Promise.all(allBots.map((b) => b.stop().catch(() => {})));
   } catch (e) {
     warn("shutdown", `Error during graceful stop: ${e}`);
   }
@@ -505,10 +522,15 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
 }
 
 // ============================================================
+// SHARED HANDLER COMPOSER (mounted on all bots)
+// ============================================================
+const handlers = new Composer();
+
+// ============================================================
 // SECURITY: Route to authorized agents
 // ============================================================
 
-bot.use(async (ctx, next) => {
+handlers.use(async (ctx, next) => {
   const userId = ctx.from?.id.toString();
   if (!userId) return;
 
@@ -628,6 +650,12 @@ function maybeSaveDedupCache(): void {
 // ============================================================
 
 const OFFSET_FILE = join(PROJECT_ROOT, ".last_update_id");
+const OFFSET_FILE_ISHTAR = join(PROJECT_ROOT, ".last_update_id_ishtar");
+
+// Per-bot update ID tracking. Each bot has its own Telegram update ID namespace,
+// so a single global counter causes cross-bot stale detection (bug: Ishtar's
+// 726M IDs made Atlas's 579M IDs look "stale").
+const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0 };
 
 async function loadLastUpdateId(): Promise<number> {
   try {
@@ -638,18 +666,27 @@ async function loadLastUpdateId(): Promise<number> {
   }
 }
 
-async function saveLastUpdateId(updateId: number): Promise<void> {
+async function loadLastUpdateIdIshtar(): Promise<number> {
   try {
-    await writeFile(OFFSET_FILE, String(updateId), "utf-8");
-  } catch (e) {
-    warn("offset", `Failed to save update ID: ${e}`);
+    const data = await readFile(OFFSET_FILE_ISHTAR, "utf-8");
+    return parseInt(data.trim(), 10) || 0;
+  } catch {
+    return 0;
   }
 }
 
-let lastProcessedUpdateId = 0;
+async function saveLastUpdateId(updateId: number, botId: string = "atlas"): Promise<void> {
+  try {
+    const file = botId === "ishtar" ? OFFSET_FILE_ISHTAR : OFFSET_FILE;
+    await writeFile(file, String(updateId), "utf-8");
+    lastProcessedUpdateIds[botId] = updateId;
+  } catch (e) {
+    warn("offset", `Failed to save update ID for ${botId}: ${e}`);
+  }
+}
 
-function isStaleUpdate(updateId: number): boolean {
-  return updateId <= lastProcessedUpdateId;
+function isStaleUpdate(updateId: number, botId: string = "atlas"): boolean {
+  return updateId <= (lastProcessedUpdateIds[botId] || 0);
 }
 
 // ============================================================
@@ -683,6 +720,12 @@ function startPollingWatchdog(bot: Bot): void {
 
   pollingWatchdogTimer = setInterval(async () => {
     if (pollingRestartInProgress) return; // already handling it
+
+    // Skip watchdog during active Claude calls. Long-running Opus calls (6+ minutes)
+    // block the event loop, preventing getUpdates from running. This is expected
+    // behavior, not a stalled polling loop. (#OpenClaw watchdog false-positive fix)
+    if (isClaudeCallActive()) return;
+
     const silentMs = Date.now() - lastUpdateReceivedAt;
     if (silentMs < WATCHDOG_STALE_THRESHOLD_MS) return;
 
@@ -747,11 +790,18 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const pollingSilentSec = Math.round((Date.now() - lastUpdateReceivedAt) / 1000);
       const pollingStatus = pollingSilentSec < 120 ? "OK" : `${pollingSilentSec}s silent`;
 
+      // OpenClaw #21248: Surface cached token counts in /status
+      const claudeCosts = getTodayClaudeCosts();
+      const tokenSummary = claudeCosts.calls > 0
+        ? `Tokens today: ${(claudeCosts.inputTokens / 1000).toFixed(1)}k in / ${(claudeCosts.outputTokens / 1000).toFixed(1)}k out ($${claudeCosts.totalCostUsd.toFixed(2)})`
+        : "Tokens today: 0";
+
       const lines = [
         `${h.status === "healthy" ? "OK" : h.status.toUpperCase()} | Uptime: ${uptimeH}h ${uptimeM}m`,
         `Messages: ${m.messageCount} | Claude calls: ${m.claudeCallCount}`,
         `Timeouts: ${m.claudeTimeoutCount} | Errors: ${m.errorCount}`,
         `Avg response: ${avgSec}s`,
+        tokenSummary,
         `Polling: ${pollingStatus}`,
       ];
 
@@ -978,7 +1028,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
 
       const content = args.join(" ");
       if (!content) {
-        await ctx.reply("Usage: /ingest <text to add to knowledge base>\n\nOr send a .txt/.md file.");
+        await ctx.reply("Usage: /ingest <text to add to knowledge base>\n\nOr send a .txt/.md/.pdf file.");
         return true;
       }
 
@@ -2355,7 +2405,7 @@ async function handleUserMessage(
 
 // Middleware: reset polling watchdog on every incoming update.
 // This proves Grammy's polling loop is alive and receiving data.
-bot.use((ctx, next) => {
+handlers.use((ctx, next) => {
   touchPollingWatchdog();
   return next();
 });
@@ -2364,19 +2414,19 @@ bot.use((ctx, next) => {
 // BACKSLASH SAFETY: User message text passes to Claude as-is.
 // No backslash normalization is applied. Internal paths use path.join().
 // See OpenClaw #11547 for context on this pattern.
-bot.on("message:text", async (ctx) => {
+handlers.on("message:text", async (ctx) => {
   const text = ctx.message.text;
   const userId = ctx.from?.id.toString() || "";
   const updateId = ctx.update.update_id;
   trackMessage();
 
-  if (isStaleUpdate(updateId)) {
+  if (isStaleUpdate(updateId, botIdFromCtx(ctx))) {
     info("dedup", `Skipping stale update ${updateId} (already processed)`);
     return;
   }
 
   if (await handleCommand(ctx, text, userId)) {
-    await saveLastUpdateId(updateId);
+    await saveLastUpdateId(updateId, botIdFromCtx(ctx));
     return;
   }
 
@@ -2390,17 +2440,17 @@ bot.on("message:text", async (ctx) => {
   await ctx.replyWithChatAction("typing");
 
   await handleUserMessage(ctx, userId, { text, type: "text" });
-  await saveLastUpdateId(updateId);
+  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
 // Voice messages
-bot.on("message:voice", async (ctx) => {
+handlers.on("message:voice", async (ctx) => {
   const voice = ctx.message.voice;
   const userId = ctx.from?.id.toString() || "";
   const updateId = ctx.update.update_id;
   trackMessage();
 
-  if (isStaleUpdate(updateId)) {
+  if (isStaleUpdate(updateId, botIdFromCtx(ctx))) {
     info("dedup", `Skipping stale voice update ${updateId}`);
     return;
   }
@@ -2431,7 +2481,7 @@ bot.on("message:voice", async (ctx) => {
       }
       throw fileErr;
     }
-    const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const url = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
     assertSafeUrl(url);
     const response = await fetch(url);
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -2450,10 +2500,15 @@ bot.on("message:voice", async (ctx) => {
     // Voice response: TTS is best-effort, text response is already delivered above
     if (responseText) {
       try {
+        info("tts", `Starting TTS for voice reply (${responseText.length} chars)`);
         await ctx.replyWithChatAction("record_voice");
         const audioBuffer = await textToSpeech(responseText);
         if (audioBuffer) {
+          info("tts", `Sending voice reply: ${audioBuffer.length} bytes`);
           await ctx.replyWithVoice(new InputFile(audioBuffer, "response.ogg"));
+          info("tts", `Voice reply sent successfully`);
+        } else {
+          warn("tts", `TTS returned null buffer (OPENAI_API_KEY set: ${!!process.env.OPENAI_API_KEY})`);
         }
       } catch (ttsErr) {
         logError("tts", `TTS failed (non-fatal): ${ttsErr}`);
@@ -2463,16 +2518,16 @@ bot.on("message:voice", async (ctx) => {
     logError("voice", `Voice processing failed: ${err}`);
     await ctx.reply("Could not process voice message. Check logs for details.");
   }
-  await saveLastUpdateId(updateId);
+  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
 // Photos/Images
-bot.on("message:photo", async (ctx) => {
+handlers.on("message:photo", async (ctx) => {
   const userId = ctx.from?.id.toString() || "";
   const updateId = ctx.update.update_id;
   trackMessage();
 
-  if (isStaleUpdate(updateId)) {
+  if (isStaleUpdate(updateId, botIdFromCtx(ctx))) {
     info("dedup", `Skipping stale photo update ${updateId}`);
     return;
   }
@@ -2498,21 +2553,46 @@ bot.on("message:photo", async (ctx) => {
         } else {
           await ctx.reply("Photo is too large (>20MB) for me to download. Try sending a compressed version.");
         }
-        await saveLastUpdateId(updateId);
+        await saveLastUpdateId(updateId, botIdFromCtx(ctx));
         return;
       }
       throw fileErr;
     }
 
+    // Validate file path from Telegram API
+    if (!file.file_path) {
+      logError("image", `Telegram API returned no file_path for photo. file_id=${photo.file_id}`);
+      await ctx.reply("Could not download image (Telegram returned no file path).");
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     // OpenClaw #20654: Crypto-random temp file names
     const filePath = join(UPLOADS_DIR, `image_${randomBytes(12).toString("hex")}.jpg`);
 
-    const photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const photoUrl = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
     assertSafeUrl(photoUrl);
     const response = await fetch(photoUrl);
+
+    // Validate fetch response
+    if (!response.ok) {
+      logError("image", `Failed to download image from Telegram: ${response.status} ${response.statusText}`);
+      await ctx.reply("Could not download image from Telegram servers.");
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength === 0) {
+      logError("image", `Downloaded image has 0 bytes. URL: ${photoUrl}`);
+      await ctx.reply("Could not download image (empty response).");
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     await writeFile(filePath, Buffer.from(buffer));
     verifyTempFile(filePath, UPLOADS_DIR);
+    info("image", `Saved image to ${filePath} (${buffer.byteLength} bytes)`);
 
     const caption = ctx.message.caption || "Analyze this image.";
 
@@ -2526,17 +2606,17 @@ bot.on("message:photo", async (ctx) => {
     logError("image", `Image processing failed: ${err}`);
     await ctx.reply("Could not process image.");
   }
-  await saveLastUpdateId(updateId);
+  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
 // Documents
-bot.on("message:document", async (ctx) => {
+handlers.on("message:document", async (ctx) => {
   const doc = ctx.message.document;
   const userId = ctx.from?.id.toString() || "";
   const updateId = ctx.update.update_id;
   trackMessage();
 
-  if (isStaleUpdate(updateId)) {
+  if (isStaleUpdate(updateId, botIdFromCtx(ctx))) {
     info("dedup", `Skipping stale document update ${updateId}`);
     return;
   }
@@ -2559,38 +2639,79 @@ bot.on("message:document", async (ctx) => {
         } else {
           await ctx.reply(`Document "${doc.file_name}" is too large (>20MB) for me to download.`);
         }
-        await saveLastUpdateId(updateId);
+        await saveLastUpdateId(updateId, botIdFromCtx(ctx));
         return;
       }
       throw fileErr;
     }
+    // Validate file path from Telegram API
+    if (!file.file_path) {
+      logError("document", `Telegram API returned no file_path for document "${doc.file_name}"`);
+      await ctx.reply(`Could not download "${doc.file_name}" (Telegram returned no file path).`);
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     // OpenClaw #20654: Crypto-random temp file names to prevent prediction attacks
     const fileName = doc.file_name || "file";
     const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 60);
     const filePath = join(UPLOADS_DIR, `${randomBytes(12).toString("hex")}_${safeFileName}`);
 
-    const docUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const docUrl = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
     assertSafeUrl(docUrl);
     const response = await fetch(docUrl);
+
+    // Validate fetch response
+    if (!response.ok) {
+      logError("document", `Failed to download document from Telegram: ${response.status} ${response.statusText}`);
+      await ctx.reply(`Could not download "${doc.file_name}" from Telegram servers.`);
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength === 0) {
+      logError("document", `Downloaded document has 0 bytes: ${doc.file_name}`);
+      await ctx.reply(`Could not download "${doc.file_name}" (empty response).`);
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     await writeFile(filePath, Buffer.from(buffer));
     verifyTempFile(filePath, UPLOADS_DIR);
+    info("document", `Saved document to ${filePath} (${buffer.byteLength} bytes)`);
 
-    // Auto-ingest text documents into knowledge base when search is enabled
+    // Auto-ingest documents into knowledge base when search is enabled
     const agent = resolveAgent(userId);
     const hasSearch = agent?.config.features.search ?? false;
     const isTextDoc = /\.(txt|md|markdown)$/i.test(fileName);
+    const isPdf = /\.pdf$/i.test(fileName);
 
-    if (hasSearch && isTextDoc && supabase) {
+    if (hasSearch && (isTextDoc || isPdf) && supabase) {
       try {
-        const textContent = Buffer.from(buffer).toString("utf-8");
-        const result = await ingestDocument(supabase, textContent, {
-          source: "telegram",
-          sourcePath: fileName,
-          title: fileName.replace(/\.[^/.]+$/, ""),
-        });
-        if (result.chunks_created > 0) {
-          info("ingest", `Auto-ingested ${fileName}: ${result.chunks_created} chunks`);
+        let textContent: string;
+        if (isPdf) {
+          const parser = new PDFParse({ data: new Uint8Array(buffer) });
+          const pdfResult = await parser.getText();
+          await parser.destroy();
+          textContent = pdfResult.text;
+          if (!textContent || textContent.trim().length < 20) {
+            warn("ingest", `PDF ${fileName} yielded no usable text (scanned/image-only?)`);
+            textContent = "";
+          }
+        } else {
+          textContent = Buffer.from(buffer).toString("utf-8");
+        }
+
+        if (textContent.trim().length > 0) {
+          const result = await ingestDocument(supabase, textContent, {
+            source: "telegram",
+            sourcePath: fileName,
+            title: fileName.replace(/\.[^/.]+$/, ""),
+          });
+          if (result.chunks_created > 0) {
+            info("ingest", `Auto-ingested ${fileName}: ${result.chunks_created} chunks`);
+          }
         }
       } catch (err) {
         warn("ingest", `Auto-ingest failed for ${fileName}: ${err}`);
@@ -2609,7 +2730,7 @@ bot.on("message:document", async (ctx) => {
     logError("document", `Document processing failed: ${err}`);
     await ctx.reply("Could not process document.");
   }
-  await saveLastUpdateId(updateId);
+  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
 // ============================================================
@@ -2774,6 +2895,11 @@ function buildPrompt(
   // Static identity, personality, profile, and tag syntax are in CLAUDE.md
   // (loaded automatically by Claude Code from cwd). Only dynamic context here.
   const parts: string[] = [];
+
+  // Agent identity injection (MUST be first — overrides any static file defaults)
+  if (agent?.config.systemPrompt) {
+    parts.push(addSection("agent_identity", agent.config.systemPrompt));
+  }
 
   parts.push(addSection("system", `Current time: ${timeStr}`));
 
@@ -3099,10 +3225,21 @@ initSwarmSystem().then(() => {
   warn("startup", `Swarm init failed (non-fatal): ${err}`);
 });
 
-// Load persisted update offset to skip already-processed messages after restart
-loadLastUpdateId().then((id) => {
-  lastProcessedUpdateId = id;
-  info("startup", `Loaded last update ID: ${id}`);
+// ============================================================
+// MOUNT SHARED HANDLERS ON ALL BOTS
+// ============================================================
+bot.use(handlers);
+if (ishtarBot) {
+  ishtarBot.use(handlers);
+  info("startup", "Ishtar bot initialized (multi-bot mode)");
+}
+
+// Load persisted update offsets (per-bot) to skip already-processed messages after restart
+Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar()]).then(async ([atlasId, ishtarId]) => {
+  lastProcessedUpdateIds.atlas = atlasId;
+  lastProcessedUpdateIds.ishtar = ishtarId;
+  const id = atlasId; // backward compat for dropPending logic below
+  info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}`);
 
   // Use drop_pending_updates when we have no saved offset (crash recovery).
   // This prevents re-processing stale messages (including /restart) that
@@ -3110,6 +3247,26 @@ loadLastUpdateId().then((id) => {
   const dropPending = id === 0;
   if (dropPending) {
     warn("startup", "No saved update ID found. Dropping pending updates to avoid replay loops.");
+  }
+
+  // Force-clear any stale polling sessions before starting.
+  // Telegram only allows one getUpdates consumer per bot token. If a previous
+  // process died without cleanly stopping, Telegram holds the connection for
+  // ~30s. deleteWebhook with drop_pending_updates doesn't kill the old long-poll,
+  // but it resets webhook state. The real fix is the retry loop below.
+  try {
+    await bot.api.deleteWebhook({ drop_pending_updates: false });
+    info("startup", "Cleared webhook state for Atlas bot");
+  } catch (e) {
+    warn("startup", `Failed to clear Atlas webhook state: ${e}`);
+  }
+  if (ishtarBot) {
+    try {
+      await ishtarBot.api.deleteWebhook({ drop_pending_updates: false });
+      info("startup", "Cleared webhook state for Ishtar bot");
+    } catch (e) {
+      warn("startup", `Failed to clear Ishtar webhook state: ${e}`);
+    }
   }
 
   // Start bot with 409-resilient retry loop.
@@ -3122,8 +3279,11 @@ loadLastUpdateId().then((id) => {
   // mid-polling 409). This is NOT an error from Grammy's perspective, it just
   // means the polling loop exited. We detect this and restart automatically.
   const MAX_START_RETRIES = 8;
+  const QUICK_EXIT_THRESHOLD_MS = 60_000; // If polling dies within 60s, it's probably a 409
+  const MAX_QUICK_EXITS = 5; // After 5 quick exits, escalate to long cooldown
   let startAttempt = 0;
   let pollingStartedAt = 0;
+  let consecutiveQuickExits = 0; // Track rapid restart pattern (409 loop detection)
 
   async function startBot(): Promise<void> {
     try {
@@ -3133,6 +3293,7 @@ loadLastUpdateId().then((id) => {
         onStart: () => {
           info("startup", "Bot is running!");
           startAttempt = 0; // reset on successful start
+          consecutiveQuickExits = 0; // reset 409 loop detection on stable start
           startPollingWatchdog(bot); // detect silent polling death
 
           // Load hooks config and fire startup hooks
@@ -3184,10 +3345,34 @@ loadLastUpdateId().then((id) => {
       // internally). Wait for the old connection to clear, then restart polling.
       if (!isShuttingDown) {
         const aliveMs = Date.now() - pollingStartedAt;
-        warn("startup", `Polling loop exited after ${Math.round(aliveMs / 1000)}s (not shutting down). Likely 409 conflict. Waiting 35s for old connection to clear, then restarting polling.`);
-        pollingRestartInProgress = true;
-        await new Promise((r) => setTimeout(r, 35_000));
-        pollingRestartInProgress = false;
+        const isQuickExit = aliveMs < QUICK_EXIT_THRESHOLD_MS;
+
+        if (isQuickExit) {
+          consecutiveQuickExits++;
+          if (consecutiveQuickExits >= MAX_QUICK_EXITS) {
+            // Too many quick exits. Likely stuck in 409 loop. Long cooldown.
+            warn("startup", `Atlas polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${consecutiveQuickExits}/${MAX_QUICK_EXITS}). Probable 409 conflict loop. Backing off for 5 minutes.`);
+            pollingRestartInProgress = true;
+            await new Promise((r) => setTimeout(r, 5 * 60_000));
+            pollingRestartInProgress = false;
+            consecutiveQuickExits = 0; // Reset after long cooldown
+          } else {
+            // Quick exit with exponential backoff: 35s, 70s, 140s, 280s
+            const backoffMs = Math.min(35_000 * Math.pow(2, consecutiveQuickExits - 1), 5 * 60_000);
+            warn("startup", `Atlas polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${consecutiveQuickExits}/${MAX_QUICK_EXITS}). Likely 409 conflict. Waiting ${Math.round(backoffMs / 1000)}s before restart.`);
+            pollingRestartInProgress = true;
+            await new Promise((r) => setTimeout(r, backoffMs));
+            pollingRestartInProgress = false;
+          }
+        } else {
+          // Long-lived session ended normally, reset quick exit counter
+          consecutiveQuickExits = 0;
+          warn("startup", `Atlas polling loop exited after ${Math.round(aliveMs / 1000)}s (not shutting down). Restarting in 35s.`);
+          pollingRestartInProgress = true;
+          await new Promise((r) => setTimeout(r, 35_000));
+          pollingRestartInProgress = false;
+        }
+
         touchPollingWatchdog(); // reset watchdog so it doesn't fire immediately after restart
         return startBot();
       }
@@ -3206,4 +3391,71 @@ loadLastUpdateId().then((id) => {
   }
 
   startBot();
+
+  // Start Ishtar bot (secondary) with same 409-resilient retry loop as Atlas
+  if (ishtarBot) {
+    let ishtarAttempt = 0;
+    let ishtarPollingStartedAt = 0;
+    let ishtarConsecutiveQuickExits = 0; // Track rapid restart pattern for Ishtar
+
+    async function startIshtar(): Promise<void> {
+      try {
+        ishtarPollingStartedAt = Date.now();
+        await ishtarBot.start({
+          drop_pending_updates: dropPending,
+          onStart: () => {
+            info("startup", "Ishtar bot is running!");
+            ishtarAttempt = 0;
+            ishtarConsecutiveQuickExits = 0; // Reset on successful stable start
+          },
+        });
+        // ishtarBot.start() resolved = polling stopped unexpectedly
+        if (!isShuttingDown) {
+          const aliveMs = Date.now() - ishtarPollingStartedAt;
+          const isQuickExit = aliveMs < QUICK_EXIT_THRESHOLD_MS;
+
+          if (isQuickExit) {
+            ishtarConsecutiveQuickExits++;
+            if (ishtarConsecutiveQuickExits >= MAX_QUICK_EXITS) {
+              // Too many quick exits. Likely stuck in 409 loop. Long cooldown.
+              warn("startup", `Ishtar polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${ishtarConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Probable 409 conflict loop. Backing off for 5 minutes.`);
+              await new Promise((r) => setTimeout(r, 5 * 60_000));
+              ishtarConsecutiveQuickExits = 0; // Reset after long cooldown
+            } else {
+              // Quick exit with exponential backoff: 35s, 70s, 140s, 280s
+              const backoffMs = Math.min(35_000 * Math.pow(2, ishtarConsecutiveQuickExits - 1), 5 * 60_000);
+              warn("startup", `Ishtar polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${ishtarConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Likely 409 conflict. Waiting ${Math.round(backoffMs / 1000)}s before restart.`);
+              await new Promise((r) => setTimeout(r, backoffMs));
+            }
+          } else {
+            // Long-lived session ended normally, reset quick exit counter
+            ishtarConsecutiveQuickExits = 0;
+            warn("startup", `Ishtar polling loop exited after ${Math.round(aliveMs / 1000)}s (not shutting down). Restarting in 35s.`);
+            await new Promise((r) => setTimeout(r, 35_000));
+          }
+
+          return startIshtar();
+        }
+      } catch (err) {
+        const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
+        if (is409 && ishtarAttempt < MAX_START_RETRIES) {
+          ishtarAttempt++;
+          const backoffMs = Math.min(5000 * Math.pow(2, ishtarAttempt - 1), 60_000);
+          warn("startup", `Ishtar 409 conflict on start (attempt ${ishtarAttempt}/${MAX_START_RETRIES}). Retrying in ${backoffMs / 1000}s...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          return startIshtar();
+        }
+        logError("startup", `Ishtar bot start failed after ${ishtarAttempt} attempts: ${err}`);
+        // Don't process.exit here. Ishtar failing shouldn't kill Atlas.
+        // Instead, schedule a delayed retry after a longer cooldown.
+        warn("startup", "Ishtar exhausted retries. Will try again in 5 minutes.");
+        await new Promise((r) => setTimeout(r, 5 * 60_000));
+        ishtarAttempt = 0;
+        ishtarConsecutiveQuickExits = 0; // Reset after long cooldown
+        return startIshtar();
+      }
+    }
+
+    startIshtar();
+  }
 });
