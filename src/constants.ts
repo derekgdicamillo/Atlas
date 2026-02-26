@@ -37,6 +37,14 @@ export const CODE_AGENT_PROGRESS_INTERVAL_MS = 30_000;         // 30s Telegram u
 export const CODE_AGENT_DEFAULT_MODEL: ModelTier = "opus";
 export const CODE_AGENT_MAX_BUDGET_USD = 5.00;
 
+// Git worktree isolation for parallel code agents
+import { join } from "path";
+const _projectDir = process.env.PROJECT_DIR || process.cwd();
+export const WORKTREE_BASE_DIR = join(_projectDir, ".worktrees");
+export const WORKTREE_STATE_FILE = join(_projectDir, "data", "worktrees.json");
+export const WORKTREE_MAX_AGE_MS = 2 * 60 * 60 * 1000;              // 2 hours
+export const WORKTREE_BRANCH_PREFIX = "atlas/agent/";
+
 // Announce retry — exponential backoff for task completion delivery (OpenClaw pattern)
 export const ANNOUNCE_MAX_RETRIES = 3;
 export const ANNOUNCE_BACKOFF_BASE_MS = 2_000;  // 2s, 4s, 8s
@@ -115,6 +123,31 @@ export const WEB_BLOCKED_DOMAINS: string[] = [
   "metadata.google.internal",
 ];
 
+// ============================================================
+// TOX TRAY BUSINESS OPERATOR
+// ============================================================
+
+/** Business identifier for trust config and content queue */
+export const TOX_TRAY_BUSINESS = "tox_tray";
+
+/** Content generation cron schedule (9 AM MST daily) */
+export const TOX_CONTENT_CRON = "0 9 * * *";
+
+/** Post approved content (every 30 min, 8 AM - 8 PM MST) */
+export const TOX_POST_CRON = "*/30 8-20 * * *";
+
+/** Collect social analytics (11 PM daily) */
+export const TOX_ANALYTICS_CRON = "0 23 * * *";
+
+/** Weekly tox tray digest (Sunday 5 PM, before PV exec report) */
+export const TOX_WEEKLY_CRON = "0 17 * * 0";
+
+/** Etsy listing sync (6 AM daily) */
+export const TOX_ETSY_SYNC_CRON = "0 6 * * *";
+
+/** Max content items to generate per day */
+export const TOX_MAX_DAILY_CONTENT = 4;
+
 // Cron notification modes (inspired by OpenClaw delivery.ts)
 export type CronNotifyMode = "announce" | "webhook" | "none";
 
@@ -128,3 +161,130 @@ export interface CronJobNotifyConfig {
   /** Whether to notify on failure (default: true) */
   notifyOnFailure?: boolean;
 }
+
+// ============================================================
+// CODE AGENT SUPERVISOR SYSTEM
+// ============================================================
+// Live supervision with pattern detection, shadow evaluation,
+// intervention, and learning. See src/patterns.ts, src/shadow-evaluator.ts,
+// src/learned-patterns.ts, src/checkpoints.ts, src/context-injector.ts.
+
+/** Master switch for the supervisor system */
+export const SUPERVISOR_ENABLED = process.env.SUPERVISOR_ENABLED !== "false";
+
+/** Enable signature-based pattern detection (no LLM cost) */
+export const SUPERVISOR_PATTERN_DETECT = process.env.SUPERVISOR_PATTERN_DETECT !== "false";
+
+/** Enable LLM-based shadow evaluation */
+export const SUPERVISOR_SHADOW_EVAL = process.env.SUPERVISOR_SHADOW_EVAL === "true";
+
+/** Shadow evaluation interval (every N tool calls) */
+export const SUPERVISOR_SHADOW_INTERVAL = parseInt(process.env.SUPERVISOR_SHADOW_INTERVAL || "10", 10);
+
+/** Model for shadow evaluation (haiku is cheap and fast) */
+export const SUPERVISOR_SHADOW_MODEL: ModelTier = (process.env.SUPERVISOR_SHADOW_MODEL as ModelTier) || "haiku";
+
+/** Maximum restarts before giving up on a task */
+export const SUPERVISOR_MAX_RESTARTS = parseInt(process.env.SUPERVISOR_MAX_RESTARTS || "2", 10);
+
+/** Enable learning system (extract patterns from completed tasks) */
+export const SUPERVISOR_LEARNING = process.env.SUPERVISOR_LEARNING !== "false";
+
+/** Enable context injection (rich prompts with CLAUDE.md, SOUL.md, etc.) */
+export const SUPERVISOR_CONTEXT_INJECTION = process.env.SUPERVISOR_CONTEXT_INJECTION !== "false";
+
+/** Maximum tokens for injected context (budget control) */
+export const SUPERVISOR_CONTEXT_MAX_TOKENS = parseInt(process.env.SUPERVISOR_CONTEXT_MAX_TOKENS || "4000", 10);
+
+/** Enable checkpoint system for complex tasks */
+export const SUPERVISOR_CHECKPOINTS = process.env.SUPERVISOR_CHECKPOINTS === "true";
+
+/** Intervention modes: "log_only" logs issues but doesn't kill, "active" takes action */
+export type SupervisorMode = "log_only" | "active";
+export const SUPERVISOR_MODE: SupervisorMode = (process.env.SUPERVISOR_MODE as SupervisorMode) || "log_only";
+
+// ============================================================
+// FEEDBACK LOOP
+// ============================================================
+
+/** Minimum detection confidence to store a feedback signal */
+export const FEEDBACK_MIN_CONFIDENCE = 0.5;
+/** Number of similar feedback entries needed to consolidate into a durable rule */
+export const FEEDBACK_CONSOLIDATION_THRESHOLD = 3;
+/** Max feedback lessons injected per prompt */
+export const FEEDBACK_MAX_LESSONS_PER_PROMPT = 5;
+/** Look-back window for consolidation pattern detection */
+export const FEEDBACK_MAX_AGE_DAYS_CONSOLIDATION = 90;
+
+// ============================================================
+// EPISODIC MEMORY
+// ============================================================
+
+/** Auto-close an episode after this much inactivity */
+export const EPISODE_TIMEOUT_MS = 15 * 60 * 1000;
+/** Minimum actions before saving an episode (discard trivial ones) */
+export const EPISODE_MIN_ACTIONS = 2;
+/** Cap actions per episode to prevent unbounded growth */
+export const EPISODE_MAX_ACTIONS = 50;
+/** Max episodes surfaced in prompt context */
+export const EPISODE_MAX_RELEVANT = 3;
+/** Word overlap below this threshold = topic shift (triggers episode close) */
+export const EPISODE_TOPIC_SHIFT_THRESHOLD = 0.3;
+
+// ============================================================
+// OBSERVATIONAL MEMORY
+// ============================================================
+
+/** Run observer every N conversation turns */
+export const OBSERVATION_EXTRACT_EVERY_N_TURNS = 4;
+/** Max observations extracted per observer invocation */
+export const OBSERVATION_MAX_PER_EXTRACTION = 3;
+/** Minimum observations before running reflector */
+export const OBSERVATION_REFLECTOR_MIN_OBSERVATIONS = 5;
+/** Max chars for observation blocks in prompt */
+export const OBSERVATION_BLOCK_MAX_CHARS = 6000;
+/** Above this similarity = reinforce existing observation */
+export const OBSERVATION_SIMILARITY_THRESHOLD = 0.85;
+/** Between this and similarity threshold = supersede */
+export const OBSERVATION_SUPERSEDE_THRESHOLD = 0.75;
+/** Delete superseded observations older than this */
+export const OBSERVATION_PRUNE_AGE_DAYS = 30;
+
+// ============================================================
+// PROACTIVE MONITORING
+// ============================================================
+
+/** Master switch for the proactive monitoring engine */
+export const MONITOR_ENABLED = process.env.MONITOR_ENABLED !== "false";
+/** DND start hour (suppress non-critical alerts) */
+export const MONITOR_DND_START_HOUR = 22;
+/** DND end hour */
+export const MONITOR_DND_END_HOUR = 6;
+/** Batch warning-level alerts for this interval before delivery */
+export const MONITOR_BATCH_INTERVAL_MS = 30 * 60_000;
+/** Metric snapshot retention in days */
+export const METRIC_SNAPSHOT_RETENTION_DAYS = 90;
+/** Default baseline window for dynamic threshold detection */
+export const METRIC_BASELINE_WINDOW_HOURS = 168;
+/** Max alerts per hour */
+export const MONITOR_MAX_ALERTS_PER_HOUR = 15;
+/** Per-category dedup windows in ms. Slow-moving metrics get longer windows. */
+export const ALERT_DEDUP_WINDOWS: Record<string, number> = {
+  Ads: 24 * 3600_000,        // 24h -- CPL/frequency/CTR move over days
+  Financial: 24 * 3600_000,  // 24h
+  Pipeline: 12 * 3600_000,   // 12h
+  Website: 12 * 3600_000,    // 12h
+  Reputation: 8 * 3600_000,  // 8h
+  Operations: 8 * 3600_000,  // 8h
+  Email: 4 * 3600_000,       // 4h (event-driven)
+  Calendar: 4 * 3600_000,    // 4h
+};
+export const ALERT_DEDUP_DEFAULT_MS = 4 * 3600_000; // 4h fallback
+/** Schedule tier intervals in minutes */
+export const MONITOR_SCHEDULES = {
+  fast: 5,
+  medium: 15,
+  slow: 60,
+  daily: 1440,
+} as const;
+export type MonitorScheduleTier = keyof typeof MONITOR_SCHEDULES;

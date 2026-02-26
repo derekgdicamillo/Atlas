@@ -217,7 +217,14 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
         alerts.push({
           severity: "warning",
           category: "Pipeline",
-          message: `${ops.noShowsThisWeek} no-shows this week. Consider SMS reminders or overbooking.`,
+          message: `${ops.noShowsThisWeek} no-shows this week. Automated reminders (72h/24h/2h) and no-show recovery are running. Check if GHL confirmation + reschedule workflows are active.`,
+        });
+      }
+      if (ops.pipeline.showRate > 0 && ops.pipeline.showRate < 0.50) {
+        alerts.push({
+          severity: "critical",
+          category: "Pipeline",
+          message: `Show rate at ${(ops.pipeline.showRate * 100).toFixed(1)}%. Below 50% threshold. Review: (1) Are GHL reminder workflows firing? (2) Speed-to-lead on new bookings. (3) Pre-consult nurture content.`,
         });
       }
       if (ops.pipeline.closeRate < 0.2 && ops.pipeline.open > 10) {
@@ -230,26 +237,10 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
     } catch {}
   }
 
-  // Ad efficiency anomalies
-  if (isMetaReady()) {
-    try {
-      const ads = await getAccountSummary("7d");
-      if (ads.cpl > 100) {
-        alerts.push({
-          severity: "warning",
-          category: "Ads",
-          message: `Cost per lead at $${ads.cpl.toFixed(0)} (7d). Check ad creative and targeting.`,
-        });
-      }
-      if (ads.ctr < 0.005 && ads.impressions > 1000) {
-        alerts.push({
-          severity: "warning",
-          category: "Ads",
-          message: `CTR at ${(ads.ctr * 100).toFixed(2)}% (7d). Ads may have fatigue. Refresh creative.`,
-        });
-      }
-    } catch {}
-  }
+  // Ad efficiency anomalies: handled by monitor.ts (checkAdMetrics) with
+  // stable dedup keys and hourly schedule. Removed here to prevent dual-firing
+  // that caused alert spam every 15 min. Ad data still flows into weekly
+  // summary via buildFullFunnel().
 
   // Speed to lead alert
   if (isDashboardReady()) {
@@ -306,6 +297,43 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
       }
     } catch {}
   }
+
+  // Lead volume trend: detect declining lead counts from lead-volume.json
+  try {
+    const { existsSync, readFileSync } = await import("fs");
+    const { join } = await import("path");
+    const volumePath = join(process.env.PROJECT_DIR || process.cwd(), "data", "lead-volume.json");
+    if (existsSync(volumePath)) {
+      const volumeLog = JSON.parse(readFileSync(volumePath, "utf-8")) as { date: string; count: number; weekAvg: number }[];
+      if (volumeLog.length >= 7) {
+        const recent7 = volumeLog.slice(-7);
+        const prior7 = volumeLog.slice(-14, -7);
+        if (prior7.length >= 7) {
+          const recentTotal = recent7.reduce((sum, d) => sum + d.count, 0);
+          const priorTotal = prior7.reduce((sum, d) => sum + d.count, 0);
+          if (priorTotal > 0) {
+            const change = (recentTotal - priorTotal) / priorTotal;
+            if (change < -0.3) {
+              alerts.push({
+                severity: "warning",
+                category: "Pipeline",
+                message: "Lead volume trending down " + Math.abs(Math.round(change * 100)) + "% WoW (" + recentTotal + " vs " + priorTotal + " prior week). Check ad spend, landing page, and content distribution.",
+              });
+            }
+          }
+        }
+        // Check for 3+ consecutive days with zero leads
+        const recentZeroDays = recent7.filter(d => d.count === 0).length;
+        if (recentZeroDays >= 3) {
+          alerts.push({
+            severity: "critical",
+            category: "Pipeline",
+            message: recentZeroDays + " zero-lead days in the past week. Something is broken in the lead generation funnel.",
+          });
+        }
+      }
+    }
+  } catch {}
 
   // Sort: critical first, then warning, then info
   const severityOrder = { critical: 0, warning: 1, info: 2 };
