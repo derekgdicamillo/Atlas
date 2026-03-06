@@ -538,13 +538,27 @@ export async function getAdCreativeInsights(adId: string): Promise<AdCreativeDet
 // ============================================================
 
 export function formatAccountSummary(s: AccountSummary): string {
+  // Frequency health indicator
+  let freqLabel = `Frequency: ${s.frequency.toFixed(2)}`;
+  if (s.frequency > 4.0) {
+    freqLabel += ` *** DANGER (target <3.0) — audience saturated`;
+  } else if (s.frequency > 3.0) {
+    freqLabel += ` ** WARNING (target <3.0)`;
+  }
+
+  // CPL health indicator
+  let cplLabel = `CPL: ${s.conversions > 0 ? "$" + s.cpl.toFixed(2) : "n/a"}`;
+  if (s.conversions > 0 && s.cpl > 65) {
+    cplLabel += ` ** above $65 target`;
+  }
+
   const lines = [
     `Ad Account Summary (${s.dateRange.since} to ${s.dateRange.until})`,
     ``,
     `Spend: $${s.spend.toFixed(2)}`,
     `Impressions: ${s.impressions.toLocaleString()}`,
     `Reach: ${s.reach.toLocaleString()}`,
-    `Frequency: ${s.frequency.toFixed(2)}`,
+    freqLabel,
     ``,
     `Clicks: ${s.clicks.toLocaleString()}`,
     `CTR: ${s.ctr.toFixed(2)}%`,
@@ -553,13 +567,17 @@ export function formatAccountSummary(s: AccountSummary): string {
     `LP Views: ${s.landingPageViews.toLocaleString()}`,
     ``,
     `Conversions: ${s.conversions}`,
-    `CPL: ${s.conversions > 0 ? "$" + s.cpl.toFixed(2) : "n/a"}`,
+    cplLabel,
   ];
 
   // Add LP conversion rate if we have the data
   if (s.landingPageViews > 0 && s.conversions > 0) {
     const lpCvr = ((s.conversions / s.landingPageViews) * 100).toFixed(1);
-    lines.push(`LP Conv Rate: ${lpCvr}%`);
+    let lpcLabel = `LP Conv Rate: ${lpCvr}%`;
+    if (parseFloat(lpCvr) < 5) {
+      lpcLabel += ` ** below 8% target`;
+    }
+    lines.push(lpcLabel);
   }
 
   return lines.join("\n");

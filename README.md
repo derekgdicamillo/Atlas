@@ -106,7 +106,7 @@ npx supabase functions deploy ingest --project-ref <ref> --no-verify-jwt
 bun run src/relay.ts
 
 # Or with PM2 (recommended for production)
-pm2 start bun --name atlas -- run src/relay.ts
+pm2 start ecosystem.config.cjs --only atlas
 ```
 
 ### Environment Variables
@@ -286,7 +286,7 @@ Atlas can spawn independent Claude instances for background work.
 Atlas runs under PM2 for auto-restart on crash:
 
 ```bash
-pm2 start bun --name atlas -- run src/relay.ts
+pm2 start ecosystem.config.cjs --only atlas
 pm2 logs atlas          # View logs
 pm2 restart atlas       # Restart
 pm2 status              # Check status

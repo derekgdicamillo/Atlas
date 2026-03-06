@@ -12,16 +12,25 @@
     "setup:launchd": "bun run setup/configure-launchd.ts",
     "setup:services": "bun run setup/configure-services.ts",
     "setup:verify": "bun run setup/verify.ts",
-    "setup:google": "bun run setup/google-auth.ts"
+    "setup:google": "bun run setup/google-auth.ts",
+    "setup:canva": "bun run setup/canva-oauth.ts"
   },
   "dependencies": {
+    "@azure/msal-node": "^5.0.4",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@supabase/supabase-js": "^2.45.0",
     "cron": "^4.4.0",
     "dotenv": "^17.3.1",
     "googleapis": "^171.4.0",
     "grammy": "^1.21.1",
     "groq-sdk": "^0.8.0",
-    "pdf-parse": "^2.4.5"
+    "mammoth": "^1.11.0",
+    "marked": "^17.0.3",
+    "obs-websocket-js": "^5.0.7",
+    "pdf-parse": "^2.4.5",
+    "puppeteer-core": "^24.37.5",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "latest"

@@ -344,11 +344,13 @@ export function formatSpeedToLead(s: SpeedToLeadSnapshot): string {
   const lines: string[] = ["SPEED TO LEAD"];
   const sm = s.summary;
 
-  lines.push(
-    `Avg response: ${sm.avgMinutes.toFixed(0)} min | Median: ${sm.medianMinutes.toFixed(0)} min`,
-    `Under 5 min: ${sm.under5min} (${pct(sm.under5minPct)})`,
-    `Under 30 min: ${sm.under30min} | Under 60 min: ${sm.under60min}`,
-  );
+  if (sm.avgMinutes != null && sm.medianMinutes != null) {
+    lines.push(
+      `Avg response: ${sm.avgMinutes.toFixed(0)} min | Median: ${sm.medianMinutes.toFixed(0)} min`,
+      `Under 5 min: ${sm.under5min ?? 0} (${pct(sm.under5minPct ?? 0)})`,
+      `Under 30 min: ${sm.under30min ?? 0} | Under 60 min: ${sm.under60min ?? 0}`,
+    );
+  }
 
   if (sm.avgWonMinutes > 0 && sm.avgLostMinutes > 0) {
     lines.push(`Won avg: ${sm.avgWonMinutes.toFixed(0)} min | Lost avg: ${sm.avgLostMinutes.toFixed(0)} min`);
@@ -448,7 +450,7 @@ export async function getPipelinePulse(): Promise<string> {
       lines.push(`Stale leads: ${pipeline.staleLeads.count} (>${pipeline.staleLeads.threshold}d)`);
     }
 
-    if (stl) {
+    if (stl?.summary?.medianMinutes != null) {
       lines.push(`Speed to lead: ${stl.summary.medianMinutes.toFixed(0)} min median`);
     }
 

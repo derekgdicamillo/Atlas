@@ -19,8 +19,8 @@ last_updated: 2026-02-02
 | Property | Details |
 |----------|---------|
 | **Class** | GLP-1 receptor agonist |
-| **Brands** | Wegovy (obesity), Ozempic (T2DM) |
-| **Route** | Subcutaneous injection, once weekly |
+| **Brands** | Wegovy (obesity), Ozempic (T2DM), Oral Wegovy (obesity, oral) |
+| **Route** | Subcutaneous injection, once weekly (see Oral Wegovy section for oral route) |
 | **Mechanism** | GLP-1 RA → ↑insulin (glucose-dependent), ↓glucagon, delayed gastric emptying, ↑CNS satiety |
 
 ---
@@ -121,6 +121,116 @@ last_updated: 2026-02-02
 - [[Adverse Effects - Semaglutide]]
 - [[Contraindications & Precautions - Semaglutide]]
 - [[Study - STEP 1 - Once-weekly semaglutide in adults with overweight or obesity (NEJM 2021)]]
+
+
+---
+
+---
+type: QuickReference
+status: Complete
+audience: Provider
+medication: Oral Semaglutide
+brands: Oral Wegovy
+last_updated: 2026-02-22
+---
+
+# Oral Semaglutide (Oral Wegovy) — Provider One-Pager
+
+## At a Glance
+| Property | Details |
+|----------|---------|
+| **Class** | GLP-1 receptor agonist |
+| **Brands** | Oral Wegovy (obesity), Rybelsus (T2DM, lower doses) |
+| **Route** | Oral tablet, once daily |
+| **FDA Approved** | December 2025 |
+| **Mechanism** | Same as injectable semaglutide: GLP-1 RA → ↑insulin (glucose-dependent), ↓glucagon, delayed gastric emptying, ↑CNS satiety |
+
+---
+
+## Indications
+- **Oral Wegovy:** Chronic weight management in adults with BMI ≥30, or BMI ≥27 + weight-related comorbidity
+- Same indication as injectable Wegovy, oral formulation
+
+---
+
+## Dosing & Titration
+
+| Month | Dose | Notes |
+|-------|------|-------|
+| 1 | 1.5 mg daily | Starting dose |
+| 2 | 4 mg daily | First escalation |
+| 3 | 9 mg daily | Second escalation |
+| 4+ | **25 mg daily** (maintenance) | Target/maintenance dose |
+
+**Key:** Monthly titration steps mirror injectable Wegovy cadence.
+
+**Administration:**
+- Take on empty stomach with no more than 4 oz plain water
+- Wait at least 30 minutes before eating, drinking, or taking other oral medications
+- Swallow whole, do not crush, chew, or split
+
+---
+
+## Contraindications
+| Absolute | Rationale |
+|----------|-----------|
+| Personal/family history of MTC | Boxed warning (rodent thyroid C-cell tumors) |
+| MEN2 syndrome | Includes MTC risk |
+| Hypersensitivity to semaglutide | Prior allergic reaction |
+| Pregnancy | Fetal risk; stop ≥2 months before conception |
+
+---
+
+## Key Precautions
+- Same as injectable semaglutide (pancreatitis, gallbladder, retinopathy, renal)
+- **Absorption sensitivity:** Must be taken on empty stomach with minimal water for reliable bioavailability
+
+---
+
+## Efficacy
+- **Weight loss:** ~13.6-16.6% (comparable to injectable Wegovy)
+- Essentially equivalent efficacy to injectable formulation at maintenance dose
+
+---
+
+## Drug Interactions
+- Same as injectable semaglutide
+- **Additional consideration:** Oral semaglutide delays gastric emptying, which may affect absorption of other oral medications. Advise 30-minute spacing.
+
+---
+
+## Missed Dose Rules
+- **Missed dose:** Skip it, take next dose on schedule the following day
+- **Gap >2 weeks:** Restart at 1.5 mg, re-titrate
+
+---
+
+## When to Consider Oral vs Injectable
+| Factor | Oral Wegovy | Injectable Wegovy |
+|--------|-------------|-------------------|
+| Needle phobia | Preferred | Requires injection |
+| Adherence | Daily pill (must be empty stomach) | Weekly injection |
+| Efficacy | Comparable (~13.6-16.6%) | ~14.9% (STEP 1) |
+| GI side effects | Similar profile | Similar profile |
+| Convenience | No refrigeration needed | Refrigerate before first use |
+
+---
+
+## Patient Counseling Points
+1. Take first thing in morning on empty stomach
+2. Use no more than 4 oz plain water to swallow
+3. Wait at least 30 minutes before eating or other medications
+4. Do not crush or chew the tablet
+5. Expect nausea early, usually improves
+6. Prioritize protein, stay hydrated
+7. Call for severe abdominal pain (pancreatitis concern)
+
+---
+
+## Quick Links
+- [[Dosing & Titration - Oral Semaglutide]]
+- [[Adverse Effects - Semaglutide]]
+- [[Contraindications & Precautions - Semaglutide]]
 
 
 ---

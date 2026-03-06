@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { warn } from "./logger.ts";
+import { invalidateCache } from "./cognitive.ts";
 
 // ============================================================
 // TYPES
@@ -80,6 +81,7 @@ export async function processGraphIntents(
     if (name) {
       try {
         await upsertEntity(supabase, { name, type, description });
+        invalidateCache("graph");
       } catch (err) {
         console.warn(`[graph] ENTITY upsert failed for "${name}": ${err}`);
       }
@@ -98,6 +100,7 @@ export async function processGraphIntents(
     if (source && relationship && target) {
       try {
         await upsertEdge(supabase, { source, target, relationship });
+        invalidateCache("graph");
       } catch (err) {
         console.warn(`[graph] RELATE upsert failed "${source} -> ${relationship} -> ${target}": ${err}`);
       }
@@ -238,6 +241,132 @@ async function resolveEntityId(
     return null;
   }
   return created.id;
+}
+
+// ============================================================
+// ENTITY MERGING
+// ============================================================
+
+/**
+ * Merge one or more entities into a canonical entity.
+ * Repoints all edges, copies aliases, deduplicates, then deletes merged entities.
+ */
+export async function mergeEntities(
+  supabase: SupabaseClient,
+  canonicalId: string,
+  mergeIds: string[],
+): Promise<{ edgesRepointed: number; entitiesDeleted: number }> {
+  let edgesRepointed = 0;
+  let entitiesDeleted = 0;
+
+  for (const mergeId of mergeIds) {
+    if (mergeId === canonicalId) continue;
+
+    // Copy aliases from merged entity to canonical
+    const { data: merged } = await supabase
+      .from("memory_entities")
+      .select("name, aliases")
+      .eq("id", mergeId)
+      .single();
+
+    if (merged) {
+      const { data: canonical } = await supabase
+        .from("memory_entities")
+        .select("aliases")
+        .eq("id", canonicalId)
+        .single();
+
+      const existingAliases: string[] = canonical?.aliases || [];
+      const newAliases = new Set([...existingAliases, merged.name, ...(merged.aliases || [])]);
+      await supabase
+        .from("memory_entities")
+        .update({ aliases: [...newAliases] })
+        .eq("id", canonicalId);
+    }
+
+    // Repoint outgoing edges (source_entity_id)
+    const { data: outgoing } = await supabase
+      .from("memory_edges")
+      .select("id, target_entity_id, relationship")
+      .eq("source_entity_id", mergeId);
+
+    if (outgoing?.length) {
+      for (const edge of outgoing) {
+        // Check for duplicate: same canonical -> target + relationship
+        const { data: existing } = await supabase
+          .from("memory_edges")
+          .select("id")
+          .eq("source_entity_id", canonicalId)
+          .eq("target_entity_id", edge.target_entity_id)
+          .eq("relationship", edge.relationship)
+          .limit(1);
+
+        if (existing?.length) {
+          // Duplicate: delete the old edge
+          await supabase.from("memory_edges").delete().eq("id", edge.id);
+        } else {
+          // Repoint to canonical
+          await supabase
+            .from("memory_edges")
+            .update({ source_entity_id: canonicalId })
+            .eq("id", edge.id);
+          edgesRepointed++;
+        }
+      }
+    }
+
+    // Repoint incoming edges (target_entity_id)
+    const { data: incoming } = await supabase
+      .from("memory_edges")
+      .select("id, source_entity_id, relationship")
+      .eq("target_entity_id", mergeId);
+
+    if (incoming?.length) {
+      for (const edge of incoming) {
+        const { data: existing } = await supabase
+          .from("memory_edges")
+          .select("id")
+          .eq("source_entity_id", edge.source_entity_id)
+          .eq("target_entity_id", canonicalId)
+          .eq("relationship", edge.relationship)
+          .limit(1);
+
+        if (existing?.length) {
+          await supabase.from("memory_edges").delete().eq("id", edge.id);
+        } else {
+          await supabase
+            .from("memory_edges")
+            .update({ target_entity_id: canonicalId })
+            .eq("id", edge.id);
+          edgesRepointed++;
+        }
+      }
+    }
+
+    // Delete the merged entity
+    await supabase.from("memory_edges").delete().eq("source_entity_id", mergeId);
+    await supabase.from("memory_edges").delete().eq("target_entity_id", mergeId);
+    await supabase.from("memory_entities").delete().eq("id", mergeId);
+    entitiesDeleted++;
+  }
+
+  if (entitiesDeleted > 0) invalidateCache("graph");
+  return { edgesRepointed, entitiesDeleted };
+}
+
+/**
+ * Find an entity by name (case-insensitive). Returns id and name.
+ */
+export async function findEntityByName(
+  supabase: SupabaseClient,
+  name: string,
+): Promise<{ id: string; name: string } | null> {
+  const { data } = await supabase
+    .from("memory_entities")
+    .select("id, name")
+    .ilike("name", name.trim())
+    .limit(1);
+  return data?.[0] || null;
 }
 
 // ============================================================

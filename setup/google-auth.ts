@@ -67,6 +67,7 @@ const SCOPES = {
     "https://www.googleapis.com/auth/contacts.readonly", // Lookup contacts by name
     "https://www.googleapis.com/auth/business.manage",   // Google Business Profile
     "https://www.googleapis.com/auth/analytics.readonly", // Google Analytics 4
+    "https://www.googleapis.com/auth/drive.readonly",     // Google Drive (read shared files)
   ],
   atlas: [
     "https://www.googleapis.com/auth/gmail.readonly",    // Read own inbox

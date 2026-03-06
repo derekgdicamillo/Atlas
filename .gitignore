@@ -18,6 +18,9 @@ logs/
 *.pid
 *.lock
 
+# Git worktrees (parallel agent isolation)
+.worktrees/
+
 # Relay temp files
 .claude-relay/
 session-*.json

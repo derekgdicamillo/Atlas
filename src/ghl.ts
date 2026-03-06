@@ -17,6 +17,10 @@ const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 const GHL_VERSION = "2021-07-28";
 const GHL_TOKEN = process.env.GHL_API_TOKEN || "";
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID || "";
+const GHL_CALENDAR_IDS = (process.env.GHL_CALENDAR_IDS || "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
 
 // Pipeline IDs (match dashboard)
 export const PIPELINES = {
@@ -152,6 +156,12 @@ export interface GHLWebhookEvent {
 
 export function isGHLReady(): boolean {
   return !!GHL_TOKEN && !!GHL_LOCATION_ID;
+}
+
+// Show rate digest callback (registered by cron.ts to avoid circular import)
+let _showRateDigestFn: (() => string) | null = null;
+export function registerShowRateDigest(fn: () => string): void {
+  _showRateDigestFn = fn;
 }
 
 export function initGHL(): boolean {
@@ -306,7 +316,7 @@ export async function getRecentLeads(
   const params = new URLSearchParams({
     locationId: GHL_LOCATION_ID,
     limit: "100",
-    startAfter: startDate.toISOString(),
+    startAfter: String(startDate.getTime()),
   });
 
   const res = await ghlFetch<{
@@ -393,7 +403,40 @@ export async function getMessages(
 // APPOINTMENTS (Calendar)
 // ============================================================
 
+async function fetchAllCalendarEvents(
+  startTime: number,
+  endTime: number,
+  caller: string
+): Promise<GHLAppointment[]> {
+  const results = await Promise.allSettled(
+    GHL_CALENDAR_IDS.map(async (calendarId) => {
+      const params = new URLSearchParams({
+        locationId: GHL_LOCATION_ID,
+        calendarId,
+        startTime: String(startTime),
+        endTime: String(endTime),
+      });
+      const res = await ghlFetch<{ events: GHLAppointment[] }>(
+        `/calendars/events?${params.toString()}`
+      );
+      return res.events || [];
+    })
+  );
+
+  const all: GHLAppointment[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      all.push(...r.value);
+    } else {
+      warn("ghl", `${caller} calendar fetch failed: ${r.reason}`);
+    }
+  }
+  return all;
+}
+
 export async function getTodayAppointments(): Promise<GHLAppointment[]> {
+  if (GHL_CALENDAR_IDS.length === 0) return [];
+
   const now = new Date();
   const tz = process.env.USER_TIMEZONE || "America/Phoenix";
 
@@ -402,27 +445,14 @@ export async function getTodayAppointments(): Promise<GHLAppointment[]> {
   const startTime = new Date(todayStr + "T00:00:00").getTime();
   const endTime = new Date(todayStr + "T23:59:59").getTime();
 
-  const params = new URLSearchParams({
-    locationId: GHL_LOCATION_ID,
-    startTime: String(startTime),
-    endTime: String(endTime),
-  });
-
-  try {
-    const res = await ghlFetch<{ events: GHLAppointment[] }>(
-      `/calendars/events?${params.toString()}`
-    );
-    return res.events || [];
-  } catch (err) {
-    // Calendar events endpoint may not be available with pit token
-    warn("ghl", `Appointments fetch failed (may need OAuth): ${err}`);
-    return [];
-  }
+  return fetchAllCalendarEvents(startTime, endTime, "getTodayAppointments");
 }
 
 export async function getAppointments(
   opts: { startDate?: string; endDate?: string; days?: number } = {}
 ): Promise<GHLAppointment[]> {
+  if (GHL_CALENDAR_IDS.length === 0) return [];
+
   const tz = process.env.USER_TIMEZONE || "America/Phoenix";
   const now = new Date();
   const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
@@ -437,20 +467,7 @@ export async function getAppointments(
     endDate.setDate(endDate.getDate() + days);
     endTime = endDate.getTime() - 1;
   }
-  const params = new URLSearchParams({
-    locationId: GHL_LOCATION_ID,
-    startTime: String(startTime),
-    endTime: String(endTime),
-  });
-  try {
-    const res = await ghlFetch<{ events: GHLAppointment[] }>(
-      `/calendars/events?${params.toString()}`
-    );
-    return res.events || [];
-  } catch (err) {
-    warn("ghl", `Appointments fetch failed: ${err}`);
-    return [];
-  }
+  return fetchAllCalendarEvents(startTime, endTime, "getAppointments");
 }
 
 // ============================================================
@@ -839,8 +856,10 @@ export async function getNewLeadsSince(
   const since = sinceIso || lastLeadCheckTime || new Date(Date.now() - 300_000).toISOString();
   const checkTime = new Date().toISOString();
 
+  // Query ALL statuses (open, won, lost) so same-day processed leads aren't missed.
+  // Previous bug: status:"open" missed leads that Becca moved to won/lost same day.
   const res = await searchOpportunities(PIPELINES.PATIENT_JOURNEY_WEIGHT_LOSS, {
-    status: "open",
+    status: "all",
     startDate: since.split("T")[0],
     limit: 50,
   });
@@ -892,6 +911,18 @@ export function formatOpsSnapshot(ops: OpsSnapshot): string {
 
   if (ops.todayAppointments > 0) {
     lines.push(`Today's appointments: ${ops.todayAppointments}`);
+  }
+
+  // Show rate improvement tracking
+  if (_showRateDigestFn) {
+    try {
+      const digest = _showRateDigestFn();
+      if (digest) {
+        lines.push(`\nReminder Engine:\n${digest}`);
+      }
+    } catch {
+      // non-critical
+    }
   }
 
   return lines.join("\n");

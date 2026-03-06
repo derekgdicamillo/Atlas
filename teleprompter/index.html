@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Atlas Teleprompter</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #prompter {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+    }
+
+    #script-container {
+      width: 85%;
+      max-width: 900px;
+      padding-top: 45vh;
+      padding-bottom: 55vh;
+      transition: none;
+    }
+
+    #script-text {
+      font-size: 42px;
+      line-height: 1.6;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    /* Reading guide line */
+    #guide-line {
+      position: fixed;
+      top: 40%;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(255, 200, 0, 0.4);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Top/bottom fade */
+    #fade-top {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 25%;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+      pointer-events: none;
+      z-index: 5;
+    }
+    #fade-bottom {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 25%;
+      background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Controls overlay */
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 20;
+      opacity: 0.3;
+      transition: opacity 0.3s;
+    }
+    #controls:hover { opacity: 1; }
+
+    .btn {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      backdrop-filter: blur(10px);
+    }
+    .btn:hover { background: rgba(255,255,255,0.25); }
+    .btn.active { background: rgba(255,200,0,0.3); border-color: rgba(255,200,0,0.6); }
+
+    #speed-display {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-size: 14px;
+      color: rgba(255,255,255,0.4);
+      z-index: 20;
+    }
+
+    #status {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      font-size: 14px;
+      z-index: 20;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-dot.connected { background: #4caf50; }
+    .status-dot.disconnected { background: #f44336; }
+    .status-dot.voice { background: #ff9800; }
+
+    /* Loading state */
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 30;
+    }
+    #loading h1 { font-size: 32px; margin-bottom: 16px; font-weight: 300; }
+    #loading p { font-size: 18px; color: rgba(255,255,255,0.6); }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>Atlas Teleprompter</h1>
+    <p>Waiting for script...</p>
+    <p style="margin-top:12px; font-size:14px; color:rgba(255,255,255,0.3);">
+      API: POST /api/load, /api/scroll/start, /api/scroll/stop, /api/speed
+    </p>
+  </div>
+
+  <div id="prompter" class="hidden">
+    <div id="script-container">
+      <div id="script-text"></div>
+    </div>
+  </div>
+
+  <div id="guide-line" class="hidden"></div>
+  <div id="fade-top" class="hidden"></div>
+  <div id="fade-bottom" class="hidden"></div>
+
+  <div id="controls" class="hidden">
+    <button class="btn" id="btn-slower" title="Slower">&#9664; Slower</button>
+    <button class="btn" id="btn-toggle" title="Play/Pause">&#9654; Play</button>
+    <button class="btn" id="btn-faster" title="Faster">Faster &#9654;</button>
+    <button class="btn" id="btn-voice" title="Voice Scroll">&#127908; Voice</button>
+    <button class="btn" id="btn-reset" title="Reset">&#8634; Reset</button>
+  </div>
+
+  <div id="speed-display" class="hidden">Speed: <span id="speed-val">1.0</span>x</div>
+
+  <div id="status" class="hidden">
+    <span class="status-dot connected" id="status-dot"></span>
+    <span id="status-text">Ready</span>
+  </div>
+
+  <script>
+    // ============================================================
+    // STATE
+    // ============================================================
+    let scrolling = false;
+    let speed = 1.0; // pixels per frame at 60fps. 1.0 ~= 150 WPM
+    let scrollPos = 0;
+    let animFrameId = null;
+    let voiceActive = false;
+    let recognition = null;
+    let scriptLoaded = false;
+
+    const $ = (sel) => document.querySelector(sel);
+
+    // ============================================================
+    // SCROLL ENGINE
+    // ============================================================
+    function startScroll() {
+      if (scrolling) return;
+      scrolling = true;
+      $('#btn-toggle').innerHTML = '&#9646;&#9646; Pause';
+      $('#btn-toggle').classList.add('active');
+      animate();
+    }
+
+    function stopScroll() {
+      scrolling = false;
+      $('#btn-toggle').innerHTML = '&#9654; Play';
+      $('#btn-toggle').classList.remove('active');
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+
+    function animate() {
+      if (!scrolling) return;
+      scrollPos += speed;
+      $('#script-container').style.transform = `translateY(-${scrollPos}px)`;
+      animFrameId = requestAnimationFrame(animate);
+    }
+
+    function resetScroll() {
+      stopScroll();
+      scrollPos = 0;
+      $('#script-container').style.transform = 'translateY(0)';
+    }
+
+    function setSpeed(newSpeed) {
+      speed = Math.max(0.1, Math.min(10, newSpeed));
+      $('#speed-val').textContent = speed.toFixed(1);
+    }
+
+    // ============================================================
+    // VOICE SCROLL (WebSpeech API)
+    // ============================================================
+    function initVoice() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Voice scroll not supported in this browser. Use Chrome on the Surface.');
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      let lastResultTime = Date.now();
+      let silenceTimer = null;
+
+      recognition.onresult = (event) => {
+        lastResultTime = Date.now();
+        // Voice detected: scroll at normal speed
+        if (!scrolling) startScroll();
+        setSpeed(1.2);
+
+        // Clear any pause timer
+        if (silenceTimer) clearTimeout(silenceTimer);
+
+        // If silence for 2s, slow down. 4s, pause.
+        silenceTimer = setTimeout(() => {
+          setSpeed(0.3); // slow crawl
+          setTimeout(() => {
+            if (Date.now() - lastResultTime > 3500) {
+              stopScroll();
+            }
+          }, 2000);
+        }, 2000);
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'no-speech') return; // expected
+        console.log('Voice error:', event.error);
+      };
+
+      recognition.onend = () => {
+        // Auto-restart if voice mode is still active
+        if (voiceActive) {
+          try { recognition.start(); } catch(e) {}
+        }
+      };
+    }
+
+    function toggleVoice() {
+      if (!recognition) initVoice();
+      if (!recognition) return;
+
+      voiceActive = !voiceActive;
+      if (voiceActive) {
+        recognition.start();
+        $('#btn-voice').classList.add('active');
+        $('#status-dot').className = 'status-dot voice';
+        $('#status-text').textContent = 'Voice scroll active';
+      } else {
+        recognition.stop();
+        $('#btn-voice').classList.remove('active');
+        $('#status-dot').className = 'status-dot connected';
+        $('#status-text').textContent = 'Ready';
+      }
+    }
+
+    // ============================================================
+    // LOAD SCRIPT
+    // ============================================================
+    function loadScript(text, title) {
+      // Convert markdown-ish formatting to clean teleprompter text
+      let clean = text
+        .replace(/^#{1,6}\s+/gm, '')       // remove markdown headers
+        .replace(/\*\*(.+?)\*\*/g, '$1')    // bold markers (keep text)
+        .replace(/\*(.+?)\*/g, '$1')        // italic markers
+        .replace(/^[-*]\s+/gm, '  . ')      // bullets to dots
+        .replace(/^\d+\.\s+/gm, '  . ')     // numbered lists
+        .replace(/```[\s\S]*?```/g, '')      // remove code blocks
+        .replace(/`(.+?)`/g, '$1')          // inline code
+        .replace(/\[(.+?)\]\(.+?\)/g, '$1') // links -> text only
+        .replace(/^---+$/gm, '')            // horizontal rules
+        .replace(/\n{3,}/g, '\n\n');         // collapse whitespace
+
+      $('#script-text').textContent = clean;
+      $('#loading').classList.add('hidden');
+      $('#prompter').classList.remove('hidden');
+      $('#guide-line').classList.remove('hidden');
+      $('#fade-top').classList.remove('hidden');
+      $('#fade-bottom').classList.remove('hidden');
+      $('#controls').classList.remove('hidden');
+      $('#speed-display').classList.remove('hidden');
+      $('#status').classList.remove('hidden');
+
+      if (title) document.title = `Atlas TP: ${title}`;
+
+      resetScroll();
+      scriptLoaded = true;
+    }
+
+    // ============================================================
+    // KEYBOARD SHORTCUTS
+    // ============================================================
+    document.addEventListener('keydown', (e) => {
+      if (!scriptLoaded) return;
+
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          scrolling ? stopScroll() : startScroll();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSpeed(speed + 0.2);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setSpeed(speed - 0.2);
+          break;
+        case 'ArrowLeft':
+          scrollPos = Math.max(0, scrollPos - 200);
+          $('#script-container').style.transform = `translateY(-${scrollPos}px)`;
+          break;
+        case 'ArrowRight':
+          scrollPos += 200;
+          $('#script-container').style.transform = `translateY(-${scrollPos}px)`;
+          break;
+        case 'r':
+        case 'R':
+          resetScroll();
+          break;
+        case 'v':
+        case 'V':
+          toggleVoice();
+          break;
+      }
+    });
+
+    // Touch controls for iPad
+    let touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    });
+    document.addEventListener('touchend', (e) => {
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dy) < 30) {
+        // Tap: toggle play/pause
+        scrolling ? stopScroll() : startScroll();
+      }
+    });
+
+    // ============================================================
+    // BUTTON HANDLERS
+    // ============================================================
+    $('#btn-toggle').addEventListener('click', () => scrolling ? stopScroll() : startScroll());
+    $('#btn-slower').addEventListener('click', () => setSpeed(speed - 0.3));
+    $('#btn-faster').addEventListener('click', () => setSpeed(speed + 0.3));
+    $('#btn-voice').addEventListener('click', toggleVoice);
+    $('#btn-reset').addEventListener('click', resetScroll);
+
+    // ============================================================
+    // POLL FOR COMMANDS (alternative to WebSocket for simplicity)
+    // ============================================================
+    let lastCommandId = 0;
+
+    async function pollCommands() {
+      try {
+        const res = await fetch(`/api/commands?since=${lastCommandId}`);
+        if (res.ok) {
+          const cmds = await res.json();
+          for (const cmd of cmds) {
+            lastCommandId = Math.max(lastCommandId, cmd.id);
+            handleCommand(cmd);
+          }
+        }
+      } catch(e) {}
+      setTimeout(pollCommands, 500);
+    }
+
+    function handleCommand(cmd) {
+      switch(cmd.type) {
+        case 'load': loadScript(cmd.text, cmd.title); break;
+        case 'start': startScroll(); break;
+        case 'stop': stopScroll(); break;
+        case 'reset': resetScroll(); break;
+        case 'speed': setSpeed(cmd.value); break;
+        case 'font_size':
+          $('#script-text').style.fontSize = cmd.value + 'px';
+          break;
+      }
+    }
+
+    // Start polling
+    pollCommands();
+
+    // Also check for script loaded via query param
+    const params = new URLSearchParams(window.location.search);
+    const scriptFile = params.get('script');
+    if (scriptFile) {
+      fetch(`/api/scripts/${encodeURIComponent(scriptFile)}`)
+        .then(r => r.ok ? r.text() : Promise.reject('not found'))
+        .then(text => loadScript(text, scriptFile))
+        .catch(() => {});
+    }
+  </script>
+</body>
+</html>

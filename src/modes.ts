@@ -13,7 +13,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { info } from "./logger.ts";
 
-export type ModeId = "social" | "marketing" | "skool";
+export type ModeId = "social" | "marketing" | "skool" | "tox-tray" | "fitness";
 
 export interface ModeConfig {
   id: ModeId;
@@ -85,6 +85,35 @@ const MODE_CONFIGS: ModeConfig[] = [
       /\b(weekly check.?in|challenge post|ama|ask me anything)\b/i,
       /\b(vitality tracker|body comp scale)\b/i,
       /\b(slow.?&.?shield|slow and shield)\b/i,
+    ],
+  },
+  {
+    id: "tox-tray",
+    name: "Tox Tray",
+    description: "Tox tray product content, Etsy optimization, social media posting",
+    promptFile: "config/modes/tox-tray.md",
+    triggers: [
+      /\b(tox tray|tox.?tray|botox tray)\b/i,
+      /\b(etsy shop|etsy listing|etsy store)\b/i,
+      /\b(tox listing|tox content|tox post)\b/i,
+      /\b(3d print.* tray|printed tray)\b/i,
+      /\b(injector tray|injection tray|medspa tray)\b/i,
+    ],
+  },
+  {
+    id: "fitness",
+    name: "Fitness Coach",
+    description: "Workout programming, nutrition coaching, macro tracking, progress analysis",
+    promptFile: "config/modes/fitness.md",
+    triggers: [
+      /\b(workout|work out|training|train today|lift|lifting)\b/i,
+      /\b(bench press|squat|deadlift|ohp|overhead press)\b/i,
+      /\b(macros?|calories|protein|carbs|bulking|cutting|recomp)\b/i,
+      /\b(sets? and reps?|sets?x\d|pr |personal record)\b/i,
+      /\b(deload|recovery day|rest day|active recovery)\b/i,
+      /\b(coach|fitness|gym session|leg day|push day|pull day)\b/i,
+      /\b(weekly check.?in.*weight|weigh.?in|body comp)\b/i,
+      /\b(hevy|workout log|exercise|muscle group)\b/i,
     ],
   },
 ];

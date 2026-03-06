@@ -1,6 +1,15 @@
 ---
 name: diagnose
-description: System diagnostics and health report for Atlas
+description: >-
+  System diagnostics and health report for Atlas. Use when asked about Atlas
+  health, system status, or when things seem off. Triggered by /diagnose.
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+context: fork
+user-invocable: true
 ---
 # Atlas Diagnostics
 

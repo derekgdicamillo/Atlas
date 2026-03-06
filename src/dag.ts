@@ -21,6 +21,7 @@ import {
   MAX_SWARM_NODES,
   DEFAULT_SWARM_BUDGET_USD,
   DEFAULT_SWARM_WALL_CLOCK_MS,
+  RESEARCH_DEFAULT_MODEL,
   type ModelTier,
 } from "./constants.ts";
 
@@ -533,7 +534,7 @@ function getDefaultModel(type: NodeType): ModelTier {
     case "code": return "opus";
     case "synthesize": return "sonnet";
     case "validate": return "haiku";
-    case "research": return "sonnet";
+    case "research": return RESEARCH_DEFAULT_MODEL;
     default: return "sonnet";
   }
 }

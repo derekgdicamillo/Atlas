@@ -10,7 +10,7 @@
  * Inspired by Netflix Hystrix / OpenClaw resilience patterns.
  */
 
-import { info, warn, error as logError, registerHealthCheck } from "./logger.ts";
+import { info, warn, error as logError, registerHealthCheck, redactSecrets } from "./logger.ts";
 
 // ============================================================
 // TYPES
@@ -45,6 +45,10 @@ export interface CircuitBreakerStats {
   openedAt: string | null;
   /** Average response time in ms (last 20 calls) */
   avgResponseMs: number;
+  /** 95th percentile response time in ms (last 20 calls) */
+  p95ResponseMs: number;
+  /** Error rate as a percentage (rolling window of last 20 calls) */
+  errorRatePercent: number;
 }
 
 // ============================================================
@@ -67,17 +71,24 @@ export class CircuitBreaker {
 
   private failureThreshold: number;
   private resetTimeoutMs: number;
+  private baseResetTimeoutMs: number; // original value for backoff calculation
   private halfOpenSuccessThreshold: number;
   private requestTimeoutMs: number;
+  /** How many consecutive HALF_OPEN probe failures have occurred */
+  private consecutiveOpenCycles = 0;
+  private static readonly MAX_BACKOFF_MULTIPLIER = 4; // cap at 4x base reset timeout
 
   /** Rolling window of recent response times (last 20) */
   private responseTimes: number[] = [];
+  /** Rolling window of recent call outcomes: true=success, false=failure (last 20) */
+  private recentOutcomes: boolean[] = [];
   private static readonly MAX_RESPONSE_SAMPLES = 20;
 
   constructor(opts: CircuitBreakerOptions) {
     this.name = opts.name;
     this.failureThreshold = opts.failureThreshold ?? 3;
     this.resetTimeoutMs = opts.resetTimeoutMs ?? 60_000;
+    this.baseResetTimeoutMs = this.resetTimeoutMs;
     this.halfOpenSuccessThreshold = opts.halfOpenSuccessThreshold ?? 1;
     this.requestTimeoutMs = opts.requestTimeoutMs ?? 20_000;
   }
@@ -139,6 +150,7 @@ export class CircuitBreaker {
     this.totalSuccesses++;
     this.lastSuccessAt = new Date().toISOString();
     this.recordResponseTime(responseMs);
+    this.recordOutcome(true);
 
     if (this.state === "half_open") {
       this.successes++;
@@ -147,6 +159,9 @@ export class CircuitBreaker {
         this.failures = 0;
         this.successes = 0;
         this.openedAt = null;
+        // Reset backoff on successful recovery
+        this.consecutiveOpenCycles = 0;
+        this.resetTimeoutMs = this.baseResetTimeoutMs;
         info("circuit-breaker", `${this.name}: HALF_OPEN -> CLOSED (recovered)`);
       }
     } else if (this.state === "closed") {
@@ -159,15 +174,26 @@ export class CircuitBreaker {
     this.totalFailures++;
     this.failures++;
     this.lastFailureAt = new Date().toISOString();
-    this.lastError = err instanceof Error ? err.message : String(err);
+    this.lastError = redactSecrets(err instanceof Error ? err.message : String(err));
     this.recordResponseTime(responseMs);
+    this.recordOutcome(false);
 
     if (this.state === "half_open") {
-      // Failed during probe, go back to open
+      // Failed during probe, go back to open with exponential backoff
       this.state = "open";
       this.openedAt = new Date().toISOString();
       this.openedAtMs = Date.now();
-      warn("circuit-breaker", `${this.name}: HALF_OPEN -> OPEN (probe failed: ${this.lastError})`);
+      this.consecutiveOpenCycles++;
+      // Exponential backoff with jitter: prevents thundering herd when multiple services fail
+      const backoffMultiplier = Math.min(
+        Math.pow(2, this.consecutiveOpenCycles),
+        CircuitBreaker.MAX_BACKOFF_MULTIPLIER,
+      );
+      const baseTimeout = this.baseResetTimeoutMs * backoffMultiplier;
+      // Add +/-20% jitter to desynchronize concurrent breaker recovery probes
+      const jitter = baseTimeout * 0.2 * (Math.random() * 2 - 1);
+      this.resetTimeoutMs = Math.round(baseTimeout + jitter);
+      warn("circuit-breaker", `${this.name}: HALF_OPEN -> OPEN (probe failed, backoff ${Math.round(this.resetTimeoutMs / 1000)}s: ${this.lastError})`);
     } else if (this.state === "closed" && this.failures >= this.failureThreshold) {
       this.state = "open";
       this.openedAt = new Date().toISOString();
@@ -181,6 +207,28 @@ export class CircuitBreaker {
     if (this.responseTimes.length > CircuitBreaker.MAX_RESPONSE_SAMPLES) {
       this.responseTimes.shift();
     }
+  }
+
+  private recordOutcome(success: boolean): void {
+    this.recentOutcomes.push(success);
+    if (this.recentOutcomes.length > CircuitBreaker.MAX_RESPONSE_SAMPLES) {
+      this.recentOutcomes.shift();
+    }
+  }
+
+  /** Calculate p95 from the rolling response time window. */
+  private getP95ResponseMs(): number {
+    if (this.responseTimes.length === 0) return 0;
+    const sorted = [...this.responseTimes].sort((a, b) => a - b);
+    const idx = Math.min(Math.floor(sorted.length * 0.95), sorted.length - 1);
+    return sorted[idx];
+  }
+
+  /** Calculate error rate from the rolling outcome window. */
+  private getErrorRatePercent(): number {
+    if (this.recentOutcomes.length === 0) return 0;
+    const failures = this.recentOutcomes.filter(o => !o).length;
+    return Math.round((failures / this.recentOutcomes.length) * 100);
   }
 
   /** Get current stats for diagnostics */
@@ -203,6 +251,8 @@ export class CircuitBreaker {
       lastError: this.lastError,
       openedAt: this.openedAt,
       avgResponseMs,
+      p95ResponseMs: this.getP95ResponseMs(),
+      errorRatePercent: this.getErrorRatePercent(),
     };
   }
 
@@ -225,6 +275,8 @@ export class CircuitBreaker {
     this.successes = 0;
     this.openedAt = null;
     this.openedAtMs = 0;
+    this.consecutiveOpenCycles = 0;
+    this.resetTimeoutMs = this.baseResetTimeoutMs;
     info("circuit-breaker", `${this.name}: manually reset to CLOSED`);
   }
 }
@@ -286,10 +338,9 @@ export function getBreakerSummary(): string {
       s.state === "open" ? "OPEN" :
       "PROBE";
     const avgMs = s.avgResponseMs > 0 ? `${s.avgResponseMs}ms` : "n/a";
-    const errRate = s.totalRequests > 0
-      ? `${Math.round((s.totalFailures / s.totalRequests) * 100)}%`
-      : "0%";
-    lines.push(`  ${s.name}: ${stateIcon} | ${s.totalRequests} calls, ${errRate} err, avg ${avgMs}`);
+    const errRate = s.errorRatePercent > 0 ? `${s.errorRatePercent}%` : "0%";
+    const p95 = s.p95ResponseMs > 0 ? ` p95 ${s.p95ResponseMs}ms` : "";
+    lines.push(`  ${s.name}: ${stateIcon} | ${s.totalRequests} calls, ${errRate} err, avg ${avgMs}${p95}`);
   }
   return lines.join("\n");
 }
@@ -349,11 +400,57 @@ export const metaBreaker = getBreaker("Meta", {
   requestTimeoutMs: 25_000,
 });
 
+/** Microsoft 365 Graph API — client credentials, generally reliable */
+export const m365Breaker = getBreaker("M365", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 20_000,
+});
+
 /** Supabase — vector search + logging */
 export const supabaseBreaker = getBreaker("Supabase", {
   failureThreshold: 5,
   resetTimeoutMs: 30_000,
   requestTimeoutMs: 12_000,
+});
+
+// ============================================================
+// TOX TRAY BUSINESS OPERATOR BREAKERS
+// ============================================================
+
+/** Canva Connect API — design export, async jobs */
+export const canvaBreaker = getBreaker("Canva", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 20_000,
+});
+
+/** Pinterest API v5 — pin creation, generally reliable */
+export const pinterestBreaker = getBreaker("Pinterest", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 20_000,
+});
+
+/** Meta Graph API (Tox Tray accounts, separate from PV) */
+export const metaToxBreaker = getBreaker("MetaTox", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 25_000,
+});
+
+/** TikTok Content Posting API — video uploads can be slow */
+export const tiktokBreaker = getBreaker("TikTok", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 30_000,
+});
+
+/** Etsy API v3 — rate limited (10 QPS, 10K QPD) */
+export const etsyBreaker = getBreaker("Etsy", {
+  failureThreshold: 3,
+  resetTimeoutMs: 60_000,
+  requestTimeoutMs: 20_000,
 });
 
 // ============================================================
@@ -372,6 +469,11 @@ registerHealthCheck(() => {
       degraded = true;
     } else if (s.state === "half_open") {
       issues.push(`${s.name} API recovering (half-open)`);
+    }
+    // Detect slow degradation: high error rate even while circuit is closed
+    if (s.state === "closed" && s.errorRatePercent >= 50 && s.totalRequests >= 5) {
+      issues.push(`${s.name} API high error rate (${s.errorRatePercent}%) despite closed circuit`);
+      degraded = true;
     }
   }
 

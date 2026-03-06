@@ -451,6 +451,9 @@ export async function handleExploreCommand(
 
 const EXPLORE_TAG_REGEX = /\[EXPLORE:\s*([\s\S]+?)\](?!\()/g;
 
+// Minimum content length to prevent short accidental matches like "[EXPLORE: x]"
+const EXPLORE_MIN_QUESTION_LENGTH = 10;
+
 export async function processExploreIntents(
   response: string,
   userId: string,
@@ -460,6 +463,11 @@ export async function processExploreIntents(
 
   while ((match = EXPLORE_TAG_REGEX.exec(response)) !== null) {
     const raw = match[1];
+    // Structural validation: question must be at least 10 chars to be meaningful
+    if (raw.trim().length < EXPLORE_MIN_QUESTION_LENGTH) {
+      warn("exploration", `Rejected [EXPLORE:] tag with content too short (${raw.trim().length} chars): "${raw.substring(0, 50)}"`);
+      continue;
+    }
     const fields = parseExploreFields(raw);
 
     try {

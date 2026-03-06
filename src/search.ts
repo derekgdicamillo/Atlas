@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { warn } from "./logger.ts";
+import { recordAccess } from "./cognitive.ts";
 
 // ============================================================
 // TYPES
@@ -25,6 +26,9 @@ export interface SearchOptions {
   matchThreshold?: number;      // similarity threshold for vector-only (default: 0.7)
   ftsWeight?: number;           // full-text weight for hybrid (default: 1.0)
   semanticWeight?: number;      // vector weight for hybrid (default: 1.0)
+  recencyWeight?: number;       // temporal decay weight (default: 0.3)
+  decayRate?: number;           // decay per hour (default: 0.995)
+  useV2?: boolean;              // use hybrid_search_v2 with temporal decay (default: true)
 }
 
 export interface SearchResult {
@@ -59,20 +63,34 @@ export async function search(
     matchThreshold = 0.7,
     ftsWeight = 1.0,
     semanticWeight = 1.0,
+    recencyWeight = 0.3,
+    decayRate = 0.995,
+    useV2 = true,
   } = options;
 
   try {
     const results = await invokeSearch(supabase, {
       query, mode, tables, matchCount, matchThreshold, ftsWeight, semanticWeight,
+      recencyWeight, decayRate, useV2,
     });
 
-    // OpenClaw #18304: FTS fallback — if hybrid returned nothing, try pure FTS
+    // OpenClaw #18304: FTS fallback -- if hybrid returned nothing, try pure FTS
     if (results.length === 0 && mode === "hybrid") {
       const ftsResults = await invokeSearch(supabase, {
         query: expandQuery(query), mode: "fts" as any, tables, matchCount, matchThreshold,
-        ftsWeight: 1.0, semanticWeight: 0,
+        ftsWeight: 1.0, semanticWeight: 0, recencyWeight: 0, decayRate, useV2: false,
       });
       if (ftsResults.length > 0) return ftsResults;
+    }
+
+    // Reconsolidation: record access for memory table results
+    if (results.length > 0) {
+      const memoryIds = results
+        .filter(r => r.source_table === "memory")
+        .map(r => r.source_id);
+      if (memoryIds.length > 0) {
+        recordAccess(supabase, "memory", memoryIds).catch(() => {});
+      }
     }
 
     return results;
@@ -88,6 +106,7 @@ async function invokeSearch(
   params: {
     query: string; mode: string; tables: string[]; matchCount: number;
     matchThreshold: number; ftsWeight: number; semanticWeight: number;
+    recencyWeight?: number; decayRate?: number; useV2?: boolean;
   }
 ): Promise<SearchResult[]> {
   const { data, error } = await supabase.functions.invoke("search", {
@@ -99,6 +118,9 @@ async function invokeSearch(
       match_threshold: params.matchThreshold,
       fts_weight: params.ftsWeight,
       semantic_weight: params.semanticWeight,
+      recency_weight: params.recencyWeight || 0,
+      decay_rate: params.decayRate || 0.995,
+      use_v2: params.useV2 ?? true,
     },
   });
 

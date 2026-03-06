@@ -301,6 +301,9 @@ export function detectSwarmIntent(message: string): boolean {
 // [SWARM: name | BUDGET: $X | PROMPT: description]
 const SWARM_TAG_REGEX = /\[SWARM:\s*([\s\S]+?)\](?!\()/g;
 
+// Structural validator: require pipe-delimited PROMPT: field
+const SWARM_REQUIRED_FIELDS = /\|\s*PROMPT\s*:/i;
+
 /**
  * Process [SWARM: ...] tags from Claude's response.
  */
@@ -313,6 +316,11 @@ export async function processSwarmIntents(
 
   while ((match = SWARM_TAG_REGEX.exec(response)) !== null) {
     const raw = match[1];
+    // Structural validation: require PROMPT: field to prevent conversational false positives
+    if (!SWARM_REQUIRED_FIELDS.test(raw)) {
+      warn("orchestrator", `Rejected [SWARM:] tag without PROMPT: field: "${raw.substring(0, 100)}"`);
+      continue;
+    }
     const fields = parseSwarmFields(raw);
 
     try {

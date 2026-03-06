@@ -28,6 +28,12 @@ export interface AgentConfig {
   type?: AgentType;
   /** Capability tags for routing (e.g. "search", "analysis", "content", "marketing") */
   capabilities?: string[];
+  /** Env var name that resolves to a Telegram chat/group ID. Routes messages from this chat to this agent. */
+  groupChatEnv?: string;
+  /** Default mode to auto-activate for this agent (e.g. "tox-tray"). Skips mode detection. */
+  defaultMode?: string;
+  /** Optional workspace directory (relative to project root). Gives the agent its own CLAUDE.md and .claude/ settings. */
+  workspaceDir?: string;
   features: {
     memory: boolean;
     resume: boolean;
@@ -38,6 +44,7 @@ export interface AgentConfig {
     ghl?: boolean;
     graph?: boolean;
     careplan?: boolean;
+    m365?: boolean;
   };
 }
 
@@ -50,10 +57,14 @@ export interface AgentRuntime {
   config: AgentConfig;
   personality: string;  // loaded content of personalityFile
   modelId: string;      // resolved full model ID string
+  resolvedWorkspaceDir: string | null; // absolute path if workspaceDir is set
 }
 
 const agentsByUser: Map<string, AgentRuntime> = new Map();
 const agentsById: Map<string, AgentRuntime> = new Map();
+const agentsByChat: Map<string, AgentRuntime> = new Map();
+/** Maps bot ID (e.g. "atlas", "ishtar", "coach") to the agent that owns that bot */
+const agentsByBotId: Map<string, AgentRuntime> = new Map();
 let defaultAgent: AgentRuntime | null = null;
 const allAllowedUserIds: Set<string> = new Set();
 
@@ -73,6 +84,7 @@ export function loadAgents(projectRoot: string): void {
       config: agent,
       personality,
       modelId: MODELS[agent.model] || MODELS[DEFAULT_MODEL],
+      resolvedWorkspaceDir: agent.workspaceDir ? join(projectRoot, agent.workspaceDir) : null,
     };
 
     agentsById.set(agent.id, runtime);
@@ -80,6 +92,23 @@ export function loadAgents(projectRoot: string): void {
     for (const userId of agent.allowedUserIds) {
       agentsByUser.set(userId, runtime);
       allAllowedUserIds.add(userId);
+    }
+
+    // Resolve group chat routing from env var
+    if (agent.groupChatEnv) {
+      const chatId = process.env[agent.groupChatEnv];
+      if (chatId) {
+        agentsByChat.set(chatId, runtime);
+        console.log(`[agents] Chat ${agent.groupChatEnv}=${chatId} -> ${agent.id}`);
+      }
+    }
+  }
+
+  // Register primary agents by their bot ID (agent ID = bot ID for primary bots)
+  for (const agent of raw.agents) {
+    if (agent.type === "primary" || !agent.type) {
+      const runtime = agentsById.get(agent.id);
+      if (runtime) agentsByBotId.set(agent.id, runtime);
     }
   }
 
@@ -93,6 +122,23 @@ export function loadAgents(projectRoot: string): void {
 
 export function getAgentForUser(userId: string): AgentRuntime | null {
   return agentsByUser.get(userId) || defaultAgent;
+}
+
+/**
+ * Route by bot ID (e.g. "atlas", "ishtar", "coach").
+ * Each primary bot maps directly to its agent. This takes priority over
+ * user-based routing when a dedicated bot exists for an agent.
+ */
+export function getAgentForBot(botId: string): AgentRuntime | null {
+  return agentsByBotId.get(botId) || null;
+}
+
+/**
+ * Route by Telegram chat/group ID. Returns the dedicated agent for this chat,
+ * or null if no agent is mapped (caller should fall back to user-based routing).
+ */
+export function getAgentForChat(chatId: string): AgentRuntime | null {
+  return agentsByChat.get(chatId) || null;
 }
 
 export function isUserAllowed(userId: string): boolean {

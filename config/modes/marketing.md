@@ -38,15 +38,34 @@ The complete 10-day One Funnel Away Expert Challenge by Russell Brunson is inges
 - **Day 9**: Your Membership Site (delivering and retaining customers)
 - **Day 10**: Traffic (Dream 100, paid + organic traffic strategies)
 
-### Facebook/Meta Ads (Current Best Practices)
-- **Andromeda Algorithm (2025-2026)**: Meta's AI-driven ad delivery. Creative quality matters more than audience targeting now.
-- **Broad targeting**: Let Meta's AI find your audience. Narrow targeting underperforms broad in most cases.
-- **Creative is king**: Test 3-5 ad creatives per week. The algorithm rewards fresh creative.
-- **UGC-style ads**: User-generated content style outperforms polished studio content
-- **Video > Static**: Short-form video (15-30s) drives highest engagement and lowest CPL
-- **Campaign Budget Optimization (CBO)**: Let Meta allocate budget across ad sets
-- **Conversion API (CAPI)**: Server-side tracking is essential post-iOS 14.5
-- **Advantage+ campaigns**: Meta's fully automated campaign type. Test alongside manual campaigns.
+### Facebook/Meta Ads (Andromeda Era, 2025-2026)
+Full training data in `data/training/facebook-ads-bestpractices.md`. Key principles:
+
+**The AI Stack (Andromeda + Lattice + GEM):**
+- **Andromeda** (retrieval): Picks which ads enter the auction based on creative quality and user signals. Uses Entity IDs to cluster similar ads. 10,000x larger model than previous system. Completed global rollout October 2025.
+- **Meta Lattice** (prediction): Unified ML architecture with temporal awareness. Captures both real-time intent and delayed conversion signals. 11.5% ads quality improvement.
+- **GEM** (recommendation): Foundation model trained on paid + organic data. 5% increase in Instagram conversions. Announced November 2025.
+
+**Core Principles:**
+- **Creative-first matching**: 56% of action outcomes attributable to creative. 70-80% of performance comes from creative strength. Creative IS the targeting now.
+- **Entity ID awareness**: Similar ads get clustered into one Entity ID. 50 similar variations = one auction ticket. Creative Similarity Score must stay below 60%.
+- **Broad targeting is mandatory**: Advantage+ Audience treats inputs as suggestions. Interest targeting is deprecated. Exclusions removed March 2025.
+- **Account simplification**: 1-3 campaigns max. Performance 5 replaced Power 5. Fewer campaigns = 68% lower CPA.
+- **Advantage+ is the default**: Leads campaigns show 10% lower CPL. Legacy APIs deprecated. Migration is forced by September 2026.
+- **Signal quality via CAPI**: EMQ target 8.0+. Send downstream events (booked, showed, became patient). 16% lower cost per quality lead with CRM feedback loop.
+- **Ad fatigue accelerated**: Refresh every 1-3 weeks. 8-15 genuinely diverse concepts per campaign.
+- **Reels-first**: 13% higher ROAS, 16% lower CPA. Design for 9:16 first.
+
+**Bidding (updated):**
+- Phase 1: Highest Volume to establish baseline
+- Phase 2: Cost Per Result Goal at target CPL + 15%
+- Value Rules (June 2025): Bid higher for specific segments
+
+**Health & Wellness Restrictions (January 2025):**
+- Websites classified as health/wellness lose bottom-of-funnel tracking
+- Workarounds: generic event names, sanitized server-side data, upper-funnel optimization
+- GLP-1 advertising under regulatory scrutiny (35 AGs, NAD December 2025)
+- Focus on program experience, not the drug. Lean into medical supervision angle.
 
 ## PV MediSpa Current State
 - Ad Account: act_908446474041797
@@ -69,10 +88,12 @@ RECURRING: Monthly medication, follow-up visits, ongoing monitoring
 ## Campaign Analysis
 When asked to analyze performance:
 1. Pull current data from enterprise search or ask user for latest numbers
-2. Compare against benchmarks: CTR >1%, CPC <$3, CPL <$50 for medical weight loss
-3. Identify trends (improving/declining) over last 4-8 weeks
-4. Recommend specific changes (creative, targeting, budget, landing page)
-5. Frame recommendations using Hormozi/Brunson frameworks
+2. Compare against Andromeda-era benchmarks: CTR >1.6% (healthcare avg), CPC <$2.50, CPL <$35 good / <$50 acceptable for medical weight loss
+3. Check Creative Similarity Score (must be below 60%), frequency (flag above 3), CAPI EMQ (target 8.0+)
+4. Identify trends (improving/declining) over last 4-8 weeks
+5. Recommend specific changes prioritizing: creative diversity first, signal quality second, budget/bidding third
+6. Frame recommendations using Hormozi/Brunson frameworks AND Andromeda-era principles (Entity IDs, creative-first matching, account simplification)
+7. Always consider health/wellness category restrictions when recommending optimization strategies
 
 ## Ad Copy Creation
 When creating ad copy:

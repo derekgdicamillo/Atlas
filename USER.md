@@ -21,6 +21,8 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - Family Nurse Practitioner (FNP)
 - Traveling primary care provider for assisted living communities (wants to phase this out)
 - Owner: PV MediSpa and Weight Loss (50/50 with Esther, effective 12/31/2025)
+- Clinic phone: (928) 910-8818
+- Clinic text line: (928) 642-9067
 - Goal: go full-time in clinic
 - Building pvmedispa.com on WordPress with Kadence theme
 - Weight loss landing page: https://landing.pvmedispa.com/weightloss
@@ -35,7 +37,7 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 ## Programs & Community
 - Runs "Vitality Unchained Tribe" in Skool (currently inactive, only staff posting)
 - Content Engine Agent deployed (7am daily cron, Sonnet) drafts Skool + Facebook + newsletter
-- Content Waterfall: Skool (deep) → Facebook (hooks) → Newsletter (nurture) → YouTube (authority)
+- Content Waterfall: Skool (deep) -> Facebook (hooks) -> Newsletter (nurture) -> YouTube (authority)
 - 5 Pillars of functional medical weight loss:
   1. Precision Weight Science (tracking, body comp, Vitality Tracker)
   2. Nourishing Health (Fuel Code, protein paradox, hydration, electrolytes)
@@ -57,13 +59,18 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - Communication: casual, direct
 - Writing: use /humanizer skill as final polish on patient/provider-facing content. Reduce "AI smell."
 - Style: less formal, less wordy. Avoid em dashes.
-- Cost: be cost-aware. Free/local first, draft first.
+- Cost: budget is not a concern ($200/mo Max plan). Use the best tool for the job. Draft first for external-facing content.
 - Safety: always draft and ask for approval before sending emails/posts or making changes
 - Coding: default all coding tasks to Claude Code CLI without extra prompting
 - When sharing code: brief explanation of what changed and why
 
 ## Learned Over Time
-(This section grows as the assistant learns Derek's preferences)
+- SharePoint tenant prefix is **pvmedispa** (not pvmedispallc). Correct base URL: pvmedispa-my.sharepoint.com. Always use this prefix when generating SharePoint links.
+- Derek is building a second venture: **Be Safe Healthcare** (separate brand from PV MediSpa). Branding assets in OneDrive/Be Safe Healthcare/ and C:/Users/derek/Projects/besafe-website/public/. Logo selection pending as of 2026-02-28.
+- Gemini image generation via background code agents reliably fails (timeouts 50-90 min, no output). Use inline bash jobs; do NOT block on TaskOutput waits for image gen.
+- Long-running background agents (research tasks, code agents) are lost when Atlas restarts overnight. If a task result is missing after a restart, assume the agent is gone and redo the work inline. Pivot fast, do not wait.
+- WP_POST relay tags depend on the live Atlas process having current env vars. When WP credentials change mid-session, bypass relay and post directly via REST API until Atlas restarts. WP_USER must be the username slug (e.g., derekgdicamillo), NOT email format.
+- Peptide therapy program planned for PV MediSpa launch July 1, 2026. Full protocol book, pricing, and marketing on OneDrive/Peptide Program/. Core tier: BPC-157, CJC-1295/Ipamorelin, PT-141, Thymosin Alpha-1. Add-on pricing model layered onto existing GLP-1 packages.
 
 ---
 
@@ -84,3 +91,10 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 
 ## Evolution Log
 (Auto-updated by /reflect)
+
+- 2026-03-01: Added SharePoint tenant prefix to Learned Over Time (Derek corrected wrong tenant URL pvmedispallc -> pvmedispa on 02-28; one-off but high-recall value)
+- 2026-03-01: Added Be Safe Healthcare project to Learned Over Time (new second venture appeared in 02-28 session; logo work in progress)
+- 2026-03-01: Added Gemini background agent failure pattern to Learned Over Time (repeatedly fails across multiple sessions; inline bash workaround documented in journal 02-28)
+- 2026-03-05: Generalized agent restart loss pattern (research agents lost to overnight restart in 03-04 session; Gemini note was too narrow -- any long-running agent is at risk across restarts)
+- 2026-03-05: Added WP relay env dependency note (WP credentials changed mid-session 03-04; relay tags silently failed until Atlas restarted; username slug format required)
+- 2026-03-05: Added peptide program to business context (full 6-phase build completed 03-04; July 2026 launch; materials on OneDrive)

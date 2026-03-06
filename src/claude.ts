@@ -20,14 +20,84 @@ import {
   trackClaudeCall,
   trackTimeout,
 } from "./logger.ts";
-import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, type ModelTier } from "./constants.ts";
-import { addEntry } from "./conversation.ts";
+import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PHASE_NAMES, SESSION_IDLE_RESET_MS, type ModelTier } from "./constants.ts";
+import { addEntry, formatForPrompt } from "./conversation.ts";
+import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
+// ============================================================
+// MCP SERVER CONFIGURATION
+// ============================================================
+
+/** Full MCP config path (all 7 servers) */
+const MCP_CONFIG_PATH = join(
+  process.env.PROJECT_DIR || dirname(dirname(import.meta.path)),
+  "mcp-servers", "mcp.json"
+);
+
+/** Map intent flags to MCP server names */
+const INTENT_TO_MCP_SERVERS: Record<string, string[]> = {
+  // atlas core is always included (memory, graph, alerts, facts)
+  google:    ["google-suite"],
+  pipeline:  ["ghl-crm"],
+  financial: ["pv-dashboard"],
+  marketing: ["pv-dashboard", "ga4-analytics"],
+  reputation: ["gbp"],
+  analytics: ["ga4-analytics"],
+  coding:    [],   // code tasks go through subagents, not MCP
+  browser:   [],   // browser uses agent-browser CLI via Bash, not MCP
+  todos:     [],
+};
+
+/**
+ * Build a filtered MCP config based on detected intent.
+ * Atlas core is always included. Additional servers are added
+ * based on which intent flags are true.
+ * Returns the path to a temp config file, or the full config if
+ * intent requires 4+ servers (not worth filtering at that point).
+ */
+export function buildMcpConfigArgs(intentFlags?: Record<string, boolean>): string[] {
+  // No intent info or casual = atlas core only
+  if (!intentFlags) {
+    return ["--mcp-config", MCP_CONFIG_PATH];
+  }
+
+  // Collect which servers are needed based on intent
+  const neededServers = new Set<string>(["atlas"]); // always include core
+  for (const [intentKey, serverNames] of Object.entries(INTENT_TO_MCP_SERVERS)) {
+    if (intentFlags[intentKey]) {
+      for (const name of serverNames) {
+        neededServers.add(name);
+      }
+    }
+  }
+
+  // If 5+ servers needed, just use the full config (not worth the temp file)
+  if (neededServers.size >= 5) {
+    return ["--mcp-config", MCP_CONFIG_PATH];
+  }
+
+  // Build filtered config as inline JSON string
+  try {
+    const fullConfig = JSON.parse(require("fs").readFileSync(MCP_CONFIG_PATH, "utf-8"));
+    const filtered: Record<string, unknown> = {};
+    for (const name of neededServers) {
+      if (fullConfig.mcpServers[name]) {
+        filtered[name] = fullConfig.mcpServers[name];
+      }
+    }
+    const configStr = JSON.stringify({ mcpServers: filtered });
+    return ["--mcp-config", configStr];
+  } catch {
+    // Fallback to full config if anything goes wrong
+    return ["--mcp-config", MCP_CONFIG_PATH];
+  }
+}
 
 // ============================================================
 // ACTIVE CALL TRACKING (for polling watchdog)
@@ -44,10 +114,26 @@ let activeClaudeCalls = 0;
 export function isClaudeCallActive(): boolean {
   return activeClaudeCalls > 0;
 }
+
+/**
+ * Track active Claude child processes per session key.
+ * Used by queue "interrupt" mode to kill a running process when a new message arrives.
+ */
+const activeProcesses = new Map<string, { pid: number; kill: () => void }>();
+
+/** Kill the active Claude process for a session key (queue interrupt mode). Returns true if a process was killed. */
+export function killActiveProcess(sessionKey: string): boolean {
+  const entry = activeProcesses.get(sessionKey);
+  if (!entry) return false;
+  info("claude", `[interrupt] Killing active process PID ${entry.pid} for ${sessionKey}`);
+  entry.kill();
+  activeProcesses.delete(sessionKey);
+  return true;
+}
 const PROJECT_DIR = process.env.PROJECT_DIR || "";
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const RELAY_DIR =
-  process.env.RELAY_DIR || join(process.env.HOME || "~", ".claude-relay");
+  process.env.RELAY_DIR || join(process.env.HOME || process.env.USERPROFILE || require("os").homedir(), ".claude-relay");
 const CLAUDE_TIMEOUT_MS = parseInt(
   process.env.CLAUDE_TIMEOUT_MS || "180000",
   10
@@ -70,29 +156,108 @@ const MODEL_FALLBACK: Record<string, ModelTier | null> = {
 // Exec preflight: strip env vars that should never leak to spawned CLI processes
 // (OpenClaw #12836 — shell env var injection guard)
 const STRIP_ENV_VARS = [
+  // === API tokens / secrets (Claude CLI doesn't need these) ===
   "GHL_API_TOKEN", "GHL_WEBHOOK_SECRET",
   "SUPABASE_SERVICE_KEY", "SUPABASE_KEY",
   "DASHBOARD_API_TOKEN",
   "OPENAI_API_KEY",
   "GOOGLE_CLIENT_SECRET",
-  // Atlas tokens that Claude CLI doesn't need
   "TELEGRAM_BOT_TOKEN",
-  "ISHTAR_BOT_TOKEN", // OpenClaw 2.19 security: strip all bot tokens from child envs
+  "ISHTAR_BOT_TOKEN",
   "GROQ_API_KEY",
+
+  // === Shell escape vectors (OpenClaw 2026.2.23) ===
+  // Bash startup/config injection
+  "SHELLOPTS",       // Forces shell options (e.g. xtrace, posix) in child bash
+  "BASHOPTS",        // Same as SHELLOPTS for `shopt` options
+  "BASH_ENV",        // Script sourced on non-interactive bash startup
+  "ENV",             // Script sourced on POSIX sh startup
+  "BASH_XTRACEFD",  // Redirects xtrace output to arbitrary file descriptor
+  "BASH_COMPAT",     // Changes bash behavior to emulate older versions
+  "PS4",             // Xtrace prompt. Expanded via command substitution = arbitrary exec
+  "PROMPT_COMMAND",  // Executed before every prompt display in interactive bash
+  "INPUTRC",         // Overrides readline config (key bindings, macros)
+
+  // Dotfile/homedir override prevention
+  "HOME",            // Controls where ~/. dotfiles are read from
+  "ZDOTDIR",         // Controls where zsh reads .zshrc/.zprofile
+
+  // Field splitting / globbing manipulation
+  "IFS",             // Internal field separator. Classic shell injection primitive.
+  "CDPATH",          // Modifies cd resolution. Can redirect to attacker-controlled dirs.
+  "GLOBIGNORE",      // Hides files from glob expansion (security bypass)
+
+  // History exfiltration
+  "HISTFILE",        // Can redirect shell history to attacker-controlled path
+  "HISTCONTROL",     // Can disable history dedup, forcing sensitive commands to persist
+
+  // Library/runtime injection vectors
+  "LD_PRELOAD",      // Injects shared libraries into every spawned process (Linux)
+  "LD_LIBRARY_PATH", // Redirects dynamic linker search path (Linux)
+  "DYLD_INSERT_LIBRARIES", // macOS equivalent of LD_PRELOAD
+
+  // Language runtime abuse vectors
+  "PYTHONSTARTUP",   // Python script executed on interpreter startup
+  "NODE_OPTIONS",    // Injects Node.js CLI flags (--require, --inspect, etc.)
+  "PERL5OPT",        // Injects Perl command-line options
+  "RUBYOPT",         // Injects Ruby command-line options
+  "COMP_WORDBREAKS", // Completion injection via word break manipulation
+
+  // Claude Code nesting guard (added in CLI 2.1.70)
+  "CLAUDECODE",      // Prevents "cannot launch inside another session" error
+];
+
+// Pattern-based stripping: env var keys matching these regexes are removed.
+// Catches dynamic/numbered variants that a static list can't enumerate.
+const STRIP_ENV_PATTERNS = [
+  /^BASH_FUNC_/,     // Bash exported functions via env (Shellshock vector: CVE-2014-6271)
+  /^LC_/,            // Locale vars that can trigger format string issues in child processes
+];
+
+// Critical shell escape vars that MUST never survive sanitization.
+// Defense-in-depth: post-strip assertion checks these specifically.
+const CRITICAL_SHELL_VARS = [
+  "SHELLOPTS", "PS4", "BASH_ENV", "ENV", "HOME", "ZDOTDIR",
+  "IFS", "PROMPT_COMMAND", "LD_PRELOAD", "BASH_XTRACEFD",
+  "NODE_OPTIONS", "PYTHONSTARTUP",
 ];
 
 /** Return a cleaned copy of process.env safe for spawned Claude CLI. */
 export function sanitizedEnv(): Record<string, string | undefined> {
   const env = { ...process.env };
+
+  // Phase 1: Strip exact-match dangerous vars
   for (const key of STRIP_ENV_VARS) {
     delete env[key];
   }
-  // Also strip any var whose key contains "SECRET" or "PASSWORD" (defensive)
+
+  // Phase 2: Strip pattern-matched vars (BASH_FUNC_*, LC_*, secrets)
   for (const key of Object.keys(env)) {
+    // Credential pattern: any var containing SECRET, PASSWORD, or PRIVATE_KEY
+    // (except ANTHROPIC_* which Claude CLI needs for auth)
     if (/SECRET|PASSWORD|PRIVATE_KEY/i.test(key) && !key.startsWith("ANTHROPIC")) {
+      delete env[key];
+      continue;
+    }
+    // Dynamic shell escape patterns (e.g. BASH_FUNC_x%%, LC_ALL, LC_CTYPE)
+    for (const pattern of STRIP_ENV_PATTERNS) {
+      if (pattern.test(key)) {
+        delete env[key];
+        break;
+      }
+    }
+  }
+
+  // Phase 3: Defense-in-depth assertion. If any critical shell var survived
+  // stripping (e.g. due to a future refactor removing it from the list),
+  // log a warning and force-delete it. This catches regressions.
+  for (const key of CRITICAL_SHELL_VARS) {
+    if (key in env) {
+      warn("claude", `SECURITY: critical shell var "${key}" survived sanitization. Force-deleting.`);
       delete env[key];
     }
   }
+
   return env;
 }
 
@@ -101,7 +266,7 @@ export function sanitizedEnv(): Record<string, string | undefined> {
  * Rejects args containing CR/LF (command injection vector on Windows)
  * and warns on cmd metacharacters that could cause issues.
  */
-function validateSpawnArgs(args: string[]): void {
+export function validateSpawnArgs(args: string[]): void {
   for (const arg of args) {
     if (/[\r\n]/.test(arg)) {
       throw new Error(`Spawn arg contains CR/LF (potential injection): ${arg.substring(0, 50)}`);
@@ -111,6 +276,15 @@ function validateSpawnArgs(args: string[]): void {
 
 /** OpenClaw 2.19: Max prompt payload size (2 MiB) to prevent OOM/excessive token burn. */
 const MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+
+/**
+ * OpenClaw 2026.2.23 (Discord #e8a4d5d, Matrix #1298bd4): Strip reasoning tags
+ * that may leak into text output as literal strings. These should never reach
+ * Telegram or other user-facing surfaces.
+ */
+function stripReasoningTags(text: string): string {
+  return text.replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
+}
 
 /** OpenClaw 2.19 (#20670): Strip prototype pollution keys from parsed JSON. */
 const POISON_KEYS = new Set(["__proto__", "prototype", "constructor"]);
@@ -274,13 +448,14 @@ export async function acquireSessionLock(
 // ============================================================
 
 export interface StreamEvent {
-  type: "system" | "assistant" | "result" | "thinking";
+  type: "system" | "assistant" | "result" | "thinking" | "text_delta";
   sessionId?: string;
   toolName?: string;
   toolInput?: Record<string, any>;
   isError?: boolean;
   errorSubtype?: string;
   resultText?: string;
+  textDelta?: string;
   inputTokens?: number;
   outputTokens?: number;
 }
@@ -340,15 +515,18 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
               break;
 
             // Handle content_block events (partial streaming)
-            // OpenClaw #20774: Track content blocks as activity. Reasoning deltas
-            // keep the inactivity timer alive during extended thinking.
+            // OpenClaw #20774: Track content blocks as activity. All content block
+            // events indicate active work and should reset the inactivity timer.
             case "content_block_start":
             case "content_block_stop":
+              onEvent({ type: "thinking", sessionId }); // signal activity to keep timer alive
               break;
             case "content_block_delta":
-              // Reasoning deltas should be treated as thinking activity
-              if (raw.delta?.type === "thinking_delta" || raw.content_block?.type === "thinking") {
-                onEvent({ type: "thinking", sessionId });
+              // All deltas indicate active work (reasoning, text generation, tool use)
+              onEvent({ type: "thinking", sessionId });
+              // Extract text deltas for streaming delivery
+              if (raw.delta?.type === "text_delta" && raw.delta.text) {
+                onEvent({ type: "text_delta", sessionId, textDelta: raw.delta.text });
               }
               break;
 
@@ -400,9 +578,11 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
 // CORE: Call Claude CLI
 // ============================================================
 
-// Inactivity timeout: kill if Claude goes silent for this long
+// Inactivity timeout: kill if Claude goes silent for this long.
+// Base 180s x opus 3.0 = 540s (9 min). Previous 120s base gave 360s which
+// killed skills mid-execution (youtube-transcribe, TTS, long tool calls).
 const INACTIVITY_TIMEOUT_MS = parseInt(
-  process.env.CLAUDE_INACTIVITY_MS || "120000",
+  process.env.CLAUDE_INACTIVITY_MS || "180000",
   10
 );
 
@@ -433,6 +613,8 @@ export async function callClaude(
   options?: {
     resume?: boolean;
     imagePath?: string;
+    imageBase64?: string; // base64-encoded image data for inline passing
+    imageMimeType?: string; // MIME type of the image (e.g. "image/jpeg")
     model?: ModelTier;
     agentId?: string;
     userId?: string;
@@ -441,6 +623,10 @@ export async function callClaude(
     isolated?: boolean; // don't persist session ID back (cron/background jobs)
     onTyping?: () => void;
     onStatus?: (msg: string) => void;
+    onTextDelta?: (text: string) => void; // streaming text deltas for progressive delivery
+    onCodeTaskCaptured?: (tasks: Array<{ cwd: string; prompt: string; timeoutMs?: number }>) => void;
+    mcpIntentFlags?: Record<string, boolean>; // intent flags for dynamic MCP server selection
+    workspaceDir?: string; // per-agent workspace directory (overrides cwd for Claude CLI)
     _isFallback?: boolean; // internal: tracks fallback depth to prevent infinite chains
     _fallbackDepth?: number; // internal: how many fallbacks have been attempted (max 2: opus->sonnet->haiku)
     _isEmptyRetry?: boolean; // internal: prevents infinite empty-result retries
@@ -482,12 +668,27 @@ export async function callClaude(
       args.push("--resume", session.sessionId);
     }
 
+    // When image data is present, use stream-json input format to pass image content blocks
+    const hasInlineImage = !!(options?.imageBase64 && options?.imageMimeType);
+    if (hasInlineImage) {
+      args.push("--input-format", "stream-json");
+    }
+
     args.push(
       "--output-format", "stream-json",
       "--verbose",
       "--model", modelId,
       "--dangerously-skip-permissions"
+      // Tool restrictions removed. Opus 4.6 is disciplined enough to use
+      // Bash/Write/Edit without looping. The old restriction was a workaround
+      // for weaker models (Sonnet/Haiku) that would enter edit loop storms.
+      // Main session now has full tool access, matching interactive Claude Code.
     );
+
+    // MCP servers: dynamic selection based on intent (Phase B)
+    if (options?.mcpIntentFlags) {
+      args.push(...buildMcpConfigArgs(options.mcpIntentFlags));
+    }
 
     // OpenClaw 2.19: Validate spawn args (reject CR/LF injection)
     validateSpawnArgs(args);
@@ -503,14 +704,30 @@ export async function callClaude(
 
     const effectiveTimeout = getEffectiveTimeout(modelTier);
 
-    // Scale inactivity and wall clock timeouts by model (Opus tasks run longer)
+    // OpenClaw-inspired differential timeouts: resumed sessions get much shorter
+    // timeouts than fresh sessions. A resumed session already has context loaded,
+    // so if it goes silent for >60s or runs >3min, it's stuck, not thinking.
+    // Fresh sessions legitimately take longer (cold start, tool exploration).
     const modelMultiplier = MODEL_TIMEOUT_MULTIPLIERS[modelTier] ?? 1.0;
-    const effectiveInactivityMs = Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier);
-    const effectiveWallClockMs = Math.round(MAX_WALL_CLOCK_MS * modelMultiplier);
+    const isResuming = !!(options?.resume && session.sessionId);
+    // Resume penalty: tighter timeouts for resumed sessions since context is
+    // already loaded. Originally 0.3/0.33 but that caused false-positive kills
+    // on complex tasks dispatched within resumed sessions (skills, audits, CRO
+    // analysis). Bumped to 1.0/0.5 so inactivity detection uses the full base
+    // window (360s opus) while wall clock stays disciplined (22.5 min opus).
+    const RESUME_INACTIVITY_RATIO = 1.0; // no penalty — base timeout already catches stuck sessions
+    const RESUME_WALL_RATIO = 0.5;       // 50% of fresh wall timeout
+
+    const effectiveInactivityMs = isResuming
+      ? Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier * RESUME_INACTIVITY_RATIO)
+      : Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier);
+    const effectiveWallClockMs = isResuming
+      ? Math.round(MAX_WALL_CLOCK_MS * modelMultiplier * RESUME_WALL_RATIO)
+      : Math.round(MAX_WALL_CLOCK_MS * modelMultiplier);
 
     info(
       "claude",
-      `[${agentId}] Calling ${modelTier}: ${prompt.substring(0, 80)}... (inactivity: ${Math.round(effectiveInactivityMs / 1000)}s, wall: ${Math.round(effectiveWallClockMs / 1000)}s)`
+      `[${agentId}] Calling ${modelTier}: ${prompt.substring(0, 80)}... (inactivity: ${Math.round(effectiveInactivityMs / 1000)}s, wall: ${Math.round(effectiveWallClockMs / 1000)}s${isResuming ? ", RESUME" : ""})`
     );
     const startTime = Date.now();
 
@@ -518,13 +735,49 @@ export async function callClaude(
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
-      cwd: PROJECT_DIR || PROJECT_ROOT,
+      cwd: options?.workspaceDir || PROJECT_DIR || PROJECT_ROOT,
       env: sanitizedEnv(),
       windowsHide: true,
     });
 
+    // Register for queue interrupt mode
+    activeProcesses.set(key, {
+      pid: proc.pid ?? 0,
+      kill: () => { try { proc.kill("SIGTERM"); } catch {} },
+    });
+
     // Pipe prompt via stdin (avoids Windows command-line length limits)
-    proc.stdin.write(prompt);
+    // When image data is present, use stream-json format with content blocks
+    if (hasInlineImage) {
+      // Build content blocks array: image first, then text (per Anthropic Vision API)
+      const contentBlocks = [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: options!.imageMimeType,
+            data: options!.imageBase64,
+          },
+        },
+        {
+          type: "text",
+          text: prompt,
+        },
+      ];
+      // stream-json input format: Claude CLI SDK expects nested message structure
+      const userMessage = {
+        type: "user",
+        message: {
+          role: "user",
+          content: contentBlocks,
+        },
+        parent_tool_use_id: null,
+      };
+      proc.stdin.write(JSON.stringify(userMessage) + "\n");
+      info("claude", `[${agentId}] Sending image inline via stream-json (${Math.round(options!.imageBase64!.length / 1024)}KB base64)`);
+    } else {
+      proc.stdin.write(prompt);
+    }
     proc.stdin.end();
 
     // Keep Telegram typing indicator alive every 4s while waiting
@@ -548,11 +801,19 @@ export async function callClaude(
     // Progress-aware phased loop detection (OpenClaw #16808).
     // Phases: hard-block known no-progress loops, warn on identical repeats,
     // detect ping-pong alternation (A-B-A-B), global circuit breaker.
-    const SEARCH_TOOLS = new Set(["Glob", "Read", "Grep", "Search", "ListDirectory"]);
+    // Read is excluded: targeted file retrieval is progress, not fruitless searching.
+    // Search tools are discovery/scanning. Only count these for fruitless search detection.
+    const SEARCH_TOOLS = new Set(["Glob", "Grep", "Search", "ListDirectory"]);
     const NO_PROGRESS_TOOLS = new Set(["process"]); // known no-progress loops (poll/log)
+    // Tools that legitimately repeat with similar inputs. Excluded from duplicate detection.
+    // Read: targeted file retrieval is progress. TodoWrite: state tracking, called every task transition.
+    // Bash: build/check commands repeat legitimately (checked separately via consecutive window).
+    const DUPE_EXEMPT_TOOLS = new Set(["Read", "TodoWrite", "Bash"]);
     const toolCallSignatures: string[] = []; // "ToolName:inputHash" for dedup detection
-    const DUPLICATE_THRESHOLD = 4; // same exact call 4+ times = definitely stuck
-    const FRUITLESS_SEARCH_THRESHOLD = 15; // 15+ search calls without any non-search call = warn
+    const DUPLICATE_THRESHOLD = 4; // same exact call 4+ times in recent window = stuck
+    const DUPLICATE_WINDOW = 10; // only check last N calls for duplicates (not all-time)
+    const BASH_CONSECUTIVE_THRESHOLD = 5; // 5 identical consecutive Bash calls = stuck
+    const FRUITLESS_SEARCH_THRESHOLD = 12; // 12+ consecutive search calls without any non-search call = warn
     const PINGPONG_THRESHOLD = 10; // A-B-A-B alternation 10 times = stuck
     const GLOBAL_CIRCUIT_BREAKER = 30; // 30 no-progress repeats across all patterns = kill
     let consecutiveSearchCalls = 0;
@@ -581,7 +842,9 @@ export async function callClaude(
             const toolAction = event.toolInput?.action as string | undefined;
 
             // Build a signature from tool name + key input to detect duplicate calls
-            const inputStr = event.toolInput ? JSON.stringify(event.toolInput).substring(0, 200) : "";
+            // Use 500 chars (was 200) to reduce false collisions on tools like TodoWrite
+            // where the differentiating content (status changes) appears later in the JSON
+            const inputStr = event.toolInput ? JSON.stringify(event.toolInput).substring(0, 500) : "";
             const sig = `${toolName}:${inputStr}`;
             toolCallSignatures.push(sig);
 
@@ -596,14 +859,33 @@ export async function callClaude(
               }
             }
 
+            // Phase 1.5: Consecutive identical Bash detection (separate from general dupes)
+            // Bash legitimately repeats different commands but identical consecutive runs = stuck
+            if (toolName === "Bash") {
+              const recent = toolCallSignatures.slice(-BASH_CONSECUTIVE_THRESHOLD);
+              if (recent.length >= BASH_CONSECUTIVE_THRESHOLD && recent.every(s => s === sig)) {
+                warn("claude", `[${agentId}] Bash loop: identical command repeated ${BASH_CONSECUTIVE_THRESHOLD}x consecutively at call #${toolCallCount}. Killing.`);
+                proc.kill();
+                timeoutReason = `duplicate call loop (Bash x${BASH_CONSECUTIVE_THRESHOLD})`;
+                noProgressRepeats += BASH_CONSECUTIVE_THRESHOLD;
+                break;
+              }
+            }
+
             // Phase 2: Detect exact duplicate calls (same tool + same input repeated)
-            const dupeCount = toolCallSignatures.filter(s => s === sig).length;
-            if (dupeCount >= DUPLICATE_THRESHOLD) {
-              warn("claude", `[${agentId}] Duplicate call loop: "${toolName}" called ${dupeCount} times with same input at call #${toolCallCount}. Killing.`);
-              proc.kill();
-              timeoutReason = `duplicate call loop (${toolName} x${dupeCount})`;
-              noProgressRepeats += dupeCount;
-              break;
+            // Skip exempt tools (Read, TodoWrite, Bash - handled above or legitimately repeat)
+            // Use sliding window (last DUPLICATE_WINDOW calls) instead of all-time to avoid
+            // false positives from spread-out repeated calls across long sessions
+            if (!DUPE_EXEMPT_TOOLS.has(toolName)) {
+              const window = toolCallSignatures.slice(-DUPLICATE_WINDOW);
+              const dupeCount = window.filter(s => s === sig).length;
+              if (dupeCount >= DUPLICATE_THRESHOLD) {
+                warn("claude", `[${agentId}] Duplicate call loop: "${toolName}" called ${dupeCount} times in last ${DUPLICATE_WINDOW} calls at call #${toolCallCount}. Killing.`);
+                proc.kill();
+                timeoutReason = `duplicate call loop (${toolName} x${dupeCount})`;
+                noProgressRepeats += dupeCount;
+                break;
+              }
             }
 
             // Phase 3: Ping-pong alternation detection (A-B-A-B)
@@ -625,7 +907,9 @@ export async function callClaude(
             lastTwoSigs = [lastTwoSigs.length > 0 ? lastTwoSigs[lastTwoSigs.length - 1] : "", sig];
 
             // Phase 4: Track no-progress repeats for global circuit breaker
-            if (dupeCount > 1) noProgressRepeats++;
+            // Use windowed count for non-exempt tools, skip exempt ones for this counter
+            const windowDupeCount = DUPE_EXEMPT_TOOLS.has(toolName) ? 0 : toolCallSignatures.slice(-DUPLICATE_WINDOW).filter(s => s === sig).length;
+            if (windowDupeCount > 1) noProgressRepeats++;
             if (noProgressRepeats >= GLOBAL_CIRCUIT_BREAKER) {
               warn("claude", `[${agentId}] Global circuit breaker: ${noProgressRepeats} no-progress repeats across all patterns at call #${toolCallCount}. Killing.`);
               proc.kill();
@@ -648,14 +932,41 @@ export async function callClaude(
                 options.onStatus(`Deep searching... (${toolCallCount} tool calls, still working)`);
               }
             }
+
+            // Escalation: if search calls double the threshold without progress, kill.
+            // 16+ consecutive searches with no other tool = definitively stuck in a loop.
+            const FRUITLESS_SEARCH_KILL_THRESHOLD = FRUITLESS_SEARCH_THRESHOLD * 2;
+            if (consecutiveSearchCalls >= FRUITLESS_SEARCH_KILL_THRESHOLD) {
+              warn("claude", `[${agentId}] ${consecutiveSearchCalls} consecutive search calls without progress. Search loop detected. Killing.`);
+              proc.kill();
+              timeoutReason = `fruitless search loop (${consecutiveSearchCalls} consecutive searches)`;
+              break;
+            }
           }
-          // Send progress indicator on tool use
+          // Send progress indicator on tool use (phase-specific status)
           {
             const now = Date.now();
             if (now - lastStatusAt > STATUS_INTERVAL_MS && options?.onStatus) {
               const elapsed = Math.round((now - startTime) / 1000);
-              options.onStatus(`${event.toolName || "working"}... (${elapsed}s, ${toolCallCount} tool calls)`);
+              const phase = TOOL_PHASE_NAMES[event.toolName || ""] || event.toolName || "Working";
+              options.onStatus(`${phase}... (${elapsed}s, ${toolCallCount} tools)`);
               lastStatusAt = now;
+            }
+          }
+          // TodoWrite interception: capture CODE_TASK entries from structured tool calls.
+          // This is more reliable than text tag parsing because tool calls are structured JSON.
+          if (event.toolName === "TodoWrite" && event.toolInput?.todos && options?.onCodeTaskCaptured) {
+            const todos = event.toolInput.todos as Array<{ content: string; status: string }>;
+            const captured: Array<{ cwd: string; prompt: string; timeoutMs?: number }> = [];
+            for (const todo of todos) {
+              if (typeof todo.content === "string" && todo.content.startsWith("CODE_TASK:")) {
+                const parsed = parseCodeTaskFromTodoContent(todo.content);
+                if (parsed) captured.push(parsed);
+              }
+            }
+            if (captured.length > 0) {
+              info("claude", `[${agentId}] TodoWrite interception: captured ${captured.length} code task(s)`);
+              options.onCodeTaskCaptured(captured);
             }
           }
           break;
@@ -663,6 +974,13 @@ export async function callClaude(
         // OpenClaw #20635: Thinking events keep session alive during extended reasoning
         case "thinking":
           lastActivityAt = Date.now();
+          break;
+
+        case "text_delta":
+          lastActivityAt = Date.now();
+          if (event.textDelta && options?.onTextDelta) {
+            options.onTextDelta(event.textDelta);
+          }
           break;
 
         case "result":
@@ -698,11 +1016,12 @@ export async function callClaude(
           lastActivityAt = Date.now();
           parser.feed(chunk);
 
-          // Periodic status (for non-tool-use periods)
+          // Periodic status (for non-tool-use periods: reasoning, generating)
           const now = Date.now();
           if (now - lastStatusAt > STATUS_INTERVAL_MS && options?.onStatus) {
             const elapsed = Math.round((now - startTime) / 1000);
-            options.onStatus(`Still working... (${elapsed}s)`);
+            const phase = toolCallCount > 0 ? "Thinking" : "Starting up";
+            options.onStatus(`${phase}... (${elapsed}s)`);
             lastStatusAt = now;
           }
         }
@@ -853,7 +1172,11 @@ export async function callClaude(
         // Clear typing interval before recursive retry (lock stays with caller if skipLock)
         if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 
-        return callClaude(prompt, {
+        // Inject conversation context into retry prompt (original prompt was built for resume = no context)
+        const corruptConvoCtx = await formatForPrompt(key);
+        const corruptRetryPrompt = corruptConvoCtx ? `${corruptConvoCtx}\n\n${prompt}` : prompt;
+
+        return callClaude(corruptRetryPrompt, {
           ...options,
           resume: false,  // Force fresh session
           skipLock: options?.skipLock ?? false,
@@ -915,10 +1238,21 @@ export async function callClaude(
         archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
       }
 
+      // Note in conversation buffer that session was reset
+      await addEntry(key, {
+        role: "system",
+        content: "Session was reset due to empty CLI response (bug #1920). Previous conversation context may be incomplete.",
+        timestamp: new Date().toISOString(),
+      });
+
       // Clear typing interval before retry (lock stays with caller if skipLock)
       if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 
-      return callClaude(prompt, {
+      // Inject conversation context into retry prompt (original prompt was built for resume = no context)
+      const emptyConvoCtx = await formatForPrompt(key);
+      const emptyRetryPrompt = emptyConvoCtx ? `${emptyConvoCtx}\n\n${prompt}` : prompt;
+
+      return callClaude(emptyRetryPrompt, {
         ...options,
         resume: false,
         skipLock: options?.skipLock ?? false,
@@ -926,7 +1260,8 @@ export async function callClaude(
       });
     }
 
-    return resultText.trim() || "No response generated.";
+    // OpenClaw 2026.2.23: Strip reasoning tags before returning to user
+    return stripReasoningTags(resultText) || "No response generated.";
   } catch (err) {
     logError("claude", `Spawn error: ${err}`);
 
@@ -947,6 +1282,7 @@ export async function callClaude(
     return "I couldn't start the Claude CLI. This is usually a transient Windows issue. Try sending your message again in a moment.";
   } finally {
     activeClaudeCalls--;
+    activeProcesses.delete(key);
     if (typingInterval) clearInterval(typingInterval);
     release();
   }
@@ -977,4 +1313,73 @@ export async function archiveSessionTranscript(
   } catch (err) {
     logError("session", `Failed to archive session: ${err}`);
   }
+}
+
+/**
+ * Structured session cleanup (OpenClaw cleanup tooling).
+ * Consolidates all session reset steps into one function:
+ * 1. Archives the session transcript
+ * 2. Clears session state (nullifies sessionId)
+ * 3. Adds a system note to the conversation buffer
+ * 4. Logs the cleanup action
+ *
+ * Replaces ad-hoc session clearing scattered across callClaude().
+ */
+export async function cleanupSession(
+  agentId: string,
+  userId: string,
+  reason: string,
+): Promise<void> {
+  const key = sessionKey(agentId, userId);
+  const session = await getSession(agentId, userId);
+
+  if (!session.sessionId) {
+    info("session", `[cleanup] No active session for ${key}, nothing to clean`);
+    return;
+  }
+
+  const oldSid = session.sessionId;
+  info("session", `[cleanup] Cleaning session ${oldSid} for ${key}: ${reason}`);
+
+  // 1. Archive transcript
+  await archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
+
+  // 2. Clear session state
+  session.sessionId = null;
+  session.lastActivity = new Date().toISOString();
+  await saveSessionState(agentId, userId, session);
+
+  // 3. Note in conversation buffer
+  await addEntry(key, {
+    role: "system",
+    content: `Session reset: ${reason}. Previous context may be incomplete.`,
+    timestamp: new Date().toISOString(),
+  });
+
+  info("session", `[cleanup] Session ${oldSid} cleaned: ${reason}`);
+}
+
+/**
+ * Check if a session has been idle too long and auto-reset it.
+ * Called before lock acquisition on each new user message.
+ * Returns true if session was reset.
+ */
+export async function checkIdleReset(
+  agentId: string,
+  userId: string,
+  thresholdMs: number = SESSION_IDLE_RESET_MS,
+): Promise<boolean> {
+  const session = await getSession(agentId, userId);
+  if (!session.sessionId) return false;
+
+  const lastActive = new Date(session.lastActivity).getTime();
+  const idleMs = Date.now() - lastActive;
+
+  if (idleMs >= thresholdMs) {
+    const idleHours = (idleMs / 3_600_000).toFixed(1);
+    info("session", `[idle-reset] ${agentId}:${userId} idle ${idleHours}h. Auto-resetting.`);
+    await cleanupSession(agentId, userId, `idle ${idleHours}h (threshold: ${Math.round(thresholdMs / 3_600_000)}h)`);
+    return true;
+  }
+  return false;
 }

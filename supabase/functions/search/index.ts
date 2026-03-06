@@ -14,7 +14,10 @@
  *     match_count?: number,                    -- default: 10
  *     match_threshold?: number,                -- default: 0.7 (vector-only mode)
  *     fts_weight?: number,                     -- default: 1.0 (hybrid mode)
- *     semantic_weight?: number                 -- default: 1.0 (hybrid mode)
+ *     semantic_weight?: number,                -- default: 1.0 (hybrid mode)
+ *     recency_weight?: number,                 -- default: 0.3 (v2 temporal decay)
+ *     decay_rate?: number,                     -- default: 0.995 (v2 per-hour decay)
+ *     use_v2?: boolean                         -- default: true (use hybrid_search_v2)
  *   }
  *
  * Returns: array of matching rows with similarity/relevance scores.
@@ -36,6 +39,9 @@ Deno.serve(async (req) => {
       match_threshold = 0.7,
       fts_weight = 1.0,
       semantic_weight = 1.0,
+      recency_weight = 0.3,
+      decay_rate = 0.995,
+      use_v2 = true,
     } = body;
 
     if (!query) {
@@ -85,23 +91,51 @@ Deno.serve(async (req) => {
 
     if (mode === "hybrid") {
       // Hybrid search: vector + FTS with RRF fusion
+      // Use v2 (temporal decay + salience) when enabled
+      const rpcName = use_v2 ? "hybrid_search_v2" : "hybrid_search";
+      const rpcParams: Record<string, unknown> = {
+        query_embedding: embedding,
+        query_text: query,
+        search_tables: searchTables,
+        match_count,
+        fts_weight,
+        semantic_weight,
+      };
+
+      if (use_v2) {
+        rpcParams.recency_weight = recency_weight;
+        rpcParams.decay_rate = decay_rate;
+      }
+
       const { data: hybridResults, error } = await supabase.rpc(
-        "hybrid_search",
-        {
-          query_embedding: embedding,
-          query_text: query,
-          search_tables: searchTables,
-          match_count,
-          fts_weight,
-          semantic_weight,
-        }
+        rpcName,
+        rpcParams
       );
 
       if (error) {
-        return json({ error: `Hybrid search error: ${error.message}` }, 500);
+        // Fallback to v1 if v2 RPC doesn't exist yet (migration not applied)
+        if (use_v2 && error.message?.includes("hybrid_search_v2")) {
+          const { data: fallbackResults, error: fallbackError } = await supabase.rpc(
+            "hybrid_search",
+            {
+              query_embedding: embedding,
+              query_text: query,
+              search_tables: searchTables,
+              match_count,
+              fts_weight,
+              semantic_weight,
+            }
+          );
+          if (fallbackError) {
+            return json({ error: `Hybrid search error: ${fallbackError.message}` }, 500);
+          }
+          results = fallbackResults;
+        } else {
+          return json({ error: `Hybrid search error: ${error.message}` }, 500);
+        }
+      } else {
+        results = hybridResults;
       }
-
-      results = hybridResults;
     } else {
       // Vector-only search (backwards compatible)
       if (searchTables.length === 1) {
@@ -132,23 +166,44 @@ Deno.serve(async (req) => {
         results = rpcResults;
       } else {
         // Multi-table vector search: use hybrid_search with fts_weight=0
+        const multiRpcName = use_v2 ? "hybrid_search_v2" : "hybrid_search";
+        const multiParams: Record<string, unknown> = {
+          query_embedding: embedding,
+          query_text: query,
+          search_tables: searchTables,
+          match_count,
+          fts_weight: 0,
+          semantic_weight: 1.0,
+        };
+        if (use_v2) {
+          multiParams.recency_weight = recency_weight;
+          multiParams.decay_rate = decay_rate;
+        }
+
         const { data: multiResults, error } = await supabase.rpc(
-          "hybrid_search",
-          {
-            query_embedding: embedding,
-            query_text: query,
-            search_tables: searchTables,
-            match_count,
-            fts_weight: 0,
-            semantic_weight: 1.0,
-          }
+          multiRpcName,
+          multiParams
         );
 
         if (error) {
-          return json({ error: `Multi-table search error: ${error.message}` }, 500);
+          // Fallback to v1 if v2 doesn't exist
+          if (use_v2 && error.message?.includes("hybrid_search_v2")) {
+            const { data: fb, error: fbErr } = await supabase.rpc("hybrid_search", {
+              query_embedding: embedding,
+              query_text: query,
+              search_tables: searchTables,
+              match_count,
+              fts_weight: 0,
+              semantic_weight: 1.0,
+            });
+            if (fbErr) return json({ error: `Multi-table search error: ${fbErr.message}` }, 500);
+            results = fb;
+          } else {
+            return json({ error: `Multi-table search error: ${error.message}` }, 500);
+          }
+        } else {
+          results = multiResults;
         }
-
-        results = multiResults;
       }
     }
 

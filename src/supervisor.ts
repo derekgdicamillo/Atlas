@@ -12,13 +12,16 @@
  * session rollovers with zero visibility. Never again.
  */
 
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
+import { readFile, writeFile, mkdir, rename, copyFile } from "fs/promises";
+import { existsSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 import { spawn } from "bun";
 import { EventEmitter } from "events";
 import { info, warn, error as logError, trackClaudeCall } from "./logger.ts";
-import { sanitizedEnv } from "./claude.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
+import { fireHooks } from "./hooks.ts";
+import { acquireWorktree, releaseWorktree, cleanupStaleWorktrees, getWorktree } from "./worktree.ts";
 
 /**
  * Graceful process termination: SIGTERM first, SIGKILL after grace period.
@@ -50,8 +53,30 @@ import {
   CODE_AGENT_PROGRESS_INTERVAL_MS,
   CODE_AGENT_DEFAULT_MODEL,
   CODE_AGENT_MAX_BUDGET_USD,
+  SUBAGENT_MAX_DEPTH,
+  SUBAGENT_MAX_OUTPUT_CHARS,
+  CODE_AGENT_MAX_RESULT_CHARS,
+  TOOL_POLICIES,
+  RESEARCH_DEFAULT_MODEL,
   type ModelTier,
+  // Supervisor system constants
+  SUPERVISOR_ENABLED,
+  SUPERVISOR_PATTERN_DETECT,
+  SUPERVISOR_SHADOW_EVAL,
+  SUPERVISOR_SHADOW_INTERVAL,
+  SUPERVISOR_SHADOW_MODEL,
+  SUPERVISOR_MAX_RESTARTS,
+  SUPERVISOR_LEARNING,
+  SUPERVISOR_CONTEXT_INJECTION,
+  SUPERVISOR_MODE,
 } from "./constants.ts";
+
+// Supervisor system imports
+import { createPatternDetector, type PatternDetector, type DetectedPattern } from "./patterns.ts";
+import { createShadowEvaluator, storeEvaluation, type ShadowEvaluator, type EvaluationResult } from "./shadow-evaluator.ts";
+import { buildCodeAgentContext, buildRestartContext, detectTaskCategory } from "./context-injector.ts";
+import { extractPatternsFromTask, findSimilarPatterns, buildPatternGuidance } from "./learned-patterns.ts";
+import { createCheckpointTracker, type CheckpointTracker } from "./checkpoints.ts";
 import { createStreamParser } from "./claude.ts";
 import {
   enqueue,
@@ -71,7 +96,7 @@ const TASKS_ARCHIVE = join(DATA_DIR, "tasks-archive.json");
 // TYPES
 // ============================================================
 
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "timeout";
+export type TaskStatus = "pending" | "running" | "completed" | "completed_with_errors" | "failed" | "timeout" | "stalled";
 
 /** Structured outcome (inspired by OpenClaw SubagentRunRecord) */
 export type TaskOutcome =
@@ -106,8 +131,8 @@ export interface SupervisedTask {
   model: ModelTier;
   /** Original prompt (stored for retry spawns) */
   prompt: string | null;
-  /** Task type: research writes to output file, code edits project files */
-  taskType: "research" | "code";
+  /** Task type: research writes to output file, code edits project files, ingest walks folders */
+  taskType: "research" | "code" | "ingest";
   /** Working directory for code tasks */
   cwd: string | null;
   /** Live tool call count (updated by stream parser for code tasks) */
@@ -128,10 +153,41 @@ export interface SupervisedTask {
   announced: boolean;
   /** Agent ID for routing (default: atlas) */
   agentId: string;
+  /** Last ~20 lines of output sampled for stall detection */
+  lastOutputSample?: string | null;
+  /** Consecutive checks with identical output (stall detection) */
+  stallCount?: number;
+  /** Git worktree branch name (if worktree isolation is active for this code task) */
+  worktreeBranch?: string | null;
+  /** Queued amendment queries (for ingest tasks that can't be amended in-flight) */
+  _pendingAmendments?: string[];
   /** Swarm ID if part of a swarm (set via registerTask opts) */
   _swarmId?: string | null;
   /** DAG node ID if part of a swarm */
   _dagNodeId?: string | null;
+  /** Task IDs this task depends on (must all complete before this runs) */
+  dependsOn?: string[];
+  /** Workflow ID if part of a workflow chain */
+  workflowId?: string | null;
+  // === SUPERVISOR SYSTEM FIELDS ===
+  /** Number of restarts this task has had */
+  restartCount?: number;
+  /** Parent task ID if this is a restart of a previous task */
+  restartOf?: string | null;
+  /** Detected patterns that triggered intervention */
+  detectedPatterns?: string[];
+  /** Shadow evaluations performed on this task */
+  shadowEvaluations?: Array<{ toolCall: number; decision: string; scores: string }>;
+  /** Checkpoint spec if using checkpoint system */
+  checkpoints?: string | null;
+  /** Last exit code from subprocess (for death diagnostics) */
+  lastExitCode?: number | null;
+  /** Last stderr output from subprocess (for death diagnostics, truncated to 500 chars) */
+  lastStderr?: string | null;
+  /** Categorized death type (for targeted retry strategies) */
+  deathCategory?: "oom" | "timeout_kill" | "rate_limit" | "session_corrupt" | "api_error" | "unknown" | null;
+  /** Nesting depth: 0 = main session spawned, 1 = subagent spawned by subagent (max SUBAGENT_MAX_DEPTH) */
+  depth?: number;
 }
 
 interface TaskStore {
@@ -145,6 +201,11 @@ interface TaskStore {
 // ============================================================
 // STATE
 // ============================================================
+
+/** Check if a task status is terminal (no longer running). */
+function isTerminalStatus(status: TaskStatus): boolean {
+  return status === "completed" || status === "completed_with_errors" || status === "failed" || status === "timeout" || status === "stalled";
+}
 
 let store: TaskStore = {
   tasks: [],
@@ -182,36 +243,58 @@ function emitTaskEvent(event: string, task: SupervisedTask, extra?: any): void {
 // ============================================================
 
 export async function loadTasks(): Promise<void> {
+  const backupFile = TASKS_FILE + ".backup";
   try {
     if (existsSync(TASKS_FILE)) {
       const content = await readFile(TASKS_FILE, "utf-8");
       store = JSON.parse(content);
-      // Backward compat
-      if (!store.totalCompleted) store.totalCompleted = 0;
-      if (!store.totalFailed) store.totalFailed = 0;
-      if (!store.totalTimedOut) store.totalTimedOut = 0;
-      // Backfill new fields on existing tasks
-      for (const task of store.tasks) {
-        if (task.pid === undefined) task.pid = null;
-        if (!task.model) task.model = "sonnet";
-        if (task.prompt === undefined) task.prompt = null;
-        if (!task.taskType) task.taskType = "research";
-        if (task.cwd === undefined) task.cwd = null;
-        if (task.toolCallCount === undefined) task.toolCallCount = 0;
-        if (task.costUsd === undefined) task.costUsd = 0;
-        if (task.lastToolName === undefined) task.lastToolName = null;
-        if (task.lastFileTouched === undefined) task.lastFileTouched = null;
-        // v2026.2.17 fields
-        if (task.outcome === undefined) task.outcome = null;
-        if (task.announceRetryCount === undefined) task.announceRetryCount = 0;
-        if (task.lastAnnounceAt === undefined) task.lastAnnounceAt = null;
-        if (task.announced === undefined) task.announced = task.status !== "running";
-      }
-      info("supervisor", `Loaded ${store.tasks.length} tasks from disk`);
+      // Create backup on successful load (for crash recovery)
+      await copyFile(TASKS_FILE, backupFile).catch(() => {});
     }
   } catch (err) {
     warn("supervisor", `Failed to load tasks: ${err}`);
+    // Fall back to backup if primary is corrupted
+    try {
+      if (existsSync(backupFile)) {
+        const backupContent = await readFile(backupFile, "utf-8");
+        store = JSON.parse(backupContent);
+        warn("supervisor", `Recovered ${store.tasks.length} tasks from backup`);
+      }
+    } catch (backupErr) {
+      warn("supervisor", `Backup also failed: ${backupErr}`);
+    }
   }
+
+  // Backward compat + field backfill
+  if (!store.totalCompleted) store.totalCompleted = 0;
+  if (!store.totalFailed) store.totalFailed = 0;
+  if (!store.totalTimedOut) store.totalTimedOut = 0;
+  for (const task of store.tasks) {
+    if (task.pid === undefined) task.pid = null;
+    if (!task.model) task.model = "sonnet";
+    if (task.prompt === undefined) task.prompt = null;
+    if (!task.taskType) task.taskType = "research";
+    if (task.cwd === undefined) task.cwd = null;
+    if (task.toolCallCount === undefined) task.toolCallCount = 0;
+    if (task.costUsd === undefined) task.costUsd = 0;
+    if (task.lastToolName === undefined) task.lastToolName = null;
+    if (task.lastFileTouched === undefined) task.lastFileTouched = null;
+    // v2026.2.17 fields
+    if (task.outcome === undefined) task.outcome = null;
+    if (task.announceRetryCount === undefined) task.announceRetryCount = 0;
+    if (task.lastAnnounceAt === undefined) task.lastAnnounceAt = null;
+    if (task.announced === undefined) task.announced = isTerminalStatus(task.status);
+    // v2026.2.22 fields (supervisor safeguards)
+    if (task.lastOutputSample === undefined) task.lastOutputSample = null;
+    if (task.stallCount === undefined) task.stallCount = 0;
+    // v2026.2.26 fields (death diagnostics)
+    if (task.lastExitCode === undefined) task.lastExitCode = null;
+    if (task.lastStderr === undefined) task.lastStderr = null;
+    if (task.deathCategory === undefined) task.deathCategory = null;
+    // v2026.2.26 fields (depth tracking)
+    if (task.depth === undefined) task.depth = 0;
+  }
+  info("supervisor", `Loaded ${store.tasks.length} tasks from disk`);
 }
 
 async function saveTasks(): Promise<void> {
@@ -219,7 +302,10 @@ async function saveTasks(): Promise<void> {
     if (!existsSync(DATA_DIR)) {
       await mkdir(DATA_DIR, { recursive: true });
     }
-    await writeFile(TASKS_FILE, JSON.stringify(store, null, 2));
+    // Atomic write: write to temp file, then rename. Prevents truncated JSON on crash.
+    const tmpFile = TASKS_FILE + ".tmp";
+    await writeFile(tmpFile, JSON.stringify(store, null, 2));
+    await rename(tmpFile, TASKS_FILE);
   } catch (err) {
     logError("supervisor", `Failed to save tasks: ${err}`);
   }
@@ -240,6 +326,14 @@ async function archiveTask(task: SupervisedTask): Promise<void> {
     await writeFile(TASKS_ARCHIVE, JSON.stringify(archive, null, 2));
   } catch (err) {
     logError("supervisor", `Failed to archive task: ${err}`);
+  }
+
+  // Clean up announcement lock file (created by relay.ts handleTaskEvent)
+  try {
+    const lockFile = join(DATA_DIR, "task-locks", `${task.id}.announced`);
+    if (existsSync(lockFile)) unlinkSync(lockFile);
+  } catch {
+    // Non-fatal
   }
 }
 
@@ -303,7 +397,7 @@ export async function spawnSubagent(opts: {
     );
   }
 
-  const modelTier = opts.model || "sonnet";
+  const modelTier = opts.model || RESEARCH_DEFAULT_MODEL;
   const modelId = MODELS[modelTier];
   const wrappedPrompt = wrapPrompt(opts.prompt, opts.outputFile);
 
@@ -321,6 +415,15 @@ export async function spawnSubagent(opts: {
     modelId,
     "--dangerously-skip-permissions",
   ];
+
+  // Granular tool policy: research agents get restricted tools (no Bash/Write/Edit)
+  const researchPolicy = TOOL_POLICIES.research_agent;
+  if (researchPolicy.length > 0) {
+    args.push("--disallowedTools", ...researchPolicy);
+  }
+
+  // OpenClaw 2026.2.23: Validate spawn args (reject CR/LF injection on Windows)
+  validateSpawnArgs(args);
 
   info(
     "supervisor",
@@ -350,22 +453,97 @@ export async function spawnSubagent(opts: {
     await saveTasks();
   }
 
-  // Fire-and-forget: drain stdout/stderr so pipes don't block the subprocess
+  // Fire-and-forget: drain stdout/stderr so pipes don't block the subprocess.
+  // Also captures exit info on the task for checkTasks diagnostics.
+  // Includes 60s heartbeat to detect dead processes between checkTasks() runs.
   (async () => {
+    // Heartbeat: check process alive every 60s, detect death ~4min sooner than checkTasks
+    const heartbeat = setInterval(() => {
+      try {
+        process.kill(pid, 0); // signal 0 = alive check
+      } catch {
+        // Process died between checkTasks runs
+        clearInterval(heartbeat);
+        const t = store.tasks.find((t) => t.id === opts.taskId);
+        if (t && t.status === "running") {
+          warn("supervisor", `Heartbeat: subagent ${opts.taskId} (PID ${pid}) died unexpectedly`);
+        }
+      }
+    }, 60_000);
+    heartbeat.unref(); // don't keep the process alive
+
     try {
       const stdout = await new Response(proc.stdout).text();
       const stderr = await new Response(proc.stderr).text();
       const exitCode = await proc.exited;
+      clearInterval(heartbeat);
+
+      // Store exit diagnostics on task for checkTasks death analysis
+      const t = store.tasks.find((t) => t.id === opts.taskId);
+      if (t) {
+        t.lastExitCode = exitCode;
+        t.lastStderr = stderr.substring(0, 500) || null;
+
+        // Categorize death for targeted retry strategies
+        if (exitCode === 137) {
+          t.deathCategory = "oom";
+        } else if (exitCode === 143 || exitCode === 9) {
+          t.deathCategory = "timeout_kill";
+        } else if (exitCode === 1 && (!stderr || stderr.trim() === "")) {
+          t.deathCategory = "session_corrupt";
+        } else if (exitCode === 1 && /rate.limit|429|too many requests/i.test(stderr)) {
+          t.deathCategory = "rate_limit";
+        } else if (exitCode === 1 && /error|exception|failed/i.test(stderr)) {
+          t.deathCategory = "api_error";
+        } else if (exitCode !== 0) {
+          t.deathCategory = "unknown";
+        }
+
+        if (exitCode !== 0) {
+          t.error = `exit ${exitCode} [${t.deathCategory || "unknown"}]: ${stderr.substring(0, 200)}`;
+        }
+      }
 
       if (exitCode !== 0) {
+        const category = t?.deathCategory || "unknown";
         warn(
           "supervisor",
-          `Subagent ${opts.taskId} (PID ${pid}) exited with code ${exitCode}: ${stderr.substring(0, 300)}`
+          `Subagent ${opts.taskId} (PID ${pid}) exited code=${exitCode} category=${category}: ${stderr.substring(0, 300)}`
         );
       } else {
         info("supervisor", `Subagent ${opts.taskId} (PID ${pid}) exited cleanly`);
       }
+
+      // Stdout fallback: if agent exited but output file is missing, extract
+      // result text from stream-json stdout and write it as the output file.
+      if (opts.outputFile && stdout.length > 0) {
+        const absOut = opts.outputFile.startsWith("/") || opts.outputFile.includes(":")
+          ? opts.outputFile
+          : join(PROJECT_DIR, opts.outputFile);
+        if (!existsSync(absOut)) {
+          // Parse stream-json lines to find the result event
+          let resultText = "";
+          for (const line of stdout.split("\n")) {
+            try {
+              const evt = JSON.parse(line.trim());
+              if (evt.type === "result" && evt.result) {
+                resultText = evt.result;
+                break;
+              }
+            } catch { /* skip non-JSON lines */ }
+          }
+          if (resultText.length > 50) {
+            try {
+              await writeFile(absOut, resultText, "utf-8");
+              info("supervisor", `Stdout fallback: wrote ${resultText.length} chars to ${opts.outputFile} for ${opts.taskId}`);
+            } catch (writeErr) {
+              warn("supervisor", `Stdout fallback write failed for ${opts.taskId}: ${writeErr}`);
+            }
+          }
+        }
+      }
     } catch (err) {
+      clearInterval(heartbeat);
       warn("supervisor", `Subagent ${opts.taskId} drain error: ${err}`);
     }
   })();
@@ -381,6 +559,132 @@ export async function spawnSubagent(opts: {
 /** Generate a short unique task ID */
 function generateId(): string {
   return "task_" + Date.now().toString(36) + "_" + Math.random().toString(36).substr(2, 5);
+}
+
+// ============================================================
+// INSTRUCTION VALIDATION (safeguard #2)
+// ============================================================
+
+/** Status-report prefixes that indicate conversational text, not actionable instructions. */
+const STATUS_REPORT_PREFIXES = [
+  "looking at",
+  "here's",
+  "here is",
+  "active right now",
+  "all 5",
+  "all five",
+  "currently running",
+  "no tasks",
+  "nothing running",
+  "task completed",
+  "tasks are",
+  "i see",
+  "it looks like",
+  "the output shows",
+];
+
+/**
+ * Validate that a task prompt is actionable before spawning.
+ * Rejects prompts that are too short or look like status reports.
+ */
+export function validateTaskPrompt(prompt: string): { valid: boolean; reason?: string } {
+  const trimmed = prompt.trim();
+
+  // Reject prompts shorter than 20 characters
+  if (trimmed.length < 20) {
+    return { valid: false, reason: `Prompt too short (${trimmed.length} chars, min 20). Too vague to be actionable.` };
+  }
+
+  // Reject prompts that look like status reports or conversational text
+  const lower = trimmed.toLowerCase();
+  for (const prefix of STATUS_REPORT_PREFIXES) {
+    if (lower.startsWith(prefix)) {
+      return { valid: false, reason: `Prompt looks like a status report, not an instruction (starts with "${prefix}")` };
+    }
+  }
+
+  return { valid: true };
+}
+
+// ============================================================
+// OUTPUT VERIFICATION (safeguard #3)
+// ============================================================
+
+/** Error indicator phrases for code task output verification. */
+const CODE_ERROR_INDICATORS = [
+  "Error:",
+  "error:",
+  "ENOENT",
+  "Cannot find",
+  "failed",
+  "FAILED",
+  "TypeError:",
+  "SyntaxError:",
+  "ReferenceError:",
+  "EPERM",
+  "EACCES",
+];
+
+/**
+ * Verify task output quality on completion.
+ * Returns adjustment info if the output doesn't meet expectations.
+ */
+async function verifyTaskOutput(task: SupervisedTask): Promise<{
+  verified: boolean;
+  adjustedStatus?: TaskStatus;
+  reason?: string;
+}> {
+  // Research tasks: check output file exists and has >100 bytes
+  if (task.taskType === "research" && task.outputFile) {
+    const outputPath = task.outputFile.startsWith("/") || task.outputFile.includes(":")
+      ? task.outputFile
+      : join(PROJECT_DIR, task.outputFile);
+
+    if (!existsSync(outputPath)) {
+      return { verified: false, adjustedStatus: "failed", reason: "empty output: output file missing" };
+    }
+
+    try {
+      const content = await readFile(outputPath, "utf-8");
+      if (content.length < 100) {
+        return { verified: false, adjustedStatus: "failed", reason: `empty output: file only ${content.length} bytes (min 100)` };
+      }
+    } catch {
+      return { verified: false, adjustedStatus: "failed", reason: "empty output: could not read output file" };
+    }
+  }
+
+  // Code tasks: check last output for error indicators
+  if (task.taskType === "code" && task.result) {
+    const lastOutput = task.result.slice(-1000);
+    for (const indicator of CODE_ERROR_INDICATORS) {
+      if (lastOutput.includes(indicator)) {
+        return { verified: true, adjustedStatus: "completed_with_errors", reason: `output contains "${indicator}"` };
+      }
+    }
+  }
+
+  // Memory file verification: if prompt references a memory/ path, check it was modified
+  if (task.prompt) {
+    const memoryMatch = task.prompt.match(/memory\/[\w-]+\.md/);
+    if (memoryMatch && task.startedAt) {
+      const memPath = join(PROJECT_DIR, memoryMatch[0]);
+      if (existsSync(memPath)) {
+        try {
+          const stat = statSync(memPath);
+          const taskStart = new Date(task.startedAt).getTime();
+          if (stat.mtimeMs < taskStart) {
+            warn("supervisor", `Task ${task.id} referenced ${memoryMatch[0]} but file was not modified (mtime before task start)`);
+            // Don't fail the task for this, just warn
+          }
+        } catch {
+          // stat failed, skip
+        }
+      }
+    }
+  }
+
+  return { verified: true };
 }
 
 /**
@@ -406,7 +710,20 @@ export async function registerTask(opts: {
   swarmId?: string;
   /** DAG node ID if part of a swarm */
   dagNodeId?: string;
+  /** Task IDs this task depends on (must complete before spawning) */
+  dependsOn?: string[];
+  /** Workflow ID if part of a workflow chain */
+  workflowId?: string;
 }): Promise<string> {
+  // Validate prompt before spawning (safeguard #2)
+  if (opts.prompt) {
+    const validation = validateTaskPrompt(opts.prompt);
+    if (!validation.valid) {
+      warn("supervisor", `Rejected task prompt: ${validation.reason} — "${opts.prompt.substring(0, 100)}"`);
+      throw new Error(`Task prompt rejected: ${validation.reason}`);
+    }
+  }
+
   // Auto-generate output path if prompt provided but no outputFile
   const outputFile =
     opts.outputFile ||
@@ -419,7 +736,7 @@ export async function registerTask(opts: {
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     completedAt: null,
-    timeoutMs: opts.timeoutMs || 10 * 60 * 1000, // default 10 min
+    timeoutMs: opts.timeoutMs || 20 * 60 * 1000, // default 20 min (was 10, too short for research)
     outputFile: outputFile,
     result: null,
     requestedBy: opts.requestedBy || "Derek",
@@ -443,7 +760,34 @@ export async function registerTask(opts: {
     agentId: opts.agentId || "atlas",
     _swarmId: opts.swarmId || null,
     _dagNodeId: opts.dagNodeId || null,
+    dependsOn: opts.dependsOn || undefined,
+    workflowId: opts.workflowId || null,
   };
+
+  // If task has unmet dependencies, hold it as pending
+  if (opts.dependsOn?.length) {
+    const unmet = checkDependencies(opts.dependsOn);
+    if (unmet.status === "blocked") {
+      task.status = "pending";
+      store.tasks.push(task);
+      await saveTasks();
+      info("supervisor", `Registered task: ${task.id} — ${task.description} (blocked on ${unmet.waitingOn.length} dep(s))`);
+      return task.id;
+    }
+    if (unmet.status === "failed") {
+      task.status = "failed";
+      task.error = `Dependency failed: ${unmet.failedDeps.join(", ")}`;
+      task.completedAt = new Date().toISOString();
+      store.tasks.push(task);
+      store.totalFailed++;
+      await saveTasks();
+      warn("supervisor", `Task ${task.id} cascade-failed due to dependency failure`);
+      emitTaskEvent("task:failed", task);
+      fireHooks("task-complete", { task }).catch(() => {});
+      return task.id;
+    }
+    // status === "ready" means all deps completed, proceed with spawn
+  }
 
   store.tasks.push(task);
   await saveTasks();
@@ -518,13 +862,68 @@ export async function completeTask(id: string, result?: string): Promise<void> {
   task.completedAt = new Date().toISOString();
   task.result = result || "Completed successfully";
   task.outcome = { status: "ok", summary: task.result, durationMs };
+
+  // Output verification (safeguard #3)
+  const verification = await verifyTaskOutput(task);
+  if (!verification.verified && verification.adjustedStatus === "failed") {
+    // Auto-retry for research tasks (safeguard #4), max 1 retry, never code tasks
+    if (task.taskType === "research" && task.retries < 1 && task.prompt && task.outputFile) {
+      task.retries++;
+      task.status = "running";
+      task.completedAt = null;
+      task.result = null;
+      task.outcome = null;
+      task.startedAt = new Date().toISOString();
+      const retryPrompt = task.prompt + "\n\nPrevious attempt produced empty or invalid output. Please ensure you write results to the specified output file.";
+      warn("supervisor", `completeTask verification failed for ${task.id}: ${verification.reason}. Auto-retrying.`);
+
+      // Delete bad output file
+      const outputPath = task.outputFile.startsWith("/") || task.outputFile.includes(":")
+        ? task.outputFile
+        : join(PROJECT_DIR, task.outputFile);
+      try {
+        const { unlinkSync } = await import("fs");
+        unlinkSync(outputPath);
+      } catch { /* ignore */ }
+
+      await saveTasks();
+      try {
+        await spawnSubagent({
+          taskId: task.id,
+          prompt: retryPrompt,
+          outputFile: task.outputFile,
+          model: task.model,
+        });
+      } catch (err) {
+        warn("supervisor", `completeTask retry spawn failed for ${task.id}: ${err}`);
+        await failTask(id, `${verification.reason} (retry spawn failed: ${err})`);
+      }
+      return;
+    }
+
+    // No retry: fail the task
+    const reason = task.retries > 0
+      ? `retry also produced empty output (${verification.reason})`
+      : (verification.reason || "output verification failed");
+    await failTask(id, reason);
+    return;
+  }
+
+  // Check for code tasks with error indicators
+  if (verification.adjustedStatus === "completed_with_errors") {
+    task.status = "completed_with_errors";
+    task.error = verification.reason || "output contains error indicators";
+    warn("supervisor", `Task ${task.id} completed with errors: ${verification.reason}`);
+  }
+
   store.totalCompleted++;
 
-  info("supervisor", `Task completed: ${task.id} — ${task.description} (${Math.round(durationMs / 1000)}s)`);
+  info("supervisor", `Task completed: ${task.id} — ${task.description} (${Math.round(durationMs / 1000)}s)${task.status === "completed_with_errors" ? " [with errors]" : ""}`);
   await saveTasks();
 
   // Event-driven delivery (immediate, doesn't wait for cron)
   emitTaskEvent("task:completed", task);
+  fireHooks("task-complete", { task }).catch(() => {});
 
   // Notify queue + swarm orchestrator
   await onTaskFinished(task.id);
@@ -552,6 +951,7 @@ export async function failTask(id: string, error: string): Promise<void> {
 
   // Event-driven delivery (immediate)
   emitTaskEvent("task:failed", task);
+  fireHooks("task-complete", { task }).catch(() => {});
 
   // Notify queue + swarm orchestrator
   await onTaskFinished(task.id);
@@ -573,7 +973,9 @@ export interface CompletedTaskInfo {
   outputFile: string | null;
   outputPreview: string; // first ~500 chars of output
   taskType: "research" | "code";
-  status: "completed" | "failed" | "timeout";
+  status: "completed" | "completed_with_errors" | "failed" | "timeout" | "stalled";
+  /** Error message for failed/timeout tasks */
+  error?: string | null;
 }
 
 export async function checkTasks(): Promise<{
@@ -604,13 +1006,22 @@ export async function checkTasks(): Promise<{
         if (!task.outputFile || !existsSync(
           task.outputFile.startsWith("/") || task.outputFile.includes(":") ? task.outputFile : join(PROJECT_DIR, task.outputFile)
         )) {
-          warn("supervisor", `Subagent PID ${task.pid} for ${task.id} died unexpectedly after ${Math.round(durationMs / 1000)}s`);
+          const exitInfo = task.error ? ` (${task.error})` : "";
+          warn("supervisor", `Subagent PID ${task.pid} for ${task.id} died unexpectedly after ${Math.round(durationMs / 1000)}s${exitInfo}`);
           task.pid = null;
 
           if (task.retries < task.maxRetries && task.prompt && task.outputFile) {
             task.retries++;
             task.startedAt = new Date().toISOString();
+            // Reset stalling state so retry gets a clean slate
+            task.stallCount = 0;
+            task.lastOutputSample = null;
+            (task as any)._stallStartMs = undefined;
             alerts.push(`Task "${task.description}" — subagent died, auto-retrying (${task.retries}/${task.maxRetries}).`);
+            // Exponential backoff before retry: 5s, 10s, 20s... (prevents cascade on resource exhaustion)
+            const retryDelayMs = Math.min(5000 * Math.pow(2, task.retries - 1), 60_000);
+            info("supervisor", `Waiting ${retryDelayMs}ms before retry spawn for ${task.id}`);
+            await new Promise((r) => setTimeout(r, retryDelayMs));
             try {
               await spawnSubagent({
                 taskId: task.id,
@@ -630,6 +1041,59 @@ export async function checkTasks(): Promise<{
       }
     }
 
+    // Mid-flight progress monitoring (safeguard #1): detect stalled tasks
+    if (task.pid && elapsed > task.timeoutMs * 0.5) {
+      // Build a progress fingerprint from observable state
+      const fingerprint = `tc=${task.toolCallCount}|tool=${task.lastToolName}|file=${task.lastFileTouched}|cost=${task.costUsd}`;
+
+      if (task.lastOutputSample === fingerprint) {
+        // Output hasn't changed since last check
+        task.stallCount = (task.stallCount || 0) + 1;
+        // Track when stall started (first identical fingerprint)
+        if (task.stallCount === 1) (task as any)._stallStartMs = now;
+
+        // Kill if stalled for 3 consecutive checks OR 12+ minutes with no progress
+        const stallDurationMs = now - ((task as any)._stallStartMs || now);
+        if (task.stallCount >= 3 || stallDurationMs > 12 * 60 * 1000) {
+          // Stalled for 3 consecutive checks, kill the task
+          warn("supervisor", `Task ${task.id} stalled (identical output for ${task.stallCount} checks). Killing PID ${task.pid}.`);
+          try {
+            gracefulKill(task.pid);
+          } catch { /* already dead */ }
+          task.pid = null;
+
+          const durationMs = now - new Date(task.startedAt!).getTime();
+          task.status = "stalled";
+          task.completedAt = new Date().toISOString();
+          task.error = `Stalled: no progress for ${task.stallCount} consecutive checks (${Math.round(elapsed / 60000)}m elapsed)`;
+          task.outcome = { status: "error", message: task.error, durationMs };
+          store.totalFailed++;
+          healthy = false;
+          alerts.push(`Task STALLED: "${task.description}" — no progress detected for ${task.stallCount} consecutive checks. Killed.`);
+          emitTaskEvent("task:failed", task);
+          fireHooks("task-complete", { task }).catch(() => {});
+          completedTasks.push({
+            id: task.id,
+            description: task.description,
+            outputFile: task.outputFile,
+            outputPreview: "",
+            taskType: task.taskType,
+            status: "failed",
+            error: task.error,
+          });
+          await onTaskFinished(task.id);
+          continue;
+        } else {
+          warn("supervisor", `Task ${task.id} may be stalling (${task.stallCount}/3 identical checks, ${Math.round(elapsed / 60000)}m/${Math.round(task.timeoutMs / 60000)}m)`);
+          alerts.push(`Warning: task "${task.description}" may be stalling (${task.stallCount}/3 identical checks)`);
+        }
+      } else {
+        // Progress detected, reset stall counter
+        task.lastOutputSample = fingerprint;
+        task.stallCount = 0;
+      }
+    }
+
     // Check for output file completion
     if (task.outputFile) {
       const outputPath = task.outputFile.startsWith("/") || task.outputFile.includes(":")
@@ -637,7 +1101,14 @@ export async function checkTasks(): Promise<{
         : join(PROJECT_DIR, task.outputFile);
 
       if (existsSync(outputPath)) {
-        // Output file exists, task completed
+        // Defense-in-depth: skip if already announced (prevents duplicate completions)
+        if (task.announced) {
+          warn("supervisor", `Skipping already-announced task ${task.id} (status was ${task.status}, likely stale state)`);
+          task.status = "completed";
+          continue;
+        }
+
+        // Output file exists, tentatively mark completed then verify
         const durationMs = now - new Date(task.startedAt!).getTime();
         let outputPreview = "";
         try {
@@ -647,27 +1118,112 @@ export async function checkTasks(): Promise<{
           task.completedAt = new Date().toISOString();
           task.result = `Output saved to ${task.outputFile} (${content.length} chars)`;
           task.outcome = { status: "ok", summary: task.result, durationMs };
-          store.totalCompleted++;
-          alerts.push(`Task completed: "${task.description}" — output at ${task.outputFile}`);
-          info("supervisor", `Task auto-completed via output file: ${task.id} (${Math.round(durationMs / 1000)}s)`);
         } catch (err) {
           // File exists but can't read, still count as completed
           task.status = "completed";
           task.completedAt = new Date().toISOString();
           task.result = `Output file exists at ${task.outputFile}`;
           task.outcome = { status: "ok", summary: task.result, durationMs };
-          store.totalCompleted++;
         }
+
+        // Output verification (safeguard #3) + auto-retry (safeguard #4)
+        const verification = await verifyTaskOutput(task);
+        if (!verification.verified && verification.adjustedStatus === "failed") {
+          // Failed verification. Auto-retry for research tasks (max 1 retry), never for code tasks.
+          if (task.taskType === "research" && task.retries < 1 && task.prompt && task.outputFile) {
+            task.retries++;
+            task.status = "running";
+            task.completedAt = null;
+            task.result = null;
+            task.outcome = null;
+            task.startedAt = new Date().toISOString();
+            // Reset stalling state so retry gets a clean slate
+            task.stallCount = 0;
+            task.lastOutputSample = null;
+            (task as any)._stallStartMs = undefined;
+            const retryPrompt = task.prompt + "\n\nPrevious attempt produced empty or invalid output. Please ensure you write results to the specified output file.";
+            alerts.push(`Task "${task.description}" completed with ${verification.reason}. Auto-retrying (${task.retries}/1).`);
+            warn("supervisor", `Output verification failed for ${task.id}: ${verification.reason}. Auto-retrying.`);
+
+            // Delete the empty/bad output file so we detect fresh output
+            try {
+              unlinkSync(outputPath);
+            } catch { /* ignore */ }
+
+            const retryDelayMs = 5000;
+            await new Promise((r) => setTimeout(r, retryDelayMs));
+            try {
+              await spawnSubagent({
+                taskId: task.id,
+                prompt: retryPrompt,
+                outputFile: task.outputFile,
+                model: task.model,
+              });
+              info("supervisor", `Respawned subagent for output-verification retry: ${task.id}`);
+            } catch (err) {
+              warn("supervisor", `Output-verification retry spawn failed for ${task.id}: ${err}`);
+              task.status = "failed";
+              task.completedAt = new Date().toISOString();
+              task.error = `${verification.reason} (retry spawn failed: ${err})`;
+              task.outcome = { status: "error", message: task.error, durationMs };
+              store.totalFailed++;
+            }
+            await saveTasks();
+            continue;
+          }
+
+          // No retry available: mark as failed
+          task.status = "failed";
+          task.error = verification.reason || "output verification failed";
+          task.outcome = { status: "error", message: task.error, durationMs };
+          store.totalFailed++;
+          const isRetryFailure = task.retries > 0;
+          if (isRetryFailure) {
+            task.error = `retry also produced empty output (${verification.reason})`;
+            task.outcome = { status: "error", message: task.error, durationMs };
+          }
+          alerts.push(`Task FAILED: "${task.description}" — ${task.error}`);
+          logError("supervisor", `Output verification failed permanently for ${task.id}: ${task.error}`);
+          completedTasks.push({
+            id: task.id,
+            description: task.description,
+            outputFile: task.outputFile,
+            outputPreview,
+            taskType: task.taskType,
+            status: "failed",
+            error: task.error,
+          });
+          emitTaskEvent("task:failed", task);
+          fireHooks("task-complete", { task }).catch(() => {});
+          await saveTasks();
+          await onTaskFinished(task.id);
+          continue;
+        }
+
+        // Verification passed (possibly with adjusted status for code tasks)
+        if (verification.adjustedStatus === "completed_with_errors") {
+          task.status = "completed_with_errors";
+          task.error = verification.reason || "output contains error indicators";
+          warn("supervisor", `Task ${task.id} completed with errors: ${verification.reason}`);
+        }
+
+        store.totalCompleted++;
+        alerts.push(`Task completed: "${task.description}" — output at ${task.outputFile}`);
+        info("supervisor", `Task auto-completed via output file: ${task.id} (${Math.round(durationMs / 1000)}s)${task.status === "completed_with_errors" ? " [with errors]" : ""}`);
         completedTasks.push({
           id: task.id,
           description: task.description,
           outputFile: task.outputFile,
           outputPreview,
           taskType: task.taskType,
-          status: "completed",
+          status: task.status === "completed_with_errors" ? "completed_with_errors" : "completed",
+          error: task.error,
         });
         // Event-driven delivery (immediate)
         emitTaskEvent("task:completed", task);
+        fireHooks("task-complete", { task }).catch(() => {});
+        // Persist immediately so state survives before next tick
+        await saveTasks();
         // Notify queue + swarm
         await onTaskFinished(task.id);
         continue;
@@ -691,14 +1247,21 @@ export async function checkTasks(): Promise<{
         // Can retry
         task.retries++;
         task.startedAt = new Date().toISOString();
+        // Reset stalling state so retry gets a clean slate
+        task.stallCount = 0;
+        task.lastOutputSample = null;
+        (task as any)._stallStartMs = undefined;
         alerts.push(
           `Task "${task.description}" timed out after ${Math.round(elapsed / 60000)}m. ` +
           `Retry ${task.retries}/${task.maxRetries}.`
         );
         warn("supervisor", `Task timed out, retrying: ${task.id} (attempt ${task.retries})`);
 
-        // Respawn subagent if we have the prompt
+        // Respawn subagent if we have the prompt (with backoff delay)
         if (task.prompt && task.outputFile) {
+          const retryDelayMs = Math.min(5000 * Math.pow(2, task.retries - 1), 60_000);
+          info("supervisor", `Waiting ${retryDelayMs}ms before timeout retry for ${task.id}`);
+          await new Promise((r) => setTimeout(r, retryDelayMs));
           try {
             await spawnSubagent({
               taskId: task.id,
@@ -737,6 +1300,9 @@ export async function checkTasks(): Promise<{
         logError("supervisor", `Task timed out permanently: ${task.id} — ${task.description}`);
         // Event-driven delivery (immediate)
         emitTaskEvent("task:timeout", task);
+        fireHooks("task-complete", { task }).catch(() => {});
+        // Persist immediately so state survives before next tick
+        await saveTasks();
         completedTasks.push({
           id: task.id,
           description: task.description,
@@ -744,6 +1310,7 @@ export async function checkTasks(): Promise<{
           outputPreview: "",
           taskType: task.taskType,
           status: "timeout",
+          error: task.error,
         });
       }
     }
@@ -760,7 +1327,7 @@ export async function checkTasks(): Promise<{
         task.error = `Stale task expired (no PID, ${Math.round(elapsed / 60000)}m old)`;
         task.outcome = { status: "error", message: task.error, durationMs: elapsed };
         store.totalFailed++;
-        alerts.push(`Stale task expired: "${task.description}"`);
+        alerts.push(`Stale task expired: "${task.description}" — ${task.error || "no PID, no output"}`);
         warn("supervisor", `Expired stale task ${task.id} (no PID for ${Math.round(elapsed / 60000)}m)`);
       }
     }
@@ -770,7 +1337,7 @@ export async function checkTasks(): Promise<{
   const cutoff = now - 24 * 60 * 60 * 1000;
   const toArchive = store.tasks.filter(
     (t) =>
-      (t.status === "completed" || t.status === "failed" || t.status === "timeout") &&
+      isTerminalStatus(t.status) &&
       t.completedAt &&
       new Date(t.completedAt).getTime() < cutoff
   );
@@ -782,9 +1349,22 @@ export async function checkTasks(): Promise<{
     info("supervisor", `Archived ${toArchive.length} old tasks`);
   }
 
+  // Clean up stale git worktrees (>3h, auto-expired), but protect running tasks
+  try {
+    const runningTaskIds = new Set(
+      store.tasks.filter(t => t.status === "running").map(t => t.id)
+    );
+    const staleCleanedCount = await cleanupStaleWorktrees(runningTaskIds);
+    if (staleCleanedCount > 0) {
+      alerts.push(`Cleaned up ${staleCleanedCount} stale worktree(s)`);
+    }
+  } catch (err) {
+    warn("supervisor", `Worktree cleanup failed: ${err}`);
+  }
+
   // Collect unannounced completed tasks for delivery retry (OpenClaw announce pattern)
   const unannouncedTasks = store.tasks.filter(
-    (t) => (t.status === "completed" || t.status === "failed" || t.status === "timeout") && !t.announced
+    (t) => isTerminalStatus(t.status) && !t.announced
   );
 
   store.lastCheckAt = new Date().toISOString();
@@ -799,7 +1379,7 @@ export async function checkTasks(): Promise<{
  */
 export function getUnannouncedTasks(): SupervisedTask[] {
   return store.tasks.filter(
-    (t) => (t.status === "completed" || t.status === "failed" || t.status === "timeout") && !t.announced
+    (t) => isTerminalStatus(t.status) && !t.announced
   );
 }
 
@@ -839,9 +1419,13 @@ export async function incrementAnnounceRetry(taskId: string): Promise<void> {
  */
 export function getTaskContext(): string {
   const running = store.tasks.filter((t) => t.status === "running");
-  const recent = store.tasks
-    .filter((t) => t.status === "completed" || t.status === "failed" || t.status === "timeout")
-    .slice(-5);
+  // Show completed tasks from last 24h OR last 5, whichever is more.
+  // Prevents task completions from falling off before Claude sees them.
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const allFinished = store.tasks.filter((t) => isTerminalStatus(t.status));
+  const last24h = allFinished.filter((t) => t.completedAt && new Date(t.completedAt).getTime() > oneDayAgo);
+  const lastFive = allFinished.slice(-5);
+  const recent = last24h.length > lastFive.length ? last24h : lastFive;
 
   if (running.length === 0 && recent.length === 0) {
     return "SUPERVISED TASKS: None active or recent.";
@@ -861,10 +1445,19 @@ export function getTaskContext(): string {
         const progress = t.toolCallCount ? `${t.toolCallCount} tools used` : "starting";
         const cost = t.costUsd ? `, $${t.costUsd.toFixed(2)}` : "";
         const doing = t.lastToolName ? ` (${t.lastToolName}${t.lastFileTouched ? ` on ${t.lastFileTouched.split(/[/\\]/).pop()}` : ""})` : "";
-        context += `  - Coding: "${t.description}" — ${progress}${doing}, ${elapsed}m/${timeout}m${cost}\n`;
+        context += `  - Coding [${t.id}]: "${t.description}" — ${progress}${doing}, ${elapsed}m/${timeout}m${cost}\n`;
+      } else if (t.taskType === "ingest") {
+        const progress = t.toolCallCount ? `${t.toolCallCount} files processed` : "starting";
+        const doing = t.lastToolName ? ` (${t.lastToolName})` : "";
+        context += `  - Ingesting [${t.id}]: "${t.description}" — ${progress}${doing}, ${elapsed}m/${timeout}m\n`;
       } else {
         const retryNote = t.retries > 0 ? ` (retry ${t.retries}/${t.maxRetries})` : "";
-        context += `  - Researching: "${t.description}" — ${elapsed}m/${timeout}m${retryNote}\n`;
+        context += `  - Researching [${t.id}]: "${t.description}" — ${elapsed}m/${timeout}m${retryNote}\n`;
+      }
+      // Conductor: show original instructions so Claude can reason about follow-ups
+      if (t.prompt) {
+        const instrPreview = t.prompt.substring(0, 200).replace(/\n/g, " ");
+        context += `    Instructions: "${instrPreview}${t.prompt.length > 200 ? "..." : ""}"\n`;
       }
     }
   }
@@ -886,7 +1479,7 @@ export function getTaskContext(): string {
         }
       } else {
         // Legacy tasks without outcome
-        const icon = t.status === "completed" ? "Done" : t.status === "failed" ? "Failed" : "Timed out";
+        const icon = t.status === "completed" ? "Done" : t.status === "completed_with_errors" ? "Done (with errors)" : t.status === "stalled" ? "Stalled" : t.status === "failed" ? "Failed" : "Timed out";
         context += `  - ${icon}: "${t.description}"`;
         if (t.result) context += ` — ${t.result.substring(0, 100)}`;
         if (t.error) context += ` — ${t.error.substring(0, 100)}`;
@@ -904,25 +1497,31 @@ export function getTaskContext(): string {
  * Leads with what was accomplished, not internal status codes.
  */
 export function formatTaskResult(task: SupervisedTask): string {
+  const desc = task.description || `Task ${task.id || "unknown"}`;
+
   if (!task.outcome) {
     // Legacy fallback
-    if (task.status === "completed") return `Task done: ${task.description}. ${task.result || ""}`.trim();
-    if (task.status === "failed") return `Task failed: ${task.description}. ${task.error || ""}`.trim();
-    return `Task ${task.status}: ${task.description}`;
+    if (task.status === "completed") return `Task done: ${desc}. ${task.result || ""}`.trim();
+    if (task.status === "completed_with_errors") return `Task done (with errors): ${desc}. ${task.error || ""}`.trim();
+    if (task.status === "stalled") return `Task stalled: ${desc}. ${task.error || ""}`.trim();
+    if (task.status === "failed") return `Task failed: ${desc}. ${task.error || ""}`.trim();
+    return `Task ${task.status}: ${desc}`;
   }
 
-  const dur = Math.round(task.outcome.durationMs / 1000);
+  const dur = Math.round((task.outcome.durationMs ?? 0) / 1000);
   const durStr = dur > 60 ? `${Math.round(dur / 60)}m` : `${dur}s`;
 
   switch (task.outcome.status) {
     case "ok": {
       const where = task.outputFile ? ` Output: ${task.outputFile}` : "";
-      return `${task.description} completed in ${durStr}.${where}`;
+      return `${desc} completed in ${durStr}.${where}`;
     }
     case "error":
-      return `${task.description} failed after ${durStr}: ${task.outcome.message}`;
+      return `${desc} failed after ${durStr}: ${task.outcome.message || "unknown error"}`;
     case "timeout":
-      return `${task.description} timed out after ${durStr}. ${task.retries > 0 ? `Tried ${task.retries + 1} times.` : ""}`.trim();
+      return `${desc} timed out after ${durStr}. ${task.retries > 0 ? `Tried ${task.retries + 1} times.` : ""}`.trim();
+    default:
+      return `${desc}: ${task.outcome.status || "unknown status"}`;
   }
 }
 
@@ -957,6 +1556,15 @@ export function getRunningTasks(): SupervisedTask[] {
  */
 export function getTask(taskId: string): SupervisedTask | null {
   return store.tasks.find(t => t.id === taskId) || null;
+}
+
+/** Get and clear pending amendment queries for a task (consumed on completion). */
+export function consumePendingAmendments(taskId: string): string[] {
+  const task = store.tasks.find(t => t.id === taskId);
+  if (!task || !task._pendingAmendments?.length) return [];
+  const amendments = [...task._pendingAmendments];
+  task._pendingAmendments = [];
+  return amendments;
 }
 
 /**
@@ -1083,19 +1691,126 @@ export function registerSwarmCompletionCallback(
 }
 
 /**
+ * Check dependency status for a task.
+ * Returns "ready" if all deps completed, "blocked" if some still pending/running,
+ * or "failed" if any dep failed/timed out.
+ */
+function checkDependencies(depIds: string[]): {
+  status: "ready" | "blocked" | "failed";
+  waitingOn: string[];
+  failedDeps: string[];
+} {
+  const waitingOn: string[] = [];
+  const failedDeps: string[] = [];
+
+  for (const depId of depIds) {
+    const dep = store.tasks.find(t => t.id === depId);
+    if (!dep) {
+      failedDeps.push(depId); // unknown dep = treat as failed
+      continue;
+    }
+    if (dep.status === "completed" || dep.status === "completed_with_errors") {
+      continue; // dep satisfied
+    }
+    if (dep.status === "failed" || dep.status === "timeout" || dep.status === "stalled") {
+      failedDeps.push(depId);
+    } else {
+      waitingOn.push(depId); // still pending or running
+    }
+  }
+
+  if (failedDeps.length > 0) return { status: "failed", waitingOn, failedDeps };
+  if (waitingOn.length > 0) return { status: "blocked", waitingOn, failedDeps };
+  return { status: "ready", waitingOn, failedDeps };
+}
+
+/**
+ * Check if any pending tasks with dependencies are now unblocked.
+ * Called when a task completes or fails to cascade immediately.
+ */
+async function dispatchUnblockedTasks(): Promise<void> {
+  const pendingWithDeps = store.tasks.filter(
+    t => t.status === "pending" && t.dependsOn?.length
+  );
+
+  for (const task of pendingWithDeps) {
+    const depCheck = checkDependencies(task.dependsOn!);
+
+    if (depCheck.status === "failed") {
+      // Cascade failure
+      task.status = "failed";
+      task.error = `Dependency failed: ${depCheck.failedDeps.join(", ")}`;
+      task.completedAt = new Date().toISOString();
+      store.totalFailed++;
+      emitTaskEvent("task:failed", task);
+      fireHooks("task-complete", { task }).catch(() => {});
+      warn("supervisor", `Task ${task.id} cascade-failed (dep failure)`);
+    } else if (depCheck.status === "ready") {
+      // All deps met, spawn the task
+      info("supervisor", `Task ${task.id} unblocked, spawning...`);
+      task.status = "running";
+      task.startedAt = new Date().toISOString();
+
+      if (task.prompt && task.outputFile) {
+        const running = getRunningSubagentCount();
+        if (running < MAX_CONCURRENT_SUBAGENTS) {
+          try {
+            await spawnSubagent({
+              taskId: task.id,
+              prompt: task.prompt,
+              outputFile: task.outputFile,
+              model: task.model,
+            });
+          } catch (err) {
+            task.error = `Spawn failed: ${err}`;
+            task.status = "failed";
+            store.totalFailed++;
+          }
+        } else {
+          // Queue it
+          task.status = "pending";
+          await enqueue({
+            id: task.id,
+            priority: TaskPriority.NORMAL,
+            enqueuedAt: new Date().toISOString(),
+            ttl: DEFAULT_TTL_MS,
+            taskType: task.taskType,
+            description: task.description,
+            prompt: task.prompt,
+            outputFile: task.outputFile,
+            cwd: task.cwd,
+            model: task.model,
+            timeoutMs: task.timeoutMs,
+            maxRetries: task.maxRetries,
+            requestedBy: task.requestedBy,
+            swarmId: task._swarmId || null,
+            dagNodeId: task._dagNodeId || null,
+          });
+        }
+      }
+    }
+    // "blocked" = still waiting, do nothing
+  }
+
+  await saveTasks();
+}
+
+/**
  * Called internally when any task completes (research or code).
  * Triggers queue dispatch to fill the freed slot.
  * If the task is part of a swarm, notifies the orchestrator.
+ * Checks for unblocked dependent tasks.
  */
 async function onTaskFinished(taskId: string): Promise<void> {
   // Try to fill the freed slot
   await tryDispatch();
 
+  // Check if any pending tasks with dependencies are now unblocked
+  await dispatchUnblockedTasks();
+
   // Check if this task was part of a swarm
   const task = store.tasks.find(t => t.id === taskId);
   if (task && swarmCompletionCallback) {
-    // Look for swarm metadata. We store it on the QueuedTask, but we need
-    // to find it. Check if the task has swarm fields (added via registerTask opts).
     const swarmId = (task as any)._swarmId;
     const dagNodeId = (task as any)._dagNodeId;
     if (swarmId && dagNodeId) {
@@ -1113,14 +1828,34 @@ async function onTaskFinished(taskId: string): Promise<void> {
 // Partial format: [TASK: description | PROMPT: instructions] (auto-generates output file)
 // All formats supported. Fields parsed by lookahead, not greedy pipe splitting.
 
-// Match the outer [TASK: ...] bracket, then parse fields inside.
-// Uses [^\]] to avoid premature close on nested brackets, with /s for multiline.
-const TASK_OUTER_REGEX = /\[TASK:\s*([\s\S]+?)\](?!\()/g;
-const CODE_TASK_OUTER_REGEX = /\[CODE_TASK:\s*([\s\S]+?)\](?!\()/g;
+// Match the outer [TAG: ...] bracket, then parse fields inside.
+// Uses alternation (non-bracket chars | balanced bracket pairs) to handle
+// one level of nested brackets in PROMPT content (e.g. "array[0]", "[this]").
+const TASK_OUTER_REGEX = /\[TASK:\s*((?:[^\[\]]|\[[^\]]*\])*)\](?!\()/g;
+const CODE_TASK_OUTER_REGEX = /\[CODE_TASK:\s*((?:[^\[\]]|\[[^\]]*\])*)\](?!\()/g;
+const INGEST_FOLDER_OUTER_REGEX = /\[INGEST_FOLDER:\s*((?:[^\[\]]|\[[^\]]*\])*)\](?!\()/g;
+const TASK_AMEND_OUTER_REGEX = /\[TASK_AMEND:\s*((?:[^\[\]]|\[[^\]]*\])*)\](?!\()/g;
+const TASK_CANCEL_OUTER_REGEX = /\[TASK_CANCEL:\s*((?:[^\[\]]|\[[^\]]*\])*)\](?!\()/g;
+
+/**
+ * Structural validators for agent-spawning tags.
+ * These run AFTER regex extraction but BEFORE spawning to reject conversational
+ * bullet points that accidentally match tag syntax. A valid tag must contain
+ * pipe-delimited fields with the required keywords.
+ *
+ * Example of what gets rejected: "[TASK: check the logs]" (no pipe, no PROMPT:)
+ * Example of what passes: "[TASK: desc | OUTPUT: file.md | PROMPT: do research]"
+ */
+const TASK_REQUIRED_FIELDS = /\|\s*(?:PROMPT|OUTPUT)\s*:/i;
+const CODE_TASK_REQUIRED_FIELDS = /^cwd\s*=/i;
+const CODE_TASK_PROMPT_FIELD = /\|\s*PROMPT\s*:/i;
+const INGEST_REQUIRED_FIELDS = /^path\s*=/i;
+const TASK_AMEND_REQUIRED_FIELDS = /\|\s*INSTRUCTIONS\s*:/i;
+const TASK_CANCEL_REQUIRED_FIELDS = /\|\s*REASON\s*:/i;
 
 // Fallback detection: phrases that suggest Claude intended to delegate but didn't emit a tag.
 const TASK_INTENT_HINTS = [
-  /(?:research|task|agent)\s+(?:is\s+)?(?:running|started|kicked off|spawned|delegated)/i,
+  /(?:research\s+(?:task|agent)?|background\s+task)\s+(?:is\s+)?(?:running|started|kicked off|spawned|delegated)/i,
   /(?:I'll|I will)\s+(?:spin up|spawn|kick off|delegate|start)\s+(?:a\s+)?(?:research|background|sub-?\s*agent)/i,
   /(?:spinning up|kicking off|spawning)\s+(?:a\s+)?(?:research|background|sub-?\s*agent)/i,
 ];
@@ -1169,15 +1904,33 @@ function parseTaskFields(raw: string): { description: string; outputFile: string
 export async function processTaskIntents(response: string): Promise<string> {
   let processed = response;
   const matches: { fullMatch: string; description: string; outputFile: string; prompt: string }[] = [];
+  const rejectedTags: string[] = [];
+  const seen = new Set<string>();
 
   let match;
-  while ((match = TASK_OUTER_REGEX.exec(response)) !== null) {
-    const fields = parseTaskFields(match[1]);
-    if (fields.description) {
-      matches.push({ fullMatch: match[0], ...fields });
+  try {
+    while ((match = TASK_OUTER_REGEX.exec(response)) !== null) {
+      const rawContent = match[1];
+      // Structural validation: require pipe-delimited PROMPT: or OUTPUT: field
+      if (!TASK_REQUIRED_FIELDS.test(rawContent)) {
+        warn("supervisor", `Rejected [TASK:] tag without required fields (PROMPT: or OUTPUT:): "${rawContent.substring(0, 100)}"`);
+        rejectedTags.push(rawContent.substring(0, 80));
+        continue;
+      }
+      const fields = parseTaskFields(rawContent);
+      if (fields.description) {
+        const key = fields.prompt.substring(0, 80);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({ fullMatch: match[0], ...fields });
+        } else {
+          warn("supervisor", `Duplicate [TASK:] tag skipped: "${key}"`);
+        }
+      }
     }
+  } finally {
+    TASK_OUTER_REGEX.lastIndex = 0;
   }
-  TASK_OUTER_REGEX.lastIndex = 0;
 
   // Spawn tasks
   for (const m of matches) {
@@ -1186,8 +1939,8 @@ export async function processTaskIntents(response: string): Promise<string> {
         description: m.description,
         outputFile: m.outputFile,
         prompt: m.prompt,
-        model: "sonnet",
-        timeoutMs: 10 * 60 * 1000,
+        model: RESEARCH_DEFAULT_MODEL,
+        timeoutMs: 20 * 60 * 1000, // 20 min for research tasks
         maxRetries: 1,
       });
       processed = processed.replace(
@@ -1201,12 +1954,24 @@ export async function processTaskIntents(response: string): Promise<string> {
     }
   }
 
-  // Fallback: detect task-like language without a matching tag
+  // Fallback: detect task-like language without a matching tag.
+  // Skip if CODE_TASK tags are present -- "agent is running" language refers to the code agent.
   if (matches.length === 0) {
-    for (const hint of TASK_INTENT_HINTS) {
-      if (hint.test(response)) {
-        warn("supervisor", `Task intent language detected but no [TASK:] tag found in response: "${response.substring(0, 200)}"`);
-        break;
+    CODE_TASK_OUTER_REGEX.lastIndex = 0;
+    const hasCodeTask = CODE_TASK_OUTER_REGEX.test(response);
+    CODE_TASK_OUTER_REGEX.lastIndex = 0;
+
+    if (!hasCodeTask) {
+      for (const hint of TASK_INTENT_HINTS) {
+        if (hint.test(processed)) {
+          warn("supervisor", `Phantom research dispatch: task language detected but no [TASK:] tag found: "${processed.substring(0, 200)}"`);
+          let warning = "\n\n\u26A0\uFE0F I mentioned delegating research but no [TASK:] tags were emitted. The research did NOT actually start. Please re-request so I can emit proper [TASK:] tags.";
+          if (rejectedTags.length > 0) {
+            warning += `\n(Rejected tags: ${rejectedTags.map(t => `"${t}"`).join(", ")}. Required format: [TASK: description | PROMPT: instructions])`;
+          }
+          processed += warning;
+          break;
+        }
       }
     }
   }
@@ -1248,14 +2013,44 @@ export interface CodeAgentOptions {
   budgetUsd?: number;
   onProgress?: (update: CodeAgentProgress) => void;
   onComplete?: (result: CodeAgentResult) => void;
+  // Supervisor system options
+  /** Disable context injection for this task */
+  skipContextInjection?: boolean;
+  /** Disable pattern detection for this task */
+  skipPatternDetect?: boolean;
+  /** Disable shadow evaluation for this task */
+  skipShadowEval?: boolean;
+  /** Checkpoint spec for phase tracking */
+  checkpoints?: string;
+  /** Callback when intervention is triggered */
+  onIntervention?: (pattern: DetectedPattern | EvaluationResult, action: string) => void;
+  /** This is a restart of a previous task (provides context) */
+  isRestart?: boolean;
+  /** Previous attempt summary for restart context */
+  previousAttemptSummary?: string;
+  /** Patterns to avoid from previous attempt */
+  avoidPatterns?: string[];
+  /** Conversation context for the agent */
+  conversationContext?: string;
+  /** Nesting depth (cascade prevention) */
+  depth?: number;
 }
 
-function wrapCodePrompt(userPrompt: string): string {
+/**
+ * Build the base prompt wrapper for code agents.
+ * Context injection is handled separately by wrapCodePromptWithContext().
+ */
+function wrapCodePromptBase(userPrompt: string, depth = 0): string {
+  const depthRule = depth >= SUBAGENT_MAX_DEPTH - 1
+    ? "DEPTH LIMIT: You are at maximum nesting depth. Do NOT use the Task tool to spawn subagents. Complete all work yourself."
+    : "You can use the Task tool to spawn subagents (subagent_type='Bash', 'Explore', 'general-purpose', 'Plan') for parallel work when it would speed things up. Do NOT spawn more than 3 subagents.";
+
   return [
     "You are a code agent. Complete the following coding task autonomously.",
     "Work directly on the project files in your working directory.",
     "Read files, make edits, run tests/builds as needed. Iterate until done.",
     "When finished, your final message should summarize what you changed.",
+    depthRule,
     "",
     "SECURITY RULES:",
     "- Never use shell interpolation ($(...), `...`, ${...}) in Bash commands",
@@ -1268,6 +2063,111 @@ function wrapCodePrompt(userPrompt: string): string {
     "TASK:",
     userPrompt,
   ].join("\n");
+}
+
+/**
+ * Legacy wrapper for backward compatibility.
+ */
+function wrapCodePrompt(userPrompt: string, depth = 0): string {
+  return wrapCodePromptBase(userPrompt, depth);
+}
+
+/**
+ * Build code agent prompt with rich context injection.
+ * Assembles CLAUDE.md, SOUL.md, USER.md excerpts and task-specific memory.
+ */
+async function wrapCodePromptWithContext(opts: {
+  prompt: string;
+  cwd: string;
+  isRestart?: boolean;
+  previousAttemptSummary?: string;
+  avoidPatterns?: string[];
+  toolHistory?: string[];
+  conversationContext?: string;
+  depth?: number;
+}): Promise<string> {
+  try {
+    let contextBundle;
+
+    if (opts.isRestart && opts.previousAttemptSummary) {
+      // Build restart context with failure information
+      contextBundle = await buildRestartContext({
+        originalPrompt: opts.prompt,
+        failureReason: opts.previousAttemptSummary,
+        attemptSummary: opts.previousAttemptSummary,
+        toolHistory: opts.toolHistory,
+        avoidPatterns: opts.avoidPatterns,
+        cwd: opts.cwd,
+      });
+    } else {
+      // Build fresh context with conversation history
+      contextBundle = await buildCodeAgentContext({
+        prompt: opts.prompt,
+        cwd: opts.cwd,
+        additionalContext: opts.conversationContext
+          ? "# Recent Conversation Context\nRecent messages between Derek and Atlas for task context:\n\n" + opts.conversationContext
+          : undefined,
+      });
+
+      // Check for learned patterns
+      if (SUPERVISOR_LEARNING) {
+        const similarPatterns = await findSimilarPatterns(opts.prompt);
+        const guidance = buildPatternGuidance(similarPatterns);
+        if (guidance) {
+          contextBundle.context += "\n\n" + guidance;
+        }
+      }
+    }
+
+    info("supervisor", `Context injection: ${contextBundle.estimatedTokens} tokens from [${contextBundle.sources.join(", ")}]`);
+
+    // Combine context with base prompt
+    const basePrompt = wrapCodePromptBase(opts.prompt, opts.depth ?? 0);
+    return contextBundle.context + "\n\n---\n\n" + basePrompt;
+  } catch (err) {
+    warn("supervisor", `Context injection failed, using base prompt: ${err}`);
+    return wrapCodePromptBase(opts.prompt);
+  }
+}
+
+/**
+ * Describe what a code agent is doing in human-readable terms.
+ * Inspired by "What Are You Doing?" (2026) research on intermediate
+ * feedback from agentic LLM assistants during multi-step processing.
+ * Users respond better to descriptive phase labels than raw tool names.
+ */
+function describeAgentActivity(toolName: string, toolCallCount: number, lastFile?: string): string {
+  const fileName = lastFile?.split(/[/\\]/).pop() || "";
+
+  // Phase detection based on tool patterns
+  if (toolCallCount <= 3) {
+    if (toolName === "Glob" || toolName === "Grep" || toolName === "Read") {
+      return "Exploring the codebase";
+    }
+    return "Getting oriented";
+  }
+
+  // Tool-specific descriptions
+  switch (toolName) {
+    case "Read":
+      return fileName ? `Reading ${fileName}` : "Reading files";
+    case "Glob":
+    case "Grep":
+      return "Searching for relevant code";
+    case "Edit":
+      return fileName ? `Editing ${fileName}` : "Making changes";
+    case "Write":
+      return fileName ? `Writing ${fileName}` : "Creating files";
+    case "Bash":
+      return "Running a command";
+    case "Task":
+      return "Delegating to a subagent";
+    case "WebSearch":
+    case "WebFetch":
+      return "Researching online";
+    default:
+      return toolName || "Working";
+  }
 }
 
 /**
@@ -1293,9 +2193,17 @@ function extractFilePath(toolName: string, toolInput?: Record<string, any>): str
   return undefined;
 }
 
+/** Output directory for code agent streams */
+const CODE_AGENT_OUTPUT_DIR = join(DATA_DIR, "code-agent-output");
+
 /**
  * Spawn a code agent that runs Claude Code autonomously in a target project directory.
- * Unlike spawnSubagent(), this streams output, tracks progress, and reports back.
+ *
+ * FIRE-AND-FORGET ARCHITECTURE:
+ * - Spawns the process and returns immediately (non-blocking)
+ * - Writes output to data/code-agent-output/{taskId}.jsonl
+ * - Supervisor worker (cron) handles monitoring, pattern detection, intervention
+ * - Relay stays responsive for conversation while code work runs in background
  */
 export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
   const running = getRunningSubagentCount();
@@ -1307,11 +2215,22 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
 
   const modelTier = opts.model || CODE_AGENT_DEFAULT_MODEL;
   const modelId = MODELS[modelTier];
-  const maxToolCalls = opts.maxToolCalls ?? CODE_AGENT_MAX_TOOL_CALLS;
-  const wallClockMs = opts.wallClockMs ?? CODE_AGENT_WALL_CLOCK_MS;
-  const inactivityMs = opts.inactivityMs ?? CODE_AGENT_INACTIVITY_MS;
-  const budgetUsd = opts.budgetUsd ?? CODE_AGENT_MAX_BUDGET_USD;
-  const wrappedPrompt = wrapCodePrompt(opts.prompt);
+
+  // === SUPERVISOR: Context Injection ===
+  let wrappedPrompt: string;
+  if (SUPERVISOR_ENABLED && SUPERVISOR_CONTEXT_INJECTION && !opts.skipContextInjection) {
+    wrappedPrompt = await wrapCodePromptWithContext({
+      prompt: opts.prompt,
+      cwd: opts.cwd,
+      isRestart: opts.isRestart,
+      previousAttemptSummary: opts.previousAttemptSummary,
+      avoidPatterns: opts.avoidPatterns,
+      conversationContext: opts.conversationContext,
+      depth: opts.depth ?? 0,
+    });
+  } else {
+    wrappedPrompt = wrapCodePrompt(opts.prompt, opts.depth ?? 0);
+  }
 
   const args = [
     CLAUDE_PATH,
@@ -1322,7 +2241,36 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
     "--dangerously-skip-permissions",
   ];
 
-  info("supervisor", `[code-agent] Spawning for ${opts.taskId} (${modelTier}) in ${opts.cwd}: ${opts.prompt.substring(0, 120)}...`);
+  validateSpawnArgs(args);
+
+  // Validate cwd exists and is writable before spawning
+  if (!existsSync(opts.cwd)) {
+    throw new Error(`Code agent cwd does not exist: ${opts.cwd}`);
+  }
+  try {
+    const stat = statSync(opts.cwd);
+    if (!stat.isDirectory()) {
+      throw new Error(`Code agent cwd is not a directory: ${opts.cwd}`);
+    }
+    // Write+delete a probe file to confirm writable
+    const probe = join(opts.cwd, `.atlas-probe-${Date.now()}`);
+    await writeFile(probe, "");
+    unlinkSync(probe);
+  } catch (err: any) {
+    if (err.message?.startsWith("Code agent cwd")) throw err;
+    throw new Error(`Code agent cwd is not writable: ${opts.cwd} (${err.message})`);
+  }
+
+  // Ensure output directory exists
+  if (!existsSync(CODE_AGENT_OUTPUT_DIR)) {
+    await mkdir(CODE_AGENT_OUTPUT_DIR, { recursive: true });
+  }
+
+  // Output file for this task's stream
+  const outputFile = join(CODE_AGENT_OUTPUT_DIR, `${opts.taskId}.jsonl`);
+  const metaFile = join(CODE_AGENT_OUTPUT_DIR, `${opts.taskId}.meta.json`);
+
+  info("supervisor", `[code-agent] Spawning ${opts.taskId} (${modelTier}) -> ${outputFile}`);
 
   const proc = spawn(args, {
     stdin: "pipe",
@@ -1333,218 +2281,147 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
     windowsHide: true,
   });
 
-  // Pipe prompt via stdin (avoids Windows command-line length limits)
+  // Pipe prompt via stdin
   proc.stdin.write(wrappedPrompt);
   proc.stdin.end();
 
   const pid = proc.pid;
 
-  // Update task with PID
+  // Update task with PID and output file location
   const task = store.tasks.find((t) => t.id === opts.taskId);
   if (task) {
     task.pid = pid;
     task.model = modelTier;
+    if (opts.checkpoints) task.checkpoints = opts.checkpoints;
+    if (opts.isRestart) task.restartCount = (task.restartCount || 0) + 1;
     await saveTasks();
   }
 
-  info("supervisor", `[code-agent] Spawned PID=${pid} model=${modelTier}`);
+  // Write metadata for supervisor worker
+  const meta = {
+    taskId: opts.taskId,
+    pid,
+    model: modelTier,
+    cwd: opts.cwd,
+    prompt: opts.prompt,
+    startedAt: new Date().toISOString(),
+    maxToolCalls: opts.maxToolCalls ?? CODE_AGENT_MAX_TOOL_CALLS,
+    wallClockMs: opts.wallClockMs ?? CODE_AGENT_WALL_CLOCK_MS,
+    inactivityMs: opts.inactivityMs ?? CODE_AGENT_INACTIVITY_MS,
+    budgetUsd: opts.budgetUsd ?? CODE_AGENT_MAX_BUDGET_USD,
+    checkpoints: opts.checkpoints || null,
+  };
+  await writeFile(metaFile, JSON.stringify(meta, null, 2));
 
-  // Run the streaming monitor in background (fire-and-forget from caller's perspective)
-  (async () => {
-    const startTime = Date.now();
-    let lastActivityAt = Date.now();
-    let lastProgressAt = 0;
-    let toolCallCount = 0;
-    let accCostUsd = 0;
-    let resultText = "";
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let gotResult = false;
-    let isError = false;
-    let exitReason: CodeAgentResult["exitReason"] = "completed";
-    let killed = false;
-    let lastFile: string | undefined;
+  info("supervisor", `[code-agent] Spawned PID=${pid} model=${modelTier} (fire-and-forget)`);
 
-    const parser = createStreamParser((event) => {
-      lastActivityAt = Date.now();
+  // === FIRE-AND-FORGET: Stream to file, don't block relay ===
+  // This runs detached - relay returns immediately
+  streamToFile(proc, outputFile, opts.taskId, task).catch((err) => {
+    warn("supervisor", `[code-agent] ${opts.taskId} stream error: ${err}`);
+  });
 
-      switch (event.type) {
-        case "assistant":
-          toolCallCount++;
-          const filePath = extractFilePath(event.toolName || "", event.toolInput);
-          if (filePath) lastFile = filePath;
+  // Return immediately - supervisor worker will handle the rest
+}
 
-          // Update task state
-          if (task) {
-            task.toolCallCount = toolCallCount;
-            task.lastToolName = event.toolName || null;
-            if (filePath) task.lastFileTouched = filePath;
-          }
+/**
+ * Stream code agent output to a file (non-blocking).
+ * Runs in the background, doesn't block the relay.
+ * Supervisor worker reads these files to monitor progress.
+ */
+async function streamToFile(
+  proc: ReturnType<typeof spawn>,
+  outputFile: string,
+  taskId: string,
+  task: SupervisedTask | undefined
+): Promise<void> {
+  const { createWriteStream } = await import("fs");
+  const fileStream = createWriteStream(outputFile, { flags: "a" });
 
-          // Tool call limit
-          if (toolCallCount > maxToolCalls && !killed) {
-            warn("supervisor", `[code-agent] ${opts.taskId} hit tool limit (${toolCallCount}/${maxToolCalls}). Killing.`);
-            proc.kill();
-            killed = true;
-            exitReason = "tool_limit";
-          }
+  const reader = proc.stdout.getReader();
+  const decoder = new TextDecoder();
 
-          // Progress callback (throttled)
-          {
-            const now = Date.now();
-            if (now - lastProgressAt >= CODE_AGENT_PROGRESS_INTERVAL_MS && opts.onProgress) {
-              opts.onProgress({
-                toolName: event.toolName || "working",
-                toolCallCount,
-                elapsedSec: Math.round((now - startTime) / 1000),
-                lastFile,
-                costUsd: accCostUsd,
-              });
-              lastProgressAt = now;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      fileStream.write(chunk);
+
+      // Quick inline parse to update task tool count (lightweight, doesn't block)
+      try {
+        const lines = chunk.split("\n").filter((l) => l.trim());
+        for (const line of lines) {
+          const parsed = JSON.parse(line);
+          if (parsed.type === "assistant" && parsed.message?.content) {
+            for (const block of parsed.message.content) {
+              if (block.type === "tool_use" && task) {
+                task.toolCallCount = (task.toolCallCount || 0) + 1;
+                task.lastToolName = block.name || null;
+              }
             }
           }
-          break;
-
-        case "result":
-          gotResult = true;
-          resultText = event.resultText || "";
-          isError = !!event.isError;
-          inputTokens = event.inputTokens || 0;
-          outputTokens = event.outputTokens || 0;
-
-          // Calculate cost from tokens
-          const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
-          accCostUsd = (inputTokens * costRates.input + outputTokens * costRates.output) / 1_000_000;
-
-          // Update task cost
-          if (task) task.costUsd = accCostUsd;
-
-          // Budget check
-          if (accCostUsd > budgetUsd && !killed) {
-            warn("supervisor", `[code-agent] ${opts.taskId} exceeded budget ($${accCostUsd.toFixed(2)} > $${budgetUsd}). Killing.`);
-            proc.kill();
-            killed = true;
-            exitReason = "budget";
-          }
-          break;
-      }
-    });
-
-    const reader = proc.stdout.getReader();
-    const decoder = new TextDecoder();
-
-    // Watchdog: check inactivity and wall clock
-    const watchdogInterval = setInterval(() => {
-      if (killed) return;
-      const now = Date.now();
-      const wallElapsed = now - startTime;
-      const idleElapsed = now - lastActivityAt;
-
-      if (wallElapsed > wallClockMs) {
-        warn("supervisor", `[code-agent] ${opts.taskId} wall clock exceeded (${Math.round(wallElapsed / 1000)}s). Killing.`);
-        proc.kill();
-        killed = true;
-        exitReason = "wall_clock";
-      } else if (idleElapsed > inactivityMs) {
-        warn("supervisor", `[code-agent] ${opts.taskId} inactive for ${Math.round(idleElapsed / 1000)}s. Killing.`);
-        proc.kill();
-        killed = true;
-        exitReason = "inactivity";
-      }
-    }, 5000);
-
-    // Read stream
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parser.feed(decoder.decode(value, { stream: true }));
-      }
-      parser.flush();
-    } catch {
-      // Stream error
-    }
-
-    clearInterval(watchdogInterval);
-
-    // Wait for process exit
-    let stderr = "";
-    try {
-      stderr = await new Response(proc.stderr).text();
-      await proc.exited;
-    } catch {
-      // Process already dead
-    }
-
-    const durationMs = Date.now() - startTime;
-
-    // Determine exit reason if not already set by watchdog
-    if (!killed) {
-      const exitCode = proc.exitCode;
-      if (exitCode !== 0 && !gotResult) {
-        exitReason = "error";
-        if (!resultText) resultText = stderr.substring(0, 500) || `Exit code ${exitCode}`;
+        }
+      } catch {
+        // Ignore parse errors for partial lines
       }
     }
+  } catch (err) {
+    fileStream.write(`\n{"type":"stream_error","error":"${String(err)}"}\n`);
+  }
 
-    // Track cost
-    trackClaudeCall(durationMs, {
-      model: modelTier,
-      inputTokens,
-      outputTokens,
-      costUsd: accCostUsd,
-    });
+  // Wait for process exit
+  let stderr = "";
+  try {
+    stderr = await new Response(proc.stderr).text();
+    await proc.exited;
+  } catch {
+    // Process already dead
+  }
 
-    // Update task
-    if (task) {
-      const success = exitReason === "completed" && !isError;
-      task.status = success ? "completed" : "failed";
-      task.completedAt = new Date().toISOString();
-      task.toolCallCount = toolCallCount;
-      task.costUsd = accCostUsd;
-      task.result = resultText.substring(0, 2000) || (success ? "Completed" : `Failed: ${exitReason}`);
-      task.error = success ? null : exitReason;
-      task.pid = null;
-      task.outcome = success
-        ? { status: "ok", summary: task.result, durationMs }
-        : { status: "error", message: task.error || exitReason, durationMs };
-      if (success) {
-        store.totalCompleted++;
-      } else {
-        store.totalFailed++;
-      }
-      await saveTasks();
+  // Write completion marker
+  const exitMarker = {
+    type: "stream_complete",
+    exitCode: proc.exitCode,
+    stderr: stderr.substring(0, 500),
+    completedAt: new Date().toISOString(),
+  };
+  fileStream.write("\n" + JSON.stringify(exitMarker) + "\n");
+  fileStream.end();
 
-      // Event-driven delivery (immediate)
-      emitTaskEvent(success ? "task:completed" : "task:failed", task);
+  // Update task status (will be refined by supervisor worker)
+  if (task) {
+    const success = proc.exitCode === 0;
+    task.status = success ? "completed" : "failed";
+    task.completedAt = new Date().toISOString();
+    task.pid = null;
+    task.error = success ? null : `Exit code ${proc.exitCode}`;
+
+    // Increment store counters (code tasks don't go through completeTask/failTask)
+    if (success) store.totalCompleted++;
+    else store.totalFailed++;
+
+    // Output size limit: cap result text to prevent context bloat on announcements
+    if (task.result && task.result.length > CODE_AGENT_MAX_RESULT_CHARS) {
+      task.result = task.result.substring(0, CODE_AGENT_MAX_RESULT_CHARS) + "\n\n[...truncated, full output in code-agent-output file]";
     }
 
-    info(
-      "supervisor",
-      `[code-agent] ${opts.taskId} finished: ${exitReason} | ${toolCallCount} tools | ${Math.round(durationMs / 1000)}s | $${accCostUsd.toFixed(4)}`
-    );
+    await saveTasks();
 
-    // Invoke completion callback
-    if (opts.onComplete) {
-      opts.onComplete({
-        success: exitReason === "completed" && !isError,
-        resultText: resultText.substring(0, 3000),
-        toolCallCount,
-        durationMs,
-        costUsd: accCostUsd,
-        inputTokens,
-        outputTokens,
-        exitReason,
-      });
-    }
-  })();
+    // NOTE: Do NOT emit task events here. The supervisor worker (checkTasks/completeTask/failTask)
+    // is the single source of truth for event emission. Emitting here caused duplicate Telegram
+    // notifications due to a race between streamToFile and the supervisor worker both firing events.
+  }
+
+  info("supervisor", `[code-agent] ${taskId} stream complete (exit: ${proc.exitCode})`);
 }
 
 /**
  * Register and spawn a code task.
  * Unlike registerTask(), this creates a code-type task with streaming monitoring.
  */
-export async function registerCodeTask(opts: {
+export interface RegisterCodeTaskOptions {
   description: string;
   prompt: string;
   cwd: string;
@@ -1556,7 +2433,38 @@ export async function registerCodeTask(opts: {
   budgetUsd?: number;
   onProgress?: (update: CodeAgentProgress) => void;
   onComplete?: (result: CodeAgentResult) => void;
-}): Promise<string> {
+  // Supervisor system options
+  checkpoints?: string;
+  skipContextInjection?: boolean;
+  skipPatternDetect?: boolean;
+  skipShadowEval?: boolean;
+  onIntervention?: (pattern: DetectedPattern | EvaluationResult, action: string) => void;
+  // Conversation context (recent turns so agent knows what Derek discussed)
+  conversationContext?: string;
+  // Restart tracking
+  isRestart?: boolean;
+  restartOf?: string;
+  previousAttemptSummary?: string;
+  avoidPatterns?: string[];
+  // Depth tracking (cascade prevention)
+  depth?: number;
+}
+
+export async function registerCodeTask(opts: RegisterCodeTaskOptions): Promise<string> {
+  // Depth limit enforcement (cascade prevention)
+  const depth = opts.depth ?? 0;
+  if (depth >= SUBAGENT_MAX_DEPTH) {
+    warn("supervisor", `Rejected code task at depth ${depth} (max ${SUBAGENT_MAX_DEPTH}): ${opts.prompt.substring(0, 80)}`);
+    throw new Error(`Subagent depth limit reached (${depth}/${SUBAGENT_MAX_DEPTH}). Cannot spawn nested subagents.`);
+  }
+
+  // Validate prompt before spawning (safeguard #2)
+  const validation = validateTaskPrompt(opts.prompt);
+  if (!validation.valid) {
+    warn("supervisor", `Rejected code task prompt: ${validation.reason} — "${opts.prompt.substring(0, 100)}"`);
+    throw new Error(`Code task prompt rejected: ${validation.reason}`);
+  }
+
   const task: SupervisedTask = {
     id: generateId(),
     description: opts.description,
@@ -1569,7 +2477,7 @@ export async function registerCodeTask(opts: {
     result: null,
     requestedBy: opts.requestedBy || "Derek",
     retries: 0,
-    maxRetries: 0, // code tasks don't auto-retry via checkTasks
+    maxRetries: 1, // retry once via checkTasks on unexpected death
     lastCheckedAt: null,
     error: null,
     pid: null,
@@ -1586,35 +2494,190 @@ export async function registerCodeTask(opts: {
     lastAnnounceAt: null,
     announced: false,
     agentId: "atlas",
+    depth,
   };
 
   store.tasks.push(task);
   await saveTasks();
   info("supervisor", `Registered code task: ${task.id} — ${task.description} (cwd: ${opts.cwd})`);
 
+  // Acquire a git worktree for isolation (if cwd is a git repo).
+  // Falls back gracefully to the original cwd if worktree creation fails.
+  let agentCwd = opts.cwd;
+  try {
+    const entry = await acquireWorktree(task.id, opts.cwd);
+    agentCwd = entry.worktreePath;
+    task.worktreeBranch = entry.branch;
+    await saveTasks();
+    info("supervisor", `Worktree acquired for ${task.id}: ${entry.worktreePath} (branch: ${entry.branch})`);
+  } catch (err) {
+    // Non-fatal: fall back to running directly in the repo (old behavior)
+    warn("supervisor", `Worktree creation failed for ${task.id}, running in-place: ${err}`);
+  }
+
+  // Wrap onComplete to release the worktree after the agent finishes
+  const originalOnComplete = opts.onComplete;
+  const wrappedOnComplete = async (result: CodeAgentResult) => {
+    // Release worktree: merge back on success, skip merge on failure
+    if (task.worktreeBranch) {
+      try {
+        const mergeResult = await releaseWorktree(task.id, {
+          skipMerge: !result.success,
+        });
+        if (mergeResult.conflictDetails) {
+          // Append conflict report to task result for visibility
+          task.result = [task.result || "", "", "MERGE CONFLICT:", mergeResult.conflictDetails].join("\n").substring(0, 3000);
+          task.error = (task.error || "") + " | merge_conflict";
+          await saveTasks();
+          warn("supervisor", `[code-agent] ${task.id} has merge conflicts: ${mergeResult.summary}`);
+        } else if (mergeResult.success) {
+          info("supervisor", `[code-agent] ${task.id} worktree merged successfully`);
+        }
+      } catch (err) {
+        warn("supervisor", `[code-agent] ${task.id} worktree release failed: ${err}`);
+      }
+    }
+    if (originalOnComplete) originalOnComplete(result);
+  };
+
   try {
     await spawnCodeAgent({
       taskId: task.id,
       prompt: opts.prompt,
-      cwd: opts.cwd,
+      cwd: agentCwd,
       model: opts.model,
       maxToolCalls: opts.maxToolCalls,
       wallClockMs: opts.wallClockMs,
       inactivityMs: opts.inactivityMs,
       budgetUsd: opts.budgetUsd,
       onProgress: opts.onProgress,
-      onComplete: opts.onComplete,
+      onComplete: wrappedOnComplete,
+      // Supervisor system options
+      checkpoints: opts.checkpoints,
+      skipContextInjection: opts.skipContextInjection,
+      skipPatternDetect: opts.skipPatternDetect,
+      skipShadowEval: opts.skipShadowEval,
+      onIntervention: opts.onIntervention,
+      isRestart: opts.isRestart,
+      previousAttemptSummary: opts.previousAttemptSummary,
+      avoidPatterns: opts.avoidPatterns,
+      conversationContext: opts.conversationContext,
+      depth,
     });
   } catch (err) {
+    // Clean up worktree on spawn failure
+    if (task.worktreeBranch) {
+      try { await releaseWorktree(task.id, { skipMerge: true }); } catch {}
+    }
     task.error = `Spawn failed: ${err}`;
     task.status = "failed";
     store.totalFailed++;
     await saveTasks();
+    emitTaskEvent("task:failed", task);
     warn("supervisor", `Failed to spawn code agent for ${task.id}: ${err}`);
     throw err;
   }
 
   return task.id;
+}
+
+/**
+ * Restart a failed code task with enriched context.
+ * Used by the intervention system when pattern detection or shadow evaluation
+ * determines an agent needs to be killed and restarted with better guidance.
+ *
+ * @param failedTaskId - ID of the task that failed
+ * @param reason - Reason for the restart (intervention cause)
+ * @param avoidPatterns - Patterns to explicitly avoid in the retry
+ * @returns New task ID if restart was initiated, null if max restarts exceeded
+ */
+export async function restartCodeTask(
+  failedTaskId: string,
+  reason: string,
+  avoidPatterns?: string[]
+): Promise<string | null> {
+  const failedTask = store.tasks.find((t) => t.id === failedTaskId);
+  if (!failedTask) {
+    warn("supervisor", `Cannot restart task ${failedTaskId}: not found`);
+    return null;
+  }
+
+  // Check restart limit
+  const restartCount = failedTask.restartCount || 0;
+  if (restartCount >= SUPERVISOR_MAX_RESTARTS) {
+    warn("supervisor", `Cannot restart task ${failedTaskId}: max restarts (${SUPERVISOR_MAX_RESTARTS}) exceeded`);
+    return null;
+  }
+
+  // Build summary of previous attempt
+  const attemptSummary = [
+    `Previous attempt failed: ${reason}`,
+    `Tool calls: ${failedTask.toolCallCount}`,
+    `Last tool: ${failedTask.lastToolName || "unknown"}`,
+    `Last file: ${failedTask.lastFileTouched || "unknown"}`,
+    failedTask.detectedPatterns?.length
+      ? `Detected patterns: ${failedTask.detectedPatterns.join(", ")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // Combine passed avoidPatterns with patterns from failed task
+  const allAvoidPatterns = [
+    ...(avoidPatterns || []),
+    ...(failedTask.detectedPatterns || []).map((p) => `Avoid ${p} behavior`),
+  ];
+
+  info("supervisor", `Restarting task ${failedTaskId} (attempt ${restartCount + 1}/${SUPERVISOR_MAX_RESTARTS + 1})`);
+
+  try {
+    const newTaskId = await registerCodeTask({
+      description: `[Retry] ${failedTask.description}`,
+      prompt: failedTask.prompt || "",
+      cwd: failedTask.cwd || "",
+      model: failedTask.model,
+      isRestart: true,
+      restartOf: failedTaskId,
+      previousAttemptSummary: attemptSummary,
+      avoidPatterns: allAvoidPatterns,
+    });
+
+    // Update the new task with restart tracking
+    const newTask = store.tasks.find((t) => t.id === newTaskId);
+    if (newTask) {
+      newTask.restartCount = restartCount + 1;
+      newTask.restartOf = failedTaskId;
+      await saveTasks();
+    }
+
+    info("supervisor", `Restarted task ${failedTaskId} as ${newTaskId}`);
+    return newTaskId;
+  } catch (err) {
+    logError("supervisor", `Failed to restart task ${failedTaskId}: ${err}`);
+    return null;
+  }
+}
+
+/**
+ * Get supervisor statistics for a task.
+ */
+export function getTaskSupervisorStats(taskId: string): {
+  patternDetections: string[];
+  shadowEvaluations: Array<{ toolCall: number; decision: string; scores: string }>;
+  restartCount: number;
+  restartOf: string | null;
+  checkpoints: string | null;
+} | null {
+  const task = store.tasks.find((t) => t.id === taskId);
+  if (!task) return null;
+
+  return {
+    patternDetections: task.detectedPatterns || [],
+    shadowEvaluations: task.shadowEvaluations || [],
+    restartCount: task.restartCount || 0,
+    restartOf: task.restartOf || null,
+    checkpoints: task.checkpoints || null,
+  };
 }
 
 /** Parse CODE_TASK fields using lookahead-based splitting. */
@@ -1649,6 +2712,18 @@ function parseCodeTaskFields(raw: string): { cwd: string; prompt: string; timeou
 }
 
 /**
+ * Parse a CODE_TASK entry from a TodoWrite content string.
+ * Expects: "CODE_TASK: cwd=<dir> | PROMPT: <instructions>" (same fields as text tags).
+ * Returns null if the content is missing required fields.
+ */
+export function parseCodeTaskFromTodoContent(content: string): { cwd: string; prompt: string; timeoutMs?: number } | null {
+  const stripped = content.replace(/^CODE_TASK:\s*/, "");
+  if (!stripped) return null;
+  const fields = parseCodeTaskFields(stripped);
+  return (fields.cwd && fields.prompt) ? fields : null;
+}
+
+/**
  * Extract [CODE_TASK: cwd=<dir> | PROMPT: <instructions>] tags from Claude's response.
  * Spawns a code agent for each match.
  */
@@ -1656,20 +2731,38 @@ export async function processCodeTaskIntents(
   response: string,
   onProgress?: (taskId: string, update: CodeAgentProgress) => void,
   onComplete?: (taskId: string, result: CodeAgentResult) => void,
+  onSpawn?: (taskId: string, description: string) => void,
+  conversationContext?: string,
 ): Promise<string> {
   let processed = response;
   const matches: { fullMatch: string; cwd: string; prompt: string; timeoutMs?: number }[] = [];
+  const seen = new Set<string>();
 
   let match;
-  while ((match = CODE_TASK_OUTER_REGEX.exec(response)) !== null) {
-    const fields = parseCodeTaskFields(match[1]);
-    if (fields.cwd && fields.prompt) {
-      matches.push({ fullMatch: match[0], ...fields });
-    } else {
-      warn("supervisor", `Malformed CODE_TASK tag (missing cwd or prompt): "${match[0].substring(0, 100)}"`);
+  try {
+    while ((match = CODE_TASK_OUTER_REGEX.exec(response)) !== null) {
+      const rawContent = match[1];
+      // Structural validation: require cwd= prefix and pipe-delimited PROMPT: field
+      if (!CODE_TASK_REQUIRED_FIELDS.test(rawContent) || !CODE_TASK_PROMPT_FIELD.test(rawContent)) {
+        warn("supervisor", `Rejected [CODE_TASK:] tag without required fields (cwd= and PROMPT:): "${rawContent.substring(0, 100)}"`);
+        continue;
+      }
+      const fields = parseCodeTaskFields(rawContent);
+      if (fields.cwd && fields.prompt) {
+        const key = fields.prompt.substring(0, 80);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matches.push({ fullMatch: match[0], ...fields });
+        } else {
+          warn("supervisor", `Duplicate [CODE_TASK:] tag skipped: "${key}"`);
+        }
+      } else {
+        warn("supervisor", `Malformed CODE_TASK tag (missing cwd or prompt): "${match[0].substring(0, 100)}"`);
+      }
     }
+  } finally {
+    CODE_TASK_OUTER_REGEX.lastIndex = 0;
   }
-  CODE_TASK_OUTER_REGEX.lastIndex = 0;
 
   for (const m of matches) {
     // Validate CWD exists
@@ -1686,10 +2779,12 @@ export async function processCodeTaskIntents(
         prompt: m.prompt,
         cwd: m.cwd,
         wallClockMs: m.timeoutMs,
+        conversationContext,
         onProgress: onProgress ? (update) => onProgress(resolvedTaskId, update) : undefined,
         onComplete: onComplete ? (result) => onComplete(resolvedTaskId, result) : undefined,
       });
       resolvedTaskId = taskId;
+      onSpawn?.(taskId, m.prompt.substring(0, 80));
       processed = processed.replace(
         m.fullMatch,
         `Code agent spawned: ${m.prompt.substring(0, 80)}... (${taskId})`
@@ -1699,6 +2794,373 @@ export async function processCodeTaskIntents(
       processed = processed.replace(m.fullMatch, `Code task spawn failed: ${err}`);
       warn("supervisor", `Code task intent spawn failed: ${err}`);
     }
+  }
+
+  return processed;
+}
+
+// ============================================================
+// FUZZY CODE TASK EXTRACTION (tertiary fallback)
+// ============================================================
+
+/**
+ * Last-resort extraction when phantom dispatch is detected.
+ * Looks for numbered/bulleted task lists in Claude's response and maps
+ * them to code tasks using the defaultCwd.
+ *
+ * HARDENED: Requires coding-related keywords in item text and a 25+ char
+ * description to prevent conversational bullet points from spawning agents.
+ */
+
+// Keywords that indicate a code-related task (case-insensitive)
+const CODE_TASK_KEYWORDS = /\b(fix|implement|add|update|refactor|create|build|write|patch|wire|integrate|modify|remove|delete|rename|move|extract|install|configure|migrate|upgrade|deprecate|src\/|\.ts\b|\.js\b|\.tsx?\b|\.json\b|function|class|module|import|export|endpoint|route|handler|middleware|component|hook|config|schema|migration|api|cron|webhook)\b/i;
+
+export function fuzzyExtractCodeTasks(
+  response: string,
+  defaultCwd: string,
+): Array<{ cwd: string; prompt: string }> {
+  const tasks: Array<{ cwd: string; prompt: string }> = [];
+  const seen = new Set<string>();
+
+  // Match numbered items like "1. **Offer Architect** -- build X" or "- **Name**: description"
+  const itemPattern = /(?:^|\n)\s*(?:\d+[.)]\s*|[-*]\s+)\*{0,2}([^*\n]+?)\*{0,2}\s*(?:--|—|:)\s*(.+)/g;
+  let m;
+  while ((m = itemPattern.exec(response)) !== null) {
+    const name = m[1].trim();
+    const desc = m[2].trim();
+    // Raised minimum length from 15 to 25 chars
+    if (desc.length < 25) continue;
+    const prompt = `${name}: ${desc}`;
+    // Require coding-related keyword in the combined text
+    if (!CODE_TASK_KEYWORDS.test(prompt)) continue;
+    const key = prompt.substring(0, 80);
+    if (!seen.has(key)) {
+      seen.add(key);
+      tasks.push({ cwd: defaultCwd, prompt });
+    }
+  }
+
+  return tasks;
+}
+
+// ============================================================
+// INGEST FOLDER TAG PROCESSING
+// ============================================================
+
+/**
+ * Parse [INGEST_FOLDER: path=<abs_path> | SOURCE: <name> | QUERY: <search after>] fields.
+ */
+function parseIngestFolderFields(raw: string): { path: string; source: string; query?: string } {
+  // Split on | only when followed by known field names
+  const parts = raw.split(/\s*\|\s*(?=(?:SOURCE|QUERY)\s*:)/i);
+
+  let path = "";
+  let source = "local";
+  let query: string | undefined;
+
+  // First part: path=... or bare path
+  const pathMatch = parts[0].match(/^path\s*=\s*([\s\S]*)/i);
+  if (pathMatch) path = pathMatch[1].trim();
+  else path = parts[0].trim();
+
+  for (let i = 1; i < parts.length; i++) {
+    const sourceMatch = parts[i].match(/^SOURCE\s*:\s*([\s\S]*)/i);
+    const queryMatch = parts[i].match(/^QUERY\s*:\s*([\s\S]*)/i);
+    if (sourceMatch) source = sourceMatch[1].trim();
+    else if (queryMatch) query = queryMatch[1].trim();
+  }
+
+  return { path, source, query };
+}
+
+/**
+ * Extract [INGEST_FOLDER: ...] tags from Claude's response.
+ * Spawns background ingestFolder() workers (no Claude CLI subprocess needed).
+ */
+export async function processIngestIntents(
+  response: string,
+  supabase: SupabaseClient | null,
+  onProgress?: (taskId: string, update: import("./ingest-worker.ts").IngestProgress) => void,
+  onComplete?: (taskId: string, result: import("./ingest-worker.ts").IngestFolderResult, query?: string) => void,
+  onSpawn?: (taskId: string, description: string) => void,
+): Promise<string> {
+  if (!supabase) return response;
+
+  let processed = response;
+  const matches: { fullMatch: string; path: string; source: string; query?: string }[] = [];
+
+  let match;
+  try {
+    while ((match = INGEST_FOLDER_OUTER_REGEX.exec(response)) !== null) {
+      const rawContent = match[1];
+      // Structural validation: require path= prefix
+      if (!INGEST_REQUIRED_FIELDS.test(rawContent)) {
+        warn("supervisor", `Rejected [INGEST_FOLDER:] tag without path= field: "${rawContent.substring(0, 100)}"`);
+        continue;
+      }
+      const fields = parseIngestFolderFields(rawContent);
+      if (fields.path) {
+        matches.push({ fullMatch: match[0], ...fields });
+      }
+    }
+  } finally {
+    INGEST_FOLDER_OUTER_REGEX.lastIndex = 0;
+  }
+
+  if (matches.length === 0) return response;
+
+  const { existsSync } = await import("fs");
+  const { ingestFolder } = await import("./ingest-worker.ts");
+
+  for (const m of matches) {
+    // Validate path exists
+    if (!existsSync(m.path)) {
+      processed = processed.replace(m.fullMatch, `Ingest failed: directory not found: ${m.path}`);
+      warn("supervisor", `Ingest intent failed: path not found: ${m.path}`);
+      continue;
+    }
+
+    // Register as a supervised task
+    const taskId = generateId();
+    const now = new Date().toISOString();
+    const task: SupervisedTask = {
+      id: taskId,
+      description: `Ingest ${m.source}: ${m.path.split(/[\\/]/).slice(-2).join("/")}`,
+      status: "running",
+      createdAt: now,
+      startedAt: now,
+      completedAt: null,
+      result: null,
+      timeoutMs: 30 * 60 * 1000, // 30 min for ingestion
+      retries: 0,
+      maxRetries: 0,
+      requestedBy: "atlas",
+      outputFile: null,
+      lastCheckedAt: null,
+      error: null,
+      pid: null,
+      model: "sonnet", // not using a model, satisfies the type
+      prompt: m.path,
+      taskType: "ingest",
+      cwd: null,
+      toolCallCount: 0,
+      costUsd: 0,
+      lastToolName: null,
+      lastFileTouched: null,
+      outcome: null,
+      announceRetryCount: 0,
+      lastAnnounceAt: null,
+      announced: false,
+      agentId: "atlas",
+    };
+
+    store.tasks.push(task);
+    await saveTasks();
+
+    // Spawn background ingest worker (async, not a subprocess)
+    const workerStartTime = Date.now();
+    ingestFolder({
+      path: m.path,
+      source: m.source,
+      supabase,
+      onProgress: (update) => {
+        task.lastToolName = `ingesting ${update.currentFile}`;
+        task.toolCallCount = update.current;
+        onProgress?.(taskId, update);
+      },
+      onComplete: async (result) => {
+        const durationMs = Date.now() - workerStartTime;
+        task.status = "completed";
+        task.completedAt = new Date().toISOString();
+        task.result = `Ingested ${result.filesProcessed} files (${result.totalChunks} chunks), ${result.filesSkipped} skipped, ${result.filesErrored} errors`;
+        task.outcome = { status: "ok", summary: task.result, durationMs };
+        task.pid = null;
+        store.totalCompleted++;
+        await saveTasks();
+        emitTaskEvent("task:completed", task);
+        fireHooks("task-complete", { task }).catch(() => {});
+        onComplete?.(taskId, result, m.query);
+      },
+    }).catch(async (err) => {
+      task.status = "failed";
+      task.error = String(err);
+      task.completedAt = new Date().toISOString();
+      task.outcome = { status: "error", message: task.error, durationMs: Date.now() - workerStartTime };
+      store.totalFailed++;
+      await saveTasks();
+      emitTaskEvent("task:failed", task);
+      fireHooks("task-complete", { task }).catch(() => {});
+    });
+
+    processed = processed.replace(
+      m.fullMatch,
+      `Ingestion started for ${m.path.split(/[\\/]/).slice(-2).join("/")} (${taskId})`
+    );
+    onSpawn?.(taskId, m.path);
+    info("supervisor", `Ingest intent processed: ${taskId} — ${m.path} (source: ${m.source})`);
+  }
+
+  return processed;
+}
+
+// ============================================================
+// CONDUCTOR: TASK AMEND + CANCEL (mid-flight follow-ups)
+// ============================================================
+
+/**
+ * Parse [TASK_AMEND: task_id | INSTRUCTIONS: ...] fields.
+ */
+function parseTaskAmendFields(raw: string): { taskId: string; instructions: string } {
+  const parts = raw.split(/\s*\|\s*(?=INSTRUCTIONS\s*:)/i);
+  const taskId = parts[0].trim();
+  let instructions = "";
+  for (let i = 1; i < parts.length; i++) {
+    const match = parts[i].match(/^INSTRUCTIONS\s*:\s*([\s\S]*)/i);
+    if (match) instructions = match[1].trim();
+  }
+  return { taskId, instructions };
+}
+
+/**
+ * Parse [TASK_CANCEL: task_id | REASON: ...] fields.
+ */
+function parseTaskCancelFields(raw: string): { taskId: string; reason: string } {
+  const parts = raw.split(/\s*\|\s*(?=REASON\s*:)/i);
+  const taskId = parts[0].trim();
+  let reason = "Cancelled by user";
+  for (let i = 1; i < parts.length; i++) {
+    const match = parts[i].match(/^REASON\s*:\s*([\s\S]*)/i);
+    if (match) reason = match[1].trim();
+  }
+  return { taskId, reason };
+}
+
+/**
+ * Process [TASK_AMEND:] and [TASK_CANCEL:] tags from Claude's response.
+ * Handles mid-flight task modifications:
+ * - AMEND: for research/code tasks, cancel + respawn with amended prompt.
+ *          for ingest tasks, note the amendment for follow-up search.
+ * - CANCEL: kill the task via cancelTask().
+ */
+export async function processTaskAmendIntents(
+  response: string,
+  onAmendResult?: (taskId: string, action: string, detail: string) => void,
+): Promise<string> {
+  let processed = response;
+
+  // Process TASK_CANCEL tags
+  let match;
+  try {
+    while ((match = TASK_CANCEL_OUTER_REGEX.exec(response)) !== null) {
+      const rawContent = match[1];
+      // Structural validation: require REASON: field
+      if (!TASK_CANCEL_REQUIRED_FIELDS.test(rawContent)) {
+        warn("conductor", `Rejected [TASK_CANCEL:] tag without REASON: field: "${rawContent.substring(0, 100)}"`);
+        continue;
+      }
+      const fields = parseTaskCancelFields(rawContent);
+      if (fields.taskId) {
+        const success = await cancelTask(fields.taskId, fields.reason);
+        if (success) {
+          processed = processed.replace(match[0], `Task ${fields.taskId} cancelled: ${fields.reason}`);
+          info("conductor", `Task cancelled via tag: ${fields.taskId} — ${fields.reason}`);
+          onAmendResult?.(fields.taskId, "cancelled", fields.reason);
+        } else {
+          processed = processed.replace(match[0], `Could not cancel task ${fields.taskId} (not found or already finished)`);
+          warn("conductor", `Cancel failed for ${fields.taskId}: task not running`);
+        }
+      }
+    }
+  } finally {
+    TASK_CANCEL_OUTER_REGEX.lastIndex = 0;
+  }
+
+  // Process TASK_AMEND tags
+  try {
+    while ((match = TASK_AMEND_OUTER_REGEX.exec(response)) !== null) {
+    const rawContent = match[1];
+    // Structural validation: require INSTRUCTIONS: field
+    if (!TASK_AMEND_REQUIRED_FIELDS.test(rawContent)) {
+      warn("conductor", `Rejected [TASK_AMEND:] tag without INSTRUCTIONS: field: "${rawContent.substring(0, 100)}"`);
+      continue;
+    }
+    const fields = parseTaskAmendFields(rawContent);
+    if (!fields.taskId || !fields.instructions) {
+      processed = processed.replace(match[0], "Task amendment failed: missing task ID or instructions");
+      warn("conductor", `Malformed TASK_AMEND: "${match[0].substring(0, 100)}"`);
+      continue;
+    }
+
+    const task = getTask(fields.taskId);
+    if (!task || task.status !== "running") {
+      processed = processed.replace(match[0], `Cannot amend task ${fields.taskId}: not found or already finished`);
+      warn("conductor", `Amend failed for ${fields.taskId}: not running`);
+      continue;
+    }
+
+    if (task.taskType === "ingest") {
+      // Ingest tasks are async functions, can't inject mid-flight.
+      // Queue the amendment as a follow-up search query on the task object.
+      // The onComplete callback in relay.ts checks _pendingAmendments and runs searches.
+      if (!task._pendingAmendments) task._pendingAmendments = [];
+      task._pendingAmendments.push(fields.instructions);
+      processed = processed.replace(
+        match[0],
+        `Noted: once ingestion ${fields.taskId} completes, I'll search for: "${fields.instructions}"`
+      );
+      info("conductor", `Ingest amend queued on task ${fields.taskId}: ${fields.instructions.substring(0, 100)}`);
+      onAmendResult?.(fields.taskId, "noted", fields.instructions);
+    } else {
+      // Research or code tasks: cancel + respawn with amended prompt
+      const originalPrompt = task.prompt || task.description;
+      const amendedPrompt = `${originalPrompt}\n\nADDITIONAL INSTRUCTIONS (added by user follow-up):\n${fields.instructions}`;
+
+      await cancelTask(fields.taskId, `Amended: ${fields.instructions.substring(0, 80)}`);
+
+      if (task.taskType === "code" && task.cwd) {
+        try {
+          const newTaskId = await registerCodeTask({
+            description: `${task.description} (amended)`,
+            prompt: amendedPrompt,
+            cwd: task.cwd,
+            model: task.model,
+            requestedBy: task.requestedBy,
+          });
+          processed = processed.replace(
+            match[0],
+            `Task ${fields.taskId} cancelled and respawned as ${newTaskId} with updated instructions`
+          );
+          info("conductor", `Code task amended: ${fields.taskId} -> ${newTaskId}`);
+          onAmendResult?.(newTaskId, "respawned", fields.instructions);
+        } catch (err) {
+          processed = processed.replace(match[0], `Task amendment failed: ${err}`);
+          warn("conductor", `Code task respawn failed: ${err}`);
+        }
+      } else {
+        // Research task
+        try {
+          const newTaskId = await registerTask({
+            description: `${task.description} (amended)`,
+            prompt: amendedPrompt,
+            model: task.model,
+            timeoutMs: task.timeoutMs,
+            maxRetries: task.maxRetries,
+          });
+          processed = processed.replace(
+            match[0],
+            `Task ${fields.taskId} cancelled and respawned as ${newTaskId} with updated instructions`
+          );
+          info("conductor", `Research task amended: ${fields.taskId} -> ${newTaskId}`);
+          onAmendResult?.(newTaskId, "respawned", fields.instructions);
+        } catch (err) {
+          processed = processed.replace(match[0], `Task amendment failed: ${err}`);
+          warn("conductor", `Research task respawn failed: ${err}`);
+        }
+      }
+    }
+  }
+  } finally {
+    TASK_AMEND_OUTER_REGEX.lastIndex = 0;
   }
 
   return processed;
@@ -1741,6 +3203,9 @@ const RECOVERABLE_TAG_PREFIXES = [
   "RELATE:",
   "SWARM:",
   "EXPLORE:",
+  "INGEST_FOLDER:",
+  "TASK_AMEND:",
+  "TASK_CANCEL:",
 ];
 
 interface PendingTag {

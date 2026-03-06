@@ -17,7 +17,41 @@ const COST_PER_1K_TOKENS = 0.00002; // text-embedding-3-small pricing
 
 Deno.serve(async (req) => {
   try {
-    const { record, table } = await req.json();
+    const body = await req.json();
+
+    // Direct embedding mode: caller sends { text }, gets { embedding } back.
+    // Used by episodes.ts and other modules that need on-demand embeddings.
+    if (body.text && !body.record) {
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (!openaiKey) {
+        return new Response("OPENAI_API_KEY not configured", { status: 500 });
+      }
+      const embeddingResponse = await fetch(
+        "https://api.openai.com/v1/embeddings",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openaiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "text-embedding-3-small",
+            input: body.text.substring(0, 2000),
+          }),
+        }
+      );
+      if (!embeddingResponse.ok) {
+        const err = await embeddingResponse.text();
+        return new Response(`OpenAI error: ${err}`, { status: 500 });
+      }
+      const { data } = await embeddingResponse.json();
+      return new Response(JSON.stringify({ embedding: data[0].embedding }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Webhook mode: called by database trigger with { record, table }.
+    const { record, table } = body;
 
     if (!record?.id) {
       return new Response("Missing record data", { status: 400 });
@@ -29,14 +63,30 @@ Deno.serve(async (req) => {
     }
 
     // Validate table name (only embed known tables)
-    const allowedTables = ["messages", "memory", "documents", "summaries", "memory_entities"];
+    const allowedTables = ["messages", "memory", "documents", "summaries", "memory_entities", "feedback", "episodes", "observations"];
     if (!allowedTables.includes(table)) {
       return new Response(`Unknown table: ${table}`, { status: 400 });
     }
 
-    // Text to embed comes from record.content for all tables.
-    // For memory_entities, the webhook trigger pre-concatenates name + description + aliases.
-    const textToEmbed = record.content;
+    // Extract text to embed based on table schema
+    let textToEmbed: string | undefined;
+    switch (table) {
+      case "feedback":
+        textToEmbed = [record.correction_text, record.context_summary, record.feedback_message]
+          .filter(Boolean).join(" ");
+        break;
+      case "episodes":
+        textToEmbed = [record.trigger, record.outcome, ...(record.lessons || [])]
+          .filter(Boolean).join(" ");
+        break;
+      case "observations":
+        textToEmbed = record.observation_text;
+        break;
+      default:
+        // messages, memory, documents, summaries, memory_entities
+        // For memory_entities, the webhook trigger pre-concatenates name + description + aliases.
+        textToEmbed = record.content;
+    }
     if (!textToEmbed) {
       return new Response("No text to embed", { status: 200 });
     }

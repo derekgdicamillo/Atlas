@@ -10,24 +10,39 @@ import { spawn } from "bun";
 import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn } from "./logger.ts";
+import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn, redactObject } from "./logger.ts";
 import { getAllBreakerStats } from "./circuit-breaker.ts";
-import { MODELS } from "./constants.ts";
+import { MODELS, CRON_JITTER_MAX_MS, CRON_JITTER_EXEMPT } from "./constants.ts";
 import { readTodoFile } from "./todo.ts";
 import { runEvolution } from "./evolve.ts";
+import { runEvolutionPipeline } from "./evolution/index.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
+import { runPrompt } from "./prompt-runner.ts";
 import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
+import { runSupervisorWorker, getCodeAgentStatus } from "./supervisor-worker.ts";
 import { checkScheduledMessages } from "./scheduled.ts";
-import { callClaude, sessionKey } from "./claude.ts";
+import { runConsolidation, checkTimeTriggers } from "./cognitive.ts";
+import { callClaude, sessionKey, sanitizedEnv } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
-import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot } from "./ghl.ts";
+import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot, getRecentWebhookEvents, markEventsProcessed, getAllOpportunities, addTagToContact, createContactTask, PIPELINES, registerShowRateDigest, type GHLOpportunity } from "./ghl.ts";
+import { instantiateWorkflow } from "./workflows.ts";
 import { isGBPReady, getGBPContext } from "./gbp.ts";
 import { isGA4Ready, getGA4Context } from "./analytics.ts";
-import { buildWeeklySummary, formatWeeklySummary } from "./executive.ts";
+import { buildWeeklySummary, formatWeeklySummary, detectAllAnomalies } from "./executive.ts";
 import { appendRun, cleanupOldRuns, type CronRun } from "./run-log.ts";
+import { runPharmacyInvoiceProcessor, formatPharmacySummary } from "./pharmacy-invoices.ts";
 import { fireHooks } from "./hooks.ts";
+import { sendEmail } from "./google.ts";
+import { emit as emitAlert, deliver as deliverAlerts } from "./alerts.ts";
+import { checkAppointmentReminders, cleanupStaleReminderTags, getShowRateDigest } from "./show-rate.ts";
+import { isEffectivelyPaused, shouldSuppressAnnouncement, recordSuppressedTask } from "./automation-pause.ts";
+
+// Module-level supabase reference. Set by startCronJobs().
+// Needed by jobs declared at module scope (evolution, appointment-reminders)
+// that fire after startup. Without this, those callbacks get ReferenceError.
+let supabase: SupabaseClient | null = null;
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
@@ -38,6 +53,15 @@ const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
 const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BACKUP_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
+const WATERFALL_VAULT_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\PV Vault\\02 - PV MediSpa\\Content\\Waterfalls";
+
+const PILLAR_NAMES: Record<number, string> = {
+  1: "Precision Weight Science",
+  2: "Nourishing Health",
+  3: "Dynamic Movement",
+  4: "Mindful Wellness",
+  5: "Functional Wellness",
+};
 
 function today(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
@@ -49,15 +73,154 @@ function log(job: string, message: string): void {
 }
 
 // ============================================================
+// CONTENT WATERFALL HELPERS (OneDrive vault save + email)
+// ============================================================
+
+/** Parse pillar number and subtopic from waterfall output header.
+ *  Expects a line like: "Pillar: Nourishing Health | Subtopic: Protein Paradox ..." */
+function parseWaterfallMeta(content: string): { pillar: number; subtopic: string } {
+  // Try to match the header line: "Pillar: <name> | Subtopic: <name> | Format: <type>"
+  const headerMatch = content.match(/Pillar:\s*([^|]+)\|\s*Subtopic:\s*([^|]+)/i);
+  if (headerMatch) {
+    const pillarName = headerMatch[1].trim();
+    const subtopic = headerMatch[2].trim();
+    // Map name back to number
+    const pillarNum = Object.entries(PILLAR_NAMES).find(
+      ([, name]) => pillarName.toLowerCase() === name.toLowerCase()
+    );
+    return { pillar: pillarNum ? Number(pillarNum[0]) : 0, subtopic };
+  }
+
+  // Fallback: read the rotation file for the current state (already updated by the skill)
+  try {
+    const rotationPath = join(MEMORY_DIR, "content-rotation.json");
+    if (existsSync(rotationPath)) {
+      const rotation = JSON.parse(readFileSync(rotationPath, "utf-8"));
+      return {
+        pillar: rotation.lastPillar || 0,
+        subtopic: rotation.lastSubtopic || "Unknown",
+      };
+    }
+  } catch {}
+  return { pillar: 0, subtopic: "Unknown" };
+}
+
+/** Save waterfall markdown to the OneDrive vault directory. */
+function saveWaterfallToVault(content: string, pillarNum: number): string | null {
+  try {
+    if (!existsSync(WATERFALL_VAULT_DIR)) {
+      mkdirSync(WATERFALL_VAULT_DIR, { recursive: true });
+    }
+    const date = today();
+    const filename = `${date}-pillar-${pillarNum}.md`;
+    const filepath = join(WATERFALL_VAULT_DIR, filename);
+    writeFileSync(filepath, content, "utf-8");
+    log("content-engine", `Saved waterfall to vault: ${filename}`);
+    return filepath;
+  } catch (err) {
+    logError("cron", `Failed to save waterfall to vault: ${err}`);
+    return null;
+  }
+}
+
+/** Email the waterfall content to Derek via Atlas's Gmail. */
+async function emailWaterfall(content: string, pillarNum: number, subtopic: string): Promise<boolean> {
+  const subject = `Content Waterfall — Pillar ${pillarNum}: ${subtopic}`;
+  const body = `${subject}\n\n${content}`;
+
+  try {
+    const msgId = await sendEmail("derek@pvmedispa.com", subject, body);
+    if (msgId) {
+      log("content-engine", `Emailed waterfall to Derek (msgId: ${msgId})`);
+      return true;
+    }
+    warn("cron", "sendEmail returned null (Atlas Gmail may not be configured)");
+    return false;
+  } catch (err) {
+    logError("cron", `Failed to email waterfall: ${err}`);
+    return false;
+  }
+}
+
+// ============================================================
 // SAFE TICK WRAPPER (OpenClaw #15108 — prevent cron silent death)
 // ============================================================
 
 // OpenClaw #18073: Minimum refire gap prevents spin loops from node-cron edge cases
-const MIN_REFIRE_GAP_MS = 30_000; // 30 seconds
+const MIN_REFIRE_GAP_MS = 25_000; // 25 seconds (5s margin for cron scheduling jitter)
 const lastFireTimes = new Map<string, number>();
+
+// OpenClaw #22413: maxConcurrentRuns guard. Long-running cron jobs (evolution,
+// summarization) must not overlap if a previous run hasn't finished.
+const runningJobs = new Set<string>();
+
+// OpenClaw 2026.2.22: Per-job wall-clock timeout guards.
+// Prevents stuck cron jobs from holding the runningJobs lock indefinitely.
+// If a job exceeds its timeout, it's treated as an error and the lock is released.
+const JOB_TIMEOUTS_MS: Record<string, number> = {
+  "evolution":      20 * 60 * 1000, // 20 min — includes code agent spawn
+  "summarize":      15 * 60 * 1000, // 15 min — may process many conversations
+  "reflect":        10 * 60 * 1000, // 10 min
+  "content-engine": 10 * 60 * 1000, // 10 min
+  "morning-brief":   5 * 60 * 1000, //  5 min
+  "weekly-exec":     8 * 60 * 1000, //  8 min
+  "todo-review":     3 * 60 * 1000, //  3 min
+  "git-backup":      2 * 60 * 1000, //  2 min
+  "backup":          1 * 60 * 1000, //  1 min
+  "journal":         1 * 60 * 1000, //  1 min
+  "cleanup":         2 * 60 * 1000, //  2 min
+  "health-dump":    30 * 1000,       // 30 sec
+  "prospective-memory": 30 * 1000,   // 30 sec (just a Supabase RPC, should be <5s; halved to prevent overlap with 1-min cron)
+  "ghl-leads":       2 * 60 * 1000, //  2 min
+  "appointment-reminders": 3 * 60 * 1000, // 3 min
+  "lead-enrich":     3 * 60 * 1000, //  3 min
+  "stale-leads":     3 * 60 * 1000, //  3 min
+  "lead-volume":     2 * 60 * 1000, //  2 min
+  "alert-deliver":  30 * 1000,        // 30 sec (just a Supabase query, should be <5s; halved to prevent overlap with 1-min cron)
+  "scheduled-msgs": 30 * 1000,       // 30 sec (quick check for due messages)
+  "anomaly-scan":    2 * 60 * 1000, //  2 min
+  "monitor-fast":    3 * 60 * 1000, //  3 min (fast tier: leads, reviews, urgent email)
+  "monitor-medium":  5 * 60 * 1000, //  5 min (medium tier: ads, pipeline, speed-to-lead)
+  "monitor-slow":   10 * 60 * 1000, // 10 min (slow tier: financials, traffic, conversions)
+  "monitor-daily":   5 * 60 * 1000, //  5 min (daily tier: morning calendar pre-load)
+  "observation-reflector": 8 * 60 * 1000, // 8 min (semantic analysis over recent messages)
+  "supervisor-worker": 30 * 1000,   // 30 sec (quick agent status check)
+  "tox-post":        3 * 60 * 1000, //  3 min (posts to multiple platforms)
+  "tox-analytics":   3 * 60 * 1000, //  3 min (fetches from multiple APIs)
+  "tox-weekly":      2 * 60 * 1000, //  2 min
+  "etsy-sync":       2 * 60 * 1000, //  2 min
+  "metric-cleanup":  60 * 1000,     //  1 min (single Supabase RPC)
+  "ghl-webhook-health": 30 * 1000,  // 30 sec (single Supabase query)
+  "pharmacy-invoices": 5 * 60 * 1000, // 5 min — M365 API + PDF parsing + OneDrive save
+  "default":         5 * 60 * 1000, //  5 min catch-all
+};
+
+// Sentinel used to distinguish wall-clock timeouts from regular errors
+const CRON_TIMEOUT_SENTINEL = Symbol("CronTimeout");
 
 function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promise<void> {
   return async () => {
+    // Concurrent run guard: skip if this job is still running from a previous tick
+    if (runningJobs.has(jobName)) {
+      warn("cron", `[${jobName}] Already running, skipping concurrent tick`);
+      appendRun(jobName, {
+        ts: Date.now(),
+        jobName,
+        status: "skipped",
+        durationMs: 0,
+        summary: "concurrent run guard",
+      });
+      return;
+    }
+
+    // Cron jitter: random delay to spread load across the minute (OpenClaw pattern)
+    if (!CRON_JITTER_EXEMPT.has(jobName)) {
+      const jitter = Math.floor(Math.random() * CRON_JITTER_MAX_MS);
+      await new Promise(r => setTimeout(r, jitter));
+      // Re-check concurrent guard after jitter delay (another tick may have started)
+      if (runningJobs.has(jobName)) return;
+    }
+
     // Spin loop guard: skip if job fired too recently
     const lastFire = lastFireTimes.get(jobName) || 0;
     if (Date.now() - lastFire < MIN_REFIRE_GAP_MS) {
@@ -72,28 +235,66 @@ function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promis
       return;
     }
     lastFireTimes.set(jobName, Date.now());
+    runningJobs.add(jobName);
 
     const startMs = Date.now();
 
     // Fire cron-before hooks (non-blocking on failure)
     await fireHooks("cron-before", { jobName }).catch(() => {});
 
+    // Resolve the wall-clock timeout for this job
+    const timeoutMs = JOB_TIMEOUTS_MS[jobName] ?? JOB_TIMEOUTS_MS["default"];
+
     try {
-      await fn();
-      const durationMs = Date.now() - startMs;
-      appendRun(jobName, {
-        ts: Date.now(),
-        jobName,
-        status: "ok",
-        durationMs,
+      // Race the job against a wall-clock timeout to prevent hung jobs from
+      // holding the runningJobs lock indefinitely.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<typeof CRON_TIMEOUT_SENTINEL>((resolve) => {
+        timer = setTimeout(() => resolve(CRON_TIMEOUT_SENTINEL), timeoutMs);
       });
 
-      // Fire cron-after hooks with success context
-      fireHooks("cron-after", {
-        jobName,
-        jobStatus: "ok",
-        jobDurationMs: durationMs,
-      }).catch(() => {});
+      const result = await Promise.race([
+        Promise.resolve(fn()).then(() => "ok" as const),
+        timeoutPromise,
+      ]);
+
+      clearTimeout(timer);
+
+      if (result === CRON_TIMEOUT_SENTINEL) {
+        // Job exceeded its wall-clock limit
+        const durationMs = Date.now() - startMs;
+        const limitSec = Math.round(timeoutMs / 1000);
+        logError("cron", `[${jobName}] Wall-clock timeout after ${limitSec}s (limit: ${limitSec}s)`);
+        appendRun(jobName, {
+          ts: Date.now(),
+          jobName,
+          status: "timeout",
+          durationMs,
+          error: `Wall-clock timeout (${limitSec}s limit exceeded)`,
+        });
+
+        fireHooks("cron-after", {
+          jobName,
+          jobStatus: "timeout",
+          jobDurationMs: durationMs,
+          jobError: `Wall-clock timeout (${limitSec}s)`,
+        }).catch(() => {});
+      } else {
+        const durationMs = Date.now() - startMs;
+        appendRun(jobName, {
+          ts: Date.now(),
+          jobName,
+          status: "ok",
+          durationMs,
+        });
+
+        // Fire cron-after hooks with success context
+        fireHooks("cron-after", {
+          jobName,
+          jobStatus: "ok",
+          jobDurationMs: durationMs,
+        }).catch(() => {});
+      }
     } catch (err) {
       const durationMs = Date.now() - startMs;
       logError("cron", `[${jobName}] onTick crashed: ${err}`);
@@ -112,6 +313,9 @@ function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promis
         jobDurationMs: durationMs,
         jobError: String(err).substring(0, 200),
       }).catch(() => {});
+    } finally {
+      // OpenClaw #22413: Always release the concurrent run lock
+      runningJobs.delete(jobName);
     }
   };
 }
@@ -130,7 +334,7 @@ async function runSkill(skill: string, model?: string): Promise<string> {
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR,
-      env: { ...process.env },
+      env: sanitizedEnv(), // OpenClaw 2.19: don't leak tokens to spawned CLI
     });
 
     const output = await new Response(proc.stdout).text();
@@ -152,41 +356,6 @@ async function runSkill(skill: string, model?: string): Promise<string> {
     }
   } catch (error) {
     log(skill, `ERROR: ${error}`);
-    return "";
-  }
-}
-
-/** Run an ad-hoc prompt via Claude CLI (for cron summaries) */
-async function runPrompt(prompt: string, model?: string): Promise<string> {
-  try {
-    const args = [CLAUDE_PATH, "-p", "--output-format", "json"];
-    if (model) args.push("--model", model);
-
-    const proc = spawn(args, {
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      cwd: PROJECT_DIR,
-      env: { ...process.env },
-    });
-
-    // Pipe prompt via stdin (avoids Windows command-line length limits)
-    proc.stdin.write(prompt);
-    proc.stdin.end();
-
-    const output = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) return "";
-
-    try {
-      const parsed = JSON.parse(output);
-      return (parsed.result ?? parsed.text ?? output).trim();
-    } catch {
-      return output.trim();
-    }
-  } catch (error) {
-    log("runPrompt", `ERROR: ${error}`);
     return "";
   }
 }
@@ -289,9 +458,12 @@ jobs.push(
           warn("morning-brief", `Business pulse failed: ${err}`);
         }
 
-        const fullBrief = [result, businessPulse, digest].filter(Boolean).join("\n\n");
+        // Append show-rate reminder digest
+        const showRateInfo = getShowRateDigest();
+
+        const fullBrief = [result, businessPulse, showRateInfo, digest].filter(Boolean).join("\n\n");
         await sendTelegramMessage(DEREK_CHAT_ID, fullBrief);
-        log("morning-brief", "Sent to Derek (with system digest + business pulse)");
+        log("morning-brief", "Sent to Derek (with system digest + business pulse + show rate)");
       } else {
         log("morning-brief", "No output generated");
       }
@@ -301,6 +473,7 @@ jobs.push(
 );
 
 // 5. Content engine — 7:00 AM daily (sonnet)
+//    Auto-saves to OneDrive vault + emails to Derek after generation.
 jobs.push(
   CronJob.from({
     cronTime: "0 7 * * *",
@@ -308,11 +481,29 @@ jobs.push(
       log("content-engine", "Running content waterfall...");
       const result = await runSkill("pv-content-waterfall", MODELS.sonnet);
       if (result) {
+        // Parse pillar/subtopic from the output
+        const { pillar, subtopic } = parseWaterfallMeta(result);
+
+        // Save to OneDrive vault
+        const vaultPath = saveWaterfallToVault(result, pillar);
+
+        // Email to Derek
+        const emailed = await emailWaterfall(result, pillar, subtopic);
+
+        // Send Telegram summary (truncated if long)
+        const statusLine = [
+          vaultPath ? "Saved to OneDrive vault." : "",
+          emailed ? "Emailed to derek@pvmedispa.com." : "",
+        ].filter(Boolean).join(" ");
+
         const summary = result.length > 3900
-          ? result.substring(0, 3900) + "\n\n(truncated, full output saved to files and emailed)"
+          ? result.substring(0, 3900) + "\n\n(truncated, full output saved to vault and emailed)"
           : result;
-        await sendTelegramMessage(DEREK_CHAT_ID, `Content Waterfall:\n\n${summary}`);
-        log("content-engine", "Sent to Derek");
+        const telegramMsg = statusLine
+          ? `Content Waterfall:\n\n${summary}\n\n${statusLine}`
+          : `Content Waterfall:\n\n${summary}`;
+        await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
+        log("content-engine", `Sent to Derek (vault: ${!!vaultPath}, email: ${emailed})`);
       } else {
         log("content-engine", "No output generated");
       }
@@ -363,13 +554,13 @@ jobs.push(
             "*.md", "package.json", "ecosystem.config.cjs",
             "tsconfig.json",
           ],
-          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR }
+          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR, env: sanitizedEnv() }
         );
         await addProc.exited;
 
         const diffProc = spawn(
           ["git", "diff", "--cached", "--quiet"],
-          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR }
+          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR, env: sanitizedEnv() }
         );
         const diffExit = await diffProc.exited;
 
@@ -381,7 +572,7 @@ jobs.push(
         const date = today();
         const commitProc = spawn(
           ["git", "commit", "-m", `Auto-backup ${date}`],
-          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR }
+          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR, env: sanitizedEnv() }
         );
         const commitOut = await new Response(commitProc.stdout).text();
         const commitExit = await commitProc.exited;
@@ -394,7 +585,7 @@ jobs.push(
 
         const pushProc = spawn(
           ["git", "push", "origin", "master"],
-          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR }
+          { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR, env: sanitizedEnv() }
         );
 
         const pushTimeout = new Promise<"timeout">((resolve) =>
@@ -440,9 +631,11 @@ jobs.push(
           circuitBreakers: getAllBreakerStats(),
         };
 
+        // Deep-redact before writing to disk to prevent token leakage
+        // in error messages, circuit breaker lastError, or metrics metadata.
         writeFileSync(
           join(DATA_DIR, "health.json"),
-          JSON.stringify(healthData, null, 2)
+          JSON.stringify(redactObject(healthData), null, 2)
         );
       } catch (err) {
         log("health-dump", `ERROR: ${err}`);
@@ -456,7 +649,7 @@ jobs.push(
 jobs.push(
   CronJob.from({
     cronTime: "0 3 1 * *",
-    onTick: safeTick("cleanup", () => {
+    onTick: safeTick("cleanup", async () => {
       log("cleanup", "Archiving old journal entries...");
 
       const archiveDir = join(MEMORY_DIR, "archive");
@@ -490,6 +683,10 @@ jobs.push(
         // Clean up old cron run logs (>30 days)
         const trimmed = cleanupOldRuns();
         if (trimmed > 0) log("cleanup", `Trimmed ${trimmed} old cron run log entries`);
+
+        // Clean up stale show-rate reminder tags from contacts
+        const tagsCleaned = await cleanupStaleReminderTags();
+        if (tagsCleaned > 0) log("cleanup", `Cleaned ${tagsCleaned} stale reminder tags`);
       } catch (error) {
         log("cleanup", `ERROR: ${error}`);
       }
@@ -557,17 +754,30 @@ jobs.push(
   })
 );
 
-// 9. Nightly Evolution — 11:00 PM MST
-//    Multi-source intelligence: OpenClaw, Anthropic changelog, Claude Code releases,
-//    codebase self-audit, error logs, journal friction. Spawns opus code agent.
-//    Logic lives in src/evolve.ts. Manually triggerable via /evolve skill.
+// 9. Nightly Evolution Pipeline — 11:00 PM MST
+//    Multi-phase pipeline: Phase 0 (summarization + graph enrichment) → Phase 1 (scout)
+//    + Phase 2 (conversation audit) → Phase 3 (architect) → Phase 4 (implementer)
+//    → Phase 5 (validator) → Phase 6 (scorecard + email).
+//    Logic lives in src/evolution/. Manually triggerable via /evolve skill.
 jobs.push(
   CronJob.from({
     cronTime: "0 23 * * *",
     onTick: safeTick("evolution", async () => {
-      log("evolution", "Starting nightly evolution...");
-      const result = await runEvolution({ manual: false });
-      log("evolution", result.message);
+      log("evolution", "Starting nightly evolution pipeline...");
+      try {
+        const result = await runEvolutionPipeline(supabase, { manual: false });
+        log("evolution", result.message);
+      } catch (err) {
+        logError("evolution", `Pipeline failed: ${err}`);
+        // Fallback to legacy evolution on pipeline failure
+        log("evolution", "Falling back to legacy evolution...");
+        try {
+          const legacyResult = await runEvolution({ manual: false });
+          log("evolution", `Legacy fallback: ${legacyResult.message}`);
+        } catch (legacyErr) {
+          logError("evolution", `Legacy fallback also failed: ${legacyErr}`);
+        }
+      }
     }),
     timeZone: TIMEZONE,
   })
@@ -575,36 +785,49 @@ jobs.push(
 
 // 10. Conversation summarization — 1:00 AM nightly (needs supabase, added in startCronJobs)
 
-// 11. GHL new lead polling — every 15 minutes during business hours
-// FALLBACK: Webhooks via supabase/functions/ghl-webhook are the primary alert mechanism.
-// This poll catches anything webhooks miss (downtime, missed events, etc.)
+// 11. GHL new lead polling — DISABLED 2026-02-26
+// Caused duplicate notifications: webhook (instant) + monitor (5min) + polling (15min)
+// all fired independently for the same lead. Webhook is primary, monitor tracks metrics.
+// Source tagging is now handled in the webhook edge function.
+// jobs.push(
+//   CronJob.from({
+//     cronTime: "*/15 7-20 * * 1-6",
+//     ...
+//   })
+// );
+
+// 11b. Appointment reminder engine — every 15 minutes during business hours
+// Scans upcoming appointments and sends 72h/24h/2h reminders via GHL tags.
+// Also handles no-show recovery outreach for missed appointments.
 jobs.push(
   CronJob.from({
     cronTime: "*/15 7-20 * * 1-6",
-    onTick: safeTick("ghl-leads", async () => {
+    onTick: safeTick("appointment-reminders", async () => {
+      if (isEffectivelyPaused("appointment_reminders")) {
+        log("appointment-reminders", "Skipped: patient engagement paused");
+        return;
+      }
       if (!isGHLReady()) return;
-
       try {
-        const { leads } = await getNewLeadsSince();
-        if (leads.length > 0) {
-          const names = leads.map((l) => {
-            const name = l.contact?.name || l.name || "Unknown";
-            const src = l.source ? ` (${l.source})` : "";
-            return `${name}${src}`;
-          });
-          const msg = `New lead${leads.length > 1 ? "s" : ""}: ${names.join(", ")}`;
-          await sendTelegramMessage(DEREK_CHAT_ID, msg);
-          log("ghl-leads", `${leads.length} new lead(s) alerted`);
+        const result = await checkAppointmentReminders(supabase);
+        const total = result.reminders72h + result.reminders24h +
+          result.reminders2h + result.noshowRecoveries;
+        if (total > 0) {
+          log("appointment-reminders",
+            `Sent ${result.reminders72h} confirm, ${result.reminders24h} logistics, ` +
+            `${result.reminders2h} nudge, ${result.noshowRecoveries} no-show recovery ` +
+            `(${result.errors} errors)`
+          );
         }
       } catch (err) {
-        log("ghl-leads", `ERROR: ${err}`);
+        logError("show-rate", `Appointment reminder check failed: ${err}`);
       }
     }),
     timeZone: TIMEZONE,
   })
 );
 
-// 11b. Scheduled messages — check every minute for due one-off messages
+// 11c. Scheduled messages — check every minute for due one-off messages
 jobs.push(
   CronJob.from({
     cronTime: "* * * * *",
@@ -617,6 +840,89 @@ jobs.push(
 );
 
 // 12. (REMOVED — merged into nightly evolution job #9)
+
+// 13. Pharmacy invoice processing — 6 AM daily (2-day lookback catches missed days)
+jobs.push(
+  CronJob.from({
+    cronTime: "0 6 * * *",
+    onTick: safeTick("pharmacy-invoices", async () => {
+      log("pharmacy-invoices", "Processing pharmacy invoices...");
+      const result = await runPharmacyInvoiceProcessor({ lookbackDays: 2 });
+      const summary = formatPharmacySummary(result);
+      if (summary && summary !== "No new pharmacy invoices to process.") {
+        await sendTelegramMessage(DEREK_CHAT_ID, summary);
+      }
+      markJobRan("pharmacy-invoices");
+      log("pharmacy-invoices", `Done: ${result.invoicesProcessed} invoices, ${result.lineItemsTotal} items, $${result.totalAmount.toFixed(2)}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 14. Sunday night content batch — Sunday at 8:00 PM MST
+//     Runs Social Pulse (X + Reddit trends), then generates 3 social posts
+//     for the upcoming week (Mon/Wed/Fri) with Facebook + X versions.
+//     Posts are pushed to Planner as tasks with due dates.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 20 * * 0",
+    onTick: safeTick("sunday-content-batch", async () => {
+      log("sunday-content-batch", "Running Sunday night content batch...");
+
+      // Step 1: Run Social Pulse to get trending topics
+      log("sunday-content-batch", "Step 1: Running Social Pulse...");
+      const pulseResult = await runSkill("social-pulse", MODELS.sonnet);
+      const pulseFile = pulseResult ? join(DATA_DIR, "social-pulse", `${today()}.md`) : "";
+      if (pulseResult) {
+        log("sunday-content-batch", `Social Pulse saved to ${pulseFile}`);
+      } else {
+        log("sunday-content-batch", "Social Pulse returned no output, continuing with default topics");
+      }
+
+      // Step 2: Generate 3 posts for the week using content waterfall + pulse data
+      log("sunday-content-batch", "Step 2: Generating weekly social content...");
+      const pulseContext = pulseResult
+        ? `\n\nUse these trending topics from this week's Social Pulse scan to inform your content hooks:\n${pulseResult.substring(0, 2000)}`
+        : "";
+
+      const weekPrompt =
+        `Generate 3 social media posts for PV MediSpa for next week (Mon/Wed/Fri). ` +
+        `Follow the 5-Pillar rotation. Each post needs:\n` +
+        `1. Facebook version (150-250 words, hook-story-offer format)\n` +
+        `2. X/Twitter version (under 280 chars)\n` +
+        `3. Which Pillar it maps to\n` +
+        `4. Suggested image concept\n\n` +
+        `Format each post clearly with headers: POST 1 (Mon), POST 2 (Wed), POST 3 (Fri).\n` +
+        `Under each, include sections: FACEBOOK:, X VERSION:, PILLAR:, IMAGE IDEA:\n` +
+        `Apply /humanizer principles (no AI smell, no em dashes, Derek's voice).` +
+        pulseContext;
+
+      const contentResult = await runPrompt(weekPrompt, MODELS.sonnet);
+
+      if (contentResult) {
+        // Step 3: Send summary to Derek
+        const summary = contentResult.length > 3800
+          ? contentResult.substring(0, 3800) + "\n\n(truncated — full content in Planner tasks)"
+          : contentResult;
+
+        const telegramMsg =
+          `**Sunday Content Batch**\n\n` +
+          `Social Pulse ran ${pulseResult ? "successfully" : "(no data, used defaults)"}.\n` +
+          `3 posts generated for next week.\n\n` +
+          `${summary}\n\n` +
+          `Posts will be pushed to Planner with due dates. Copy, paste, post, mark done.`;
+
+        await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
+        log("sunday-content-batch", "Sent weekly content batch to Derek");
+      } else {
+        log("sunday-content-batch", "Content generation returned no output");
+        await sendTelegramMessage(DEREK_CHAT_ID,
+          "Sunday content batch ran but content generation failed. I'll retry in the morning brief.");
+      }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
 
 // ============================================================
 // START ALL JOBS
@@ -723,20 +1029,43 @@ function isJobOverdue(runLog: CronRunLog, jobName: string, maxAgeMs: number): bo
   return Date.now() - new Date(lastRun).getTime() > maxAgeMs;
 }
 
-export async function startCronJobs(supabase: SupabaseClient | null): Promise<void> {
+export async function startCronJobs(supabaseClient: SupabaseClient | null): Promise<void> {
+  // Store in module-level variable so module-scope cron callbacks can access it
+  supabase = supabaseClient;
+
   // Load persisted task state from disk
   await loadTasks();
-  // Create summarization job (needs supabase for message access)
+
+  // Register show-rate digest callback so /ops includes reminder stats
+  registerShowRateDigest(getShowRateDigest);
+  // Create consolidation job (needs supabase for message access)
+  // Note: Summarization is now handled by the evolution pipeline Phase 0 at 11 PM.
+  // This 1 AM job runs cognitive consolidation + fallback summarization if needed.
   if (supabase) {
     jobs.push(
       CronJob.from({
         cronTime: "0 1 * * *",
         onTick: safeTick("summarize", async () => {
-          log("summarize", "Starting nightly conversation summarization...");
+          log("summarize", "Starting nightly consolidation (fallback summarization if needed)...");
+
+          // Fallback: run old-style summarization for any messages the pipeline missed
           const count = await runSummarization(supabase, async (prompt) => {
             return runPrompt(prompt, MODELS.haiku);
           });
-          log("summarize", `Created ${count} summaries`);
+          if (count > 0) {
+            log("summarize", `Fallback summarization: ${count} summaries (pipeline may have missed these)`);
+          }
+
+          // Cognitive consolidation: contradiction resolution, memory pruning, thread updates
+          try {
+            const consolidation = await runConsolidation(supabase, async (prompt) => {
+              return runPrompt(prompt, MODELS.haiku);
+            });
+            log("summarize", `Consolidation: ${consolidation.contradictionsResolved} contradictions, ${consolidation.memoriesPruned} pruned, ${consolidation.threadsUpdated} threads updated, ${consolidation.entitiesMerged} entities merged`);
+          } catch (err) {
+            warn("summarize", `Consolidation failed (non-fatal): ${err}`);
+          }
+
           markJobRan("summarize");
         }),
         timeZone: TIMEZONE,
@@ -796,8 +1125,15 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
                 warn("supervisor", `Telegram send also failed for task ${task.id}, will retry next tick`);
               }
             }
-          } else {
-            // Failed/timeout tasks get the raw alert (already in result.alerts)
+          } else if (task.status === "failed" || task.status === "timeout") {
+            // Failed/timeout tasks: send alert with error detail
+            const errorDetail = task.error || task.outputPreview || "no output produced";
+            const truncated = errorDetail.substring(0, 300);
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              `[Task Supervisor] Task ${task.status}: "${task.description}" — ${truncated}`
+            );
+            await markAnnounced(task.id);
           }
         }
 
@@ -821,6 +1157,13 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
         for (const task of result.unannouncedTasks) {
           // Skip tasks we just processed above (they were newly completed this tick)
           if (completedTaskIds.has(task.id)) continue;
+          // Suppress announcements for paused automation tasks
+          if (shouldSuppressAnnouncement(task)) {
+            await markAnnounced(task.id);
+            recordSuppressedTask(task.id);
+            log("supervisor", `Suppressed announcement for paused-automation task ${task.id}`);
+            continue;
+          }
           // Skip tasks that have exceeded retry limit
           if (task.announceRetryCount >= MAX_ANNOUNCE_RETRIES) {
             warn("supervisor", `Task ${task.id} exceeded ${MAX_ANNOUNCE_RETRIES} announce retries, giving up`);
@@ -854,6 +1197,39 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
       timeZone: TIMEZONE,
     })
   );
+
+  // Code Agent Supervisor Worker — every 30 seconds
+  // Monitors running code agents, runs pattern detection, shadow evaluation
+  // Keeps relay responsive by doing supervision in background
+  jobs.push(
+    CronJob.from({
+      cronTime: "*/30 * * * * *", // Every 30 seconds
+      onTick: safeTick("supervisor-worker", async () => {
+        const result = await runSupervisorWorker();
+        if (result.checked > 0 || result.interventions > 0 || result.completed > 0) {
+          log("supervisor-worker", `Checked ${result.checked} agents, ${result.interventions} interventions, ${result.completed} completed`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Prospective memory: check time-based triggers every minute
+  if (supabase) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "* * * * *",
+        onTick: safeTick("prospective-memory", async () => {
+          const triggered = await checkTimeTriggers(supabase);
+          for (const { action } of triggered) {
+            await sendTelegramMessage(DEREK_CHAT_ID, `[Reminder] ${action}`);
+          }
+          if (triggered.length > 0) log("prospective-memory", `Fired ${triggered.length} time trigger(s)`);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
 
   // Create heartbeat job (needs supabase for memory context)
   jobs.push(
@@ -900,6 +1276,552 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
     );
   }
 
+  // Alert delivery: flush pending alerts every minute
+  if (supabase) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "* * * * *",
+        onTick: safeTick("alert-deliver", async () => {
+          const messages = await deliverAlerts(supabase);
+          for (const msg of messages) {
+            await sendTelegramMessage(DEREK_CHAT_ID, msg);
+          }
+          if (messages.length > 0) log("alert-deliver", `Delivered ${messages.length} alert group(s)`);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // ============================================================
+  // LEAD PIPELINE AUTOMATION (reactivated pipeline + content inbound)
+  // ============================================================
+
+  // Lead auto-enrichment: process new OpportunityCreate webhook events
+  // and trigger the new-lead-enrich workflow for each new lead.
+  // Runs every 10 minutes during business hours. Catches leads from
+  // webhook events and auto-drafts personalized outreach.
+  if (supabase && isGHLReady()) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "*/10 7-20 * * 1-6",
+        onTick: safeTick("lead-enrich", async () => {
+          try {
+            // Fetch unprocessed OpportunityCreate events from last 2 hours
+            const events = await getRecentWebhookEvents(supabase, {
+              eventTypes: ["OpportunityCreate"],
+              hoursBack: 2,
+              limit: 20,
+            });
+
+            // Filter to unprocessed events only
+            const unprocessed = events.filter((e) => !(e as any).processed);
+            if (unprocessed.length === 0) return;
+
+            let enriched = 0;
+            const processedIds: string[] = [];
+
+            for (const event of unprocessed) {
+              const payload = event.payload as Record<string, any>;
+              const contactName =
+                payload?.contact_name ||
+                payload?.contactName ||
+                payload?.name ||
+                [payload?.first_name, payload?.last_name].filter(Boolean).join(" ") ||
+                "Unknown";
+              const source = payload?.source || payload?.leadSource || "Unknown";
+
+              if (contactName === "Unknown") {
+                processedIds.push(event.id);
+                continue;
+              }
+
+              // Tag the lead with source for attribution
+              if (event.contact_id && source !== "Unknown") {
+                const sourceTag = "source:" + source.toLowerCase().replace(/\s+/g, "-");
+                await addTagToContact(event.contact_id, sourceTag).catch(() => {});
+                await addTagToContact(event.contact_id, "auto-enriched").catch(() => {});
+              }
+
+              // Create a follow-up task in GHL so Derek has visibility
+              if (event.contact_id) {
+                const tomorrow = new Date(Date.now() + 86400_000).toISOString().split("T")[0];
+                await createContactTask(event.contact_id, "Review auto-enrichment: " + contactName, {
+                  dueDate: tomorrow,
+                  description: "Auto-enrichment workflow triggered for new lead from " + source + ". Review the draft outreach and send if appropriate.",
+                }).catch(() => {});
+              }
+
+              // Trigger the enrichment workflow
+              const result = await instantiateWorkflow("new-lead-enrich", {
+                lead_name: contactName,
+                source,
+              });
+
+              if (result) {
+                enriched++;
+                log("lead-enrich", "Enrichment workflow started for \"" + contactName + "\" (" + source + ")");
+              }
+
+              processedIds.push(event.id);
+            }
+
+            // Mark events as processed
+            if (processedIds.length > 0) {
+              await markEventsProcessed(supabase, processedIds);
+            }
+
+            if (enriched > 0) {
+              await sendTelegramMessage(
+                DEREK_CHAT_ID,
+                "Lead pipeline: " + enriched + " new lead" + (enriched > 1 ? "s" : "") + " auto-enriched. Outreach drafts incoming."
+              );
+              log("lead-enrich", enriched + " lead(s) enriched, " + processedIds.length + " events processed");
+            }
+          } catch (err) {
+            logError("cron", "Lead enrichment failed: " + err);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // Stale lead reactivation: twice daily (10 AM, 3 PM), scan for leads
+  // sitting >7 days in early pipeline stages and trigger re-engagement.
+  // Recovers leads that would otherwise be lost to inaction.
+  if (isGHLReady()) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 10,15 * * 1-5",
+        onTick: safeTick("stale-leads", async () => {
+          if (isEffectivelyPaused("stale_leads")) {
+            log("stale-leads", "Skipped: patient engagement paused");
+            return;
+          }
+          try {
+            const allOpen = await getAllOpportunities(PIPELINES.PATIENT_JOURNEY_WEIGHT_LOSS, "open");
+
+            // Find stale leads: open >7 days, in early stages
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const fourteenDaysAgo = new Date();
+            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+            const staleLeads = allOpen.filter((o: GHLOpportunity) => {
+              const lastActivity = o.lastStageChangeAt || o.dateUpdated || o.dateAdded;
+              if (!lastActivity) return false;
+              const activityDate = new Date(lastActivity);
+              // Stale: inactive 7-14 days (beyond 14 days, they need manual attention)
+              return activityDate < sevenDaysAgo && activityDate > fourteenDaysAgo;
+            });
+
+            if (staleLeads.length === 0) return;
+
+            // Limit to 3 reactivations per run to avoid overwhelming
+            const batch = staleLeads.slice(0, 3);
+            let reactivated = 0;
+
+            for (const lead of batch) {
+              const name = lead.contact?.name || lead.name || "Unknown";
+              if (name === "Unknown") continue;
+
+              const lastActivity = lead.lastStageChangeAt || lead.dateUpdated || lead.dateAdded;
+              const daysStale = lastActivity
+                ? Math.round((Date.now() - new Date(lastActivity).getTime()) / 86400_000)
+                : 7;
+              const source = lead.source || "Unknown";
+
+              // Tag for tracking
+              if (lead.contact?.id) {
+                await addTagToContact(lead.contact.id, "reactivation-attempted").catch(() => {});
+              }
+
+              const result = await instantiateWorkflow("stale-lead-reactivate", {
+                lead_name: name,
+                days_stale: String(daysStale),
+                source,
+              });
+
+              if (result) {
+                reactivated++;
+                log("stale-leads", "Reactivation workflow for \"" + name + "\" (" + daysStale + "d stale)");
+              }
+            }
+
+            if (reactivated > 0) {
+              await sendTelegramMessage(
+                DEREK_CHAT_ID,
+                "Lead pipeline: " + reactivated + " stale lead" + (reactivated > 1 ? "s" : "") + " queued for re-engagement. " +
+                staleLeads.length + " total stale (7-14d)."
+              );
+            }
+          } catch (err) {
+            logError("cron", "Stale lead reactivation failed: " + err);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // Lead volume monitoring: track daily lead counts and alert on drops.
+  // Runs at 8 PM daily, compares today's leads vs 7-day average.
+  // Early warning system for ad/funnel issues.
+  if (supabase && isGHLReady()) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 20 * * *",
+        onTick: safeTick("lead-volume", async () => {
+          try {
+            // Get today's leads
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const { leads: todayLeads } = await getNewLeadsSince(todayStart.toISOString());
+
+            // Get 7-day lead count for baseline
+            const { leads: weekLeads } = await getNewLeadsSince(
+              new Date(Date.now() - 7 * 86400_000).toISOString()
+            );
+            const dailyAvg = weekLeads.length / 7;
+
+            // Track in a lead volume log for trend analysis
+            const volumeEntry = {
+              date: today(),
+              count: todayLeads.length,
+              weekAvg: Math.round(dailyAvg * 10) / 10,
+              sources: {} as Record<string, number>,
+            };
+
+            // Attribution: count leads by source
+            for (const lead of todayLeads) {
+              const src = lead.source || "Unknown";
+              volumeEntry.sources[src] = (volumeEntry.sources[src] || 0) + 1;
+            }
+
+            // Persist lead volume data
+            const volumePath = join(DATA_DIR, "lead-volume.json");
+            let volumeLog: any[] = [];
+            try {
+              if (existsSync(volumePath)) {
+                volumeLog = JSON.parse(readFileSync(volumePath, "utf-8"));
+              }
+            } catch {}
+            volumeLog.push(volumeEntry);
+            // Keep last 90 days
+            if (volumeLog.length > 90) volumeLog = volumeLog.slice(-90);
+            writeFileSync(volumePath, JSON.stringify(volumeLog, null, 2));
+
+            // Alert on significant drops (>40% below average, with minimum threshold)
+            if (dailyAvg >= 1 && todayLeads.length < dailyAvg * 0.6) {
+              await emitAlert(supabase, {
+                source: "lead-pipeline",
+                severity: "warning",
+                category: "Pipeline",
+                message: "Lead volume drop: " + todayLeads.length + " today vs " + dailyAvg.toFixed(1) + " daily avg (7d). Check ads/landing page.",
+                metadata: { todayCount: todayLeads.length, dailyAvg, sources: volumeEntry.sources },
+              });
+            }
+
+            // Alert on zero leads on a business day (Mon-Sat)
+            const dayOfWeek = new Date().getDay();
+            if (todayLeads.length === 0 && dayOfWeek >= 1 && dayOfWeek <= 6) {
+              await emitAlert(supabase, {
+                source: "lead-pipeline",
+                severity: "critical",
+                category: "Pipeline",
+                message: "Zero leads today. Check ad campaigns, landing page, and GHL webhook health.",
+              });
+            }
+
+            // Source attribution summary
+            const srcSummary = Object.entries(volumeEntry.sources)
+              .sort(([, a], [, b]) => (b as number) - (a as number))
+              .map(([src, count]) => src + ": " + count)
+              .join(", ");
+
+            log("lead-volume", "Today: " + todayLeads.length + " leads (avg: " + dailyAvg.toFixed(1) + "). Sources: " + (srcSummary || "none"));
+          } catch (err) {
+            logError("cron", "Lead volume monitoring failed: " + err);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // Anomaly scan: check for anomalies every 15 minutes during business hours
+  // NOTE: Being absorbed by proactive monitoring system (monitor.ts) over time.
+  // Keep as fallback until monitor checks prove stable.
+  if (supabase && isDashboardReady()) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "*/15 7-22 * * *",
+        onTick: safeTick("anomaly-scan", async () => {
+          try {
+            const anomalies = await detectAllAnomalies();
+            for (const anomaly of anomalies) {
+              await emitAlert(supabase, {
+                source: "anomaly",
+                severity: anomaly.severity === "critical" ? "critical" : anomaly.severity === "warning" ? "warning" : "info",
+                category: anomaly.category || "general",
+                message: anomaly.message,
+                metadata: { originalSeverity: anomaly.severity },
+              });
+            }
+            if (anomalies.length > 0) log("anomaly-scan", `Emitted ${anomalies.length} anomaly alert(s)`);
+          } catch (err) {
+            warn("anomaly-scan", `Anomaly detection failed: ${err}`);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // ============================================================
+  // PROACTIVE MONITORING ENGINE (fast/medium/slow tiers)
+  // ============================================================
+  if (supabase) {
+    const { runMonitorTick } = await import("./monitor.ts");
+    const { MONITOR_ENABLED } = await import("./constants.ts");
+
+    if (MONITOR_ENABLED) {
+      // Fast tier: every 5 min during business hours (new leads, reviews, urgent email)
+      jobs.push(
+        CronJob.from({
+          cronTime: "*/5 7-22 * * *",
+          onTick: safeTick("monitor-fast", async () => {
+            const result = await runMonitorTick(supabase, "fast");
+            if (result.alertsEmitted > 0) log("monitor-fast", `${result.checksRun} checks, ${result.alertsEmitted} alerts`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+
+      // Medium tier: every 15 min during business hours (ads, pipeline, speed-to-lead)
+      jobs.push(
+        CronJob.from({
+          cronTime: "*/15 7-22 * * *",
+          onTick: safeTick("monitor-medium", async () => {
+            const result = await runMonitorTick(supabase, "medium");
+            if (result.alertsEmitted > 0) log("monitor-medium", `${result.checksRun} checks, ${result.alertsEmitted} alerts`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+
+      // Slow tier: every hour (financials, traffic, conversion, review health)
+      jobs.push(
+        CronJob.from({
+          cronTime: "0 * * * *",
+          onTick: safeTick("monitor-slow", async () => {
+            const result = await runMonitorTick(supabase, "slow");
+            if (result.alertsEmitted > 0) log("monitor-slow", `${result.checksRun} checks, ${result.alertsEmitted} alerts`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+
+      // Daily tier: 6 AM (morning calendar pre-load)
+      jobs.push(
+        CronJob.from({
+          cronTime: "0 6 * * *",
+          onTick: safeTick("monitor-daily", async () => {
+            const result = await runMonitorTick(supabase, "daily");
+            log("monitor-daily", `${result.checksRun} checks, ${result.alertsEmitted} alerts`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+
+      // Metric snapshot cleanup: daily at 3:30 AM (remove >90 day snapshots)
+      jobs.push(
+        CronJob.from({
+          cronTime: "30 3 * * *",
+          onTick: safeTick("metric-cleanup", async () => {
+            const { data } = await supabase.rpc("cleanup_old_metric_snapshots");
+            if (data > 0) log("metric-cleanup", `Cleaned up ${data} old metric snapshots`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+    }
+  }
+
+  // ============================================================
+  // OBSERVATION REFLECTOR (30 min schedule)
+  // ============================================================
+  if (supabase) {
+    const { runReflector } = await import("./observations.ts");
+    jobs.push(
+      CronJob.from({
+        cronTime: "*/30 7-22 * * *",
+        onTick: safeTick("observation-reflector", async () => {
+          const count = await runReflector(supabase, (p: string) => runPrompt(p, MODELS.haiku));
+          if (count > 0) log("observation-reflector", `Generated ${count} insight(s)`);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // ============================================================
+  // TOX TRAY BUSINESS OPERATOR JOBS
+  // ============================================================
+
+  const TOX_THREAD_ID = process.env.TOX_TRAY_THREAD_ID ? parseInt(process.env.TOX_TRAY_THREAD_ID, 10) : undefined;
+
+  // Tox tray: post approved content (every 30 min, 8 AM - 8 PM)
+  if (supabase) {
+    const { getReadyToPost, markPosted, markFailed, sendPostConfirmation } = await import("./approval.ts");
+    const { publishPost } = await import("./social.ts");
+
+    jobs.push(
+      CronJob.from({
+        cronTime: "*/30 8-20 * * *",
+        onTick: safeTick("tox-post", async () => {
+          const items = await getReadyToPost();
+          if (items.length === 0) return;
+
+          log("tox-post", `${items.length} item(s) ready to post`);
+          for (const item of items) {
+            try {
+              const result = await publishPost({
+                platform: item.platform as "pinterest" | "instagram" | "facebook" | "tiktok",
+                content: item.body,
+                title: item.title || undefined,
+                imageUrl: item.image_url || undefined,
+                link: item.link_url || undefined,
+                hashtags: item.hashtags || [],
+              });
+              await markPosted(item.id, result.externalId);
+              await sendPostConfirmation(item.id, item.platform, result.url);
+              log("tox-post", `Posted #${item.id} to ${item.platform}: ${result.externalId}`);
+            } catch (err) {
+              await markFailed(item.id, String(err).substring(0, 500));
+              logError("tox-post", `Failed to post #${item.id}: ${err}`);
+            }
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+
+    // Tox tray: collect social analytics (11 PM daily)
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 23 * * *",
+        onTick: safeTick("tox-analytics", async () => {
+          const { getPostAnalytics } = await import("./social.ts");
+          log("tox-analytics", "Collecting social analytics...");
+
+          // Get all posted items from content_queue
+          const { data: posted } = await supabase
+            .from("content_queue")
+            .select("id, platform, external_id")
+            .eq("business", "tox_tray")
+            .eq("status", "posted")
+            .not("external_id", "is", null)
+            .order("posted_at", { ascending: false })
+            .limit(50);
+
+          if (!posted || posted.length === 0) {
+            log("tox-analytics", "No posted items to collect analytics for");
+            return;
+          }
+
+          let collected = 0;
+          for (const item of posted) {
+            try {
+              const analytics = await getPostAnalytics(item.platform, item.external_id);
+              await supabase.from("social_analytics").insert({
+                business: "tox_tray",
+                platform: item.platform,
+                post_external_id: item.external_id,
+                content_queue_id: item.id,
+                impressions: analytics.impressions,
+                reach: analytics.reach,
+                engagement: analytics.engagement,
+                clicks: analytics.clicks,
+                saves: analytics.saves,
+              });
+              collected++;
+            } catch (err) {
+              warn("tox-analytics", `Failed for ${item.platform}/${item.external_id}: ${err}`);
+            }
+          }
+
+          log("tox-analytics", `Collected analytics for ${collected}/${posted.length} posts`);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+
+    // Tox tray: weekly digest (Sunday 5 PM)
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 17 * * 0",
+        onTick: safeTick("tox-weekly", async () => {
+          log("tox-weekly", "Generating weekly tox tray digest...");
+
+          // Get this week's stats
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+          const { data: weekPosts } = await supabase
+            .from("content_queue")
+            .select("platform, status")
+            .eq("business", "tox_tray")
+            .gte("created_at", weekAgo);
+
+          const { data: weekAnalytics } = await supabase
+            .from("social_analytics")
+            .select("impressions, reach, engagement, clicks, saves")
+            .eq("business", "tox_tray")
+            .gte("snapshot_at", weekAgo);
+
+          const posted = (weekPosts || []).filter((p) => p.status === "posted").length;
+          const pending = (weekPosts || []).filter((p) => p.status === "pending_approval").length;
+
+          const totalImpressions = (weekAnalytics || []).reduce((s, a) => s + (a.impressions || 0), 0);
+          const totalEngagement = (weekAnalytics || []).reduce((s, a) => s + (a.engagement || 0), 0);
+          const totalClicks = (weekAnalytics || []).reduce((s, a) => s + (a.clicks || 0), 0);
+
+          const digest = [
+            "Tox Tray Weekly Digest",
+            "",
+            `Posts: ${posted} published, ${pending} pending`,
+            `Impressions: ${totalImpressions.toLocaleString()}`,
+            `Engagement: ${totalEngagement.toLocaleString()}`,
+            `Clicks: ${totalClicks.toLocaleString()}`,
+          ].join("\n");
+
+          await sendTelegramMessage(DEREK_CHAT_ID, digest, TOX_THREAD_ID);
+          log("tox-weekly", "Weekly digest sent");
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // Tox tray: Etsy listing sync (6 AM daily, only if Etsy is configured)
+  {
+    const { isEtsyReady, syncListingsToCache } = await import("./etsy.ts");
+    if (isEtsyReady()) {
+      jobs.push(
+        CronJob.from({
+          cronTime: "0 6 * * *",
+          onTick: safeTick("etsy-sync", async () => {
+            log("etsy-sync", "Syncing Etsy listings...");
+            const count = await syncListingsToCache();
+            log("etsy-sync", `Synced ${count} listings`);
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+    }
+  }
+
   for (const job of jobs) {
     job.start();
   }
@@ -916,11 +1838,29 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
-  console.log("  - 11:00 PM     Nightly evolution (opus code agent: OpenClaw + error fixes)");
-  console.log("  - 1:00 AM      Conversation summarization (haiku)");
+  console.log("  - 11:00 PM     Nightly evolution pipeline (scout+audit+architect+implementer+validator)");
+  console.log("  - 1:00 AM      Cognitive consolidation + fallback summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
   console.log("  - Every 1min   Scheduled message delivery");
+  console.log("  - Every 1min   Prospective memory time triggers");
   console.log("  - 7:05 AM      GHL webhook health check");
+  console.log("  - Every 15min  Appointment reminders (72h/24h/2h + no-show recovery)");
+  console.log("  - Every 1min   Alert delivery pipeline");
+  console.log("  - Every 10min  Lead auto-enrichment (business hours)");
+  console.log("  - 10AM/3PM     Stale lead reactivation (weekdays)");
+  console.log("  - 8:00 PM      Lead volume monitoring + attribution");
+  console.log("  - Every 15min  Anomaly scan (business hours)");
+  console.log("  - Every 5min   Monitor: fast tier (leads, reviews, urgent email)");
+  console.log("  - Every 15min  Monitor: medium tier (ads, pipeline, speed-to-lead)");
+  console.log("  - Every 1hr    Monitor: slow tier (financials, traffic, conversions)");
+  console.log("  - 6:00 AM      Monitor: daily tier (morning calendar pre-load)");
+  console.log("  - 3:30 AM      Metric snapshot cleanup (>90 day retention)");
+  console.log("  - Every 30min  Observation reflector (business hours)");
+  console.log("  - 6:00 AM      Pharmacy invoice processing (daily, 2-day lookback)");
+  console.log("  - */30 8-20    Tox tray: post approved content");
+  console.log("  - 11:00 PM     Tox tray: collect social analytics");
+  console.log("  - Sunday 5 PM  Tox tray: weekly digest");
+  console.log("  - 6:00 AM      Tox tray: Etsy listing sync (if configured)");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.
@@ -950,6 +1890,19 @@ export async function startCronJobs(supabase: SupabaseClient | null): Promise<vo
         const result = await runSkill("reflect", MODELS.sonnet);
         if (result) log("catch-up", `Reflection catch-up done`);
         markJobRan("reflect");
+      },
+    },
+    {
+      name: "pharmacy-invoices",
+      maxAge: DAY_MS,
+      fn: async () => {
+        log("catch-up", "Running missed pharmacy invoice processing...");
+        const result = await runPharmacyInvoiceProcessor({ lookbackDays: 2 });
+        const summary = formatPharmacySummary(result);
+        if (summary && summary !== "No new pharmacy invoices to process.") {
+          await sendTelegramMessage(DEREK_CHAT_ID, summary);
+        }
+        markJobRan("pharmacy-invoices");
       },
     },
   ];

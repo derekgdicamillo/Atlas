@@ -79,7 +79,7 @@ interface QueueStore {
 // ============================================================
 
 export const MAX_QUEUE_SIZE = 25;
-export const DEFAULT_TTL_MS = 10 * 60 * 1000;       // 10 min for normal tasks
+export const DEFAULT_TTL_MS = 20 * 60 * 1000;       // 20 min for normal tasks (was 10, caused silent expiry)
 export const SWARM_TTL_MS = 30 * 60 * 1000;          // 30 min for swarm tasks
 const EXPIRE_CHECK_INTERVAL_MS = 60_000;              // 60s
 

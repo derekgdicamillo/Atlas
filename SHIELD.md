@@ -14,5 +14,13 @@
 ## Blocked Commands
 rm -rf, format, del /s, Remove-Item -Recurse (without confirmation)
 
+## Access Control Model
+Atlas authenticates via Telegram user ID, not IP address. Rate limiting and dedup are keyed on userId.
+IP-based rate-limit key normalization (as used by HTTP-facing systems like OpenClaw) does not apply.
+- Auth: allowlist of Telegram user IDs in config/agents.json
+- Dedup: userId + message text, 5 min window (relay.ts)
+- Alert throttle: 10/hour global, critical exempt (alerts.ts)
+- API protection: per-service circuit breakers (circuit-breaker.ts)
+
 ## When In Doubt
 Ask Derek before taking destructive actions.

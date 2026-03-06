@@ -1,0 +1,47 @@
+{
+  "mcpServers": {
+    "atlas": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\src\\mcp-server.ts"],
+      "description": "Atlas core: memory, graph, alerts, facts"
+    },
+    "google-suite": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\google-suite\\index.ts"],
+      "description": "Gmail, Calendar, Contacts (10 tools)"
+    },
+    "ghl-crm": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\ghl-crm\\index.ts"],
+      "description": "GoHighLevel CRM: contacts, pipeline, conversations (17 tools)"
+    },
+    "wordpress": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\wordpress\\index.ts"],
+      "description": "WordPress: pages, posts, media for pvmedispa.com (9 tools)"
+    },
+    "gbp": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\gbp\\index.ts"],
+      "description": "Google Business Profile: reviews, performance, keywords (3 tools)"
+    },
+    "ga4-analytics": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\ga4-analytics\\index.ts"],
+      "description": "Google Analytics 4: traffic, sources, conversions (6 tools)"
+    },
+    "pv-dashboard": {
+      "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
+      "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\pv-dashboard\\index.ts"],
+      "description": "PV Dashboard: financials, pipeline, attribution (6 tools)"
+    },
+    "hevy": {
+      "command": "npx",
+      "args": ["-y", "hevy-mcp"],
+      "env": {
+        "HEVY_API_KEY": "e95174f8-4f3c-412b-95e8-ab06e2479e16"
+      },
+      "description": "Hevy: workout logging, routines, exercise templates (fitness coach)"
+    }
+  }
+}

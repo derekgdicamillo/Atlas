@@ -120,12 +120,184 @@ export interface AdjunctRecommendation {
   availability: "now" | "2026" | "2027+" ;
 }
 
+// ============================================================
+// MEDICATION TIER SYSTEM (Brand vs Compounded)
+// ============================================================
+
+export type MedicationTier = "compounded" | "brand" | "brand-premium";
+
+export interface MedicationTierOption {
+  tier: MedicationTier;
+  label: string;
+  medication: string;
+  brandName?: string;
+  monthlyMedCost: number;     // clinic cost from pharmacy/manufacturer
+  monthlyPatientPrice: number; // what patient pays per month (program fee)
+  margin: number;              // gross margin per month
+  revenuePerPatient6mo: number;
+  revenuePerPatient12mo: number;
+  advantages: string[];
+  patientProfile: string;      // who this tier is best for
+}
+
+/**
+ * GLP-1 Medication Tier Pricing (February 2026)
+ *
+ * Tier 1 - Compounded: Current standard program ($465/mo).
+ *   Compounded semaglutide or tirzepatide from 503A pharmacy.
+ *   Legally requires documented patient-specific medical necessity.
+ *
+ * Tier 2 - Brand Standard: Brand-name at manufacturer self-pay pricing.
+ *   Novo Nordisk intro pricing ($199-349/mo) or LillyDirect ($299/mo).
+ *   Clinic charges program fee on top of medication cost.
+ *
+ * Tier 3 - Brand Premium: Full-service concierge with brand-name meds.
+ *   All-inclusive: medication, body comp, weekly provider check-ins,
+ *   Skool access, supplement stack, priority scheduling.
+ */
+export function buildMedicationTiers(patient: PatientIntake): MedicationTierOption[] {
+  const tiers: MedicationTierOption[] = [];
+  const onSema = patient.glp1Med && /semaglutide/i.test(patient.glp1Med);
+  const onTirz = patient.glp1Med && /tirzepatide/i.test(patient.glp1Med);
+
+  // Tier 1: Compounded (current standard)
+  tiers.push({
+    tier: "compounded",
+    label: "Essential",
+    medication: onTirz ? "Compounded tirzepatide" : "Compounded semaglutide",
+    monthlyMedCost: onTirz ? 250 : 150,       // avg pharmacy cost
+    monthlyPatientPrice: 465,
+    margin: onTirz ? 215 : 315,
+    revenuePerPatient6mo: 465 * 6,             // $2,790
+    revenuePerPatient12mo: 465 * 12,           // $5,580
+    advantages: [
+      "Lowest patient cost",
+      "Flexible dosing from compounding pharmacy",
+      "Established program structure",
+    ],
+    patientProfile: "Cost-conscious patients, those with documented medical necessity for compounded dosing",
+  });
+
+  // Tier 2: Brand Standard
+  if (onTirz || !onSema) {
+    // Tirzepatide brand (Zepbound via LillyDirect)
+    tiers.push({
+      tier: "brand",
+      label: "Brand Zepbound",
+      medication: "Tirzepatide",
+      brandName: "Zepbound (Eli Lilly)",
+      monthlyMedCost: 299,                    // LillyDirect self-pay vial pricing
+      monthlyPatientPrice: 559,               // ~+$94/mo over compounded = +20% revenue
+      margin: 260,
+      revenuePerPatient6mo: 559 * 6,          // $3,354
+      revenuePerPatient12mo: 559 * 12,        // $6,708
+      advantages: [
+        "FDA-approved brand medication (Zepbound)",
+        "Manufactured by Eli Lilly with full quality assurance",
+        "No compounding legal risk",
+        "Insurance pre-auth support (some plans cover)",
+        "SURMOUNT trial data: 20.2% avg weight loss at 72 weeks",
+        "Dual GLP-1/GIP mechanism for superior results",
+      ],
+      patientProfile: "Patients wanting FDA-approved brand, insurance-eligible patients, those prioritizing proven efficacy",
+    });
+  }
+
+  if (onSema || !onTirz) {
+    // Semaglutide brand (Wegovy)
+    tiers.push({
+      tier: "brand",
+      label: "Brand Wegovy",
+      medication: "Semaglutide",
+      brandName: "Wegovy (Novo Nordisk)",
+      monthlyMedCost: 199,                    // Novo intro self-pay pricing (first 2 months $199, then $349)
+      monthlyPatientPrice: 559,               // matches Zepbound tier
+      margin: 360,                            // higher margin at intro med cost
+      revenuePerPatient6mo: 559 * 6,          // $3,354
+      revenuePerPatient12mo: 559 * 12,        // $6,708
+      advantages: [
+        "FDA-approved brand medication (Wegovy)",
+        "Novo Nordisk intro self-pay: $199-349/mo for medication",
+        "SELECT trial: 20% cardiovascular risk reduction",
+        "90% of commercially insured patients pay $0-25/mo",
+        "Oral Wegovy option available (approved Dec 2025)",
+        "No compounding legal risk",
+      ],
+      patientProfile: "Patients with commercial insurance (potential $0-25/mo copay), cardiovascular risk patients, oral preference patients",
+    });
+  }
+
+  // Tier 3: Brand Premium (concierge)
+  tiers.push({
+    tier: "brand-premium",
+    label: "Concierge VIP",
+    medication: onTirz ? "Tirzepatide" : "Semaglutide",
+    brandName: onTirz ? "Zepbound (Eli Lilly)" : "Wegovy (Novo Nordisk)",
+    monthlyMedCost: onTirz ? 299 : 275,      // avg brand cost over titration
+    monthlyPatientPrice: 749,                 // premium all-inclusive
+    margin: onTirz ? 450 : 474,
+    revenuePerPatient6mo: 749 * 6,            // $4,494
+    revenuePerPatient12mo: 749 * 12,          // $8,988
+    advantages: [
+      "All-inclusive: brand medication + full program",
+      "Weekly provider check-ins (vs monthly standard)",
+      "Priority scheduling and same-day messaging",
+      "Full supplement stack included (creatine, HMB, omega-3, magnesium, D3+K2)",
+      "Vitality Unchained Tribe (Skool) premium access",
+      "Quarterly comprehensive labs included",
+      "Body comp SCALE tracking every 2 weeks",
+      "Personalized Fuel Code meal plan",
+    ],
+    patientProfile: "High-value patients wanting concierge experience, professionals with limited time, patients who want maximum accountability and fastest results",
+  });
+
+  return tiers;
+}
+
+/**
+ * Calculate revenue impact of shifting patient mix toward brand-name tiers.
+ * Target: +20% revenue per patient by moving eligible patients to brand tiers.
+ */
+export function calculateBrandRevenueImpact(
+  currentPatients: number,
+  currentRevenuePerPatient: number
+): {
+  currentMonthlyRevenue: number;
+  projectedMonthlyRevenue: number;
+  revenueIncrease: number;
+  revenueIncreasePct: number;
+  mixAssumption: { tier: string; pct: number; pricePoint: number }[];
+} {
+  // Current: 100% compounded at $465/mo
+  const currentMonthlyRevenue = currentPatients * currentRevenuePerPatient;
+
+  // Target mix to achieve +20% revenue per patient:
+  // 40% stay compounded ($465), 40% move to brand ($559), 20% upgrade to premium ($749)
+  const mix = [
+    { tier: "Compounded (Essential)", pct: 0.40, pricePoint: 465 },
+    { tier: "Brand (Wegovy/Zepbound)", pct: 0.40, pricePoint: 559 },
+    { tier: "Concierge VIP", pct: 0.20, pricePoint: 749 },
+  ];
+
+  const blendedRevPerPatient = mix.reduce((sum, m) => sum + m.pct * m.pricePoint, 0);
+  const projectedMonthlyRevenue = currentPatients * blendedRevPerPatient;
+
+  return {
+    currentMonthlyRevenue,
+    projectedMonthlyRevenue,
+    revenueIncrease: projectedMonthlyRevenue - currentMonthlyRevenue,
+    revenueIncreasePct: ((blendedRevPerPatient - currentRevenuePerPatient) / currentRevenuePerPatient) * 100,
+    mixAssumption: mix,
+  };
+}
+
 export interface CarePlan {
   generatedAt: string;
   patient: PatientIntake;
   compositionAnalysis: string;
   pillarSections: CarePlanSection[];
   adjunctTherapies: AdjunctRecommendation[];
+  medicationTiers: MedicationTierOption[];
   sideEffectManagement: string;
   labRecommendations: string[];
   thirtyDayGoals: Record<string, { baseline: string; target: string }>;
@@ -562,6 +734,57 @@ function recommendAdjuncts(patient: PatientIntake): AdjunctRecommendation[] {
     });
   }
 
+  // 6c. Brand-name GLP-1 upgrade (revenue optimization)
+  const onCompounded = !patient.providerNote?.match(/brand|wegovy|ozempic|mounjaro|zepbound|oral wegovy/i);
+
+  if (onCompounded && (patient.glp1Med)) {
+    const hasInsurance = patient.providerNote?.match(/insur|commercial|bcbs|aetna|cigna|united|humana|blue cross/i);
+    const wantsResults = patient.complaints?.some((c) => /stall|plateau|slow|frustrat|not.*working/i.test(c));
+
+    recs.push({
+      name: "Upgrade to Brand-Name GLP-1 (Wegovy/Zepbound)",
+      category: "medication",
+      mechanism: "FDA-approved brand medications manufactured under strict quality controls. Consistent potency, standardized dosing, and backed by landmark clinical trials (STEP, SURMOUNT, SELECT). Eliminates compounding variability.",
+      evidence: "Brand medications have the full weight of Phase 3 trial data. Wegovy: 14.9% avg weight loss (STEP 1), 20% cardiovascular risk reduction (SELECT). Zepbound: 20.2% avg weight loss (SURMOUNT-5). Compounded versions rely on pharmacy-level quality, which FDA has flagged for inconsistencies (Feb 2026 warning letters).",
+      dosing: onSemaglutide
+        ? "Wegovy: 0.25mg weekly x4wk, titrate to 2.4mg maintenance. OR Oral Wegovy: 1.5mg daily, titrate to 25mg daily."
+        : "Zepbound: 2.5mg weekly x4wk, titrate to 15mg maintenance. Available via LillyDirect at $299/mo self-pay.",
+      contraindications: "Same as compounded version. No additional contraindications for brand formulation.",
+      patientFit: hasInsurance ? "high" : wantsResults ? "high" : "moderate",
+      fitRationale: hasInsurance
+        ? "Patient has commercial insurance. 90% of commercially insured Wegovy patients pay $0-25/mo. Pre-auth support included in Brand tier. Significant cost savings for patient, higher program value."
+        : wantsResults
+          ? "Patient frustrated with progress. Brand medications have standardized potency and full trial-backed dosing protocols. Upgrading eliminates compounding variability as a factor."
+          : "Brand upgrade offers FDA quality assurance, insurance eligibility, and eliminates compounding legal exposure. Discuss at next visit.",
+      monthlyCost: "Clinic program: $559/mo (Brand tier) or $749/mo (Concierge VIP). Med cost: $199-349/mo manufacturer self-pay.",
+      availability: "now",
+    });
+  }
+
+  // 6b. Oral semaglutide (Oral Wegovy) option
+  const needleAverse = [
+    ...(patient.complaints || []),
+    ...(patient.sideEffects || []),
+    patient.providerNote || "",
+  ].some((s) => /needle|inject|phobia|afraid.*shot|hate.*shot|oral.*prefer/i.test(s));
+
+  if (onSemaglutide) {
+    recs.push({
+      name: "Switch to Oral Semaglutide (Oral Wegovy)",
+      category: "medication",
+      mechanism: "Same GLP-1 RA as injectable Wegovy, oral tablet formulation. FDA approved December 2025. Eliminates injection burden while maintaining equivalent efficacy.",
+      evidence: "Weight loss ~13.6-16.6%, comparable to injectable Wegovy (~14.9% STEP 1). Same mechanism, different route.",
+      dosing: "1.5mg daily x1 month, then 4mg daily x1 month, then 9mg daily x1 month, then 25mg daily (maintenance). Take on empty stomach with ≤4 oz water, wait 30 min before eating.",
+      contraindications: "Same as injectable semaglutide (MTC/MEN2 history, pancreatitis, severe allergic reaction). Must be taken on empty stomach for absorption.",
+      patientFit: needleAverse ? "high" : "low",
+      fitRationale: needleAverse
+        ? "Patient has expressed needle/injection concerns. Oral formulation removes that barrier entirely while maintaining equivalent weight loss."
+        : "Patient tolerating injections. Oral route is an option but no clinical advantage over injectable. Consider if adherence becomes an issue.",
+      monthlyCost: "$1,000+ brand (check insurance)",
+      availability: "now",
+    });
+  }
+
   // 7. Muscle preservation stack (supplements)
   const losingMuscle = patient.muscleMassPct != null && patient.prev?.muscleMassPct != null && patient.muscleMassPct <= patient.prev.muscleMassPct;
   const armShrinking = patient.arm != null && patient.prev?.arm != null && patient.arm < patient.prev.arm;
@@ -770,6 +993,7 @@ export async function generateCarePlan(patient: PatientIntake): Promise<CarePlan
   const compositionAnalysis = analyzeComposition(patient);
   const pillarSections = mapPillars(patient);
   const adjunctTherapies = recommendAdjuncts(patient);
+  const medicationTiers = buildMedicationTiers(patient);
   const sideEffectManagement = buildSideEffectPlan(patient);
 
   // Lab recommendations
@@ -818,6 +1042,11 @@ export async function generateCarePlan(patient: PatientIntake): Promise<CarePlan
 
   talkingPoints.push("Track your food this week. No judgment, no restrictions. I just need to see what we're working with.");
 
+  // Brand-name tier talking point
+  if (patient.glp1Med && !patient.providerNote?.match(/brand|wegovy|ozempic|mounjaro|zepbound/i)) {
+    talkingPoints.push("We also offer FDA-approved brand-name medications like Wegovy and Zepbound. These are the exact formulations used in the major clinical trials, and if you have commercial insurance, most patients pay $0-25 per month. Worth checking into.");
+  }
+
   if (patient.complaints?.some((c) => /frustrat|stall|plateau|difficult/i.test(c))) {
     talkingPoints.push("We have additional tools available if needed. But let's get the foundation right first - protein, movement, hydration. These are the biggest levers we haven't pulled yet.");
   }
@@ -826,14 +1055,20 @@ export async function generateCarePlan(patient: PatientIntake): Promise<CarePlan
   const escalation = `ESCALATION PATH:
 1. Weeks 1-4: Foundation (protein 100g+, resistance training 3x/week, hydration, supplements)
 2. Week 4: Body comp SCALE recheck. If muscle % improving and waist trending down, continue course.
+   - TIER REVIEW: Discuss Brand upgrade if on compounded. Insurance check for Wegovy/Zepbound coverage.
+   - If insured: pre-auth for brand medication ($0-25/mo copay for most commercial plans).
+   - If self-pay: present Brand tier ($559/mo) with FDA quality assurance value prop.
 3. Weeks 4-8: Add metformin if insulin resistance history. Verify GLP-1 dose optimized.
+   - If responding well to brand medication, introduce Concierge VIP tier ($749/mo) for accelerated results.
 4. Week 8: Body comp SCALE + labs recheck. Assess hormone panel results.
 5. Weeks 8-12: If plateau persists after foundation + metformin, consider:
    - SGLT2 inhibitor (if visceral fat still elevated)
-   - Tirzepatide switch (if on semaglutide, check insurance)
+   - Tirzepatide switch (if on semaglutide, check insurance). Zepbound via LillyDirect $299/mo.
+   - Oral Wegovy (if needle-averse or adherence issues, 1.5mg→4mg→9mg→25mg daily)
    - Contrave (if food noise/cravings present)
    - Topiramate (if no brain fog, as last resort)
-6. Month 4+: Reassess full plan. Watch pipeline drugs (CagriSema, enobosarm).`;
+6. Month 4+: Reassess full plan. Watch pipeline drugs (CagriSema, enobosarm).
+   - Review tier placement. Patients on Brand tier for 4+ months with good results are candidates for annual commitment (5% discount).`;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -841,6 +1076,7 @@ export async function generateCarePlan(patient: PatientIntake): Promise<CarePlan
     compositionAnalysis,
     pillarSections,
     adjunctTherapies,
+    medicationTiers,
     sideEffectManagement,
     labRecommendations: labRecs,
     thirtyDayGoals: goals,
@@ -878,6 +1114,30 @@ export function formatCarePlan(plan: CarePlan): string {
     if (section.resources.length > 0) {
       lines.push(`Resources: ${section.resources.join(", ")}`);
     }
+    lines.push("");
+  }
+
+  // Medication tier options
+  if (plan.medicationTiers.length > 0) {
+    lines.push("MEDICATION PROGRAM TIERS");
+    lines.push("═".repeat(40));
+    lines.push("(Provider: discuss tier options at next visit for optimal patient fit and revenue per patient)");
+    lines.push("");
+    for (const tier of plan.medicationTiers) {
+      const tierTag = tier.tier === "brand-premium" ? " [VIP]" : tier.tier === "brand" ? " [BRAND]" : "";
+      lines.push(`${tier.label}${tierTag}: $${tier.monthlyPatientPrice}/mo`);
+      lines.push(`  Medication: ${tier.brandName || tier.medication}`);
+      lines.push(`  Margin: $${tier.margin}/mo | 6-mo rev: $${tier.revenuePerPatient6mo.toLocaleString()} | 12-mo rev: $${tier.revenuePerPatient12mo.toLocaleString()}`);
+      lines.push(`  Best for: ${tier.patientProfile}`);
+      lines.push(`  Key advantages:`);
+      tier.advantages.slice(0, 3).forEach((a) => lines.push(`    - ${a}`));
+      lines.push("");
+    }
+
+    // Revenue impact summary
+    const impact = calculateBrandRevenueImpact(1, 465);
+    lines.push(`TARGET MIX (40% Essential / 40% Brand / 20% VIP):`);
+    lines.push(`  Blended revenue per patient: $${impact.mixAssumption.reduce((s, m) => s + m.pct * m.pricePoint, 0).toFixed(0)}/mo (+${impact.revenueIncreasePct.toFixed(0)}% vs current)`);
     lines.push("");
   }
 
@@ -1109,14 +1369,18 @@ ${plan.pillarSections.map((s) => `Pillar ${s.pillarNumber} [${s.priority}]: ${s.
 ADJUNCT THERAPY RECOMMENDATIONS:
 ${plan.adjunctTherapies.filter((r) => r.patientFit !== "low").map((r) => `- ${r.name} [${r.patientFit}]: ${r.fitRationale}`).join("\n")}
 
+MEDICATION PROGRAM TIERS:
+${plan.medicationTiers.map((t) => `- ${t.label} ($${t.monthlyPatientPrice}/mo): ${t.brandName || t.medication}. Best for: ${t.patientProfile}. Margin: $${t.margin}/mo.`).join("\n")}
+
 Using this analysis as your foundation, generate a comprehensive, personalized care plan. Include:
 1. What the composition data actually reveals (interpret the trends)
 2. Specific 5-pillar interventions with clinical rationale
 3. Adjunct therapy recommendations ranked by priority for THIS patient
-4. Side effect management plan
-5. 30-day goals with measurable targets
-6. Talking points the provider can use with the patient
-7. Clear escalation pathway if interventions don't move the needle
+4. Medication tier recommendation: which tier (Essential/Brand/Concierge VIP) best fits this patient based on insurance status, clinical needs, and engagement level
+5. Side effect management plan
+6. 30-day goals with measurable targets
+7. Talking points the provider can use with the patient (include a natural brand-upgrade mention if on compounded)
+8. Clear escalation pathway if interventions don't move the needle
 
 Be specific, evidence-based, and actionable. This is a draft for provider review, not patient-facing content.`;
 }

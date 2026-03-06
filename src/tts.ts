@@ -6,6 +6,7 @@
  */
 
 import { spawn } from "child_process";
+import { sanitizedEnv } from "./claude.ts";
 
 const VALID_VOICES = ["nova", "shimmer", "echo", "onyx", "fable", "alloy", "ash", "sage", "coral"] as const;
 type Voice = typeof VALID_VOICES[number];
@@ -14,6 +15,15 @@ const TTS_VOICE: Voice = VALID_VOICES.includes(envVoice as Voice) ? (envVoice as
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 console.log(`[tts] Initialized: voice=${TTS_VOICE} (env=${process.env.TTS_VOICE || "unset"})`);
+
+// Preflight: verify ffmpeg is available. Log a clear warning at startup if missing.
+// This prevents confusing runtime failures when TTS appears to work but OGG conversion silently fails.
+import { execSync } from "child_process";
+try {
+  execSync("ffmpeg -version", { stdio: "pipe", timeout: 5000, env: sanitizedEnv() as NodeJS.ProcessEnv });
+} catch {
+  console.warn("[tts] WARNING: ffmpeg not found in PATH. TTS OGG/Opus conversion will fail. Install ffmpeg or add it to PATH.");
+}
 
 /**
  * Strip markdown formatting that would sound weird spoken aloud.
@@ -48,7 +58,7 @@ function mp3ToOggOpus(mp3Buffer: Buffer): Promise<Buffer | null> {
       "-vn",               // no video
       "-f", "ogg",         // OGG container
       "pipe:1",            // write to stdout
-    ], { stdio: ["pipe", "pipe", "pipe"] });
+    ], { stdio: ["pipe", "pipe", "pipe"], env: sanitizedEnv() as NodeJS.ProcessEnv });
 
     const chunks: Buffer[] = [];
     let stderr = "";
@@ -98,19 +108,28 @@ export async function textToSpeech(text: string): Promise<Buffer | null> {
 
   try {
     console.log(`[tts] Requesting: voice=${TTS_VOICE}, chars=${truncated.length}`);
-    const res = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1",
-        input: truncated,
-        voice: TTS_VOICE,
-        response_format: "mp3",
-      }),
-    });
+    // 15s timeout prevents hanging on slow/dead OpenAI connections
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    let res: Response;
+    try {
+      res = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          input: truncated,
+          voice: TTS_VOICE,
+          response_format: "mp3",
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!res.ok) {
       const errBody = await res.text();

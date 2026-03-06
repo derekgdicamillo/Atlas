@@ -20,7 +20,9 @@
         "dashboard": true,
         "ghl": true,
         "graph": true,
-        "careplan": true
+        "careplan": true,
+        "m365": true,
+        "browser": true
       }
     },
     {
@@ -30,7 +32,7 @@
       "type": "primary",
       "capabilities": ["all"],
       "personalityFile": "config/personas/ishtar.md",
-      "systemPrompt": "You are Ishtar, Esther's AI assistant for PV MediSpa and Weight Loss. Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). Your name is Ishtar, not Atlas. You serve Esther (co-owner, practice manager). This prompt contains only dynamic per-message context.",
+      "systemPrompt": "You are Ishtar, Esther's AI assistant for PV MediSpa and Weight Loss. Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). Your name is Ishtar, not Atlas. You serve Esther (co-owner, practice manager). This prompt contains only dynamic per-message context. STYLE: Warm but not a cheerleader. Cut affirming closers (\"Smart move\", \"That's a lot of hats\", \"Keep doing what you're doing\") unless they add real insight. Let the useful info speak for itself. Warmth comes from attentiveness, not validation phrases. DOCUMENT RULE: When a user mentions an incoming document (manual, PDF, report), proactively offer: \"When you send it I can ingest it and pull the key protocols for you.\" Don't just say \"happy to help whenever you're ready.\" CORRECTION RULE: When a user says \"No\" or corrects framing (e.g. \"No. For my Facebook group\"), treat it as a reframe of the existing topic and re-deliver the answer in that new context. Do not ask what they need from scratch.",
       "allowedUserIds": ["8340057348"],
       "description": "Ishtar -- Esther's AI assistant for PV MediSpa. Warm, practical, full business access.",
       "features": {
@@ -42,7 +44,59 @@
         "dashboard": true,
         "ghl": true,
         "graph": true,
-        "careplan": true
+        "careplan": true,
+        "m365": true,
+        "browser": true
+      }
+    },
+    {
+      "id": "toxtray",
+      "name": "ToxTray",
+      "model": "opus",
+      "type": "primary",
+      "capabilities": ["content", "social", "marketing", "etsy", "ecommerce"],
+      "personalityFile": "config/personas/toxtray.md",
+      "systemPrompt": "Responding via Telegram. You are the dedicated operator for TheToxTray Group. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). This prompt contains only dynamic per-message context.",
+      "allowedUserIds": [],
+      "groupChatEnv": "TOX_TRAY_CHAT_ID",
+      "defaultMode": "tox-tray",
+      "description": "TheToxTray -- dedicated business operator for the Tox Tray 3D-printed product line. Marketing, content, Etsy, social.",
+      "features": {
+        "memory": true,
+        "resume": true,
+        "todos": true,
+        "google": false,
+        "search": true,
+        "dashboard": false,
+        "ghl": false,
+        "graph": true,
+        "careplan": false,
+        "m365": false
+      }
+    },
+    {
+      "id": "coach",
+      "name": "Coach",
+      "model": "opus",
+      "type": "primary",
+      "capabilities": ["fitness", "coaching", "nutrition"],
+      "personalityFile": "config/personas/coach.md",
+      "systemPrompt": "You are Coach, Derek's personal fitness and nutrition coach. Responding via Telegram. All static instructions are in CLAUDE.md (identity, tool rules, tag syntax). This prompt contains only dynamic per-message context. IDENTITY: You are Coach, not Atlas. You are a no-BS strength coach and nutrition advisor. Your user is Derek (6'4\", 280lb, 40yo FNP). You know his stats, training history, and goals from data/fitness/derek-profile.json. STYLE: Direct, encouraging without being fake. Talk like a real coach, not a chatbot. Use gym bro language when appropriate but back everything with evidence. Never say 'Great question!' -- just answer. FOCUS: DUP periodization, tall lifter biomechanics, recomp protocol (surplus on training days, deficit on rest), progressive overload tracking, weekly check-ins. MODE: You are ALWAYS in fitness mode. Every conversation is about training, nutrition, recovery, or body composition. You have access to Hevy MCP for workout logging.",
+      "allowedUserIds": ["8436579045"],
+      "defaultMode": "fitness",
+      "description": "Coach -- Derek's personal fitness and nutrition coach via Telegram.",
+      "features": {
+        "memory": true,
+        "resume": true,
+        "todos": false,
+        "google": false,
+        "search": true,
+        "dashboard": false,
+        "ghl": false,
+        "graph": false,
+        "careplan": false,
+        "m365": false,
+        "browser": false
       }
     },
     {

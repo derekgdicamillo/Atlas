@@ -13,12 +13,15 @@
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { info, warn } from "./logger.ts";
+import { DELIVERY_MAX_BACKOFF_MS, DELIVERY_MIN_RETRY_INTERVAL_MS } from "./constants.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const DATA_DIR = join(PROJECT_ROOT, "data");
 const QUEUE_FILE = join(DATA_DIR, "pending_replies.json");
+const BACKOFF_FILE = join(DATA_DIR, "delivery-backoff.json");
 const STALE_THRESHOLD_MS = 60 * 60_000; // 1 hour
 
 interface PendingReply {
@@ -110,6 +113,69 @@ export async function drainPendingReplies(
 }
 
 // ============================================================
+// PERSISTENT BACKOFF (OpenClaw delivery recovery)
+// ============================================================
+// Tracks per-target delivery failure state across restarts.
+// If Telegram is down for hours, we don't slam it on recovery.
+
+interface BackoffState {
+  /** Consecutive failure count */
+  failures: number;
+  /** Timestamp of last failed attempt */
+  lastFailedAt: number;
+  /** Current backoff interval in ms */
+  backoffMs: number;
+}
+
+let backoffMap: Record<string, BackoffState> = {};
+
+function loadBackoff(): void {
+  try {
+    if (existsSync(BACKOFF_FILE)) {
+      backoffMap = JSON.parse(readFileSync(BACKOFF_FILE, "utf-8"));
+    }
+  } catch {
+    backoffMap = {};
+  }
+}
+
+function saveBackoff(): void {
+  try {
+    writeFileSync(BACKOFF_FILE, JSON.stringify(backoffMap, null, 2));
+  } catch { /* non-critical */ }
+}
+
+/** Record a delivery failure for a target. Doubles backoff up to cap. */
+export function recordDeliveryFailure(target: string): void {
+  const existing = backoffMap[target] || { failures: 0, lastFailedAt: 0, backoffMs: DELIVERY_MIN_RETRY_INTERVAL_MS };
+  existing.failures++;
+  existing.lastFailedAt = Date.now();
+  existing.backoffMs = Math.min(existing.backoffMs * 2, DELIVERY_MAX_BACKOFF_MS);
+  backoffMap[target] = existing;
+  saveBackoff();
+}
+
+/** Clear backoff state for a target after successful delivery. */
+export function clearDeliveryBackoff(target: string): void {
+  if (backoffMap[target]) {
+    delete backoffMap[target];
+    saveBackoff();
+  }
+}
+
+/** Check if we should wait before retrying delivery to a target. Returns ms to wait, or 0. */
+export function getDeliveryWaitMs(target: string): number {
+  const state = backoffMap[target];
+  if (!state) return 0;
+  const elapsed = Date.now() - state.lastFailedAt;
+  const remaining = state.backoffMs - elapsed;
+  return remaining > 0 ? remaining : 0;
+}
+
+// Load persisted backoff state on module init
+loadBackoff();
+
+// ============================================================
 // DELIVERY CONFIGURATION (OpenClaw gateway pattern)
 // ============================================================
 
@@ -168,6 +234,13 @@ export async function deliver(
     return { success: true, attempts: 0 };
   }
 
+  // Persistent backoff check: if this target has been failing, wait before retrying
+  const waitMs = getDeliveryWaitMs(cfg.to);
+  if (waitMs > 0) {
+    info("delivery", `Backoff active for ${cfg.to}: waiting ${Math.round(waitMs / 1000)}s before retry`);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 10_000))); // cap per-call wait at 10s
+  }
+
   // Announce mode: deliver via configured channel
   let lastError = "";
   for (let attempt = 1; attempt <= cfg.maxRetries; attempt++) {
@@ -180,6 +253,8 @@ export async function deliver(
           warn("delivery", `Unknown channel: ${cfg.channel}, falling back to telegram`);
           await sendViaTelegram(cfg.to, message, cfg.threadId);
       }
+      // Success: clear any persisted backoff for this target
+      clearDeliveryBackoff(cfg.to);
       return { success: true, attempts: attempt };
     } catch (err) {
       lastError = String(err);
@@ -192,6 +267,9 @@ export async function deliver(
     }
   }
 
+  // All retries exhausted: persist backoff state for this target
+  recordDeliveryFailure(cfg.to);
+
   // All retries exhausted
   if (cfg.onFailure === "notify") {
     // Try one last notification about the failure itself
@@ -203,10 +281,23 @@ export async function deliver(
   return { success: false, attempts: cfg.maxRetries, error: lastError };
 }
 
+/**
+ * Validate Telegram delivery target format.
+ * Rejects invalid formats before making API calls (OpenClaw #21930).
+ * Valid: numeric chat IDs, optionally negative (groups/supergroups).
+ */
+function isValidTelegramTarget(chatId: string): boolean {
+  // Must be a numeric string, optionally with a leading minus for groups
+  return /^-?\d{1,20}$/.test(chatId);
+}
+
 /** Send a message via Telegram Bot API (low-level). Supports topic threads. */
 async function sendViaTelegram(chatId: string, text: string, threadId?: number): Promise<void> {
   if (!BOT_TOKEN || !chatId) {
     throw new Error("Missing BOT_TOKEN or chatId");
+  }
+  if (!isValidTelegramTarget(chatId)) {
+    throw new Error(`Invalid Telegram chat ID format: "${chatId.substring(0, 30)}"`);
   }
   const payload: Record<string, unknown> = { chat_id: chatId, text };
   if (threadId) payload.message_thread_id = threadId;

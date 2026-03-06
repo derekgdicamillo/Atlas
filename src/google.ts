@@ -12,7 +12,8 @@
  *   [CAL_REMOVE: search text]
  */
 
-import { google, type gmail_v1, type calendar_v3, type people_v1 } from "googleapis";
+import { google, type gmail_v1, type calendar_v3, type people_v1, type drive_v3 } from "googleapis";
+import { randomUUID } from "crypto";
 import { info, warn, error as logError } from "./logger.ts";
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
@@ -63,6 +64,7 @@ let derekGmail: gmail_v1.Gmail | null = null;
 let atlasGmail: gmail_v1.Gmail | null = null;
 let derekCalendar: calendar_v3.Calendar | null = null;
 let derekPeople: people_v1.People | null = null;
+let derekDrive: drive_v3.Drive | null = null;
 let calendarId = "primary";
 
 const USER_TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
@@ -89,7 +91,8 @@ export function initGoogle(): boolean {
     derekGmail = google.gmail({ version: "v1", auth: derekAuth });
     derekCalendar = google.calendar({ version: "v3", auth: derekAuth });
     derekPeople = google.people({ version: "v1", auth: derekAuth });
-    info("google", "Derek's Gmail + Calendar + Contacts initialized");
+    derekDrive = google.drive({ version: "v3", auth: derekAuth });
+    info("google", "Derek's Gmail + Calendar + Contacts + Drive initialized");
   }
 
   // Atlas's account (optional, for sending emails)
@@ -260,6 +263,124 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
   }
 }
 
+/**
+ * Send a calendar invite email with a proper .ics attachment via Atlas's Gmail.
+ * Recipients see a real calendar event they can accept/decline, not just a plain email.
+ */
+async function sendCalendarInvite(params: {
+  to: string[];
+  title: string;
+  description?: string;
+  location?: string;
+  startDate: Date;
+  endDate: Date;
+  organizerEmail: string;
+  uid: string;
+}): Promise<string | null> {
+  if (!atlasGmail) {
+    warn("google", "Atlas Gmail not configured. Cannot send calendar invite.");
+    return null;
+  }
+
+  const { to, title, description, location, startDate, endDate, organizerEmail, uid } = params;
+
+  // Format dates as iCal DTSTART/DTEND (UTC)
+  const fmtDate = (d: Date) =>
+    d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+  const dtStart = fmtDate(startDate);
+  const dtEnd = fmtDate(endDate);
+  const dtStamp = fmtDate(new Date());
+
+  // Build attendee lines
+  const attendeeLines = to
+    .map((email) => `ATTENDEE;RSVP=TRUE;CN=${email};PARTSTAT=NEEDS-ACTION:mailto:${email}`)
+    .join("\r\n");
+
+  // Build .ics content (RFC 5545)
+  const icsLines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Atlas AI//Calendar Invite//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${title}`,
+    `ORGANIZER;CN=Atlas AI:mailto:${organizerEmail}`,
+    attendeeLines,
+    ...(description ? [`DESCRIPTION:${description.replace(/\n/g, "\\n")}`] : []),
+    ...(location ? [`LOCATION:${location}`] : []),
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    `BEGIN:VALARM`,
+    `TRIGGER:-PT15M`,
+    `ACTION:DISPLAY`,
+    `DESCRIPTION:Reminder`,
+    `END:VALARM`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  const icsContent = icsLines.join("\r\n");
+
+  // MIME boundary
+  const boundary = `atlas_invite_${randomUUID().replace(/-/g, "")}`;
+
+  // Build multipart/mixed MIME with text/calendar alternative
+  const mimeLines = [
+    `To: ${to.join(", ")}`,
+    `Subject: ${title}`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "MIME-Version: 1.0",
+    "",
+    `--${boundary}`,
+    "Content-Type: multipart/alternative; boundary=\"alt_" + boundary + "\"",
+    "",
+    `--alt_${boundary}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    `You've been invited to: ${title}`,
+    ...(description ? [`\n${description}`] : []),
+    ...(location ? [`\nLocation: ${location}`] : []),
+    `\nWhen: ${startDate.toLocaleString("en-US", { timeZone: USER_TIMEZONE, dateStyle: "full", timeStyle: "short" })}`,
+    "",
+    `--alt_${boundary}`,
+    "Content-Type: text/calendar; charset=utf-8; method=REQUEST",
+    "",
+    icsContent,
+    "",
+    `--alt_${boundary}--`,
+    "",
+    `--${boundary}`,
+    "Content-Type: application/ics; name=\"invite.ics\"",
+    "Content-Disposition: attachment; filename=\"invite.ics\"",
+    "Content-Transfer-Encoding: base64",
+    "",
+    Buffer.from(icsContent).toString("base64"),
+    "",
+    `--${boundary}--`,
+  ];
+
+  const rawMessage = mimeLines.join("\r\n");
+  const encoded = Buffer.from(rawMessage).toString("base64url");
+
+  try {
+    const res = await atlasGmail.users.messages.send({
+      userId: "me",
+      requestBody: { raw: encoded },
+    });
+    const msgId = res.data.id || "unknown";
+    info("google", `Calendar invite sent from Atlas: ${msgId} (to: ${to.join(", ")}, event: ${title})`);
+    return msgId;
+  } catch (err) {
+    logError("google", `Failed to send calendar invite: ${err}`);
+    return null;
+  }
+}
+
 // ============================================================
 // CALENDAR — DEREK'S ACCOUNT
 // ============================================================
@@ -312,11 +433,32 @@ export async function createEvent(params: CreateEventParams): Promise<CalEvent |
     const res = await derekCalendar.events.insert({
       calendarId,
       requestBody: event,
-      sendUpdates: "all", // Send invites to attendees
+      sendUpdates: "all",
     });
 
     const created = eventToCalEvent(res.data);
     info("google", `Calendar event created: ${created.title} at ${created.start}`);
+
+    // Send proper .ics invite email from Atlas so recipients get a real
+    // calendar event with accept/decline buttons (not just a notification).
+    if (params.invite?.length && atlasGmail) {
+      const uid = res.data.iCalUID || `atlas-${randomUUID()}@pvmedispa.com`;
+      try {
+        await sendCalendarInvite({
+          to: params.invite.map((e) => e.trim()),
+          title: params.title,
+          description: params.description,
+          location: params.location,
+          startDate: startDateTime,
+          endDate: endDateTime,
+          organizerEmail: "assistant.ai.atlas@gmail.com",
+          uid,
+        });
+      } catch (invErr) {
+        warn("google", `Calendar event created but .ics invite email failed: ${invErr}`);
+      }
+    }
+
     return created;
   } catch (err) {
     logError("google", `Failed to create calendar event: ${err}`);
@@ -455,6 +597,152 @@ export async function listContacts(max = 20): Promise<Array<{ name: string; emai
     warn("google", `Contact list failed: ${err}`);
     return [];
   }
+}
+
+// ============================================================
+// GOOGLE DRIVE — DEREK'S ACCOUNT (read shared files/folders)
+// ============================================================
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+}
+
+/**
+ * Search for files/folders by name in Derek's Drive (includes shared).
+ */
+export async function searchDriveFiles(query: string, maxResults = 20): Promise<DriveFile[]> {
+  if (!derekDrive) return [];
+
+  try {
+    // If the query doesn't look like a Drive API query, wrap it as a name search
+    const driveQuery = query.includes("'") || query.includes("in parents") || query.includes("mimeType") || query.includes("contains")
+      ? query
+      : query.trim() ? `name contains '${query.replace(/'/g, "\\'")}'` : "trashed = false";
+    const res = await derekDrive.files.list({
+      q: driveQuery,
+      pageSize: maxResults,
+      fields: "files(id,name,mimeType,size,modifiedTime,webViewLink)",
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+    });
+
+    return (res.data.files || []).map((f) => ({
+      id: f.id || "",
+      name: f.name || "",
+      mimeType: f.mimeType || "",
+      size: f.size || undefined,
+      modifiedTime: f.modifiedTime || undefined,
+      webViewLink: f.webViewLink || undefined,
+    }));
+  } catch (err) {
+    logError("google", `Drive search failed: ${err}`);
+    return [];
+  }
+}
+
+/**
+ * List files inside a Drive folder by folder ID.
+ */
+export async function listDriveFolder(folderId: string, maxResults = 50): Promise<DriveFile[]> {
+  if (!derekDrive) return [];
+
+  try {
+    const res = await derekDrive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      pageSize: maxResults,
+      fields: "files(id,name,mimeType,size,modifiedTime,webViewLink)",
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+    });
+
+    return (res.data.files || []).map((f) => ({
+      id: f.id || "",
+      name: f.name || "",
+      mimeType: f.mimeType || "",
+      size: f.size || undefined,
+      modifiedTime: f.modifiedTime || undefined,
+      webViewLink: f.webViewLink || undefined,
+    }));
+  } catch (err) {
+    logError("google", `Drive folder listing failed: ${err}`);
+    return [];
+  }
+}
+
+/**
+ * Download a file's content as text. For Google Docs/Sheets, exports as plain text.
+ * For regular files (PDF, txt, etc.), downloads raw content.
+ * Returns null if file is binary/unsupported.
+ */
+export async function downloadDriveFile(fileId: string, mimeType: string): Promise<string | null> {
+  if (!derekDrive) return null;
+
+  try {
+    // Google Workspace files need export
+    const exportMap: Record<string, string> = {
+      "application/vnd.google-apps.document": "text/plain",
+      "application/vnd.google-apps.spreadsheet": "text/csv",
+      "application/vnd.google-apps.presentation": "text/plain",
+    };
+
+    if (exportMap[mimeType]) {
+      const res = await derekDrive.files.export({
+        fileId,
+        mimeType: exportMap[mimeType],
+      }, { responseType: "text" });
+      return res.data as string;
+    }
+
+    // Regular files: download content
+    const textTypes = ["text/", "application/json", "application/xml", "application/csv"];
+    const isText = textTypes.some((t) => mimeType.startsWith(t));
+
+    if (isText) {
+      const res = await derekDrive.files.get({
+        fileId,
+        alt: "media",
+      }, { responseType: "text" });
+      return res.data as string;
+    }
+
+    // For PDFs, try to export as text via Google's converter
+    if (mimeType === "application/pdf") {
+      // Download as bytes, return a note about it being binary
+      return `[PDF file - download via webViewLink to read]`;
+    }
+
+    return `[Binary file: ${mimeType} - not directly readable as text]`;
+  } catch (err) {
+    logError("google", `Drive file download failed (${fileId}): ${err}`);
+    return null;
+  }
+}
+
+/**
+ * Find a shared folder by name and return its contents.
+ * Convenience wrapper: searches for folder, then lists its children.
+ */
+export async function findAndListFolder(folderName: string): Promise<{ folderId: string; files: DriveFile[] } | null> {
+  if (!derekDrive) return null;
+
+  const folders = await searchDriveFiles(
+    `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  );
+
+  if (folders.length === 0) {
+    warn("google", `No folder found matching: ${folderName}`);
+    return null;
+  }
+
+  const folder = folders[0];
+  const files = await listDriveFolder(folder.id);
+  info("google", `Found folder "${folderName}" (${folder.id}) with ${files.length} files`);
+  return { folderId: folder.id, files };
 }
 
 // ============================================================
@@ -623,16 +911,28 @@ export async function processGoogleIntents(response: string): Promise<string> {
  */
 function parseTagParams(raw: string): Record<string, string> {
   const params: Record<string, string> = {};
-  // Split on | but only when followed by a known key=
+  // Known keys used across all Google intent tags
+  const KNOWN_KEYS = "to|subject|body|title|date|time|duration|invite|location|description";
+  // Split on | but only when followed by a known key= or key:
   // This prevents splitting on | inside body text
-  const parts = raw.split(/\s*\|\s*(?=(?:to|subject|body|title|date|time|duration|invite|location|description)=)/i);
+  const parts = raw.split(new RegExp(`\\s*\\|\\s*(?=(?:${KNOWN_KEYS})\\s*[=:])`, "i"));
 
-  for (const part of parts) {
-    const eq = part.indexOf("=");
-    if (eq === -1) continue;
-    const key = part.slice(0, eq).trim().toLowerCase();
-    const value = part.slice(eq + 1).trim();
-    params[key] = value;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
+    // Find separator (= or : after a known key)
+    const sepMatch = part.match(new RegExp(`^(${KNOWN_KEYS})\\s*[=:]\\s*`, "i"));
+    if (sepMatch) {
+      const key = sepMatch[1].trim().toLowerCase();
+      const value = part.slice(sepMatch[0].length).trim();
+      params[key] = value;
+    } else if (i === 0 && !part.match(new RegExp(`^(?:${KNOWN_KEYS})\\s*[=:]`, "i"))) {
+      // First segment with no key= prefix: treat as implicit "title" (for CAL_ADD)
+      // or "to" (for SEND/DRAFT) depending on what's present
+      const bare = part.trim();
+      if (bare && !params.title) {
+        params.title = bare;
+      }
+    }
   }
 
   return params;

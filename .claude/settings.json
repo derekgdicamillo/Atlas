@@ -1,12 +1,43 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(del /s*)",
+      "Bash(format*)",
+      "Bash(Remove-Item -Recurse*)",
+      "Bash(*id_rsa*)",
+      "Bash(*credentials.json*)",
+      "Bash(*.pem*)",
+      "Bash(*.key*)",
+      "Bash(cat .env*)",
+      "Bash(type .env*)",
+      "Bash(Get-Content .env*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(pm2 restart*)",
+      "Bash(pm2 stop*)",
+      "Bash(npm publish*)"
+    ],
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "TodoWrite"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Is this Bash command safe? BLOCK if it: deletes files recursively, accesses .env/credentials/key files, pushes to git, downloads executables, or runs format/dd. Command to evaluate: $TOOL_INPUT"
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"$input = $env:TOOL_INPUT; if ($input -match '(rm\\s+-rf|del\\s+/s|format\\s+[a-z]:|Remove-Item.*-Recurse|id_rsa|credentials\\.json|\\.pem|\\.key)') { exit 2 } else { exit 0 }\""
           }
         ]
       }

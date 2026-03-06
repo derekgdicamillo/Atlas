@@ -317,10 +317,12 @@ async function checkNewLeads(supabase: SupabaseClient): Promise<MonitorResult[]>
         const src = l.source ? ` (${l.source})` : "";
         return `${name}${src}`;
       });
+      // severity: null = metric tracking only, no alert.
+      // Webhook (supabase/functions/ghl-webhook) handles real-time Telegram notification.
       results.push({
         metricKey: "pipeline.new_leads",
         value: leads.length,
-        severity: "info",
+        severity: null,
         category: "Pipeline",
         message: `New lead${leads.length > 1 ? "s" : ""}: ${names.join(", ")}`,
         metadata: { leadNames: names },
@@ -505,8 +507,10 @@ async function checkSpeedToLead(supabase: SupabaseClient): Promise<MonitorResult
     const stl: SpeedToLeadSnapshot = await getSpeedToLead("week");
     const median = stl.summary.medianMinutes;
 
-    // Record snapshot
-    await recordSnapshot(supabase, { metricKey: "pipeline.stl_median", value: median });
+    // Record snapshot (skip if median is null/undefined to avoid NOT NULL constraint violation)
+    if (median != null) {
+      await recordSnapshot(supabase, { metricKey: "pipeline.stl_median", value: median });
+    }
 
     if (median > 60) {
       results.push({

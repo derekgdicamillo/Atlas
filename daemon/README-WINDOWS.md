@@ -69,7 +69,7 @@ npm install -g pm2-windows-startup  # For auto-start on Windows
 cd C:\path\to\claude-telegram-relay
 
 # Start the relay
-pm2 start src/relay.ts --interpreter bun --name claude-relay
+pm2 start ecosystem.config.cjs --only atlas
 
 # Save process list
 pm2 save

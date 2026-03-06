@@ -10,7 +10,7 @@
 
 import { Bot, Composer, Context, InputFile } from "grammy";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
-import { existsSync, realpathSync, lstatSync } from "fs";
+import { existsSync, realpathSync, lstatSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { randomUUID, randomBytes } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -23,6 +23,8 @@ import {
   browseMemory,
 } from "./memory.ts";
 import { startCronJobs, stopCronJobs } from "./cron.ts";
+import { runEvolution } from "./evolve.ts";
+import { runEvolutionPipeline } from "./evolution/index.ts";
 import {
   initLogger,
   info,
@@ -33,12 +35,14 @@ import {
   getHealthStatus,
   getTodayClaudeCosts,
 } from "./logger.ts";
-import { DEFAULT_MODEL, type ModelTier } from "./constants.ts";
+import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
-import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, acquireSessionLock, sessionKey, isClaudeCallActive } from "./claude.ts";
+import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
 import {
   loadAgents,
   getAgentForUser,
+  getAgentForChat,
+  getAgentForBot,
   isUserAllowed,
   formatAgentsList,
   type AgentRuntime,
@@ -54,6 +58,17 @@ import {
   getDerekAuth,
 } from "./google.ts";
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
+import { createStreamingSession, type StreamingSession } from "./streaming.ts";
+import { detectFeedback, saveFeedback, getLessonsLearned, inferTaskType } from "./feedback.ts";
+import {
+  detectEpisodeStart, startEpisode, addEpisodeAction, getActiveEpisode,
+  shouldCloseEpisode, autoCloseEpisode, getRelevantEpisodes, inferEpisodeType,
+} from "./episodes.ts";
+import {
+  extractObservations, getObservationContext, compileBlocks,
+  incrementTurnCount, getTurnsSinceLastExtraction, markExtractionRan,
+} from "./observations.ts";
+import { getProactiveInsights, getAnticipatoryContext, initMonitor } from "./monitor.ts";
 import { scheduleMessage, processScheduleIntents } from "./scheduled.ts";
 import {
   addEntry,
@@ -62,6 +77,11 @@ import {
   formatForPrompt,
   formatAccumulated,
   clearBuffer,
+  getEntries,
+  compressOldEntries,
+  compactIfNeeded,
+  getQueueMode,
+  setQueueMode,
   type PendingMessage,
 } from "./conversation.ts";
 import {
@@ -69,13 +89,15 @@ import {
   ingestDocument,
   getTodayCosts,
 } from "./search.ts";
-import { getTaskContext, processTaskIntents, processCodeTaskIntents, registerCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, getUnannouncedTasks, markAnnounced, taskEvents, formatTaskResult, type SupervisedTask, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { getTaskContext, processTaskIntents, processCodeTaskIntents, processIngestIntents, processTaskAmendIntents, consumePendingAmendments, registerCodeTask, restartCodeTask, captureIncompleteTags, recoverPendingTags, confirmTagRecovery, killAllRunningSubagents, cancelTask, getUnannouncedTasks, getRunningTasks, getTaskStatus, getTask, markAnnounced, taskEvents, formatTaskResult, type SupervisedTask, type CodeAgentProgress, type CodeAgentResult } from "./supervisor.ts";
+import { getCodeAgentStatus, getCodeAgentDetail } from "./supervisor-worker.ts";
 import { initSwarmSystem, handleSwarmCommand, processSwarmIntents, registerDeliveryCallback, cleanupSwarms } from "./orchestrator.ts";
 import { handleExploreCommand, processExploreIntents, autoExplore } from "./exploration.ts";
 import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager.ts";
 import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSummary } from "./run-log.ts";
 import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
+import { processAutomationPauseTags, shouldSuppressAnnouncement, recordSuppressedTask, pauseAutomation, resumeAutomation, getPauseStatus } from "./automation-pause.ts";
 import { PDFParse } from "pdf-parse";
 import { getSwarmContext, pauseSwarm, getActiveSwarms } from "./dag.ts";
 import {
@@ -175,7 +197,6 @@ import {
 } from "./dashboard.ts";
 import {
   processGraphIntents,
-  getEntityContext,
   getGraphContext,
   browseGraph,
 } from "./graph.ts";
@@ -188,6 +209,41 @@ import {
   parsePatientFromText,
   buildCarePlanPrompt,
 } from "./careplan.ts";
+import {
+  initM365,
+  isM365Ready,
+  getM365Context,
+  handleM365Command,
+  processM365Intents,
+} from "./m365.ts";
+import {
+  isWebsiteReady,
+  listPages,
+  listPosts,
+  getPageBySlug,
+  createPost,
+  updatePageContent,
+  listCategories,
+  formatPageList,
+  formatPostList,
+  processWebsiteIntents,
+  getWebsiteContext,
+} from "./website.ts";
+import {
+  isBrowserReady,
+  processBrowserIntents,
+} from "./browser.ts";
+import { runPrompt } from "./prompt-runner.ts";
+import {
+  setCacheRef,
+  scoreSalience,
+  reformulateQuery,
+  enhanceIntent,
+  extractEntities,
+  autoCreateEntities,
+  getEntityContextSpreading,
+  checkProspectiveTriggers,
+} from "./cognitive.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 
@@ -197,8 +253,9 @@ const PROJECT_ROOT = dirname(dirname(import.meta.path));
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ISHTAR_BOT_TOKEN = process.env.ISHTAR_BOT_TOKEN || "";
+const COACH_BOT_TOKEN = process.env.COACH_BOT_TOKEN || "";
 const ALLOWED_USER_ID = process.env.TELEGRAM_USER_ID || "";
-const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || "~", ".claude-relay");
+const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || process.env.USERPROFILE || require("os").homedir(), ".claude-relay");
 
 /** Get the bot token from a Grammy context (for file download URLs in multi-bot setup) */
 function botTokenFromCtx(ctx: Context): string {
@@ -208,7 +265,9 @@ function botTokenFromCtx(ctx: Context): string {
 /** Identify which bot is handling this update (for per-bot update ID tracking) */
 function botIdFromCtx(ctx: Context): string {
   const token = (ctx as any).api?.token;
-  return token === ISHTAR_BOT_TOKEN ? "ishtar" : "atlas";
+  if (token === COACH_BOT_TOKEN) return "coach";
+  if (token === ISHTAR_BOT_TOKEN) return "ishtar";
+  return "atlas";
 }
 
 // Directories
@@ -220,50 +279,6 @@ const UPLOADS_DIR = join(RELAY_DIR, "uploads");
  * After writing a file, verify it hasn't been swapped via symlink.
  * Resolves real path and checks it's still inside the expected directory.
  */
-/**
- * OpenClaw #20660: SSRF guard. Only allow outbound fetch to known API hosts.
- * Blocks private IPs, localhost, and unknown domains.
- */
-const ALLOWED_FETCH_HOSTS = new Set([
-  "api.telegram.org",
-  "api.github.com",
-  "api.openai.com",
-  "services.leadconnectorhq.com",
-  "graph.facebook.com",
-  "mybusiness.googleapis.com",
-  "businessprofileperformance.googleapis.com",
-  "analyticsdata.googleapis.com",
-  "people.googleapis.com",
-  "www.googleapis.com",
-  "gmail.googleapis.com",
-  "oauth2.googleapis.com",
-]);
-
-function assertSafeUrl(urlStr: string): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(urlStr);
-  } catch {
-    throw new Error(`SSRF guard: invalid URL: ${urlStr.substring(0, 80)}`);
-  }
-  // Block non-HTTPS (except localhost dev)
-  if (parsed.protocol !== "https:") {
-    throw new Error(`SSRF guard: non-HTTPS blocked: ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  // Block private/reserved IPs
-  if (/^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.|::1|localhost)/i.test(host)) {
-    throw new Error(`SSRF guard: private address blocked: ${host}`);
-  }
-  // Allow known hosts + dashboard env
-  const dashboardHost = (() => {
-    try { return new URL(process.env.DASHBOARD_URL || "").hostname; } catch { return ""; }
-  })();
-  if (!ALLOWED_FETCH_HOSTS.has(host) && host !== dashboardHost && !host.endsWith(".supabase.co")) {
-    warn("ssrf", `Fetch to unlisted host: ${host} (allowing, but logging)`);
-  }
-}
-
 function verifyTempFile(filePath: string, expectedDir: string): void {
   const stat = lstatSync(filePath);
   if (stat.isSymbolicLink()) {
@@ -273,6 +288,36 @@ function verifyTempFile(filePath: string, expectedDir: string): void {
   const realDir = realpathSync(expectedDir);
   if (!real.startsWith(realDir)) {
     throw new Error(`Temp file escaped directory: ${real} not in ${realDir}`);
+  }
+}
+
+// ============================================================
+// ORPHAN GUARD (kill stale bun relay processes on startup)
+// ============================================================
+
+async function killOrphanedInstances(): Promise<void> {
+  if (process.platform !== "win32") return; // Windows-only (Atlas host)
+  try {
+    const { spawn } = await import("bun");
+    const proc = spawn(
+      ["powershell", "-NoProfile", "-Command",
+        `Get-Process bun -ErrorAction SilentlyContinue | ` +
+        `Where-Object { $_.Id -ne ${process.pid} } | ` +
+        `Select-Object -ExpandProperty Id`],
+      { stdout: "pipe", stderr: "pipe", env: sanitizedEnv() }
+    );
+    const text = await new Response(proc.stdout).text();
+    const pids = text.trim().split(/\r?\n/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    if (pids.length > 0) {
+      console.log(`[startup] Killing ${pids.length} orphaned bun process(es): ${pids.join(", ")}`);
+      for (const pid of pids) {
+        try { process.kill(pid, "SIGTERM"); } catch {}
+      }
+      // Brief pause to let them die
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } catch (err) {
+    console.warn(`[startup] Orphan guard failed (non-fatal): ${err}`);
   }
 }
 
@@ -435,6 +480,43 @@ initCarePlan().then((ready) => {
   else warn("startup", "Care plan module failed to initialize");
 });
 
+// Initialize Microsoft 365 integration (optional)
+if (initM365()) {
+  info("startup", "Microsoft 365 integration initialized (SharePoint + Teams)");
+} else {
+  info("startup", "M365 not configured (missing AZURE_TENANT_ID, AZURE_CLIENT_ID, or AZURE_CLIENT_SECRET)");
+}
+
+// Initialize proactive monitoring engine
+initMonitor();
+info("startup", "Proactive monitoring engine initialized");
+
+// Initialize Tox Tray business operator modules
+import { initTrust } from "./trust.ts";
+import { initCanva, isCanvaReady, processCanvaIntents, getCanvaContext } from "./canva.ts";
+import { initSocial, isSocialReady, processSocialIntents, getSocialContext } from "./social.ts";
+import { initEtsy, isEtsyReady, processEtsyIntents, getEtsyContext } from "./etsy.ts";
+import { initApproval, isApprovalReady, handleApprovalCallback, getApprovalContext } from "./approval.ts";
+import { getTrustSummary } from "./trust.ts";
+
+if (supabase) initTrust(supabase);
+if (initCanva()) {
+  info("startup", "Canva integration initialized");
+} else {
+  info("startup", "Canva not configured");
+}
+if (initSocial()) {
+  info("startup", "Social posting initialized");
+} else {
+  info("startup", "Social posting not configured");
+}
+if (initEtsy(supabase || undefined)) {
+  info("startup", "Etsy integration initialized");
+} else {
+  info("startup", "Etsy not configured (pending API approval)");
+}
+// Approval queue init deferred to bot.start() where bot instance is available
+
 async function saveMessage(
   role: string,
   content: string,
@@ -465,6 +547,9 @@ async function saveMessage(
   }
 }
 
+// Kill orphaned bun processes before acquiring lock
+await killOrphanedInstances();
+
 // Acquire lock
 if (!(await acquireLock())) {
   console.error("Could not acquire lock. Another instance may be running.");
@@ -473,9 +558,71 @@ if (!(await acquireLock())) {
 
 const bot = new Bot(BOT_TOKEN);
 const ishtarBot = ISHTAR_BOT_TOKEN ? new Bot(ISHTAR_BOT_TOKEN) : null;
+const coachBot = COACH_BOT_TOKEN ? new Bot(COACH_BOT_TOKEN) : null;
 
 /** All active bots for shutdown and startup */
-const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : [])];
+const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : [])];
+
+// ============================================================
+// VERBOSE MODE (OpenClaw verbose gating)
+// ============================================================
+
+let verboseMode = VERBOSE_MODE_DEFAULT;
+
+// ============================================================
+// SENTINEL SUPPRESSION + VERBOSE GATING
+// ============================================================
+
+/**
+ * Strip ALL internal sentinel tags from response text before sending to Telegram.
+ * Comprehensive: catches every tag pattern Atlas uses internally.
+ * Also strips verbose error traces unless verbose mode is enabled.
+ */
+function stripSentinels(text: string): string {
+  let result = text;
+
+  // Strip all sentinel tag patterns defined in constants
+  for (const pattern of SENTINEL_TAG_PATTERNS) {
+    // Reset lastIndex for global regexes
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, "");
+  }
+
+  // Verbose gating: strip detailed error traces unless verbose mode is on
+  if (!verboseMode) {
+    // Strip stack traces (multi-line "at <function> (<file>:<line>:<col>)" blocks)
+    result = result.replace(/(?:^|\n)\s*at\s+\S+\s+\([^)]+\)\s*(?:\n\s*at\s+\S+\s+\([^)]+\)\s*)*/gm, "\n[stack trace omitted, use /verbose to see]");
+    // Strip raw JSON error dumps (common from failed API calls)
+    result = result.replace(/\{[^{}]*"error"[^{}]*"message"[^{}]*\}/g, (match) => {
+      if (match.length > 200) return "[error details omitted, use /verbose]";
+      return match;
+    });
+  }
+
+  // Clean up: remove multiple consecutive blank lines left by tag removal
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+
+  return result;
+}
+
+// Initialize approval queue with bot instance
+const TOX_TRAY_CHAT_ID = process.env.TOX_TRAY_CHAT_ID || "";
+const TOX_TRAY_THREAD_ID = process.env.TOX_TRAY_THREAD_ID ? parseInt(process.env.TOX_TRAY_THREAD_ID, 10) : undefined;
+if (supabase && (TOX_TRAY_CHAT_ID || ALLOWED_USER_ID)) {
+  initApproval(supabase, bot, TOX_TRAY_CHAT_ID || ALLOWED_USER_ID, TOX_TRAY_THREAD_ID);
+}
+
+// Handle tox tray approval callbacks (inline keyboard buttons)
+bot.on("callback_query:data", async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  if (data.startsWith("tox_")) {
+    const handled = await handleApprovalCallback(data, async (text) => {
+      await ctx.answerCallbackQuery({ text });
+    });
+    if (handled) return;
+  }
+  // Fall through for other callback queries
+});
 
 // ============================================================
 // GRACEFUL SHUTDOWN
@@ -528,6 +675,9 @@ const handlers = new Composer();
 
 // ============================================================
 // SECURITY: Route to authorized agents
+// Atlas authenticates by Telegram user ID, not IP address.
+// Rate limiting and dedup are keyed on userId (see isDuplicate below).
+// IP-based rate-limit key normalization (OpenClaw #18210) does not apply here.
 // ============================================================
 
 handlers.use(async (ctx, next) => {
@@ -557,8 +707,18 @@ handlers.use(async (ctx, next) => {
 // AGENT RESOLUTION HELPER
 // ============================================================
 
-function resolveAgent(userId: string): AgentRuntime | null {
+function resolveAgent(userId: string, chatId?: string, botId?: string): AgentRuntime | null {
   if (agentsLoaded) {
+    // Bot-based routing takes highest priority (each bot maps to its own agent)
+    if (botId) {
+      const botAgent = getAgentForBot(botId);
+      if (botAgent) return botAgent;
+    }
+    // Chat-based routing second (e.g. ToxTray group -> toxtray agent)
+    if (chatId) {
+      const chatAgent = getAgentForChat(chatId);
+      if (chatAgent) return chatAgent;
+    }
     return getAgentForUser(userId);
   }
   // Fallback: return null (handlers will use defaults)
@@ -567,6 +727,7 @@ function resolveAgent(userId: string): AgentRuntime | null {
 
 // ============================================================
 // DEDUPLICATION (ignore rapid resends of the same message)
+// Keyed on Telegram userId + message text, not IP. See security comment above.
 // ============================================================
 
 const recentMessages: Map<string, number> = new Map();
@@ -575,6 +736,14 @@ const DEDUP_WINDOW_MS = 300_000; // 5 minutes (covers long CLI processing cycles
 // Context provider cache: avoids re-fetching slow external APIs on rapid successive messages.
 // 5 min TTL. Entries: { value: string, ts: number }
 const contextCache: Map<string, { value: string; ts: number }> = new Map();
+// Wire up cognitive module's cache reference for invalidation
+setCacheRef(contextCache);
+
+// Pending forget confirmations: maps userId -> { matches, expiresAt }
+const pendingForgets: Map<string, {
+  matches: Array<{ id: string; content: string; similarity: number }>;
+  expiresAt: number;
+}> = new Map();
 
 // Circuit breaker: when multiple context sources timeout simultaneously, skip external
 // fetches for a cooldown period. This prevents hammering dead APIs and wasting 25s per message.
@@ -651,11 +820,12 @@ function maybeSaveDedupCache(): void {
 
 const OFFSET_FILE = join(PROJECT_ROOT, ".last_update_id");
 const OFFSET_FILE_ISHTAR = join(PROJECT_ROOT, ".last_update_id_ishtar");
+const OFFSET_FILE_COACH = join(PROJECT_ROOT, ".last_update_id_coach");
 
 // Per-bot update ID tracking. Each bot has its own Telegram update ID namespace,
 // so a single global counter causes cross-bot stale detection (bug: Ishtar's
 // 726M IDs made Atlas's 579M IDs look "stale").
-const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0 };
+const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0, coach: 0 };
 
 async function loadLastUpdateId(): Promise<number> {
   try {
@@ -675,9 +845,20 @@ async function loadLastUpdateIdIshtar(): Promise<number> {
   }
 }
 
+async function loadLastUpdateIdCoach(): Promise<number> {
+  try {
+    const data = await readFile(OFFSET_FILE_COACH, "utf-8");
+    return parseInt(data.trim(), 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function saveLastUpdateId(updateId: number, botId: string = "atlas"): Promise<void> {
   try {
-    const file = botId === "ishtar" ? OFFSET_FILE_ISHTAR : OFFSET_FILE;
+    let file = OFFSET_FILE;
+    if (botId === "ishtar") file = OFFSET_FILE_ISHTAR;
+    else if (botId === "coach") file = OFFSET_FILE_COACH;
     await writeFile(file, String(updateId), "utf-8");
     lastProcessedUpdateIds[botId] = updateId;
   } catch (e) {
@@ -768,7 +949,8 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
   if (!lower.startsWith("/")) return false;
 
   const [cmd, ...args] = lower.split(/\s+/);
-  const agent = resolveAgent(userId);
+  const cmdChatId = String(ctx.chat?.id || "");
+  const agent = resolveAgent(userId, cmdChatId, botIdFromCtx(ctx));
   const agentId = agent?.config.id || "atlas";
 
   switch (cmd) {
@@ -904,6 +1086,78 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/tasks": {
+      const status = getTaskStatus();
+      const running = getRunningTasks();
+      if (running.length === 0) {
+        await ctx.reply(
+          `No running tasks.\n` +
+          `Total: ${status.total} | Completed: ${status.completed} | Failed: ${status.failed}`
+        );
+      } else {
+        const lines = [`Running tasks (${running.length}):\n`];
+        for (const t of running) {
+          const elapsed = t.startedAt
+            ? Math.round((Date.now() - new Date(t.startedAt).getTime()) / 1000)
+            : 0;
+          lines.push(`  ${t.id.substring(0, 8)} | ${elapsed}s | PID ${t.pid || "?"} | ${t.description.substring(0, 60)}`);
+        }
+        lines.push(`\nTotal: ${status.total} | Completed: ${status.completed} | Failed: ${status.failed}`);
+        lines.push(`\n/kill - kill all  |  /kill <id> - kill one`);
+        await ctx.reply(lines.join("\n"));
+      }
+      return true;
+    }
+
+    case "/kill": {
+      const target = args[0];
+      if (!target || target === "all") {
+        const running = getRunningTasks();
+        if (running.length === 0) {
+          await ctx.reply("No running tasks to kill.");
+        } else {
+          const killed = await killAllRunningSubagents("Killed via /kill command");
+          await ctx.reply(`Killed ${killed} running task(s).`);
+          info("command", `${userId} killed all ${killed} running tasks via /kill`);
+        }
+      } else {
+        // Kill specific task by ID prefix match
+        const running = getRunningTasks();
+        const match = running.find(t => t.id.startsWith(target));
+        if (!match) {
+          await ctx.reply(`No running task matching "${target}". Use /tasks to see IDs.`);
+        } else {
+          const ok = await cancelTask(match.id, "Killed via /kill command");
+          if (ok) {
+            await ctx.reply(`Killed task ${match.id.substring(0, 8)}: ${match.description.substring(0, 60)}`);
+            info("command", `${userId} killed task ${match.id} via /kill`);
+          } else {
+            await ctx.reply(`Failed to kill task ${match.id.substring(0, 8)}. It may have already finished.`);
+          }
+        }
+      }
+      return true;
+    }
+
+    case "/codestatus": {
+      const statuses = getCodeAgentStatus();
+      if (statuses.length === 0) {
+        await ctx.reply("No code agents currently running.");
+      } else {
+        const lines = [`**Running Code Agents (${statuses.length})**\n`];
+        for (const s of statuses) {
+          const status = s.isAlive ? "🟢" : "🔴";
+          lines.push(`${status} \`${s.taskId.substring(0, 8)}\` | ${s.model} | ${s.toolCallCount} tools | ${s.elapsedSec}s | $${s.costUsd.toFixed(3)}`);
+          lines.push(`   Last: ${s.lastTool}`);
+          if (s.detectedPatterns.length > 0) {
+            lines.push(`   ⚠️ Patterns: ${s.detectedPatterns.join(", ")}`);
+          }
+        }
+        await ctx.reply(lines.join("\n"));
+      }
+      return true;
+    }
+
     case "/session": {
       const sub = args[0];
       const session = await getSession(agentId, userId);
@@ -937,6 +1191,13 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const uptimeMs = Date.now() - BOT_START_TIME;
       const uptimeM = Math.floor(uptimeMs / 60_000);
       await ctx.reply(`Pong. Up ${uptimeM}m.`);
+      return true;
+    }
+
+    case "/verbose": {
+      verboseMode = !verboseMode;
+      await ctx.reply(`Verbose mode: ${verboseMode ? "ON (showing full errors)" : "OFF (hiding traces)"}`);
+      info("command", `Verbose mode toggled to ${verboseMode} by ${userId}`);
       return true;
     }
 
@@ -990,6 +1251,27 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/queue": {
+      const sKey = sessionKey(agentId, userId);
+      const requested = args[0];
+      if (!requested) {
+        const current = getQueueMode(sKey);
+        await ctx.reply(
+          `Queue mode: ${current}\n\n` +
+          `Usage:\n` +
+          `/queue collect - accumulate messages while busy (default)\n` +
+          `/queue interrupt - kill running process on new message`
+        );
+      } else if (requested === "collect" || requested === "interrupt") {
+        setQueueMode(sKey, requested);
+        await ctx.reply(`Queue mode set to "${requested}".`);
+        info("command", `Queue mode set to ${requested} by ${userId}`);
+      } else {
+        await ctx.reply("Invalid mode. Use: /queue collect or /queue interrupt");
+      }
+      return true;
+    }
+
     case "/memory": {
       const sub = args[0];
       const hasSearch = agent?.config.features.search ?? false;
@@ -1026,9 +1308,76 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         return true;
       }
 
+      // /ingest folder <path> — bulk folder ingestion
+      if (args[0] === "folder" || args[0] === "dir") {
+        const folderPath = args.slice(1).join(" ");
+        if (!folderPath) {
+          await ctx.reply(
+            "Usage: /ingest folder <path>\n\n" +
+            "Examples:\n" +
+            `/ingest folder C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\03_VitalityUnchained\n` +
+            `/ingest folder C:\\Users\\derek\\Projects\\atlas\\data\\training`
+          );
+          return true;
+        }
+
+        const { existsSync } = await import("fs");
+        if (!existsSync(folderPath)) {
+          await ctx.reply(`Directory not found: ${folderPath}`);
+          return true;
+        }
+
+        const { ingestFolder, detectSource } = await import("./ingest-worker.ts");
+        const source = detectSource(folderPath);
+        await ctx.reply(`Starting ingestion of ${folderPath} (source: ${source})...`);
+
+        ingestFolder({
+          path: folderPath,
+          source,
+          supabase,
+          onProgress: (update) => {
+            if (update.current % 10 === 0 || update.current === update.total) {
+              ctx.reply(`Ingesting... ${update.current}/${update.total} files (${update.skipped} skipped)`).catch(() => {});
+            }
+          },
+          onComplete: async (result) => {
+            const msg =
+              `Done. ${result.filesProcessed} files ingested (${result.totalChunks} chunks), ` +
+              `${result.filesSkipped} skipped, ${result.filesErrored} errors. ` +
+              `${Math.round(result.durationMs / 1000)}s.`;
+            await ctx.reply(msg).catch(() => {});
+          },
+        }).catch((err) => {
+          ctx.reply(`Ingestion failed: ${err}`).catch(() => {});
+        });
+
+        return true;
+      }
+
+      // /ingest status — show active ingestion tasks
+      if (args[0] === "status") {
+        const running = getRunningTasks().filter((t) => t.taskType === "ingest");
+        if (running.length === 0) {
+          await ctx.reply("No active ingestion tasks.");
+        } else {
+          const lines = running.map(
+            (t) => `${t.id}: ${t.description} (${t.toolCallCount} files processed)`
+          );
+          await ctx.reply(`Active ingestions:\n${lines.join("\n")}`);
+        }
+        return true;
+      }
+
+      // /ingest <text> — manual text ingest (original behavior)
       const content = args.join(" ");
       if (!content) {
-        await ctx.reply("Usage: /ingest <text to add to knowledge base>\n\nOr send a .txt/.md/.pdf file.");
+        await ctx.reply(
+          "Usage:\n" +
+          "/ingest <text> — add text to knowledge base\n" +
+          "/ingest folder <path> — bulk ingest a directory\n" +
+          "/ingest status — check active ingestions\n\n" +
+          "Or send a .txt/.md/.pdf/.docx file directly."
+        );
         return true;
       }
 
@@ -1264,6 +1613,28 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/automations": {
+      const subCmd = args[0];
+      const validCats = AUTOMATION_CATEGORIES as readonly string[];
+      if ((subCmd === "pause" || subCmd === "resume") && args[1]) {
+        if (!validCats.includes(args[1])) {
+          await ctx.reply(`Unknown category: ${args[1]}\nValid: ${validCats.join(", ")}`);
+          return true;
+        }
+        const cat = args[1] as AutomationCategory;
+        if (subCmd === "pause") {
+          pauseAutomation(cat, "command");
+          await ctx.reply(`Paused: ${cat}. Use /automations resume ${cat} to re-enable.`);
+        } else {
+          resumeAutomation(cat);
+          await ctx.reply(`Resumed: ${cat}. Automations will run on next scheduled tick.`);
+        }
+      } else {
+        await ctx.reply(getPauseStatus());
+      }
+      return true;
+    }
+
     case "/messages":
     case "/sms": {
       if (!isGHLReady()) {
@@ -1364,6 +1735,91 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/forget": {
+      if (!supabase) {
+        await ctx.reply("Memory not available (Supabase not configured).");
+        return true;
+      }
+      const searchText = args.join(" ");
+      if (!searchText) {
+        await ctx.reply("Usage: /forget <search text>\n\nSearches for matching facts and lets you confirm deletion.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const { searchFactsForForget } = await import("./memory.ts");
+        const matches = await searchFactsForForget(supabase, searchText);
+        if (!matches.length) {
+          await ctx.reply("No matching facts found.");
+          return true;
+        }
+
+        // Show matches with numbers for selection
+        const lines = matches.map((m, i) =>
+          `${i + 1}. ${m.content} (${(m.similarity * 100).toFixed(0)}% match)`
+        );
+        const preview = `Found ${matches.length} matching fact(s):\n\n${lines.join("\n")}\n\nReply "forget all" to remove all, or "forget 1,2" for specific ones.`;
+
+        // Store pending state with 60s TTL
+        pendingForgets.set(userId, {
+          matches,
+          expiresAt: Date.now() + 60_000,
+        });
+
+        await ctx.reply(preview);
+      } catch (err) {
+        logError("memory", `Forget search failed: ${err}`);
+        await ctx.reply(`Failed to search: ${err}`);
+      }
+      return true;
+    }
+
+    case "/merge": {
+      if (!supabase) {
+        await ctx.reply("Graph not available (Supabase not configured).");
+        return true;
+      }
+      // /merge <entity1> into <entity2>
+      const fullArgs = args.join(" ");
+      const intoMatch = fullArgs.match(/^(.+?)\s+into\s+(.+)$/i);
+      if (!intoMatch) {
+        await ctx.reply("Usage: /merge <entity name> into <canonical entity name>");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const { findEntityByName, mergeEntities } = await import("./graph.ts");
+        const sourceName = intoMatch[1].trim();
+        const targetName = intoMatch[2].trim();
+
+        const source = await findEntityByName(supabase, sourceName);
+        const target = await findEntityByName(supabase, targetName);
+
+        if (!source) {
+          await ctx.reply(`Entity not found: "${sourceName}"`);
+          return true;
+        }
+        if (!target) {
+          await ctx.reply(`Entity not found: "${targetName}"`);
+          return true;
+        }
+        if (source.id === target.id) {
+          await ctx.reply("Source and target are the same entity.");
+          return true;
+        }
+
+        const result = await mergeEntities(supabase, target.id, [source.id]);
+        await ctx.reply(
+          `Merged "${source.name}" into "${target.name}". ` +
+          `${result.edgesRepointed} edge(s) repointed, ${result.entitiesDeleted} entity deleted.`
+        );
+      } catch (err) {
+        logError("graph", `Merge command failed: ${err}`);
+        await ctx.reply(`Failed to merge: ${err}`);
+      }
+      return true;
+    }
+
     case "/reviews": {
       if (!isGBPReady()) {
         await ctx.reply("Google Business Profile not configured. Add GBP_ACCOUNT_ID and GBP_LOCATION_ID to .env.");
@@ -1454,6 +1910,23 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/m365":
+    case "/sharepoint":
+    case "/teams": {
+      await ctx.replyWithChatAction("typing");
+      try {
+        const result = await handleM365Command(cmd, args);
+        const chunks = chunkMessage(result);
+        for (const chunk of chunks) {
+          await ctx.reply(chunk);
+        }
+      } catch (err) {
+        logError("m365", `M365 command failed: ${err}`);
+        await ctx.reply(`M365 error: ${err}`);
+      }
+      return true;
+    }
+
     case "/executive":
     case "/exec": {
       if (!isDashboardReady()) {
@@ -1476,13 +1949,31 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
     }
 
     case "/alerts": {
+      if (!supabase) {
+        await ctx.reply("Alerts not available (Supabase not configured).");
+        return true;
+      }
       await ctx.replyWithChatAction("typing");
       try {
-        const alerts = await detectAllAnomalies();
-        await ctx.reply(formatAlerts(alerts));
+        const { getRecentAlerts } = await import("./alerts.ts");
+        const hours = parseInt(args[0]) || 24;
+        const result = await getRecentAlerts(supabase, hours);
+        // Fallback to anomaly detection if no pipeline alerts yet
+        if (result.startsWith("No alerts")) {
+          const anomalies = await detectAllAnomalies();
+          if (anomalies.length > 0) {
+            await ctx.reply(formatAlerts(anomalies));
+          } else {
+            await ctx.reply(result);
+          }
+        } else if (result.length > 4000) {
+          await ctx.reply(result.substring(0, 3997) + "...");
+        } else {
+          await ctx.reply(result);
+        }
       } catch (err) {
         logError("executive", `Alerts command failed: ${err}`);
-        await ctx.reply(`Failed to detect anomalies: ${err}`);
+        await ctx.reply(`Failed to fetch alerts: ${err}`);
       }
       return true;
     }
@@ -1616,6 +2107,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/coach":
+    case "/fitness": {
+      const key = sessionKey(agentId, userId);
+      const { modeName } = setMode(key, "fitness");
+      await ctx.reply(`Switched to ${modeName} mode. What are we working on today, Coach?`);
+      info("command", `Mode set to fitness by ${userId}`);
+      return true;
+    }
+
     case "/mode": {
       const key = sessionKey(agentId, userId);
       const sub = args[0];
@@ -1658,6 +2158,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/model - show current model\n" +
         "/model <opus|sonnet|haiku> - switch model\n" +
         "/timeout - show/set timeout (seconds)\n" +
+        "/queue - message queue mode (collect/interrupt)\n" +
         "/memory - browse stored facts and goals\n" +
         "/ingest - add text to knowledge base\n" +
         "/inbox - unread emails\n" +
@@ -1684,9 +2185,14 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/conversions [7|14|30] - conversion events + daily trend\n" +
         "\nExecutive Intelligence:\n" +
         "/executive [week|month] - full-funnel report (ad spend -> revenue)\n" +
-        "/alerts - cross-source anomaly detection\n" +
+        "/alerts [hours] - alert pipeline + anomaly detection\n" +
         "/channels - lead source scorecards\n" +
         "/weekly - comprehensive weekly executive summary\n" +
+        "\nTask Management:\n" +
+        "/tasks - show running tasks with IDs\n" +
+        "/codestatus - detailed code agent status with patterns\n" +
+        "/kill - kill all running code agents\n" +
+        "/kill <id> - kill specific task by ID prefix\n" +
         "\nCode Agent:\n" +
         "/code <dir> <task> - spawn autonomous coding agent\n" +
         "\nSwarm:\n" +
@@ -1707,7 +2213,11 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/social - social media content & strategy\n" +
         "/marketing - ads, funnels, campaigns\n" +
         "/skool - Vitality Unchained community content\n" +
+        "/coach - fitness coach mode (workouts, macros, Hevy)\n" +
         "/mode - show/switch/clear active mode\n" +
+        "\nEvolution:\n" +
+        "/evolve - trigger nightly evolution pipeline\n" +
+        "/nightly - alias for /evolve\n" +
         "\nLogs:\n" +
         "/logs - current errors + archive list\n" +
         "/logs errors|output - last 50 lines of error/output log\n" +
@@ -1766,12 +2276,19 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
             const dur = Math.round(result.durationMs / 1000);
             const status = result.success ? "Done" : `Failed (${result.exitReason})`;
             const header = `[Code] ${status} | ${dur}s | ${result.toolCallCount} tools | $${result.costUsd.toFixed(2)}`;
-            const body = result.resultText
-              ? `\n\n${result.resultText.substring(0, 3500)}`
-              : "";
-            ctx.reply(header + body)
-              .then(() => markAnnounced(taskId))
-              .catch(() => {});
+            const body = result.resultText || "";
+            if (body.length <= 3500) {
+              ctx.reply(header + (body ? `\n\n${body}` : ""))
+                .then(() => markAnnounced(taskId))
+                .catch(() => {});
+            } else {
+              ctx.reply(header).catch(() => {});
+              const chunks = chunkMessage(body, 4000);
+              for (const chunk of chunks) {
+                ctx.reply(chunk).catch(() => {});
+              }
+              markAnnounced(taskId).catch(() => {});
+            }
 
             // Add to conversation ring buffer so Atlas has context
             const convKey = sessionKey(agentId, userId);
@@ -1806,6 +2323,35 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         userId,
       );
       await ctx.reply(result);
+      return true;
+    }
+
+    case "/evolve":
+    case "/nightly": {
+      await ctx.reply("Starting evolution pipeline (scout + audit + architect + implementer)...");
+      info("command", `Manual evolution pipeline triggered by ${userId}`);
+      runEvolutionPipeline(supabase, { manual: true })
+        .then(async (result) => {
+          const msg = `Evolution ${result.ran ? "started" : "skipped"}: ${result.message}`;
+          await ctx.reply(msg).catch(() => {});
+          const convKey = sessionKey(agentId, userId);
+          await addEntry(convKey, {
+            role: "system",
+            content: `Manual evolution pipeline: ${result.message}`,
+            timestamp: new Date().toISOString(),
+          }).catch(() => {});
+        })
+        .catch(async (err) => {
+          await ctx.reply(`Evolution pipeline failed, trying legacy: ${err}`).catch(() => {});
+          logError("evolve", `Pipeline failed, falling back: ${err}`);
+          // Fallback to legacy
+          try {
+            const legacy = await runEvolution({ manual: true });
+            await ctx.reply(`Legacy evolution: ${legacy.message}`).catch(() => {});
+          } catch (legacyErr) {
+            await ctx.reply(`Legacy also failed: ${legacyErr}`).catch(() => {});
+          }
+        });
       return true;
     }
 
@@ -1847,6 +2393,12 @@ interface MessageIntent {
   taskDelegation: boolean;
   /** User mentions tasks, to-dos, action items */
   todos: boolean;
+  /** User is asking about SharePoint, Teams, M365, files, documents */
+  m365: boolean;
+  /** User wants to analyze, review, or search documents in a folder */
+  ingest: boolean;
+  /** User wants to browse a webpage, scrape content, interact with a site */
+  browser: boolean;
   /** Simple casual conversation (greetings, chit-chat, opinions) */
   casual: boolean;
 }
@@ -1859,10 +2411,13 @@ const INTENT_PATTERNS = {
   reputation: /\b(review[s]?|rating|star[s]?|gbp|google business|visibility|impression|reputation)/i,
   analytics: /\b(traffic|session[s]?|bounce|conversion|ga4|analytics|website|landing page|click|visitor)/i,
   marketing: /\b(ad[s]?\b|campaign|creative|ctr|cpl|cpa|meta ads|facebook|social|content|post|market|funnel|hook|headline|copy)/i,
-  coding: /\b(build|fix.?(?:bug|code|error|issue)|implement|refactor|debug|deploy|code (?:agent|task)|codebase|bug|feature request|test(?:s| suite| fail| pass)|endpoint|api (?:error|endpoint|call)|crash(?:ed|ing|es)|atlas (?:code|project|src|fix)|pv.?dashboard|openclaw)\b/i,
+  coding: /\b(build|fix(?:\s|$|!|\.)|fix.?(?:bug|code|error|issue|this|it|that)|implement|refactor|debug|deploy|(?:code|coding|claw.?code|claude.?code).?(?:agent|task|to|fix|build|update|change)|codebase|bug|feature request|test(?:s| suite| fail| pass)|endpoint|api (?:error|endpoint|call)|crash(?:ed|ing|es)|atlas (?:code|project|src|fix)|pv.?dashboard|openclaw|don'?t.?(?:try|do).?(?:it )?yourself)\b/i,
   graphWorthy: /\b(meet|introduce|hire|partner|vendor|client|work with|new (?:person|team|company|tool|program))/i,
-  taskDelegation: /\b(research|analyze|deep dive|compare|investigate|background|delegate|subagent|find out|look into)/i,
+  taskDelegation: /\b(research|analyze|deep dive|compare|investigate|background|delegate|subagent|find out|look into|send.?(?:to|this).?(?:code|claw)|use.?(?:code|claw)|(?:code|coding|claw).?(?:agent|task)|spawn.?(?:code|agent)|via.?(?:code|claw)|to.?(?:claw|code).?(?:code|to fix)|build (?:these|them|those|it|the)|create (?:these|them|those|skills?)|make (?:these|them|those|skills?)|start (?:building|creating|making))\b/i,
   todos: /\b(todo|to.?do list|task list|remind me|action item|don't forget|checklist|add.?(?:to|a) (?:task|todo|list))\b/i,
+  m365: /\b(sharepoint|teams|m365|microsoft 365|onedrive|document librar|site collection|channel|team chat|office 365|o365)\b/i,
+  ingest: /\b(analy[zs]e|review|audit|check|read through|look (?:at|through)|what'?s in|summarize|digest|find (?:content|info|stuff))\b.{0,60}\b(pdfs?|documents?|files?|folder|directory|onedrive|drive)\b/i,
+  browser: /\b(browse|scrape|screenshot (?:of |the )?(?:url|page|site|website)|headless|agent.?browser|check (?:the |this )?(?:page|site|website) (?:looks?|display|render)|fill (?:out |in )?(?:the )?(?:form|field)|click (?:on |the )?(?:button|link|element))\b/i,
 };
 
 /** Casual message heuristic: short + no strong intent signals */
@@ -1882,6 +2437,9 @@ function classifyIntent(messages: PendingMessage[], activeMode: string | null): 
     graphWorthy: INTENT_PATTERNS.graphWorthy.test(combined),
     taskDelegation: INTENT_PATTERNS.taskDelegation.test(combined),
     todos: INTENT_PATTERNS.todos.test(combined),
+    m365: INTENT_PATTERNS.m365.test(combined),
+    ingest: INTENT_PATTERNS.ingest.test(combined),
+    browser: INTENT_PATTERNS.browser.test(combined),
     casual: false,
   };
 
@@ -1896,7 +2454,8 @@ function classifyIntent(messages: PendingMessage[], activeMode: string | null): 
   // Casual detection: no strong intent + short message
   const hasAnyIntent = intent.financial || intent.pipeline || intent.google ||
     intent.reputation || intent.analytics || intent.marketing ||
-    intent.coding || intent.taskDelegation || intent.todos;
+    intent.coding || intent.taskDelegation || intent.todos || intent.m365 ||
+    intent.ingest || intent.browser;
 
   if (!hasAnyIntent && combined.length <= CASUAL_MAX_LENGTH) {
     intent.casual = true;
@@ -1925,6 +2484,13 @@ interface ContextPlan {
   ga4: boolean;
   graph: boolean;
   entitySearch: boolean;
+  m365: boolean;
+  website: boolean;
+  /** Intelligence systems */
+  feedback: boolean;
+  episodes: boolean;
+  observations: boolean;
+  proactive: boolean;
 }
 
 function planContextSources(
@@ -1939,13 +2505,14 @@ function planContextSources(
     graph: boolean;
     gbp: boolean;
     ga4: boolean;
+    m365: boolean;
   }
 ): ContextPlan {
   // Gate search behind meaningful intent. Short follow-ups ("yes", "ok", "do it")
   // don't benefit from vector search and waste an embedding call.
   const hasSubstantiveIntent = intent.financial || intent.pipeline || intent.google ||
     intent.reputation || intent.analytics || intent.marketing ||
-    intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy;
+    intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy || intent.m365;
 
   return {
     // Memory facts/goals: cached (see cachedContext), cheap to include when non-casual
@@ -1964,6 +2531,14 @@ function planContextSources(
     ga4: features.ga4 && (intent.analytics || intent.marketing || intent.reputation),
     graph: features.graph && !intent.casual,
     entitySearch: features.graph && (intent.graphWorthy || intent.pipeline || intent.google),
+    m365: features.m365 && intent.m365,
+    website: isWebsiteReady() && (intent.marketing || intent.coding),
+    // Intelligence systems: feedback + episodes + observations gated behind memory + substantive intent
+    feedback: features.memory && hasSubstantiveIntent,
+    episodes: features.memory && hasSubstantiveIntent,
+    observations: features.memory && !intent.casual,
+    // Proactive insights: always fetched (not intent-gated, Atlas volunteers information)
+    proactive: true,
   };
 }
 
@@ -2058,11 +2633,14 @@ async function handleUserMessage(
     text: string;
     type: "text" | "voice" | "photo" | "document";
     filePath?: string;
+    imageBase64?: string; // base64-encoded image data for inline passing to Claude CLI
+    imageMimeType?: string; // MIME type of the image (e.g. "image/jpeg")
     cleanupFile?: string; // file to delete after processing (uploaded photos/docs)
   }
 ): Promise<string> {
   const traceId = randomUUID().slice(0, 8); // short trace ID for log correlation
-  const agent = resolveAgent(userId);
+  const chatId = String(ctx.chat?.id || "");
+  const agent = resolveAgent(userId, chatId, botIdFromCtx(ctx));
   const agentId = agent?.config.id || "atlas";
   const agentModel = agent?.config.model || DEFAULT_MODEL;
   const hasMemory = agent?.config.features.memory ?? true;
@@ -2072,6 +2650,7 @@ async function handleUserMessage(
   const hasSearch = agent?.config.features.search ?? false;
   const hasDashboard = (agent?.config.features.dashboard ?? false) && isDashboardReady();
   const hasGHL = (agent?.config.features.ghl ?? false) && isGHLReady();
+  const isGroupAgent = !!agent?.config.groupChatEnv; // dedicated group agent (e.g. toxtray)
   const key = sessionKey(agentId, userId);
 
   info("trace", `[${traceId}] START ${message.type} from ${userId} (${agentId}/${agentModel}): ${message.text.substring(0, 80)}`);
@@ -2092,8 +2671,19 @@ async function handleUserMessage(
     text: message.text,
     type: message.type,
     filePath: message.filePath,
+    imageBase64: message.imageBase64,
+    imageMimeType: message.imageMimeType,
     timestamp: new Date().toISOString(),
   });
+
+  // 3b. Check for idle session reset (before lock, so we don't reset mid-conversation)
+  await checkIdleReset(agentId, userId);
+
+  // 3c. Queue interrupt mode: kill running process so new message gets immediate attention
+  if (getQueueMode(key) === "interrupt") {
+    const killed = killActiveProcess(key);
+    if (killed) info("queue", `Interrupted running process for ${key}`);
+  }
 
   // 4. Acquire session lock (may wait if Claude is busy processing another message)
   const { acquired, release } = await acquireSessionLock(key, "wait");
@@ -2114,6 +2704,11 @@ async function handleUserMessage(
 
     // 6. Resolve mode FIRST (needed for intent classification)
     const combinedText = pending.map((m) => m.text).join(" ");
+    // Auto-activate default mode for agents that have one (e.g. toxtray -> tox-tray)
+    const agentDefaultMode = agent?.config.defaultMode;
+    if (agentDefaultMode && getActiveMode(key) !== agentDefaultMode) {
+      setMode(key, agentDefaultMode);
+    }
     const modeResult = resolveMode(key, combinedText);
     if (modeResult.switched && modeResult.modeName) {
       ctx.reply(`[${modeResult.modeName} mode activated]`).catch(() => {});
@@ -2122,7 +2717,15 @@ async function handleUserMessage(
     // 6a. Classify intent to determine which context sources to fetch.
     //     This is the key optimization: casual messages skip expensive API calls entirely.
     const activeMode = getActiveMode(key);
-    const intent = classifyIntent(pending, activeMode);
+    const regexIntent = classifyIntent(pending, activeMode);
+
+    // Cognitive enhancement: supplement regex intent with conversation-aware heuristics.
+    // Prevents false casual for follow-ups and questions in ongoing conversations.
+    const recentTurns = (await getEntries(key)).slice(-6).map(e => ({
+      role: e.role,
+      content: e.content,
+    }));
+    const intent = enhanceIntent(regexIntent, combinedText, recentTurns) as MessageIntent;
 
     const featureFlags = {
       memory: hasMemory,
@@ -2134,6 +2737,11 @@ async function handleUserMessage(
       graph: agent?.config.features.graph ?? false,
       gbp: isGBPReady(),
       ga4: isGA4Ready(),
+      m365: (agent?.config.features.m365 ?? false) && isM365Ready(),
+      canva: isCanvaReady(),
+      social: isSocialReady(),
+      etsy: isEtsyReady(),
+      approval: isApprovalReady(),
     };
     const contextPlan = planContextSources(intent, featureFlags);
 
@@ -2155,7 +2763,9 @@ async function handleUserMessage(
     // 6b. Gather FRESH context now (after lock, guaranteed up-to-date)
     //     Only fetch sources identified by the context plan.
     //     Tiered timeouts: fast local (5s), medium Supabase (12s), slow external APIs (25s).
-    const searchQuery = pending.map((m) => m.text).join(" ");
+    const rawSearchQuery = pending.map((m) => m.text).join(" ");
+    // Cognitive: reformulate short/pronominal queries using conversation context
+    const searchQuery = reformulateQuery(rawSearchQuery, recentTurns);
 
     // Circuit breaker: if open, check if cooldown has elapsed
     if (contextCircuitOpen && Date.now() - contextCircuitOpenedAt > CIRCUIT_BREAKER_COOLDOWN_MS) {
@@ -2207,7 +2817,7 @@ async function handleUserMessage(
     // Fetch only planned sources (unplanned sources resolve as empty string immediately)
     // Circuit breaker skips SLOW tier (external APIs) but still fetches FAST/MEDIUM (local + Supabase)
     // Memory (5min) + graph (15min) are cached since they change infrequently.
-    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext] = await Promise.all([
+    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext, m365Context, websiteContext, feedbackContext, episodesContext, observationsContext, proactiveContext] = await Promise.all([
       contextPlan.search   ? withTimeout(getRelevantContext(supabase, searchQuery, hasSearch), "", "search", MEDIUM_MS)  : Promise.resolve(""),
       contextPlan.memory   ? withTimeout(cachedContext("memory", () => getMemoryContext(supabase), 300_000), "", "memory", MEDIUM_MS) : Promise.resolve(""),
       contextPlan.todos    ? withTimeout(getTodoContext(), "", "todos", FAST_MS)                                         : Promise.resolve(""),
@@ -2218,7 +2828,18 @@ async function handleUserMessage(
       contextPlan.gbp && !skipExternal       ? withTimeout(cachedContext("gbp", getGBPContext), "", "gbp", SLOW_MS)                        : Promise.resolve(contextCache.get("gbp")?.value || ""),
       contextPlan.ga4 && !skipExternal       ? withTimeout(cachedContext("ga4", getGA4Context), "", "ga4", SLOW_MS)                        : Promise.resolve(contextCache.get("ga4")?.value || ""),
       contextPlan.graph    ? withTimeout(cachedContext("graph", () => getGraphContext(supabase), 900_000), "", "graph", MEDIUM_MS) : Promise.resolve(""),
-      contextPlan.entitySearch ? withTimeout(getEntityContext(supabase, searchQuery), "", "entity-search", MEDIUM_MS)    : Promise.resolve(""),
+      contextPlan.entitySearch ? withTimeout(getEntityContextSpreading(supabase!, searchQuery), "", "entity-search", MEDIUM_MS) : Promise.resolve(""),
+      contextPlan.m365 && !skipExternal ? withTimeout(cachedContext("m365", getM365Context, 300_000), "", "m365", SLOW_MS) : Promise.resolve(contextCache.get("m365")?.value || ""),
+      contextPlan.website && !skipExternal ? withTimeout(cachedContext("website", getWebsiteContext, 300_000), "", "website", SLOW_MS) : Promise.resolve(contextCache.get("website")?.value || ""),
+      // Intelligence systems
+      contextPlan.feedback  ? withTimeout(getLessonsLearned(supabase, searchQuery, inferTaskType(intent)), "", "feedback", MEDIUM_MS)  : Promise.resolve(""),
+      contextPlan.episodes  ? withTimeout(getRelevantEpisodes(supabase, searchQuery), "", "episodes", MEDIUM_MS)  : Promise.resolve(""),
+      contextPlan.observations ? withTimeout(getObservationContext(supabase), "", "observations", MEDIUM_MS) : Promise.resolve(""),
+      contextPlan.proactive ? withTimeout(
+        Promise.all([getProactiveInsights(supabase), getAnticipatoryContext(supabase)])
+          .then(([insights, anticipatory]) => [insights, anticipatory].filter(Boolean).join("\n")),
+        "", "proactive", MEDIUM_MS
+      ) : Promise.resolve(""),
     ]);
 
     // Trip circuit breaker if too many sources timed out (network-level issue)
@@ -2228,8 +2849,43 @@ async function handleUserMessage(
       warn("context", `Circuit breaker tripped: ${timeoutCount} sources timed out. Skipping external fetches for ${CIRCUIT_BREAKER_COOLDOWN_MS / 1000}s`);
     }
 
+    // 6d. Cognitive: entity extraction + auto-creation (fire-and-forget)
+    //     Runs lightweight regex NER on incoming messages and creates graph entities.
+    if (supabase && !intent.casual) {
+      const entities = extractEntities(combinedText);
+      if (entities.length > 0) {
+        autoCreateEntities(supabase, entities).then(count => {
+          if (count > 0) info("cognitive", `Auto-created ${count} entities from message`);
+        }).catch(() => {});
+      }
+    }
+
+    // 6e. Cognitive: check prospective memory triggers (event + context based)
+    let prospectiveActions: string[] = [];
+    if (supabase && !intent.casual) {
+      const entityNames = extractEntities(combinedText).map(e => e.name);
+      prospectiveActions = await checkProspectiveTriggers(supabase, combinedText, entityNames);
+      if (prospectiveActions.length > 0) {
+        info("cognitive", `${prospectiveActions.length} prospective trigger(s) fired`);
+      }
+    }
+
     // 7. Determine resume BEFORE building prompt (affects conversation buffer inclusion)
     const session = await getSession(agentId, userId);
+
+    // Override casual for confirmation messages when there's a resumable session.
+    // "Yes", "Do it", "Go ahead" etc. after a multi-turn conversation should resume,
+    // not start fresh (which causes phantom dispatches where Claude narrates actions
+    // without emitting actual tags).
+    if (intent.casual && hasResume && session.sessionId) {
+      const CONFIRMATION_PATTERN = /^(yes|yeah|yep|yup|do it|go ahead|go for it|build|start|proceed|ok|okay|sure|confirmed?|let'?s go|make it|run it|ship it|approved?|build them|go|lets do it|let'?s do it|affirmative|absolutely|definitely|please|for sure|do that|sounds good|perfect|that works|💯|👍|✅)[\s!.]*$/i;
+      if (CONFIRMATION_PATTERN.test(combinedText.trim())) {
+        info("trace", `[${traceId}] Upgrading casual confirmation "${combinedText.trim()}" to resume session ${session.sessionId}`);
+        intent.casual = false;
+        intent.taskDelegation = true;
+      }
+    }
+
     const shouldResume = hasResume && !intent.casual;
     if (hasResume && intent.casual) {
       info("trace", `[${traceId}] Skipping session resume for casual message(s): "${pending.map(m => m.text).join(" | ").substring(0, 80)}"`);
@@ -2238,13 +2894,36 @@ async function handleUserMessage(
     // 7b. Get conversation history from ring buffer.
     //     When resuming a session, Claude already has recent turns in session state.
     //     Skip the ring buffer to avoid duplicating 3-8K chars of conversation.
-    const conversationContext = shouldResume && session.sessionId
+    let conversationContext = shouldResume && session.sessionId
       ? "" // Session already carries conversation context
       : await formatForPrompt(key, pending.length);
 
     if (shouldResume && session.sessionId) {
       info("trace", `[${traceId}] Skipping conversation buffer injection (session ${session.sessionId} has history)`);
     }
+
+    // 7b2. Inline compaction: if conversation consumes too much of the prompt budget, compress
+    if (conversationContext) {
+      const totalContextChars = (conversationContext.length || 0)
+        + (relevantContext?.length || 0)
+        + (memoryContext?.length || 0)
+        + (todoContext?.length || 0)
+        + (googleContext?.length || 0);
+      const compacted = await compactIfNeeded(
+        key, totalContextChars, MAX_PROMPT_CHARS,
+        (p) => runPrompt(p, MODELS.haiku),
+      );
+      if (compacted) {
+        conversationContext = compacted;
+        info("trace", `[${traceId}] Conversation compacted (${totalContextChars} -> ${compacted.length} chars)`);
+      }
+    }
+
+    // 7c. Inject prospective memory triggers into memory context
+    const prospectiveContext = prospectiveActions.length > 0
+      ? "\n\nTRIGGERED REMINDERS:\n" + prospectiveActions.map(a => `- ${a}`).join("\n")
+      : "";
+    const augmentedMemoryContext = memoryContext + prospectiveContext;
 
     // 8. Build prompt with fresh context + conversation history + accumulated messages
     //    Now uses intent classification and hard character budget.
@@ -2254,7 +2933,7 @@ async function handleUserMessage(
       intent,
       {
         relevantContext,
-        memoryContext,
+        memoryContext: augmentedMemoryContext,
         todoContext,
         googleContext,
         conversationContext,
@@ -2266,20 +2945,64 @@ async function handleUserMessage(
         ga4Context,
         graphContext,
         entityContext,
+        m365Context,
+        websiteContext,
+        feedbackContext,
+        episodesContext,
+        observationsContext,
+        proactiveContext,
+        // Tox tray business operator context (always fetched for toxtray agent, on-demand for others)
+        toxTrayContext: (featureFlags.canva || featureFlags.social || featureFlags.etsy || featureFlags.approval)
+          && (isGroupAgent || modeResult.modeId === "tox-tray" || intent.tox_tray || /\b(tox tray|etsy|tox.?tray)\b/i.test(combinedText))
+          ? await Promise.all([
+              featureFlags.canva ? getCanvaContext().catch(() => "") : "",
+              featureFlags.social ? getSocialContext().catch(() => "") : "",
+              featureFlags.etsy ? getEtsyContext().catch(() => "") : "",
+              featureFlags.approval ? getApprovalContext().catch(() => "") : "",
+              getTrustSummary("tox_tray").catch(() => ""),
+            ]).then((parts) => parts.filter(Boolean).join("\n\n"))
+          : "",
       }
     );
     logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, shouldResume && !!session.sessionId, traceId);
 
     // 9. Call Claude (skipLock since we already hold it)
+    // Extract inline image data from pending messages (if any)
+    const imageMsg = pending.find((m) => m.imageBase64 && m.imageMimeType);
+    // TodoWrite interception: capture CODE_TASK entries from structured tool calls
+    const capturedCodeTasks: Array<{ cwd: string; prompt: string; timeoutMs?: number }> = [];
+
+    // Streaming: create session for progressive Telegram delivery
+    const streaming: StreamingSession | null = STREAMING_ENABLED && chatId
+      ? createStreamingSession({
+          api: {
+            sendMessage: (cid, text) => ctx.api.sendMessage(Number(cid), text),
+            editMessageText: (cid, mid, text) => ctx.api.editMessageText(Number(cid), mid, text).then(() => {}),
+          },
+          chatId,
+        })
+      : null;
+
     const rawResponse = await callClaude(enrichedPrompt, {
       resume: shouldResume,
       model: agentModel,
       agentId,
       userId,
       skipLock: true,
+      imageBase64: imageMsg?.imageBase64,
+      imageMimeType: imageMsg?.imageMimeType,
+      mcpIntentFlags: intent as Record<string, boolean>,
+      workspaceDir: agent?.resolvedWorkspaceDir || undefined,
       onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
       onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+      onTextDelta: streaming ? (text) => streaming.onDelta(text) : undefined,
+      onCodeTaskCaptured: (tasks) => { capturedCodeTasks.push(...tasks); },
     });
+
+    // Finalize streaming (sends final edit)
+    if (streaming) {
+      await streaming.finish();
+    }
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
     if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
@@ -2288,6 +3011,82 @@ async function handleUserMessage(
         content: rawResponse,
         timestamp: new Date().toISOString(),
       });
+
+      // Fire-and-forget: compress old conversation entries in background
+      compressOldEntries(key, (p) => runPrompt(p, MODELS.haiku)).catch(() => {});
+    }
+
+    // 10b. Intelligence hooks (fire-and-forget, never block response delivery)
+
+    // Feedback detection: detect corrections/approvals in user message
+    if (supabase && hasMemory) {
+      try {
+        const allEntries = await getEntries(key);
+        const prevEntry = allEntries.slice(-2).find(e => e.role === "assistant");
+        const prevResponse = prevEntry?.content || "";
+        const recentTurns = allEntries.slice(-6);
+        const signal = detectFeedback(combinedText, prevResponse, recentTurns.map(e => ({ role: e.role, content: e.content })));
+        if (signal) {
+          saveFeedback(supabase, signal, {
+            taskType: inferTaskType(intent),
+            originalOutput: prevResponse,
+            feedbackMessage: combinedText,
+            contextSummary: recentTurns.map(e => e.content).join(" ").substring(0, 500),
+          }).catch(err => warn("feedback", `Save failed: ${err}`));
+        }
+      } catch (err) {
+        warn("feedback", `Detection failed: ${err}`);
+      }
+    }
+
+    // Episode tracking: manage active episodes
+    if (supabase && hasMemory && !intent.casual) {
+      try {
+        const active = getActiveEpisode(key);
+        if (active) {
+          // Check if episode should close
+          const timeSinceAction = active.actions.length > 0
+            ? Date.now() - new Date(active.actions[active.actions.length - 1].timestamp).getTime()
+            : Date.now() - new Date(active.startedAt).getTime();
+          const closeCheck = shouldCloseEpisode(key, combinedText, timeSinceAction);
+          if (closeCheck.shouldClose) {
+            autoCloseEpisode(supabase, key, (p) => runPrompt(p, MODELS.haiku), closeCheck.reason)
+              .catch(err => warn("episodes", `Auto-close failed: ${err}`));
+          } else {
+            addEpisodeAction(key, combinedText.substring(0, 200), rawResponse.substring(0, 200));
+          }
+        } else {
+          const trigger = detectEpisodeStart(key, combinedText, intent);
+          if (trigger) {
+            const epType = inferEpisodeType(intent, combinedText);
+            startEpisode(key, trigger, epType, combinedText);
+            addEpisodeAction(key, combinedText.substring(0, 200), rawResponse.substring(0, 200));
+          }
+        }
+      } catch (err) {
+        warn("episodes", `Tracking failed: ${err}`);
+      }
+    }
+
+    // Observation extraction: every N turns, extract observations from conversation
+    if (supabase && hasMemory) {
+      incrementTurnCount(key);
+      const turnsSince = getTurnsSinceLastExtraction(key);
+      if (turnsSince >= 4) {
+        const recentTurns = (await getEntries(key)).slice(-8);
+        extractObservations(
+          supabase,
+          recentTurns.map(e => ({ role: e.role, content: e.content, timestamp: e.timestamp })),
+          key,
+          (p) => runPrompt(p, MODELS.haiku),
+        ).then(count => {
+          if (count > 0) {
+            info("observations", `Extracted ${count} observations`);
+            compileBlocks(supabase).catch(() => {});
+          }
+        }).catch(err => warn("observations", `Extraction failed: ${err}`));
+        markExtractionRan(key);
+      }
     }
 
     // 11. Post-process (memory intents, graph intents, google intents)
@@ -2312,36 +3111,252 @@ async function handleUserMessage(
       response = await processGHLIntents(response);
     }
 
+    if (featureFlags.m365) {
+      response = await processM365Intents(response);
+    }
+
+    if (isWebsiteReady()) {
+      response = await processWebsiteIntents(response);
+    }
+
+    // Browser automation tags (agent-browser CLI)
+    if (isBrowserReady()) {
+      const browserResult = await processBrowserIntents(response);
+      response = browserResult.cleanedResponse;
+      // Send screenshots to Telegram
+      for (const ssPath of browserResult.screenshots) {
+        try {
+          await ctx.replyWithPhoto(new InputFile(ssPath));
+        } catch (ssErr) {
+          warn("browser", `Failed to send screenshot ${ssPath}: ${ssErr}`);
+        }
+      }
+    }
+
+    // Tox Tray business operator tags
+    if (featureFlags.canva) {
+      response = await processCanvaIntents(response);
+    }
+    if (featureFlags.social) {
+      response = await processSocialIntents(response);
+    }
+    if (featureFlags.etsy) {
+      response = await processEtsyIntents(response);
+    }
+
     // Process scheduled message intents
     response = processScheduleIntents(response, userId);
 
+    // Process automation pause/resume tags (before task spawning so pause takes effect first)
+    response = processAutomationPauseTags(response);
+
     // Process background task delegations
+    const beforeTaskProcessing = response;
     response = await processTaskIntents(response);
 
-    // Process code task delegations
-    response = await processCodeTaskIntents(
-      response,
-      // onProgress: send updates to Telegram
-      (_taskId, update) => {
-        const msg = `[Code] ${update.toolName}${update.lastFile ? ` ${update.lastFile.split(/[\\/]/).pop()}` : ""}... (${update.elapsedSec}s, ${update.toolCallCount} tools)`;
-        ctx.reply(msg).catch(() => {});
-      },
-      // onComplete: send final summary to Telegram + add to conversation
-      (completedTaskId, result) => {
-        const dur = Math.round(result.durationMs / 1000);
-        const status = result.success ? "Done" : `Failed (${result.exitReason})`;
-        const header = `[Code] ${status} | ${dur}s | ${result.toolCallCount} tools | $${result.costUsd.toFixed(2)}`;
-        const body = result.resultText ? `\n\n${result.resultText.substring(0, 3500)}` : "";
-        ctx.reply(header + body)
+    // Build conversation context for code agents (last 5 turns so agents know what Derek discussed)
+    let codeAgentConversationCtx = "";
+    try {
+      const entries = await getEntries(key);
+      const recent = entries.slice(-5);
+      if (recent.length > 0) {
+        codeAgentConversationCtx = recent
+          .map((e) => `[${e.role}] ${e.content.substring(0, 300)}`)
+          .join("\n");
+      }
+    } catch { /* non-critical */ }
+
+    // Shared callbacks for code task spawning (used by both text tags and TodoWrite interception)
+    const codeTaskOnProgress = (_taskId: string, update: CodeAgentProgress) => {
+      const msg = `[Code] ${update.toolName}${update.lastFile ? ` ${update.lastFile.split(/[\\/]/).pop()}` : ""}... (${update.elapsedSec}s, ${update.toolCallCount} tools)`;
+      ctx.reply(msg).catch(() => {});
+    };
+    const codeTaskOnComplete = (completedTaskId: string, result: CodeAgentResult) => {
+      const dur = Math.round(result.durationMs / 1000);
+      const status = result.success ? "Done" : `Failed (${result.exitReason})`;
+      const header = `[Code] ${status} | ${dur}s | ${result.toolCallCount} tools | $${result.costUsd.toFixed(2)}`;
+      const body = result.resultText || "";
+      if (body.length <= 3500) {
+        ctx.reply(header + (body ? `\n\n${body}` : ""))
           .then(() => markAnnounced(completedTaskId))
           .catch(() => {});
-        addEntry(key, {
-          role: "system",
-          content: `Code agent completed (${result.exitReason}): ${result.resultText?.substring(0, 500) || "no output"}`,
-          timestamp: new Date().toISOString(),
-        }).catch(() => {});
+      } else {
+        ctx.reply(header).catch(() => {});
+        const chunks = chunkMessage(body, 4000);
+        for (const chunk of chunks) {
+          ctx.reply(chunk).catch(() => {});
+        }
+        markAnnounced(completedTaskId).catch(() => {});
+      }
+      addEntry(key, {
+        role: "system",
+        content: `Code agent completed (${result.exitReason}): ${result.resultText?.substring(0, 500) || "no output"}`,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+    };
+    const codeTaskOnSpawn = (taskId: string, desc: string) => {
+      ctx.reply(`Starting code agent: ${desc}... (${taskId})`).catch(() => {});
+    };
+
+    // Image observation guard (Layer 2): suppress code task dispatch when user sent
+    // a photo without explicitly requesting code work. Prevents screenshots from
+    // triggering unwanted code agents. The prompt-level guard (Layer 1) tells Claude
+    // not to emit tags, but defense-in-depth catches any that slip through.
+    const isPhotoObservation = pending.some((m) => m.type === "photo") && !intent.coding;
+    if (isPhotoObservation && (capturedCodeTasks.length > 0 || /\[CODE_TASK:/.test(response))) {
+      warn("supervisor", `Suppressed code task dispatch from photo observation (${capturedCodeTasks.length} TodoWrite + text tags detected)`);
+      capturedCodeTasks.length = 0; // clear TodoWrite-captured tasks
+      // Strip [CODE_TASK:] tags from response text so processCodeTaskIntents is a no-op
+      response = response.replace(/\[CODE_TASK:\s*(?:[^\[\]]|\[[^\]]*\])*\](?!\()/g, "(code suggestion suppressed, send again with explicit request to proceed)");
+    }
+
+    // Process code task delegations (secondary: text tag parsing)
+    response = await processCodeTaskIntents(response, codeTaskOnProgress, codeTaskOnComplete, codeTaskOnSpawn, codeAgentConversationCtx || undefined);
+
+    // Track what was spawned by text tags for dedup
+    const spawnedPromptKeys = new Set<string>();
+    if (response !== beforeTaskProcessing) {
+      const spawnedPattern = /Code agent spawned: (.{1,80})\.\.\./g;
+      let sm;
+      while ((sm = spawnedPattern.exec(response)) !== null) {
+        spawnedPromptKeys.add(sm[1]);
+      }
+    }
+
+    // Primary: spawn TodoWrite-captured code tasks (structured tool calls, most reliable)
+    for (const task of capturedCodeTasks) {
+      const promptKey = task.prompt.substring(0, 80);
+      if (spawnedPromptKeys.has(promptKey)) continue; // already spawned via text tag
+      if (!existsSync(task.cwd)) {
+        warn("supervisor", `TodoWrite-captured task skipped: cwd not found: ${task.cwd}`);
+        continue;
+      }
+      try {
+        let resolvedTaskId = "";
+        const taskId = await registerCodeTask({
+          description: task.prompt.substring(0, 100),
+          prompt: task.prompt,
+          cwd: task.cwd,
+          wallClockMs: task.timeoutMs,
+          conversationContext: codeAgentConversationCtx || undefined,
+          onProgress: (update) => codeTaskOnProgress(resolvedTaskId, update),
+          onComplete: (result) => codeTaskOnComplete(resolvedTaskId, result),
+        });
+        resolvedTaskId = taskId;
+        codeTaskOnSpawn(taskId, task.prompt.substring(0, 80));
+        spawnedPromptKeys.add(promptKey);
+        info("supervisor", `TodoWrite-captured code task spawned: ${taskId}`);
+      } catch (err) {
+        warn("supervisor", `TodoWrite-captured code task failed: ${err}`);
+      }
+    }
+
+    // Phantom dispatch detection: when Claude talks about dispatching agents but emits no tags.
+    // Injects a system note so the next turn forces proper tag emission.
+    const PHANTOM_DISPATCH_PATTERN = /\b(dispatch(?:ed|ing)?|spawn(?:ed|ing)?|spinning up|launch(?:ed|ing)?|fir(?:ed|ing)|code agents?\b.{0,20}\b(?:running|dispatched|launched|started)|agents? (?:are|have been) (?:dispatched|launched|started|fired))\b/i;
+    const tasksActuallyChanged = response !== beforeTaskProcessing || capturedCodeTasks.length > 0;
+    if (!isPhotoObservation && !tasksActuallyChanged && PHANTOM_DISPATCH_PATTERN.test(rawResponse)) {
+      warn("supervisor", `Phantom dispatch: no text tags AND no TodoWrite interception`);
+      response += "\n\n⚠️ I mentioned dispatching agents but no task tags were emitted. The tasks did NOT actually start. Please re-request so I can emit proper [CODE_TASK:] or [TASK:] tags.";
+      // Inject system note so Claude self-corrects on next turn
+      addEntry(key, {
+        role: "system",
+        content: "SYSTEM: PHANTOM DISPATCH DETECTED. Your previous response mentioned dispatching/spawning agents but ZERO tags were emitted. No agents started. You MUST emit proper TodoWrite CODE_TASK: entries AND [CODE_TASK: cwd=... | PROMPT: ...] text tags on the next request. Do not just talk about it, actually call the tools.",
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
+    // Process folder ingestion delegations
+    if (featureFlags.search && supabase) {
+      response = await processIngestIntents(
+        response,
+        supabase,
+        // onProgress: send updates to Telegram
+        (_taskId, update) => {
+          if (update.current % 5 === 0 || update.current === update.total) {
+            ctx.reply(`Ingesting... ${update.current}/${update.total} files (${update.skipped} skipped)`).catch(() => {});
+          }
+        },
+        // onComplete: send summary + auto-search with query + run pending amendments
+        async (completedTaskId, result, originalQuery) => {
+          const summary =
+            `Ingested ${result.filesProcessed} files (${result.totalChunks} chunks), ` +
+            `${result.filesSkipped} skipped, ${result.filesErrored} errors. ` +
+            `${Math.round(result.durationMs / 1000)}s.`;
+          await ctx.reply(summary).catch(() => {});
+
+          // Collect all queries to search: original + any amendments queued mid-flight
+          const searchQueries: string[] = [];
+          if (originalQuery) searchQueries.push(originalQuery);
+          const amendments = consumePendingAmendments(completedTaskId);
+          searchQueries.push(...amendments);
+
+          // Run all searches
+          for (const query of searchQueries) {
+            if (!supabase) break;
+            try {
+              const searchResults = await getRelevantContext(supabase, query);
+              if (searchResults) {
+                const label = amendments.includes(query) ? `[Follow-up: "${query.substring(0, 60)}"]` : "Here's what I found:";
+                await ctx.reply(`${label}\n\n${searchResults.substring(0, 3500)}`).catch(() => {});
+              }
+            } catch { /* search failed, user can query manually */ }
+          }
+
+          await markAnnounced(completedTaskId).catch(() => {});
+          addEntry(key, {
+            role: "system",
+            content: `Folder ingestion completed: ${summary}${amendments.length ? ` | Follow-up searches: ${amendments.join(", ")}` : ""}`,
+            timestamp: new Date().toISOString(),
+          }).catch(() => {});
+        },
+        // onSpawn: immediate ack so user knows ingestion is launching
+        (taskId, desc) => {
+          ctx.reply(`Starting ingestion: ${desc} (${taskId})`).catch(() => {});
+        },
+      );
+    }
+
+    // Process task amendments/cancellations (conductor pattern)
+    response = await processTaskAmendIntents(
+      response,
+      (taskId, action, detail) => {
+        const msg = action === "cancelled"
+          ? `Task ${taskId} cancelled: ${detail}`
+          : action === "respawned"
+          ? `Task respawned as ${taskId} with updated instructions`
+          : `Task ${taskId}: ${detail}`;
+        ctx.reply(msg).catch(() => {});
       },
     );
+
+    // Process workflow delegations: [WORKFLOW: template-name]
+    for (const wfMatch of response.matchAll(/\[WORKFLOW:\s*([\w-]+)(?:\s*\|\s*(.+?))?\]/gi)) {
+      const templateName = wfMatch[1].trim();
+      const contextStr = wfMatch[2]?.trim() || "";
+      const context: Record<string, string> = {};
+
+      // Parse context key:value pairs from the tag
+      if (contextStr) {
+        for (const part of contextStr.split(/\s*,\s*/)) {
+          const [k, v] = part.split(/\s*:\s*/, 2);
+          if (k && v) context[k.trim()] = v.trim();
+        }
+      }
+
+      try {
+        const { instantiateWorkflow, listWorkflows } = await import("./workflows.ts");
+        const result = await instantiateWorkflow(templateName, context);
+        if (result) {
+          response = response.replace(wfMatch[0], `(Started workflow "${templateName}" with ${result.taskIds.length} steps)`);
+        } else {
+          response = response.replace(wfMatch[0], `(Unknown workflow "${templateName}". ${listWorkflows()})`);
+        }
+      } catch (err) {
+        warn("relay", `Workflow tag processing failed: ${err}`);
+        response = response.replace(wfMatch[0], "");
+      }
+    }
 
     // Process swarm delegations
     response = await processSwarmIntents(response, userId);
@@ -2352,17 +3367,61 @@ async function handleUserMessage(
     // 11b. Tag recovery: all tags processed successfully, clear pending queue
     await confirmTagRecovery();
 
-    // 11c. Clear session after task delegation (prevents stale session hijacking follow-up messages)
-    const taskWasSpawned = response.includes("Background task started:") || response.includes("[Code]");
-    if (taskWasSpawned) {
-      const session = await getSession(agentId, userId);
-      if (session.sessionId) {
-        const oldSid = session.sessionId;
-        info("trace", `[${traceId}] Clearing session ${oldSid} after task delegation (next message starts fresh)`);
-        archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
-        session.sessionId = null;
-        session.lastActivity = new Date().toISOString();
-        await saveSessionState(agentId, userId, session);
+    // 11b2. Phantom dispatch feedback: inject system note into conversation buffer
+    // so Claude sees it on the next turn and learns to emit proper tags.
+    if (response.includes("no [TASK:] tags were emitted") || response.includes("no task tags were emitted")) {
+      const hasRejected = response.includes("Rejected tags:");
+      addEntry(key, {
+        role: "system",
+        content: hasRejected
+          ? "SYSTEM: Your previous [TASK:] tags were rejected for missing required fields. Correct format: [TASK: description | PROMPT: detailed instructions]. The PROMPT: field is mandatory. Example: [TASK: GLP-1 pricing research | PROMPT: Search for current tirzepatide pricing across major pharmacies and compounding sources]"
+          : "SYSTEM: Your previous response mentioned delegating research but contained no [TASK:] tags. Zero agents were spawned. You MUST emit tags in the same response where you mention delegation. Format: [TASK: description | PROMPT: detailed instructions]",
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+    }
+    if (response.includes("no task tags were detected")) {
+      addEntry(key, {
+        role: "system",
+        content: "SYSTEM: Your previous response mentioned dispatching code agents but contained no [CODE_TASK:] tags or TodoWrite calls. Zero agents were spawned. On the next request, use TodoWrite with CODE_TASK: prefixed entries AND emit [CODE_TASK: cwd=... | PROMPT: ...] text tags.",
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
+    }
+
+    // 11c. Conductor: keep session alive after task delegation.
+    // Previously we cleared the session here, but that killed conversational
+    // continuity. Atlas needs session context to understand follow-up messages
+    // like "also do X" or "cancel that" after spawning a task.
+    // The session lock is released in the finally block, so Atlas is immediately
+    // available for the next message. The running task context (getTaskContext)
+    // tells Claude what's in flight on the next turn.
+    //
+    // Exception: code agents targeting Atlas's own project dir will modify files
+    // that Claude has cached in session state. Schedule a deferred session clear
+    // when those agents complete (not now, so conductor works during the task).
+    const selfEditPattern = /Code agent spawned:.*\((task_[a-z0-9_]+)\)/;
+    const selfEditMatch = response.match(selfEditPattern);
+    if (selfEditMatch) {
+      const spawnedTaskId = selfEditMatch[1];
+      const spawnedTask = getTask(spawnedTaskId);
+      const atlasDir = join(dirname(dirname(import.meta.path))).toLowerCase();
+      if (spawnedTask?.cwd && spawnedTask.cwd.toLowerCase().startsWith(atlasDir)) {
+        info("trace", `[${traceId}] Code agent ${spawnedTaskId} targets Atlas dir. Session will clear on completion.`);
+        // Listen for this specific task's completion to clear the session
+        const clearOnComplete = async (task: SupervisedTask) => {
+          if (task.id !== spawnedTaskId) return;
+          taskEvents.removeListener("task:completed", clearOnComplete);
+          taskEvents.removeListener("task:failed", clearOnComplete);
+          const sess = await getSession(agentId, userId);
+          if (sess.sessionId) {
+            info("conductor", `Clearing session ${sess.sessionId} after self-edit code agent ${spawnedTaskId} completed`);
+            archiveSessionTranscript(sess.sessionId, agentId, userId).catch(() => {});
+            sess.sessionId = null;
+            sess.lastActivity = new Date().toISOString();
+            await saveSessionState(agentId, userId, sess);
+          }
+        };
+        taskEvents.on("task:completed", clearOnComplete);
+        taskEvents.on("task:failed", clearOnComplete);
       }
     }
 
@@ -2374,7 +3433,26 @@ async function handleUserMessage(
 
     // 13. Save + deliver
     await saveMessage("assistant", response, { agentId, traceId });
-    await sendResponse(ctx, response);
+
+    // If streaming was used and messages were sent, edit last message with final processed text.
+    // Tag processing may have modified the response, so we need to update what the user sees.
+    // Otherwise fall back to batch delivery.
+    if (streaming && streaming.hasContent && streaming.messageIds.length > 0) {
+      const clean = stripSentinels(response);
+      if (clean && clean.trim()) {
+        // Edit last streamed message with final processed text (truncate to Telegram limit)
+        const lastMsgId = streaming.messageIds[streaming.messageIds.length - 1];
+        try {
+          await ctx.api.editMessageText(Number(chatId), lastMsgId, clean.slice(-4096));
+        } catch (err: any) {
+          if (err?.error_code !== 400) {
+            warn("streaming", `Final edit failed: ${err?.message || err}`);
+          }
+        }
+      }
+    } else {
+      await sendResponse(ctx, response);
+    }
 
     // 14. Fire session-end hooks (timing, memory save, etc.)
     const sessionDurationMs = Date.now() - sessionStartMs;
@@ -2425,6 +3503,55 @@ handlers.on("message:text", async (ctx) => {
     return;
   }
 
+  // Handle pending /forget confirmations
+  const pendingForget = pendingForgets.get(userId);
+  if (pendingForget && Date.now() < pendingForget.expiresAt) {
+    const lower = text.toLowerCase().trim();
+    if (lower.startsWith("forget ")) {
+      const what = lower.slice(7).trim();
+      try {
+        const { invalidateCache: cogInvalidate } = await import("./cognitive.ts");
+        let toDelete: string[] = [];
+
+        if (what === "all") {
+          toDelete = pendingForget.matches.map(m => m.id);
+        } else {
+          // Parse comma-separated numbers
+          const nums = what.split(",").map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+          toDelete = nums
+            .filter(n => n >= 1 && n <= pendingForget.matches.length)
+            .map(n => pendingForget.matches[n - 1].id);
+        }
+
+        if (toDelete.length > 0 && supabase) {
+          let forgotten = 0;
+          for (const id of toDelete) {
+            const { error } = await supabase
+              .from("memory")
+              .update({ historical: true })
+              .eq("id", id);
+            if (!error) forgotten++;
+          }
+          if (forgotten > 0) cogInvalidate("memory");
+          await ctx.reply(`Forgot ${forgotten} fact(s).`);
+        } else {
+          await ctx.reply("No valid selections. Cancelled.");
+        }
+      } catch (err) {
+        await ctx.reply(`Failed: ${err}`);
+      }
+      pendingForgets.delete(userId);
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+    // Any non-forget reply cancels the pending state
+    pendingForgets.delete(userId);
+  }
+  // Clean up expired entries
+  if (pendingForget && Date.now() >= pendingForget.expiresAt) {
+    pendingForgets.delete(userId);
+  }
+
   if (await handleCommand(ctx, text, userId)) {
     await saveLastUpdateId(updateId, botIdFromCtx(ctx));
     return;
@@ -2435,7 +3562,7 @@ handlers.on("message:text", async (ctx) => {
     return;
   }
 
-  const agentId = resolveAgent(userId)?.config.id || "atlas";
+  const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Text from ${userId}: ${text.substring(0, 80)}...`);
   await ctx.replyWithChatAction("typing");
 
@@ -2455,7 +3582,7 @@ handlers.on("message:voice", async (ctx) => {
     return;
   }
 
-  const agentId = resolveAgent(userId)?.config.id || "atlas";
+  const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Voice from ${userId}: ${voice.duration}s`);
   await ctx.replyWithChatAction("typing");
 
@@ -2482,7 +3609,6 @@ handlers.on("message:voice", async (ctx) => {
       throw fileErr;
     }
     const url = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
-    assertSafeUrl(url);
     const response = await fetch(url);
     const buffer = Buffer.from(await response.arrayBuffer());
 
@@ -2505,8 +3631,13 @@ handlers.on("message:voice", async (ctx) => {
         const audioBuffer = await textToSpeech(responseText);
         if (audioBuffer) {
           info("tts", `Sending voice reply: ${audioBuffer.length} bytes`);
-          await ctx.replyWithVoice(new InputFile(audioBuffer, "response.ogg"));
-          info("tts", `Voice reply sent successfully`);
+          try {
+            await ctx.replyWithVoice(new InputFile(audioBuffer, "response.ogg"));
+            info("tts", `Voice reply sent successfully`);
+          } catch (sendErr) {
+            // Telegram API rejected the voice. Log specifics for debugging.
+            logError("tts", `Telegram rejected voice message (${audioBuffer.length} bytes): ${sendErr}`);
+          }
         } else {
           warn("tts", `TTS returned null buffer (OPENAI_API_KEY set: ${!!process.env.OPENAI_API_KEY})`);
         }
@@ -2532,7 +3663,7 @@ handlers.on("message:photo", async (ctx) => {
     return;
   }
 
-  const agentId = resolveAgent(userId)?.config.id || "atlas";
+  const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Image from ${userId}`);
   await ctx.replyWithChatAction("typing");
 
@@ -2571,7 +3702,6 @@ handlers.on("message:photo", async (ctx) => {
     const filePath = join(UPLOADS_DIR, `image_${randomBytes(12).toString("hex")}.jpg`);
 
     const photoUrl = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
-    assertSafeUrl(photoUrl);
     const response = await fetch(photoUrl);
 
     // Validate fetch response
@@ -2590,16 +3720,21 @@ handlers.on("message:photo", async (ctx) => {
       return;
     }
 
-    await writeFile(filePath, Buffer.from(buffer));
+    const imageBuffer = Buffer.from(buffer);
+    await writeFile(filePath, imageBuffer);
     verifyTempFile(filePath, UPLOADS_DIR);
     info("image", `Saved image to ${filePath} (${buffer.byteLength} bytes)`);
 
+    // Convert to base64 for inline passing to Claude CLI (eliminates Read tool call overhead)
+    const imageBase64 = imageBuffer.toString("base64");
     const caption = ctx.message.caption || "Analyze this image.";
 
     await handleUserMessage(ctx, userId, {
-      text: `[Image: ${filePath}]\n\n${caption}`,
+      text: caption,
       type: "photo",
-      filePath,
+      filePath, // keep as backup reference on disk
+      imageBase64,
+      imageMimeType: "image/jpeg",
       cleanupFile: filePath,
     });
   } catch (err) {
@@ -2621,7 +3756,7 @@ handlers.on("message:document", async (ctx) => {
     return;
   }
 
-  const agentId = resolveAgent(userId)?.config.id || "atlas";
+  const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Document from ${userId}: ${doc.file_name}`);
   await ctx.replyWithChatAction("typing");
 
@@ -2658,7 +3793,6 @@ handlers.on("message:document", async (ctx) => {
     const filePath = join(UPLOADS_DIR, `${randomBytes(12).toString("hex")}_${safeFileName}`);
 
     const docUrl = `https://api.telegram.org/file/bot${botTokenFromCtx(ctx)}/${file.file_path}`;
-    assertSafeUrl(docUrl);
     const response = await fetch(docUrl);
 
     // Validate fetch response
@@ -2682,12 +3816,13 @@ handlers.on("message:document", async (ctx) => {
     info("document", `Saved document to ${filePath} (${buffer.byteLength} bytes)`);
 
     // Auto-ingest documents into knowledge base when search is enabled
-    const agent = resolveAgent(userId);
+    const agent = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx));
     const hasSearch = agent?.config.features.search ?? false;
     const isTextDoc = /\.(txt|md|markdown)$/i.test(fileName);
     const isPdf = /\.pdf$/i.test(fileName);
+    const isDocx = /\.docx$/i.test(fileName);
 
-    if (hasSearch && (isTextDoc || isPdf) && supabase) {
+    if (hasSearch && (isTextDoc || isPdf || isDocx) && supabase) {
       try {
         let textContent: string;
         if (isPdf) {
@@ -2699,6 +3834,10 @@ handlers.on("message:document", async (ctx) => {
             warn("ingest", `PDF ${fileName} yielded no usable text (scanned/image-only?)`);
             textContent = "";
           }
+        } else if (isDocx) {
+          const mammoth = await import("mammoth");
+          const docResult = await mammoth.extractRawText({ path: filePath });
+          textContent = docResult.value;
         } else {
           textContent = Buffer.from(buffer).toString("utf-8");
         }
@@ -2761,7 +3900,7 @@ function sanitizeContext(text: string): string {
   //  - "Ignore previous instructions" / "disregard above" style attacks
   return text
     .replace(/^(SYSTEM|ADMIN|INSTRUCTION|OVERRIDE|IMPORTANT INSTRUCTION)\s*:/gim, "[filtered]:")
-    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK|ENTITY|RELATE|SCHEDULE)\s*:/gi, "[data:")
+    .replace(/\[(REMEMBER|GOAL|DONE|TODO|TODO_DONE|SEND|DRAFT|CAL_ADD|CAL_REMOVE|TASK|ENTITY|RELATE|SCHEDULE|PAUSE_AUTOMATIONS|RESUME_AUTOMATIONS)\s*:/gi, "[data:")
     .replace(/ignore\s+(all\s+)?previous\s+instructions/gi, "[filtered]")
     .replace(/disregard\s+(all\s+)?(above|previous|prior)/gi, "[filtered]")
     .replace(/you\s+are\s+now\s+(a|an)\s+/gi, "[filtered] ")
@@ -2857,6 +3996,13 @@ function buildPrompt(
     ga4Context?: string;
     graphContext?: string;
     entityContext?: string;
+    m365Context?: string;
+    websiteContext?: string;
+    feedbackContext?: string;
+    episodesContext?: string;
+    observationsContext?: string;
+    proactiveContext?: string;
+    toxTrayContext?: string;
   }
 ): string {
   const now = new Date();
@@ -2901,6 +4047,24 @@ function buildPrompt(
     parts.push(addSection("agent_identity", agent.config.systemPrompt));
   }
 
+  // Detect if pending messages include photos without explicit coding intent.
+  // When true, suppress proactive code agent dispatch (screenshots are for viewing, not auto-fixing).
+  const hasPhoto = pendingMessages.some((m) => m.type === "photo");
+  const captionRequestsCode = hasPhoto && intent.coding;
+  const imageObservationOnly = hasPhoto && !captionRequestsCode;
+
+  let behavioralRules =
+    "CONFIRMATION RULE: When a user says Yes/No/OK/Sure/Go ahead after a multi-option proposal, briefly restate your interpretation in the first sentence before executing.\n" +
+    "CAPABILITY GAP RULE: When you identify something Atlas cannot do (e.g. receive Telegram file attachments, write GHL custom fields), immediately spawn a [CODE_TASK:] in the same response to implement the fix, unless the user explicitly says not to.\n" +
+    "HIPAA/COMPLIANCE RULE: When explaining why something can't be shared (PHI, HIPAA, etc.), keep it to 2-3 lines max. No CFR subsections or regulatory footnotes in Telegram. Derek and Esther are clinicians, they know the basics. State the constraint and offer the workaround.";
+
+  if (imageObservationOnly) {
+    behavioralRules +=
+      "\nIMAGE OBSERVATION RULE: The user sent a screenshot/image. Analyze and describe what you see. Do NOT spawn [CODE_TASK:] agents, [TASK:] research agents, or emit any action tags. If you think code changes are needed, describe them in plain text and let the user decide whether to proceed. The CAPABILITY GAP RULE does NOT apply to images.";
+  }
+
+  parts.push(addSection("behavioral_rules", behavioralRules));
+
   parts.push(addSection("system", `Current time: ${timeStr}`));
 
   // User message(s) are P0 - always included, measured early for budget
@@ -2909,7 +4073,13 @@ function buildPrompt(
   addSection("user_message", userSectionText);
   // (appended to parts[] at the very end so it's last in the prompt)
 
-  // ── P1: Conversation history (always included, trimmed if needed) ──
+  // ── P1: Observation blocks (stable, cache-friendly prefix) ──
+  if (contexts.observationsContext && budgetRemaining() > 3000) {
+    const maxObs = Math.min(charCount(contexts.observationsContext), 6000);
+    parts.push(addSection("observations", `\n${wrapContextBoundary(trimToFit(contexts.observationsContext, maxObs), "OBSERVATIONS (compressed context from past interactions)")}`));
+  }
+
+  // ── P1b: Conversation history (always included, trimmed if needed) ──
   if (contexts.conversationContext) {
     const maxConvoChars = Math.min(charCount(contexts.conversationContext), 8000);
     const trimmed = trimToFit(contexts.conversationContext, maxConvoChars);
@@ -2926,12 +4096,24 @@ function buildPrompt(
   // ── P3: Core memory context ─────────────────────────────
   if (hasMemory && contexts.memoryContext && budgetRemaining() > 3000) {
     const maxMem = Math.min(charCount(contexts.memoryContext), 4000);
-    parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY")}`));
+    parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY (may be stale — cite as \"based on memory\" for third-party facts about named people not introduced this session)")}`));
   }
 
   if (hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
     const maxSearch = Math.min(charCount(contexts.relevantContext), 5000);
-    parts.push(addSection("search", `\n${wrapContextBoundary(trimToFit(contexts.relevantContext, maxSearch), "SEARCH RESULTS")}`));
+    parts.push(addSection("search", `\n${wrapContextBoundary(trimToFit(contexts.relevantContext, maxSearch), "SEARCH RESULTS (web data — attribute sources when citing)")}`));
+  }
+
+  // Feedback lessons (from past corrections - helps avoid repeating mistakes)
+  if (contexts.feedbackContext && budgetRemaining() > 1500) {
+    const maxFeedback = Math.min(charCount(contexts.feedbackContext), 2000);
+    parts.push(addSection("feedback", `\n${trimToFit(contexts.feedbackContext, maxFeedback)}`));
+  }
+
+  // Relevant past episodes (similar multi-turn interactions and their outcomes)
+  if (contexts.episodesContext && budgetRemaining() > 1500) {
+    const maxEpisodes = Math.min(charCount(contexts.episodesContext), 2000);
+    parts.push(addSection("episodes", `\n${trimToFit(contexts.episodesContext, maxEpisodes)}`));
   }
 
   if (hasTodos && contexts.todoContext && budgetRemaining() > 1500) {
@@ -2945,6 +4127,12 @@ function buildPrompt(
   const taskCtx = getTaskContext();
   if (taskCtx && !taskCtx.includes("None active")) {
     parts.push(addSection("tasks_active", `\n${taskCtx}`));
+  }
+
+  // ── P4.5: Proactive insights (NOT intent-gated, Atlas volunteers information) ──
+  if (contexts.proactiveContext && budgetRemaining() > 1000) {
+    const maxProactive = Math.min(charCount(contexts.proactiveContext), 1500);
+    parts.push(addSection("proactive", `\n${wrapContextBoundary(trimToFit(contexts.proactiveContext, maxProactive), "PROACTIVE INSIGHTS (mention naturally, e.g. \"By the way...\")")}`));
   }
 
   // ── P5: Business context (INTENT-GATED, dynamic data only) ──────
@@ -2982,12 +4170,68 @@ function buildPrompt(
     parts.push(addSection("ga4", `\n${wrapContextBoundary(trimToFit(contexts.ga4Context, 1500), "WEBSITE ANALYTICS")}`));
   }
 
+  if (contexts.m365Context && intent.m365 && budgetRemaining() > 1500) {
+    parts.push(addSection("m365", `\n${wrapContextBoundary(trimToFit(contexts.m365Context, 1500), "MICROSOFT 365")}`));
+  }
+
+  if (contexts.websiteContext && (intent.marketing || intent.coding) && budgetRemaining() > 800) {
+    parts.push(addSection("website", `\n${wrapContextBoundary(trimToFit(contexts.websiteContext, 800), "WEBSITE (pvmedispa.com)")}`));
+  }
+
+  if (isWebsiteReady() && (intent.marketing || intent.coding) && budgetRemaining() > 500) {
+    parts.push(addSection("website_tags",
+      "\nWEBSITE ACTIONS (use these tags to modify pvmedispa.com):" +
+      "\nUpdate page content: [WP_UPDATE: page-slug | HTML content]" +
+      "\nCreate blog post: [WP_POST: title | content | status=draft | categories=cat1,cat2]" +
+      "\nWARNING: WP_UPDATE overwrites the full page content. WP_POST defaults to draft status. ALWAYS confirm with the user before publishing."
+    ));
+  }
+
+  if (isBrowserReady() && (intent.browser || intent.coding) && budgetRemaining() > 400) {
+    parts.push(addSection("browser_tags",
+      "\nBROWSER ACTIONS (headless browser via agent-browser CLI):" +
+      "\nOpen + snapshot: [BROWSE: https://example.com]" +
+      "\nScreenshot (sent to Telegram): [BROWSE_SCREENSHOT: https://example.com]" +
+      "\nClick element: [BROWSE_CLICK: https://example.com | @e1]" +
+      "\nFill form field: [BROWSE_FILL: https://example.com | @e2 | text to type]" +
+      "\nPrefer WebFetch for simple content reads. Use BROWSE for JS-rendered pages, form interaction, or screenshots." +
+      "\nFor multi-step interactive browsing (navigate, inspect, decide, act), use the /browser skill instead."
+    ));
+  }
+
+  // Automation pause tags (always available, low token cost)
+  if (budgetRemaining() > 200) {
+    parts.push(addSection("automation_pause",
+      "\nAUTOMATION CONTROL:" +
+      "\nPause: [PAUSE_AUTOMATIONS:patient_engagement] (also: stale_leads, appointment_reminders, noshow_recovery)" +
+      "\nResume: [RESUME_AUTOMATIONS:patient_engagement]" +
+      "\nWhen paused, cron jobs skip and in-flight task announcements are suppressed (output files preserved)."
+    ));
+  }
+
+  // Tox tray business context: Canva designs, social platforms, Etsy listings, approval queue, trust levels
+  if (contexts.toxTrayContext && budgetRemaining() > 1000) {
+    parts.push(addSection("tox_tray", `\n${wrapContextBoundary(trimToFit(contexts.toxTrayContext, 1500), "TOX TRAY BUSINESS")}`));
+  }
+
   // Google context: only when email/calendar/contacts relevant
   if (hasGoogle && contexts.googleContext && intent.google && budgetRemaining() > 2000) {
     parts.push(addSection("google", `\n${wrapContextBoundary(trimToFit(contexts.googleContext, 2500), "GOOGLE")}`));
   }
 
   // Google/GHL tag syntax now in CLAUDE.md (loaded by Claude Code automatically)
+
+  // Ingest routing: tell Atlas to use [INGEST_FOLDER:] instead of [CODE_TASK:] for document analysis
+  if (intent.ingest && budgetRemaining() > 500) {
+    parts.push(addSection("ingest_routing",
+      "\nDOCUMENT ANALYSIS ROUTING: The user wants to analyze/review documents in a folder. " +
+      "Do NOT spawn a code agent to read these files. Instead use the [INGEST_FOLDER:] tag to ingest the folder into the knowledge base. " +
+      "Format: [INGEST_FOLDER: path=<absolute_path> | SOURCE: <source_name> | QUERY: <what user wants to know>]\n" +
+      "Known paths: OneDrive=C:\\Users\\derek\\OneDrive - PV MEDISPA LLC, Atlas=C:\\Users\\derek\\Projects\\atlas, Training=C:\\Users\\derek\\Projects\\atlas\\data\\training\n" +
+      "Source names: onedrive, local, training. Files are deduped by content hash (already-ingested files are skipped).\n" +
+      "After ingestion completes, the system auto-searches with your QUERY and delivers results to the user."
+    ));
+  }
 
   // ── P6: Ambient context (lowest priority, skip if budget tight) ──
   if (hasGraph && contexts.graphContext && budgetRemaining() > 2000) {
@@ -3029,6 +4273,9 @@ function buildPrompt(
 }
 
 async function sendResponse(ctx: Context, response: string): Promise<void> {
+  // Sentinel suppression: strip ALL internal tags + verbose gating before delivery
+  response = stripSentinels(response);
+
   // Guard against empty responses (Telegram rejects empty message text)
   if (!response || !response.trim()) {
     warn("send", "Skipping empty response (would cause Telegram 400 error)");
@@ -3172,12 +4419,45 @@ startCronJobs(supabase).catch((err) =>
 // The cron supervisor becomes a backup retry mechanism.
 
 async function handleTaskEvent(task: SupervisedTask) {
+  // Guard: if emitter passed a bare { taskId } instead of a full SupervisedTask,
+  // look up the real task. Prevents "Task undefined: Task unknown" messages.
+  if (!task.description && (task as any).taskId) {
+    const resolved = getTask((task as any).taskId);
+    if (resolved) {
+      task = resolved;
+    } else {
+      warn("delivery", `handleTaskEvent received bare { taskId: ${(task as any).taskId} } with no matching store entry. Skipping.`);
+      return;
+    }
+  }
+
   // Fire task-complete hooks (delivery, logging, etc.)
   fireHooks("task-complete", { task }).catch(() => {});
 
-  // Skip if already announced (e.g. code agent onComplete already sent)
+  // File-based announcement lock: prevents race condition where both streamToFile
+  // and supervisor worker emit events before either marks task.announced in memory.
+  // writeFileSync with wx flag fails atomically if file already exists.
+  const lockDir = join(PROJECT_ROOT, "data", "task-locks");
+  const lockFile = join(lockDir, `${task.id}.announced`);
+  try {
+    mkdirSync(lockDir, { recursive: true });
+    writeFileSync(lockFile, new Date().toISOString(), { flag: "wx" });
+  } catch {
+    // Lock file already exists: another handler already claimed this announcement
+    return;
+  }
+
+  // Also set the in-memory flag for backward compat with cron/unannounced checks
   if (task.announced) return;
   if (!ALLOWED_USER_ID) return;
+
+  // Suppress announcements for paused automation tasks
+  if (shouldSuppressAnnouncement(task)) {
+    await markAnnounced(task.id);
+    recordSuppressedTask(task.id);
+    info("delivery", `Suppressed event delivery for paused-automation task ${task.id}`);
+    return;
+  }
 
   try {
     const msg = formatTaskResult(task);
@@ -3201,6 +4481,13 @@ async function handleTaskEvent(task: SupervisedTask) {
 taskEvents.on("task:completed", handleTaskEvent);
 taskEvents.on("task:failed", handleTaskEvent);
 taskEvents.on("task:timeout", handleTaskEvent);
+taskEvents.on("task:needs_restart", async (payload: { taskId: string; reason: string; detectedPatterns?: string[] }) => {
+  try {
+    await restartCodeTask(payload.taskId, payload.reason, payload.detectedPatterns);
+  } catch (err) {
+    warn("supervisor", `Failed to restart ${payload.taskId}: ${err}`);
+  }
+});
 
 // Register delivery callback BEFORE init so it's available when tickAllSwarms() completes swarms
 registerDeliveryCallback(async (chatId: string, header: string, body: string) => {
@@ -3233,13 +4520,18 @@ if (ishtarBot) {
   ishtarBot.use(handlers);
   info("startup", "Ishtar bot initialized (multi-bot mode)");
 }
+if (coachBot) {
+  coachBot.use(handlers);
+  info("startup", "Coach bot initialized (multi-bot mode)");
+}
 
 // Load persisted update offsets (per-bot) to skip already-processed messages after restart
-Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar()]).then(async ([atlasId, ishtarId]) => {
+Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach()]).then(async ([atlasId, ishtarId, coachId]) => {
   lastProcessedUpdateIds.atlas = atlasId;
   lastProcessedUpdateIds.ishtar = ishtarId;
+  lastProcessedUpdateIds.coach = coachId;
   const id = atlasId; // backward compat for dropPending logic below
-  info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}`);
+  info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}, coach=${coachId}`);
 
   // Use drop_pending_updates when we have no saved offset (crash recovery).
   // This prevents re-processing stale messages (including /restart) that
@@ -3457,5 +4749,66 @@ Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar()]).then(async ([atlasId
     }
 
     startIshtar();
+  }
+
+  // Start Coach bot with same 409-resilient retry loop
+  if (coachBot) {
+    let coachAttempt = 0;
+    let coachPollingStartedAt = 0;
+    let coachConsecutiveQuickExits = 0;
+
+    async function startCoach(): Promise<void> {
+      try {
+        coachPollingStartedAt = Date.now();
+        await coachBot.start({
+          drop_pending_updates: dropPending,
+          onStart: () => {
+            info("startup", "Coach bot is running!");
+            coachAttempt = 0;
+            coachConsecutiveQuickExits = 0;
+          },
+        });
+        if (!isShuttingDown) {
+          const aliveMs = Date.now() - coachPollingStartedAt;
+          const isQuickExit = aliveMs < QUICK_EXIT_THRESHOLD_MS;
+
+          if (isQuickExit) {
+            coachConsecutiveQuickExits++;
+            if (coachConsecutiveQuickExits >= MAX_QUICK_EXITS) {
+              warn("startup", `Coach polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${coachConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Backing off for 5 minutes.`);
+              await new Promise((r) => setTimeout(r, 5 * 60_000));
+              coachConsecutiveQuickExits = 0;
+            } else {
+              const backoffMs = Math.min(35_000 * Math.pow(2, coachConsecutiveQuickExits - 1), 5 * 60_000);
+              warn("startup", `Coach polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${coachConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Waiting ${Math.round(backoffMs / 1000)}s.`);
+              await new Promise((r) => setTimeout(r, backoffMs));
+            }
+          } else {
+            coachConsecutiveQuickExits = 0;
+            warn("startup", `Coach polling loop exited after ${Math.round(aliveMs / 1000)}s. Restarting in 35s.`);
+            await new Promise((r) => setTimeout(r, 35_000));
+          }
+
+          return startCoach();
+        }
+      } catch (err) {
+        const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
+        if (is409 && coachAttempt < MAX_START_RETRIES) {
+          coachAttempt++;
+          const backoffMs = Math.min(5000 * Math.pow(2, coachAttempt - 1), 60_000);
+          warn("startup", `Coach 409 conflict on start (attempt ${coachAttempt}/${MAX_START_RETRIES}). Retrying in ${backoffMs / 1000}s...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          return startCoach();
+        }
+        logError("startup", `Coach bot start failed after ${coachAttempt} attempts: ${err}`);
+        warn("startup", "Coach exhausted retries. Will try again in 5 minutes.");
+        await new Promise((r) => setTimeout(r, 5 * 60_000));
+        coachAttempt = 0;
+        coachConsecutiveQuickExits = 0;
+        return startCoach();
+      }
+    }
+
+    startCoach();
   }
 });

@@ -19,6 +19,15 @@ import {
   getRelevantContext as searchRelevantContext,
   semanticMemorySearch,
 } from "./search.ts";
+import {
+  invalidateCache,
+  detectContradiction,
+  scoreSalience,
+  assignThread,
+  parseProspectiveTags,
+  saveProspectiveMemories,
+  type ConflictResult,
+} from "./cognitive.ts";
 
 /**
  * Parse Claude's response for memory intent tags.
@@ -32,25 +41,67 @@ export async function processMemoryIntents(
 
   let clean = response;
 
-  // [REMEMBER: fact to store] — with dedup via semantic similarity
+  // [REMEMBER: fact to store] — with contradiction detection + salience scoring
   // Uses /s so facts can span multiple lines
   for (const match of response.matchAll(/\[REMEMBER:\s*([\s\S]+?)\]/gi)) {
     const newFact = match[1].trim();
     if (!newFact) continue;
 
     try {
-      const existing = await findSimilarFact(supabase, newFact);
-      if (existing) {
-        await supabase
-          .from("memory")
-          .update({ content: newFact, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("memory").insert({
-          type: "fact",
-          content: newFact,
-        });
+      // Contradiction detection (replaces simple dedup)
+      const conflict: ConflictResult = await detectContradiction(supabase, newFact);
+
+      switch (conflict.resolution) {
+        case "skip":
+          // Duplicate, don't store
+          break;
+
+        case "update":
+          // Same topic, updated info. Replace content.
+          if (conflict.existingId) {
+            await supabase
+              .from("memory")
+              .update({
+                content: newFact,
+                updated_at: new Date().toISOString(),
+                access_count: 0, // reset access count on update
+              })
+              .eq("id", conflict.existingId);
+          }
+          break;
+
+        case "supersede":
+          // Contradiction. Mark old as historical, insert new.
+          if (conflict.existingId) {
+            await supabase
+              .from("memory")
+              .update({ historical: true })
+              .eq("id", conflict.existingId);
+          }
+          // Fall through to insert new fact
+          // eslint-disable-next-line no-fallthrough
+        case "keep_both":
+        default: {
+          // Score salience for the new fact
+          const salience = scoreSalience(newFact);
+
+          // Assign to a narrative thread
+          const threadId = await assignThread(supabase, newFact);
+
+          await supabase.from("memory").insert({
+            type: "fact",
+            content: newFact,
+            salience: salience.overall,
+            confidence: 0.9, // direct from Claude = high confidence
+            source: "direct_statement",
+            thread_id: threadId,
+          });
+          break;
+        }
       }
+
+      // Invalidate memory cache immediately so next prompt sees the update
+      invalidateCache("memory");
     } catch (err) {
       console.warn(`[memory] REMEMBER insert failed: ${err}`);
     }
@@ -71,11 +122,16 @@ export async function processMemoryIntents(
 
     if (goalText) {
       try {
+        const salience = scoreSalience(goalText);
         await supabase.from("memory").insert({
           type: "goal",
           content: goalText,
           deadline,
+          salience: Math.max(salience.overall, 0.6), // goals are always at least moderately salient
+          confidence: 0.9,
+          source: "direct_statement",
         });
+        invalidateCache("memory");
       } catch (err) {
         console.warn(`[memory] GOAL insert failed: ${err}`);
       }
@@ -104,6 +160,7 @@ export async function processMemoryIntents(
             completed_at: new Date().toISOString(),
           })
           .eq("id", data[0].id);
+        invalidateCache("memory");
       }
     } catch (err) {
       console.warn(`[memory] DONE update failed: ${err}`);
@@ -127,6 +184,34 @@ export async function processMemoryIntents(
       try { await completeTodo(search); } catch (err) { console.warn(`[memory] TODO_DONE failed: ${err}`); }
     }
     clean = clean.replace(match[0], "");
+  }
+
+  // Prospective memory tags: [REMIND:], [WHEN:], [SURFACE:]
+  const prospectiveTags = parseProspectiveTags(clean);
+  if (prospectiveTags.length > 0) {
+    const saved = await saveProspectiveMemories(supabase, prospectiveTags);
+    if (saved > 0) console.log(`[memory] Saved ${saved} prospective memory entries`);
+    // Strip the tags from the response
+    clean = clean.replace(/\[REMIND:\s*[\s\S]+?\s*\|\s*AT:\s*[\s\S]+?\]/gi, "");
+    clean = clean.replace(/\[WHEN:\s*[\s\S]+?\s*\|\s*DO:\s*[\s\S]+?\]/gi, "");
+    clean = clean.replace(/\[SURFACE:\s*[\s\S]+?\s*\|\s*TOPIC:\s*[\s\S]+?\]/gi, "");
+  }
+
+  // [FORGET: search text] — soft-delete matching facts
+  for (const match of response.matchAll(/\[FORGET:\s*([\s\S]+?)\]/gi)) {
+    const searchText = match[1].trim();
+    if (!searchText) { clean = clean.replace(match[0], ""); continue; }
+
+    try {
+      const forgotten = await forgetFacts(supabase, searchText);
+      const note = forgotten > 0
+        ? `(Forgot ${forgotten} fact${forgotten > 1 ? "s" : ""})`
+        : "(No matching facts found to forget)";
+      clean = clean.replace(match[0], note);
+    } catch (err) {
+      console.warn(`[memory] FORGET failed: ${err}`);
+      clean = clean.replace(match[0], "");
+    }
   }
 
   return clean.trim();
@@ -253,6 +338,72 @@ export async function deleteMemory(
 }
 
 /**
+ * Soft-delete facts matching a search query.
+ * Uses semantic search to find top 3 matches (similarity > 0.7),
+ * then marks them as historical (same as contradiction superseding).
+ */
+export async function forgetFacts(
+  supabase: SupabaseClient,
+  searchText: string,
+  maxMatches = 3,
+): Promise<number> {
+  const { data, error } = await supabase.functions.invoke("search", {
+    body: {
+      query: searchText,
+      table: "memory",
+      match_count: maxMatches,
+      match_threshold: 0.7,
+    },
+  });
+
+  if (error || !data?.length) return 0;
+
+  // Only forget active facts (not goals, not already historical)
+  const activeFacts = data.filter((d: any) => d.type === "fact" && !d.historical);
+  if (!activeFacts.length) return 0;
+
+  let forgotten = 0;
+  for (const fact of activeFacts) {
+    const { error: updateError } = await supabase
+      .from("memory")
+      .update({ historical: true })
+      .eq("id", fact.id);
+    if (!updateError) forgotten++;
+  }
+
+  if (forgotten > 0) invalidateCache("memory");
+  return forgotten;
+}
+
+/**
+ * Search for facts matching text. Returns preview list for confirmation UI.
+ */
+export async function searchFactsForForget(
+  supabase: SupabaseClient,
+  searchText: string,
+  limit = 5,
+): Promise<Array<{ id: string; content: string; similarity: number }>> {
+  const { data, error } = await supabase.functions.invoke("search", {
+    body: {
+      query: searchText,
+      table: "memory",
+      match_count: limit,
+      match_threshold: 0.6,
+    },
+  });
+
+  if (error || !data?.length) return [];
+
+  return data
+    .filter((d: any) => d.type === "fact" && !d.historical)
+    .map((d: any) => ({
+      id: d.id,
+      content: d.content,
+      similarity: d.similarity || 0,
+    }));
+}
+
+/**
  * Get all facts and active goals for prompt context.
  */
 export async function getMemoryContext(
@@ -271,7 +422,10 @@ export async function getMemoryContext(
     if (factsResult.data?.length) {
       parts.push(
         "FACTS:\n" +
-          factsResult.data.map((f: any) => `- ${f.content}`).join("\n")
+          factsResult.data.map((f: any) => {
+            const salTag = f.salience >= 0.7 ? " *" : ""; // star high-salience facts
+            return `- ${f.content}${salTag}`;
+          }).join("\n")
       );
     }
 
