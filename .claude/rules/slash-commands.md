@@ -41,5 +41,10 @@ Ranges: today, 7d, 30d, mtd, last_month
 ## Code
 `/code <project_dir> <instructions>`
 
+## Meetings (Otter.ai)
+`/meetings` - list recent transcripts
+`/meetings <id>` - process transcript, extract action items
+`/meetings search <query>` - search across all transcripts
+
 ## Evolution
 `/evolve` `/nightly` — Manually trigger the nightly evolution pipeline (source scanning + opus code agent). Runs in background, reports results to Telegram when done.

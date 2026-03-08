@@ -2218,6 +2218,10 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         "/skool - Vitality Unchained community content\n" +
         "/coach - fitness coach mode (workouts, macros, Hevy)\n" +
         "/mode - show/switch/clear active mode\n" +
+        "\nMeetings (Otter.ai):\n" +
+        "/meetings - list recent meeting transcripts\n" +
+        "/meetings <id> - process meeting and extract action items\n" +
+        "/meetings search <query> - search meetings by keyword\n" +
         "\nEvolution:\n" +
         "/evolve - trigger nightly evolution pipeline\n" +
         "/nightly - alias for /evolve\n" +
@@ -2355,6 +2359,35 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
             await ctx.reply(`Legacy also failed: ${legacyErr}`).catch(() => {});
           }
         });
+      return true;
+    }
+
+    case "/meetings": {
+      const subCmd = args[0] || "";
+      const { listMeetings, processMeeting, searchMeetings, formatMeetingSummaryTelegram } = await import("./meetings.ts");
+
+      if (!subCmd) {
+        // List recent meetings
+        await ctx.reply("Fetching recent meetings from Otter...");
+        const result = await listMeetings(10);
+        await ctx.reply(result);
+      } else if (subCmd === "search" && args.length > 1) {
+        // Search meetings
+        const query = args.slice(1).join(" ");
+        await ctx.reply(`Searching meetings for "${query}"...`);
+        const result = await searchMeetings(query);
+        await ctx.reply(result);
+      } else {
+        // Process a specific meeting by ID
+        await ctx.reply("Processing meeting transcript and extracting action items...");
+        const result = await processMeeting(subCmd);
+        if (typeof result === "string") {
+          await ctx.reply(result);
+        } else {
+          const formatted = formatMeetingSummaryTelegram(result);
+          await ctx.reply(formatted);
+        }
+      }
       return true;
     }
 

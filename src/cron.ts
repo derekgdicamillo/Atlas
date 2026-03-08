@@ -227,6 +227,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "midas-monthly":  10 * 60 * 1000, // 10 min — monthly strategic brief (Opus, big prompt)
   "midas-gbp":       3 * 60 * 1000, //  3 min — GBP content draft (Sonnet)
   "metrics-reminder": 30 * 1000,    // 30 sec — just sends a Telegram message
+  "meeting-check":   3 * 60 * 1000, // 3 min — fetch + process transcripts via Claude
   "default":         5 * 60 * 1000, //  5 min catch-all
 };
 
@@ -1085,6 +1086,33 @@ jobs.push(
         `_See data/metrics-methodology.md for the full procedure._`;
       await sendTelegramMessage(DEREK_CHAT_ID, msg);
       markJobRan("metrics-reminder");
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 16. Meeting check — daily at 6 PM MST, processes new Otter.ai transcripts
+jobs.push(
+  CronJob.from({
+    cronTime: "0 18 * * *",
+    onTick: safeTick("meeting-check", async () => {
+      log("meeting-check", "Checking for new Otter.ai meeting transcripts...");
+      try {
+        const { checkNewMeetings, formatMeetingSummaryTelegram } = await import("./meetings.ts");
+        const summaries = await checkNewMeetings();
+        if (summaries.length === 0) {
+          log("meeting-check", "No new meetings to process.");
+        } else {
+          for (const ms of summaries) {
+            const formatted = formatMeetingSummaryTelegram(ms);
+            await sendTelegramMessage(DEREK_CHAT_ID, formatted);
+          }
+          log("meeting-check", `Processed ${summaries.length} new meeting(s).`);
+        }
+      } catch (err) {
+        logError("meeting-check", `Failed: ${err}`);
+      }
+      markJobRan("meeting-check");
     }),
     timeZone: TIMEZONE,
   })
