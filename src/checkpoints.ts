@@ -10,6 +10,7 @@
  */
 
 import { info, warn } from "./logger.ts";
+import { createSavepoint } from "./savepoint.ts";
 
 // ============================================================
 // TYPES
@@ -94,9 +95,22 @@ const DEFAULT_PHASES: Record<string, PhaseConfig> = {
 // CHECKPOINT TRACKER CLASS
 // ============================================================
 
+/** Metadata needed to create savepoints on phase transitions. */
+export interface CheckpointSavepointMeta {
+  cwd?: string;
+  worktreeBranch?: string;
+  /** Called to get current cost. */
+  getCostUsd?: () => number;
+  /** Called to get list of files modified so far. */
+  getFilesModified?: () => string[];
+  /** Called to get key decisions/findings so far. */
+  getKeyDecisions?: () => string[];
+}
+
 export class CheckpointTracker {
   private state: CheckpointState;
   private taskId: string;
+  private savepointMeta: CheckpointSavepointMeta | null = null;
 
   constructor(taskId: string, phases: (CheckpointPhase | PhaseConfig)[]) {
     this.taskId = taskId;
@@ -119,6 +133,14 @@ export class CheckpointTracker {
     };
 
     info("checkpoints", `[${taskId}] Initialized with phases: ${phaseConfigs.map((p) => p.name).join(" -> ")}`);
+  }
+
+  /**
+   * Attach metadata so savepoints can be created automatically on phase transitions.
+   * Call this after construction once the task's cwd/worktree/cost info is known.
+   */
+  setSavepointMeta(meta: CheckpointSavepointMeta): void {
+    this.savepointMeta = meta;
   }
 
   /**
@@ -169,7 +191,7 @@ export class CheckpointTracker {
   }
 
   /**
-   * Advance to the next phase.
+   * Advance to the next phase. Creates a savepoint if metadata is attached.
    */
   private advancePhase(transitionWarnings: string[]): CheckpointVerification {
     const oldPhase = this.state.phases[this.state.currentPhase].name;
@@ -185,6 +207,19 @@ export class CheckpointTracker {
     }
 
     this.state.warnings.push(...transitionWarnings);
+
+    // Fire-and-forget savepoint creation on phase transition
+    if (this.savepointMeta) {
+      const meta = this.savepointMeta;
+      createSavepoint(this.taskId, String(oldPhase), {
+        toolCallCount: this.state.toolHistory.length,
+        filesModified: meta.getFilesModified?.() || [],
+        keyDecisions: meta.getKeyDecisions?.() || [],
+        costUsd: meta.getCostUsd?.() || 0,
+        worktreeBranch: meta.worktreeBranch,
+        cwd: meta.cwd,
+      }).catch((err) => warn("checkpoints", `Savepoint creation failed for ${this.taskId}: ${err}`));
+    }
 
     return this.buildVerification(!this.state.completed, true);
   }

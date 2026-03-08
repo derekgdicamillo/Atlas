@@ -33,7 +33,7 @@ const DEREK_USER_ID = process.env.TELEGRAM_USER_ID || "";
 // STATE
 // ============================================================
 
-const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation", "tasks"] as const;
+const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation", "tasks", "proactive"] as const;
 type CheckType = (typeof CHECK_TYPES)[number];
 
 interface HeartbeatState {
@@ -175,6 +175,21 @@ async function buildHeartbeatPrompt(
       }
       break;
     }
+    case "proactive":
+      checkContext =
+        "PROACTIVE CHECK: Based on recent conversations, current business state, " +
+        "and your knowledge of PV MediSpa, is there something you should proactively " +
+        "go research, prepare, draft, or alert Derek about?\n\n" +
+        "Consider:\n" +
+        "- Upcoming deadlines or events (Alex Hormozi workshop Mar 11, peptide launch Jul 2026)\n" +
+        "- Trends in recent conversations that suggest Derek needs something\n" +
+        "- Business metrics that might need attention\n" +
+        "- Content or research that would save Derek time tomorrow\n" +
+        "- Knowledge gaps you noticed during today's conversations\n\n" +
+        "If you identify something actionable, respond with what you'd do and why.\n" +
+        "If nothing needs proactive attention right now, respond HEARTBEAT_OK.\n" +
+        "Use [REMEMBER: ...] to queue insights for the learning queue.";
+      break;
   }
 
   const previousNotes =

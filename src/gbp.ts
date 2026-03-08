@@ -283,6 +283,80 @@ export async function getSearchKeywords(): Promise<GBPSearchKeyword[]> {
 }
 
 // ============================================================
+// LOCAL POSTS (Create)
+// ============================================================
+
+export interface GBPPostResult {
+  success: boolean;
+  postName?: string;
+  error?: string;
+}
+
+/**
+ * Create a Google Business Profile local post.
+ * Uses the My Business v4 REST API (localPosts.create).
+ * Requires business.manage scope (already configured).
+ *
+ * @param summary - The post text content (max 1500 chars)
+ * @param callToAction - Optional CTA: { actionType, url }
+ *   Valid actionType values: BOOK, ORDER, SHOP, LEARN_MORE, SIGN_UP, GET_OFFER
+ *   Note: CALL is NOT valid for v4 API. Use LEARN_MORE with landing page instead.
+ */
+export async function createLocalPost(
+  summary: string,
+  callToAction?: { actionType: string; url: string }
+): Promise<GBPPostResult> {
+  if (!auth) return { success: false, error: "GBP auth not initialized" };
+
+  const accessToken = await auth.getAccessToken();
+  const token = accessToken.token;
+  if (!token) return { success: false, error: "Could not get access token" };
+
+  // Truncate to 1500 chars (GBP limit)
+  const trimmedSummary = summary.length > 1500 ? summary.slice(0, 1497) + "..." : summary;
+
+  const body: Record<string, unknown> = {
+    languageCode: "en",
+    summary: trimmedSummary,
+    topicType: "STANDARD",
+  };
+
+  if (callToAction) {
+    body.callToAction = {
+      actionType: callToAction.actionType,
+      url: callToAction.url,
+    };
+  }
+
+  const url = `https://mybusiness.googleapis.com/v4/${accountName}/${locationName}/localPosts`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      logError("gbp", `Local post creation failed (${res.status}): ${errBody.substring(0, 300)}`);
+      return { success: false, error: `API returned ${res.status}: ${errBody.substring(0, 200)}` };
+    }
+
+    const data = await res.json() as { name?: string };
+    info("gbp", `Local post created: ${data.name}`);
+    return { success: true, postName: data.name };
+  } catch (err) {
+    logError("gbp", `Local post creation error: ${err}`);
+    return { success: false, error: String(err) };
+  }
+}
+
+// ============================================================
 // FORMATTERS
 // ============================================================
 

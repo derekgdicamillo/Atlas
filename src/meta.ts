@@ -647,3 +647,175 @@ export function formatSpendQuick(s: AccountSummary): string {
     `Conversions: ${s.conversions} | CPL: ${s.conversions > 0 ? "$" + s.cpl.toFixed(2) : "n/a"}`,
   ].join("\n");
 }
+
+// ============================================================
+// WRITE OPERATIONS (require ads_management permission)
+// ============================================================
+
+/**
+ * Rename a single ad by ID.
+ * Endpoint: POST /{ad_id}?name=NEW_NAME
+ */
+export async function renameAd(adId: string, newName: string): Promise<{ success: boolean; adId: string; newName: string; error?: string }> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  try {
+    const url = new URL(`${GRAPH_BASE}/${adId}`);
+    url.searchParams.set("access_token", accessToken!);
+    url.searchParams.set("name", newName);
+
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      return { success: false, adId, newName, error: data.error.message };
+    }
+
+    return { success: data.success === true, adId, newName };
+  } catch (err) {
+    return { success: false, adId, newName, error: String(err) };
+  }
+}
+
+/**
+ * Batch rename multiple ads. Runs sequentially to respect rate limits.
+ * Returns array of results for each rename attempt.
+ */
+export async function batchRenameAds(
+  renames: Array<{ adId: string; newName: string }>
+): Promise<Array<{ success: boolean; adId: string; newName: string; error?: string }>> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  const results: Array<{ success: boolean; adId: string; newName: string; error?: string }> = [];
+
+  for (const { adId, newName } of renames) {
+    const result = await renameAd(adId, newName);
+    results.push(result);
+
+    // Small delay between calls to be respectful of rate limits
+    if (renames.indexOf({ adId, newName }) < renames.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Update ad status (ACTIVE, PAUSED, ARCHIVED).
+ * Endpoint: POST /{ad_id}?status=STATUS
+ */
+export async function updateAdStatus(adId: string, status: "ACTIVE" | "PAUSED" | "ARCHIVED"): Promise<{ success: boolean; adId: string; error?: string }> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  try {
+    const url = new URL(`${GRAPH_BASE}/${adId}`);
+    url.searchParams.set("access_token", accessToken!);
+    url.searchParams.set("status", status);
+
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      return { success: false, adId, error: data.error.message };
+    }
+
+    return { success: data.success === true, adId };
+  } catch (err) {
+    return { success: false, adId, error: String(err) };
+  }
+}
+
+/**
+ * List all ads in a given ad set, returning their IDs, names, status, and creative IDs.
+ * Endpoint: GET /{adset_id}/ads?fields=id,name,status,creative{id}
+ */
+export async function listAdsInAdSet(adSetId: string): Promise<Array<{ adId: string; name: string; status: string; creativeId: string }>> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  const data = await graphGet<{ data: Array<Record<string, any>> }>(
+    `/${adSetId}/ads`,
+    { fields: "id,name,status,creative{id}", limit: "100" }
+  );
+
+  if (!data.data) return [];
+
+  return data.data.map((ad) => ({
+    adId: ad.id,
+    name: ad.name,
+    status: ad.status,
+    creativeId: ad.creative?.id || "",
+  }));
+}
+
+/**
+ * Copy ads from one ad set to another by reusing their creative IDs.
+ * Creates new ads in the target ad set pointing to the same creatives.
+ * Endpoint: POST /{ad_account_id}/ads
+ */
+export async function copyAdsToAdSet(
+  sourceAdSetId: string,
+  targetAdSetId: string,
+  status: "ACTIVE" | "PAUSED" = "PAUSED"
+): Promise<{ copied: number; failed: number; results: Array<{ name: string; success: boolean; newAdId?: string; error?: string }> }> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  // Get all ads from source ad set
+  const sourceAds = await listAdsInAdSet(sourceAdSetId);
+  info("meta", `Found ${sourceAds.length} ads in source ad set ${sourceAdSetId}`);
+
+  const results: Array<{ name: string; success: boolean; newAdId?: string; error?: string }> = [];
+  let copied = 0;
+  let failed = 0;
+
+  for (const ad of sourceAds) {
+    if (!ad.creativeId) {
+      results.push({ name: ad.name, success: false, error: "No creative ID found" });
+      failed++;
+      continue;
+    }
+
+    try {
+      const url = new URL(`${GRAPH_BASE}/${adAccountId}/ads`);
+      url.searchParams.set("access_token", accessToken!);
+
+      const body = new URLSearchParams({
+        name: ad.name,
+        adset_id: targetAdSetId,
+        creative: JSON.stringify({ creative_id: ad.creativeId }),
+        status,
+      });
+
+      const res = await fetch(url.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        signal: AbortSignal.timeout(20_000),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        results.push({ name: ad.name, success: false, error: data.error.message });
+        failed++;
+      } else {
+        results.push({ name: ad.name, success: true, newAdId: data.id });
+        copied++;
+      }
+
+      // Rate limit: 300ms between creates
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    } catch (err) {
+      results.push({ name: ad.name, success: false, error: String(err) });
+      failed++;
+    }
+  }
+
+  info("meta", `Copy complete: ${copied} copied, ${failed} failed`);
+  return { copied, failed, results };
+}

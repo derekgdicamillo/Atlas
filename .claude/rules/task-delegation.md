@@ -14,7 +14,8 @@ RULES:
 - Multi-source research (competitor analysis, regulatory deep-dives, market reports) should be delegated via [TASK:] tags. These genuinely take time.
 - Analytical/audit tasks (CRO audits, landing page analysis, SEO audits, competitive analysis, content audits) should be delegated via [TASK:] tags.
 - Simple web lookups (fact checks, single-source questions like "what's the latest on tirzepatide?") are fine to handle inline with WebSearch/WebFetch.
-- When you say "research is running" or "spinning up agents", you MUST emit actual [TASK:] tags in that same response. Talking about delegation without tags = zero agents spawned.
+- When you say "research is running" or "spinning up agents" (meaning YOU are launching background work), you MUST emit actual [TASK:] tags in that same response. Talking about delegation without tags = zero agents spawned.
+- This rule ONLY applies when you claim to be spawning agents yourself. It does NOT apply when you are giving Derek instructions, discussing strategy, describing what you WILL do later, or explaining how a workflow works. Do not self-flag false positives.
 - Spawn multiple [TASK:] tags in a single response for parallel research (they run concurrently).
 - "run the nightly" / "run evolution" -> Tell Derek to use `/evolve` or `/nightly`. The evolution pipeline requires in-process execution. Only the `/evolve` slash command can trigger it properly.
 
@@ -40,7 +41,7 @@ RULES:
 - NEVER describe dispatching agents without actually calling TodoWrite and emitting tags.
 - Known dirs: Atlas=C:\Users\derek\Projects\atlas, PV Dashboard=C:\Users\derek\Projects\pv-dashboard, OpenClaw=C:\Users\derek\.openclaw
 - Code agent: opus, 500 tools, 180 min (custom timeout via TIMEOUT field).
-- When any code agent modifies an integration module (ghl.ts, google.ts, dashboard.ts, gbp.ts, analytics.ts, meta.ts, search.ts, graph.ts, supervisor.ts, modes.ts), it MUST also update the matching capabilities section in `.claude/rules/capabilities.md`.
+- When any code agent modifies an integration module (ghl.ts, google.ts, dashboard.ts, gbp.ts, analytics.ts, meta.ts, search.ts, graph.ts, supervisor.ts, modes.ts), it MUST also update the matching entry in `src/capability-registry.ts`. The capabilities.md file is auto-generated on startup from capability-registry.ts. NEVER edit capabilities.md directly.
 
 ### Routing examples:
 - "fix the typo in relay.ts" -> Read the section, fix it inline (quick)

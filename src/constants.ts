@@ -250,7 +250,7 @@ export const SENTINEL_TAG_PATTERNS = [
 export const CONTEXT_PRUNE_AGE_ENTRIES = 10;
 
 /** Max chars for old (pruned) entries in ring buffer prompt injection */
-export const CONTEXT_PRUNE_MAX_CHARS = 150;
+export const CONTEXT_PRUNE_MAX_CHARS = 400;
 
 /** Image entries older than this many positions from tail are stripped to "[image]" */
 export const IMAGE_DEDUP_TAIL_KEEP = 3;
@@ -458,7 +458,7 @@ export const CRON_JITTER_EXEMPT = new Set([
 ]);
 
 // Session idle reset: auto-clear stale sessions
-export const SESSION_IDLE_RESET_MS = 4 * 60 * 60 * 1000; // 4 hours idle = auto-reset
+export const SESSION_IDLE_RESET_MS = 8 * 60 * 60 * 1000; // 8 hours idle = auto-reset (covers full workday gap)
 
 // Queue mode: how to handle messages arriving while Claude is busy
 export type QueueMode = "collect" | "interrupt";

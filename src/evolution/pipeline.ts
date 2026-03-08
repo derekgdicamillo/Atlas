@@ -14,7 +14,7 @@
  * Each phase is independently fail-safe. Pipeline continues on phase failure.
  */
 
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { spawn } from "bun";
 import { info, warn, error as logError } from "../logger.ts";
@@ -284,6 +284,65 @@ export async function runEvolutionPipeline(
     });
   } catch (err) {
     warn("evolution:pipeline", `Phase 1+2 failed: ${err}`);
+  }
+
+  // ── Fast-track: inject low-risk behavioral rules immediately ──
+  // Simple behavioral fixes (over-explaining, filler, style issues) get written
+  // as rules right now instead of waiting for the architect->implementer cycle.
+  const BEHAVIORAL_TYPES = new Set([
+    "over_explaining", "filler_heavy", "premature_cant", "context_loss",
+  ]);
+
+  if (audit && audit.grades.length > 0) {
+    const lowRiskIssues = audit.grades.flatMap((g) =>
+      g.issues.filter(
+        (i) => i.severity === "minor" || BEHAVIORAL_TYPES.has(i.type),
+      ),
+    );
+
+    if (lowRiskIssues.length > 0) {
+      try {
+        const rulesDir = join(PROJECT_DIR, ".claude", "rules");
+        const rulesPath = join(rulesDir, "behavioral-fixes.md");
+
+        // Read existing rules to deduplicate
+        let existing = "";
+        if (existsSync(rulesPath)) {
+          existing = readFileSync(rulesPath, "utf-8");
+        } else {
+          mkdirSync(rulesDir, { recursive: true });
+          existing = "# Behavioral Fixes (auto-injected by evolution audit)\n\n";
+        }
+
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+        let added = 0;
+
+        for (const issue of lowRiskIssues) {
+          const fix = issue.suggestedFix || issue.description;
+          // Skip if a substantially similar rule already exists
+          const fixLower = fix.toLowerCase();
+          if (existing.toLowerCase().includes(fixLower.substring(0, 40))) continue;
+
+          existing += `- [${today}] ${issue.description} -> ${fix}\n`;
+          added++;
+        }
+
+        if (added > 0) {
+          writeFileSync(rulesPath, existing, "utf-8");
+          info("evolution:pipeline", `Fast-track: injected ${added} behavioral rule(s) to ${rulesPath}`);
+
+          phases.push({
+            phase: "fast-track",
+            status: "ok",
+            durationMs: 0,
+            costUsd: 0,
+            output: `${added} behavioral rule(s) injected immediately`,
+          });
+        }
+      } catch (err) {
+        warn("evolution:pipeline", `Fast-track behavioral injection failed: ${err}`);
+      }
+    }
   }
 
   // ── Check if there's anything to do ──

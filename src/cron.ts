@@ -7,26 +7,29 @@
 
 import { CronJob } from "cron";
 import { spawn } from "bun";
-import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn, redactObject } from "./logger.ts";
 import { getAllBreakerStats } from "./circuit-breaker.ts";
 import { MODELS, CRON_JITTER_MAX_MS, CRON_JITTER_EXEMPT } from "./constants.ts";
+import { ingestDocument } from "./search.ts";
 import { readTodoFile } from "./todo.ts";
 import { runEvolution } from "./evolve.ts";
 import { runEvolutionPipeline } from "./evolution/index.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
 import { runPrompt } from "./prompt-runner.ts";
-import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, type CompletedTaskInfo } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, getLocalTaskIds, type CompletedTaskInfo } from "./supervisor.ts";
+import { initTaskPersistence, syncTasksFromSupabase } from "./task-persistence.ts";
 import { runSupervisorWorker, getCodeAgentStatus } from "./supervisor-worker.ts";
+import { withLock } from "./supervisor-lock.ts";
 import { checkScheduledMessages } from "./scheduled.ts";
 import { runConsolidation, checkTimeTriggers } from "./cognitive.ts";
 import { callClaude, sessionKey, sanitizedEnv } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
-import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot, getRecentWebhookEvents, markEventsProcessed, getAllOpportunities, addTagToContact, createContactTask, PIPELINES, registerShowRateDigest, type GHLOpportunity } from "./ghl.ts";
+import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot, getRecentWebhookEvents, markEventsProcessed, getAllOpportunities, addTagToContact, createContactTask, getContact, PIPELINES, registerShowRateDigest, type GHLOpportunity } from "./ghl.ts";
 import { instantiateWorkflow } from "./workflows.ts";
 import { isGBPReady, getGBPContext } from "./gbp.ts";
 import { isGA4Ready, getGA4Context } from "./analytics.ts";
@@ -38,6 +41,15 @@ import { sendEmail } from "./google.ts";
 import { emit as emitAlert, deliver as deliverAlerts } from "./alerts.ts";
 import { checkAppointmentReminders, cleanupStaleReminderTags, getShowRateDigest } from "./show-rate.ts";
 import { isEffectivelyPaused, shouldSuppressAnnouncement, recordSuppressedTask } from "./automation-pause.ts";
+import { critiqueContent, formatCriticReport } from "./content-critic.ts";
+import { runNightShiftPlanner, runNightShiftWorker, getNightShiftReport } from "./night-shift.ts";
+import { trackContentGeneration } from "./content-tracker.ts";
+import { runStrategicMemo } from "./strategic-memo.ts";
+import { cleanupOldNotes } from "./progress-notes.ts";
+import { decayStaleEntries } from "./codex.ts";
+import { cleanupOldEvents } from "./agent-events.ts";
+import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./ad-tracker.ts";
+import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -54,6 +66,13 @@ const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BACKUP_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
 const WATERFALL_VAULT_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\PV Vault\\02 - PV MediSpa\\Content\\Waterfalls";
+
+/** Atomic JSON write: write to tmp file, then rename. Prevents corrupt state on crash. */
+function atomicWriteFileSync(filePath: string, data: string): void {
+  const tmp = filePath + ".tmp";
+  writeFileSync(tmp, data);
+  renameSync(tmp, filePath);
+}
 
 const PILLAR_NAMES: Record<number, string> = {
   1: "Precision Weight Science",
@@ -101,7 +120,7 @@ function parseWaterfallMeta(content: string): { pillar: number; subtopic: string
         subtopic: rotation.lastSubtopic || "Unknown",
       };
     }
-  } catch {}
+  } catch (e) { warn("cron", `Failed to parse content-rotation.json: ${e}`); }
   return { pillar: 0, subtopic: "Unknown" };
 }
 
@@ -192,6 +211,22 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "metric-cleanup":  60 * 1000,     //  1 min (single Supabase RPC)
   "ghl-webhook-health": 30 * 1000,  // 30 sec (single Supabase query)
   "pharmacy-invoices": 5 * 60 * 1000, // 5 min — M365 API + PDF parsing + OneDrive save
+  "overnight-content": 10 * 60 * 1000, // 10 min — overnight draft generation
+  "night-shift-plan": 3 * 60 * 1000, //  3 min — Haiku planner, quick
+  "night-shift-work": 15 * 60 * 1000, // 15 min — processes up to 5 tasks
+  "strategic-memo":   5 * 60 * 1000, //  5 min — Sonnet weekly memo
+  "codex-decay":     60 * 1000,       //  1 min — prune stale codex entries
+  "progress-cleanup": 60 * 1000,      //  1 min — delete old progress notes
+  "event-cleanup":   60 * 1000,       //  1 min — delete old agent event logs
+  "journal-ingest":  5 * 60 * 1000,   //  5 min — ingest journals to searchable store
+  "midas-funnel":    3 * 60 * 1000, //  3 min — daily funnel conversion monitor
+  "midas-digest":    3 * 60 * 1000, //  3 min — daily ad performance digest
+  "midas-attribution": 5 * 60 * 1000, //  5 min — weekly full-funnel attribution
+  "midas-hooks":     5 * 60 * 1000, //  5 min — content hooks memo (Opus)
+  "midas-recon":     5 * 60 * 1000, //  5 min — competitor recon (Opus)
+  "midas-monthly":  10 * 60 * 1000, // 10 min — monthly strategic brief (Opus, big prompt)
+  "midas-gbp":       3 * 60 * 1000, //  3 min — GBP content draft (Sonnet)
+  "metrics-reminder": 30 * 1000,    // 30 sec — just sends a Telegram message
   "default":         5 * 60 * 1000, //  5 min catch-all
 };
 
@@ -461,9 +496,21 @@ jobs.push(
         // Append show-rate reminder digest
         const showRateInfo = getShowRateDigest();
 
-        const fullBrief = [result, businessPulse, showRateInfo, digest].filter(Boolean).join("\n\n");
+        // Append Night Shift overnight report
+        let nightShiftInfo = "";
+        try {
+          nightShiftInfo = (await getNightShiftReport()) || "";
+        } catch (e) { warn("morning-brief", `Night shift report failed: ${e}`); }
+
+        // Append WoW trend analysis
+        let trendContext = "";
+        try {
+          trendContext = await buildTrendContext();
+        } catch (e) { warn("morning-brief", `Trend context failed: ${e}`); }
+
+        const fullBrief = [result, businessPulse, showRateInfo, nightShiftInfo, trendContext, digest].filter(Boolean).join("\n\n");
         await sendTelegramMessage(DEREK_CHAT_ID, fullBrief);
-        log("morning-brief", "Sent to Derek (with system digest + business pulse + show rate)");
+        log("morning-brief", "Sent to Derek (with system digest + business pulse + show rate + trends)");
       } else {
         log("morning-brief", "No output generated");
       }
@@ -484,11 +531,37 @@ jobs.push(
         // Parse pillar/subtopic from the output
         const { pillar, subtopic } = parseWaterfallMeta(result);
 
+        // Run content critic quality gate
+        const critic = await critiqueContent(result, "skool");
+        const criticBlock = formatCriticReport(critic);
+        log("content-engine", criticBlock);
+
+        // Track content generation for engagement analysis
+        trackContentGeneration({
+          date: today(),
+          pillar,
+          pillarName: PILLAR_NAMES[pillar] || "Unknown",
+          subtopic,
+          format: "skool",
+          criticScore: critic.overallScore,
+          criticPassed: critic.passed,
+        });
+
         // Save to OneDrive vault
         const vaultPath = saveWaterfallToVault(result, pillar);
 
-        // Email to Derek
-        const emailed = await emailWaterfall(result, pillar, subtopic);
+        // Build email body with critic report prepended
+        const criticHeader = critic.passed
+          ? `Content Critic: PASSED (${Math.round(critic.overallScore * 100)}%)\n\n`
+          : `\u26a0\ufe0f Content Critic flagged issues: ${critic.issues.join("; ")}\n${criticBlock}\n\n`;
+        const emailContent = criticHeader + result;
+
+        // Email to Derek (with critic results)
+        const subject = `Content Waterfall — Pillar ${pillar}: ${subtopic}`;
+        const emailed = !!(await sendEmail("derek@pvmedispa.com", subject, emailContent).catch(() => null));
+        if (emailed) {
+          log("content-engine", `Emailed waterfall to Derek`);
+        }
 
         // Send Telegram summary (truncated if long)
         const statusLine = [
@@ -499,13 +572,82 @@ jobs.push(
         const summary = result.length > 3900
           ? result.substring(0, 3900) + "\n\n(truncated, full output saved to vault and emailed)"
           : result;
+        const criticTelegram = critic.passed
+          ? `\n\n${criticBlock}`
+          : `\n\n\u26a0\ufe0f ${criticBlock}`;
         const telegramMsg = statusLine
-          ? `Content Waterfall:\n\n${summary}\n\n${statusLine}`
-          : `Content Waterfall:\n\n${summary}`;
+          ? `Content Waterfall:\n\n${summary}${criticTelegram}\n\n${statusLine}`
+          : `Content Waterfall:\n\n${summary}${criticTelegram}`;
         await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
         log("content-engine", `Sent to Derek (vault: ${!!vaultPath}, email: ${emailed})`);
       } else {
         log("content-engine", "No output generated");
+      }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 5b. Overnight content draft — 11:30 PM daily (sonnet)
+//     Generates tomorrow's content waterfall as a draft for morning review.
+//     Does NOT send to Telegram. Saves to data/content-drafts/ with date prefix.
+//     Runs content critic on output.
+const CONTENT_DRAFTS_DIR = join(DATA_DIR, "content-drafts");
+jobs.push(
+  CronJob.from({
+    cronTime: "30 23 * * *",
+    onTick: safeTick("overnight-content", async () => {
+      log("overnight-content", "Generating overnight content draft for tomorrow...");
+
+      // Calculate tomorrow's date
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+
+      // Determine tomorrow's pillar rotation
+      let nextPillar = 1;
+      try {
+        const rotationPath = join(MEMORY_DIR, "content-rotation.json");
+        if (existsSync(rotationPath)) {
+          const rotation = JSON.parse(readFileSync(rotationPath, "utf-8"));
+          nextPillar = ((rotation.lastPillar || 0) % 5) + 1;
+        }
+      } catch (e) { warn("overnight-content", `Failed to read content rotation: ${e}`); }
+      const pillarName = PILLAR_NAMES[nextPillar] || "Unknown";
+      log("overnight-content", `Tomorrow's pillar: ${nextPillar} (${pillarName})`);
+
+      const result = await runSkill("pv-content-waterfall", MODELS.sonnet);
+      if (result) {
+        // Run content critic quality gate
+        const critic = await critiqueContent(result, "skool");
+        const criticBlock = formatCriticReport(critic);
+        log("overnight-content", criticBlock);
+
+        // Track overnight content generation for engagement analysis
+        const { pillar: overnightPillar, subtopic: overnightSubtopic } = parseWaterfallMeta(result);
+        trackContentGeneration({
+          date: tomorrowStr,
+          pillar: overnightPillar,
+          pillarName: PILLAR_NAMES[overnightPillar] || "Unknown",
+          subtopic: overnightSubtopic,
+          format: "skool",
+          criticScore: critic.overallScore,
+          criticPassed: critic.passed,
+        });
+
+        // Save draft to data/content-drafts/
+        if (!existsSync(CONTENT_DRAFTS_DIR)) {
+          mkdirSync(CONTENT_DRAFTS_DIR, { recursive: true });
+        }
+        const draftFilename = `${tomorrowStr}-pillar-${overnightPillar}-draft.md`;
+        const criticHeader = critic.passed
+          ? `<!-- Content Critic: PASSED (${Math.round(critic.overallScore * 100)}%) -->\n\n`
+          : `<!-- Content Critic: FLAGGED (${Math.round(critic.overallScore * 100)}%) — ${critic.issues.join("; ")} -->\n\n`;
+        const draftContent = criticHeader + criticBlock + "\n\n---\n\n" + result;
+        writeFileSync(join(CONTENT_DRAFTS_DIR, draftFilename), draftContent, "utf-8");
+        log("overnight-content", `Saved draft: ${draftFilename} (critic: ${critic.passed ? "PASSED" : "FLAGGED"})`);
+      } else {
+        log("overnight-content", "No output generated");
       }
     }),
     timeZone: TIMEZONE,
@@ -633,7 +775,7 @@ jobs.push(
 
         // Deep-redact before writing to disk to prevent token leakage
         // in error messages, circuit breaker lastError, or metrics metadata.
-        writeFileSync(
+        atomicWriteFileSync(
           join(DATA_DIR, "health.json"),
           JSON.stringify(redactObject(healthData), null, 2)
         );
@@ -694,6 +836,8 @@ jobs.push(
     timeZone: TIMEZONE,
   })
 );
+
+// 7b. (REMOVED — duplicate of progress-cleanup job at 3:20 AM in maintenance section)
 
 // 8. Weekly todo review — Sunday at 7:00 PM ET
 //    Reads MASTER TODO and sends a summary to Derek via Haiku
@@ -924,9 +1068,94 @@ jobs.push(
   })
 );
 
+// 15. Monthly metrics reminder — 3rd of each month at 9:00 AM MST
+//     Reminds Derek to export Aesthetic Record data for monthly metrics update.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 9 3 * *",
+    onTick: safeTick("metrics-reminder", async () => {
+      log("metrics-reminder", "Sending monthly metrics reminder...");
+      const msg =
+        `**Monthly Metrics Update**\n\n` +
+        `Time to update business metrics for last month. I need 3 exports from you (~5 min):\n\n` +
+        `1. **Aesthetic Record membership export** - Dashboard > Members > Export CSV\n` +
+        `2. **Aesthetic Record churn report** - Dashboard > Cancellations > Export for last month\n` +
+        `3. **Pharmacy invoices** - Drop any Partell/Hallandale invoices from last month into Downloads\n\n` +
+        `Drop the files and say "update metrics" and I'll calculate everything: active patients, MRR, churn, LTV, margins, month-over-month trends.\n\n` +
+        `_See data/metrics-methodology.md for the full procedure._`;
+      await sendTelegramMessage(DEREK_CHAT_ID, msg);
+      markJobRan("metrics-reminder");
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================
+
+// ============================================================
+// WEEKLY TREND CONTEXT (WoW comparison for morning brief)
+// ============================================================
+
+async function buildTrendContext(): Promise<string> {
+  const lines: string[] = [];
+
+  // Lead volume trends (from data/lead-volume.json)
+  try {
+    const volumePath = join(DATA_DIR, "lead-volume.json");
+    if (existsSync(volumePath)) {
+      const volumeLog = JSON.parse(readFileSync(volumePath, "utf-8"));
+      if (volumeLog.length >= 7) {
+        const lastWeek = volumeLog.slice(-7);
+        const thisWeekAvg = lastWeek.reduce((s: number, d: any) => s + d.count, 0) / lastWeek.length;
+
+        // Compare to prior 7 days
+        if (volumeLog.length >= 14) {
+          const priorWeek = volumeLog.slice(-14, -7);
+          const priorAvg = priorWeek.reduce((s: number, d: any) => s + d.count, 0) / priorWeek.length;
+          const change = priorAvg > 0 ? Math.round(((thisWeekAvg - priorAvg) / priorAvg) * 100) : 0;
+          const arrow = change > 0 ? "up" : change < 0 ? "down" : "flat";
+          lines.push(`Leads: ${thisWeekAvg.toFixed(1)}/day avg (${arrow} ${Math.abs(change)}% WoW)`);
+        }
+
+        // Top sources this week
+        const sourceTotals: Record<string, number> = {};
+        for (const day of lastWeek) {
+          for (const [src, count] of Object.entries(day.sources || {})) {
+            sourceTotals[src] = (sourceTotals[src] || 0) + (count as number);
+          }
+        }
+        const topSources = Object.entries(sourceTotals)
+          .sort(([, a], [, b]) => (b as number) - (a as number))
+          .slice(0, 3)
+          .map(([src, count]) => `${src}: ${count}`)
+          .join(", ");
+        if (topSources) lines.push(`Top sources (7d): ${topSources}`);
+      }
+    }
+  } catch (e) { warn("trends", `Failed to read lead-volume.json: ${e}`); }
+
+  // Show rate trends (from data/show-rate-state.json daily stats)
+  try {
+    const showRatePath = join(DATA_DIR, "show-rate-state.json");
+    if (existsSync(showRatePath)) {
+      const state = JSON.parse(readFileSync(showRatePath, "utf-8"));
+      if (state.dailyStats) {
+        const days = Object.entries(state.dailyStats).sort(([a], [b]) => b.localeCompare(a)).slice(0, 7);
+        if (days.length > 0) {
+          const totalReminders = days.reduce((s, [, d]: any) => s + (d.reminders72h || 0) + (d.reminders24h || 0) + (d.reminders2h || 0), 0);
+          const totalNoShows = days.reduce((s, [, d]: any) => s + (d.noshowRecoveries || 0), 0);
+          if (totalReminders > 0 || totalNoShows > 0) {
+            lines.push(`Reminders (7d): ${totalReminders} sent, ${totalNoShows} no-show recoveries`);
+          }
+        }
+      }
+    }
+  } catch (e) { warn("trends", `Failed to read show-rate-state.json: ${e}`); }
+
+  return lines.length > 0 ? "--- Weekly Trends ---\n" + lines.join("\n") : "";
+}
 
 // ============================================================
 // SYSTEM DIGEST (appended to morning brief)
@@ -1005,7 +1234,7 @@ function saveCronRunLog(runLog: CronRunLog): void {
     if (!existsSync(DATA_DIR)) {
       mkdirSync(DATA_DIR, { recursive: true });
     }
-    writeFileSync(LAST_RUN_FILE, JSON.stringify(runLog, null, 2));
+    atomicWriteFileSync(LAST_RUN_FILE, JSON.stringify(runLog, null, 2));
   } catch (err) {
     log("cron", `Failed to save run log: ${err}`);
   }
@@ -1035,6 +1264,37 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
 
   // Load persisted task state from disk
   await loadTasks();
+
+  // Initialize Supabase task persistence and reconcile with remote state
+  initTaskPersistence(supabaseClient);
+  if (supabaseClient) {
+    try {
+      const { abandoned, recovered } = await syncTasksFromSupabase(getLocalTaskIds());
+      if (abandoned > 0) {
+        log("startup", `Task sync: ${abandoned} stale task(s) marked abandoned in Supabase`);
+      }
+      if (recovered.length > 0) {
+        log("startup", `Task sync: ${recovered.length} orphaned task(s) found (were lost in restart). Marking as failed.`);
+        // Mark recovered tasks as failed in Supabase since their processes are gone
+        for (const orphan of recovered) {
+          const { error: updateErr } = await supabaseClient
+            .from("agent_tasks")
+            .update({
+              status: "failed",
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              metadata: { ...(orphan.metadata || {}), recovery_note: "process_lost_on_restart" },
+            })
+            .eq("id", orphan.id);
+          if (updateErr) {
+            warn("startup", `Failed to mark orphan ${orphan.id} as failed: ${updateErr.message}`);
+          }
+        }
+      }
+    } catch (err) {
+      warn("startup", `Task sync from Supabase failed (non-fatal): ${err}`);
+    }
+  }
 
   // Register show-rate digest callback so /ops includes reminder stats
   registerShowRateDigest(getShowRateDigest);
@@ -1077,7 +1337,8 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     CronJob.from({
       cronTime: "*/5 * * * *",
       onTick: safeTick("supervisor", async () => {
-        const result = await checkTasks();
+        const result = await withLock("checkTasks", () => checkTasks());
+        if (!result) return; // lock held by another job
 
         // For completed tasks, generate a conversational summary via Claude
         for (const task of result.completedTasks) {
@@ -1205,7 +1466,8 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     CronJob.from({
       cronTime: "*/30 * * * * *", // Every 30 seconds
       onTick: safeTick("supervisor-worker", async () => {
-        const result = await runSupervisorWorker();
+        const result = await withLock("supervisorWorker", () => runSupervisorWorker());
+        if (!result) return; // lock held by another job
         if (result.checked > 0 || result.interventions > 0 || result.completed > 0) {
           log("supervisor-worker", `Checked ${result.checked} agents, ${result.interventions} interventions, ${result.completed} completed`);
         }
@@ -1323,18 +1585,30 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
 
             for (const event of unprocessed) {
               const payload = event.payload as Record<string, any>;
-              const contactName =
+              let contactName =
                 payload?.contact_name ||
                 payload?.contactName ||
+                payload?.full_name ||
                 payload?.name ||
                 [payload?.first_name, payload?.last_name].filter(Boolean).join(" ") ||
-                "Unknown";
-              const source = payload?.source || payload?.leadSource || "Unknown";
+                "";
 
-              if (contactName === "Unknown") {
+              // GHL workflow webhooks often omit name fields. Look up via API.
+              if (!contactName && event.contact_id) {
+                try {
+                  const contact = await getContact(event.contact_id);
+                  if (contact) {
+                    contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || "";
+                  }
+                } catch { /* API lookup failed, continue without name */ }
+              }
+
+              if (!contactName) {
                 processedIds.push(event.id);
                 continue;
               }
+
+              const source = payload?.source || payload?.leadSource || "Unknown";
 
               // Tag the lead with source for attribution
               if (event.contact_id && source !== "Unknown") {
@@ -1506,11 +1780,11 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
               if (existsSync(volumePath)) {
                 volumeLog = JSON.parse(readFileSync(volumePath, "utf-8"));
               }
-            } catch {}
+            } catch (e) { warn("lead-volume", `Failed to parse lead-volume.json: ${e}`); }
             volumeLog.push(volumeEntry);
             // Keep last 90 days
             if (volumeLog.length > 90) volumeLog = volumeLog.slice(-90);
-            writeFileSync(volumePath, JSON.stringify(volumeLog, null, 2));
+            atomicWriteFileSync(volumePath, JSON.stringify(volumeLog, null, 2));
 
             // Alert on significant drops (>40% below average, with minimum threshold)
             if (dailyAvg >= 1 && todayLeads.length < dailyAvg * 0.6) {
@@ -1549,6 +1823,227 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       })
     );
   }
+
+  // Ad creative performance tracker: 9 PM daily
+  // Pulls per-ad insights from Meta, records snapshots, runs analysis.
+  // Only runs if Meta API is configured.
+  {
+    const { isMetaReady, getTopAds } = await import("./meta.ts");
+    if (isMetaReady()) {
+      jobs.push(
+        CronJob.from({
+          cronTime: "0 21 * * *",
+          onTick: safeTick("ad-tracker", async () => {
+            try {
+              const todayStr = today();
+              const ads = await getTopAds("today", 100);
+              if (ads.length === 0) {
+                log("ad-tracker", "No ad data for today, skipping snapshot");
+                return;
+              }
+
+              const snapshots = insightsToSnapshots(ads, todayStr);
+              recordAdSnapshots(snapshots);
+              log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr}`);
+
+              // Run 7-day analysis
+              const recommendations = analyzeAdPerformance(7);
+              if (recommendations.length > 0) {
+                const summary = recommendations
+                  .slice(0, 5)
+                  .map(r => `[${r.type.toUpperCase()}] ${r.adName}: ${r.reason}`)
+                  .join("\n");
+                log("ad-tracker", `${recommendations.length} recommendation(s):\n${summary}`);
+              }
+            } catch (err) {
+              logError("cron", `Ad tracker snapshot failed: ${err}`);
+            }
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+    }
+  }
+
+  // ============================================================
+  // MIDAS MARKETING INTELLIGENCE: Daily + Weekly jobs
+  // ============================================================
+
+  // Midas Funnel Monitor: 9 AM daily
+  // Builds yesterday's funnel snapshot, compares against 7-day avg, alerts on drops.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 9 * * *",
+      onTick: safeTick("midas-funnel", async () => {
+        try {
+          const yesterday = new Date(Date.now() - 86400_000);
+          const dateStr = yesterday.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+          const snapshot = buildFunnelSnapshot(dateStr);
+          if (!snapshot) {
+            log("midas-funnel", `No funnel data for ${dateStr}, skipping`);
+            return;
+          }
+
+          const alerts = checkFunnelHealth(snapshot);
+          log("midas-funnel", `Funnel snapshot ${dateStr}: ${snapshot.impressions} imp, ${snapshot.clicks} clicks, ${snapshot.leadsCreated} leads, ${snapshot.consultationsShowed} showed`);
+
+          if (alerts.length > 0) {
+            const msg = formatFunnelAlerts(alerts);
+            await sendTelegramMessage(DEREK_CHAT_ID, msg);
+            log("midas-funnel", `${alerts.length} funnel alert(s) sent to Derek`);
+          }
+        } catch (err) {
+          logError("cron", `Midas funnel monitor failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas Ad Digest: 9:30 PM daily (30 min after ad-tracker collects data)
+  // Adds Midas analysis lens on top of raw ad-tracker data.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 21 * * *",
+      onTick: safeTick("midas-digest", async () => {
+        try {
+          const { entries, summary } = buildAdDigest();
+          if (entries.length === 0) {
+            log("midas-digest", "No ad data for digest");
+            return;
+          }
+
+          log("midas-digest", `Built digest: ${entries.length} ads analyzed`);
+
+          // Only alert Derek if there are actionable items
+          const adsWithAlerts = entries.filter(e => e.alerts.length > 0);
+          const declining = entries.filter(e => e.trend === "declining");
+          if (adsWithAlerts.length > 0 || declining.length > 0) {
+            await sendTelegramMessage(DEREK_CHAT_ID, summary);
+          }
+        } catch (err) {
+          logError("cron", `Midas ad digest failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas Weekly Attribution: Sunday 9 AM
+  // Stitches full funnel: Meta spend → leads → booked → showed → patient → revenue → ROAS
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 9 * * 0", // Sunday 9 AM
+      onTick: safeTick("midas-attribution", async () => {
+        try {
+          log("midas-attribution", "Building weekly attribution report...");
+          const { report, rows } = await buildWeeklyAttribution();
+          const totalSpend = rows.reduce((s, r) => s + r.spend, 0);
+          const totalLeads = rows.reduce((s, r) => s + r.leads, 0);
+
+          // Send condensed version to Telegram
+          const telegramMsg = formatAttributionTelegram(rows, totalSpend, totalLeads);
+          await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
+          log("midas-attribution", `Attribution report sent: $${totalSpend.toFixed(0)} spend, ${totalLeads} leads, ${rows.length} sources`);
+        } catch (err) {
+          logError("cron", `Midas attribution failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas Content Hooks Memo: Tues/Fri 7 AM
+  // Generates 3 content hook ideas based on trends. Opus for strategic depth.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 7 * * 2,5", // Tuesday and Friday at 7 AM
+      onTick: safeTick("midas-hooks", async () => {
+        try {
+          log("midas-hooks", "Building content hooks memo...");
+          const result = await buildContentHooksMemo();
+          if (result) {
+            // Send a brief notification (not the full memo)
+            await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Content Hooks** ready.\nSee memory/marketing/content-hooks/ for 3 new hook ideas.`);
+            log("midas-hooks", "Content hooks memo complete");
+          }
+        } catch (err) {
+          logError("cron", `Midas content hooks failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas Competitor Recon: Wednesday 8 AM
+  // Weekly competitor analysis from watchlist. Opus for strategic depth.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 8 * * 3", // Wednesday 8 AM
+      onTick: safeTick("midas-recon", async () => {
+        try {
+          log("midas-recon", "Running competitor recon...");
+          const result = await runCompetitorRecon();
+          if (result) {
+            // Send brief summary
+            const firstLine = result.split("\n").find(l => l.trim().length > 10) || "Analysis complete";
+            await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Competitor Recon** ready.\n${firstLine.slice(0, 200)}\nFull report: memory/marketing/competitors/`);
+            log("midas-recon", "Competitor recon complete");
+          }
+        } catch (err) {
+          logError("cron", `Midas competitor recon failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas GBP Content Draft: Mon/Thu 7:30 AM
+  // Drafts GBP posts from waterfall content. Sonnet (drafting, not analysis).
+  // Requires approval before posting (GBP write scope not yet available).
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 7 * * 1,4", // Monday and Thursday at 7:30 AM
+      onTick: safeTick("midas-gbp", async () => {
+        try {
+          log("midas-gbp", "Drafting GBP post...");
+          const result = await draftGBPPost();
+          if (result) {
+            await sendTelegramMessage(DEREK_CHAT_ID, `**Midas GBP Draft** ready for review.\n\n${result.slice(0, 500)}\n\n_Saved to data/content-drafts/. Reply to approve._`);
+            log("midas-gbp", "GBP draft complete");
+          }
+        } catch (err) {
+          logError("cron", `Midas GBP draft failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Midas Monthly Strategic Brief: 1st of month at 10 AM
+  // The capstone: full creative audit, funnel analysis, next month's plan.
+  // Opus, big prompt, 10 min timeout.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 10 1 * *", // 1st of month at 10 AM
+      onTick: safeTick("midas-monthly", async () => {
+        try {
+          log("midas-monthly", "Building monthly marketing strategic brief...");
+          const result = await buildMonthlyBrief();
+          if (result) {
+            // Send condensed version to Telegram
+            const execSummary = result.match(/### 1\. Executive Summary[\s\S]*?(?=### 2\.)/);
+            const summary = execSummary ? execSummary[0].slice(0, 600) : result.slice(0, 400);
+            await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Monthly Brief** ready.\n\n${summary}\n\n_Full brief: memory/marketing/attribution/_`);
+            log("midas-monthly", "Monthly brief complete");
+          }
+        } catch (err) {
+          logError("cron", `Midas monthly brief failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
 
   // Anomaly scan: check for anomalies every 15 minutes during business hours
   // NOTE: Being absorbed by proactive monitoring system (monitor.ts) over time.
@@ -1822,6 +2317,161 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     }
   }
 
+  // ============================================================
+  // NIGHT SHIFT: Autonomous overnight work (planner + worker)
+  // ============================================================
+
+  // Night Shift Planner — 10:00 PM nightly
+  // Haiku reviews the day's activity and generates a prioritized overnight work queue
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 22 * * *",
+      onTick: safeTick("night-shift-plan", async () => {
+        log("night-shift-plan", "Running Night Shift planner...");
+        const queue = await runNightShiftPlanner();
+        log("night-shift-plan", `Planned ${queue.tasks.length} overnight tasks`);
+        if (queue.tasks.length > 0) {
+          const taskList = queue.tasks.map((t) => `  - [${t.priority}] ${t.title} (${t.type}, ~$${t.estimatedCost})`).join("\n");
+          await sendTelegramMessage(
+            DEREK_CHAT_ID,
+            `Night shift planned ${queue.tasks.length} task${queue.tasks.length > 1 ? "s" : ""} for tonight:\n${taskList}\n\nWorker starts at 10:15 PM.`
+          );
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Night Shift Worker — 10:15 PM nightly
+  // Processes the queue with budget caps and diminishing returns detection
+  jobs.push(
+    CronJob.from({
+      cronTime: "15 22 * * *",
+      onTick: safeTick("night-shift-work", async () => {
+        log("night-shift-work", "Night Shift worker starting...");
+        const result = await runNightShiftWorker();
+        if (result.completed > 0 || result.failed > 0) {
+          await sendTelegramMessage(
+            DEREK_CHAT_ID,
+            `Night shift done: ${result.completed} completed, ${result.failed} failed, ${result.skipped} skipped. $${result.totalSpent.toFixed(2)} spent.\n` +
+            (result.highlights.length > 0 ? `Highlights: ${result.highlights.join(", ")}` : "")
+          );
+        }
+        log("night-shift-work", `Worker done: ${result.completed}/${result.completed + result.failed + result.skipped} tasks`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // ============================================================
+  // STRATEGIC WEEKLY MEMO: Saturday 9 PM
+  // ============================================================
+
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 21 * * 6", // Saturday 9 PM
+      onTick: safeTick("strategic-memo", async () => {
+        log("strategic-memo", "Generating weekly strategic memo...");
+        const memo = await runStrategicMemo();
+        if (memo) {
+          // Send a trimmed version to Telegram (full version saved to file)
+          const telegramVersion = memo.length > 3500 ? memo.slice(0, 3500) + "\n\n_(full memo saved to data/task-output/)_" : memo;
+          await sendTelegramMessage(DEREK_CHAT_ID, `**Weekly Strategic Memo**\n\n${telegramVersion}`);
+          log("strategic-memo", "Memo sent to Telegram and saved to file");
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // ============================================================
+  // MAINTENANCE: Codex decay, progress note cleanup, event cleanup
+  // ============================================================
+
+  // 3:15 AM — cleanup stale codex entries, progress notes, and event logs
+  jobs.push(
+    CronJob.from({
+      cronTime: "15 3 * * *",
+      onTick: safeTick("codex-decay", async () => {
+        const { decayed, removed } = await decayStaleEntries(30);
+        if (decayed > 0 || removed > 0) {
+          log("codex-decay", `Codex maintenance: ${decayed} decayed, ${removed} removed`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  jobs.push(
+    CronJob.from({
+      cronTime: "20 3 * * *",
+      onTick: safeTick("progress-cleanup", async () => {
+        const count = await cleanupOldNotes(7);
+        if (count > 0) log("progress-cleanup", `Cleaned ${count} old progress note files`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  jobs.push(
+    CronJob.from({
+      cronTime: "25 3 * * *",
+      onTick: safeTick("event-cleanup", async () => {
+        const count = await cleanupOldEvents(14);
+        if (count > 0) log("event-cleanup", `Cleaned ${count} old agent event log files`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 3:35 AM — Ingest yesterday's journal into Supabase for semantic search.
+  // Journals exist as markdown files in memory/ but are invisible to Atlas
+  // unless explicitly read via tool calls. Ingesting makes them searchable
+  // via the same hybrid search that powers conversation recall.
+  jobs.push(
+    CronJob.from({
+      cronTime: "35 3 * * *",
+      onTick: safeTick("journal-ingest", async () => {
+        if (!supabase) return;
+        // Ingest yesterday's journal (today's is still being written)
+        const yesterday = new Date(Date.now() - 86400_000);
+        const dateStr = yesterday.toLocaleDateString("en-CA", { timeZone: TIMEZONE }); // YYYY-MM-DD
+        const journalPath = join(MEMORY_DIR, `${dateStr}.md`);
+        if (!existsSync(journalPath)) return;
+
+        const content = readFileSync(journalPath, "utf-8");
+        if (!content || content.trim().length < 50) return; // skip empty/stub journals
+
+        // Check state file to avoid re-ingesting
+        const statePath = join(PROJECT_DIR, "data", "journal-ingest-state.json");
+        let ingested: string[] = [];
+        try {
+          ingested = JSON.parse(readFileSync(statePath, "utf-8"));
+        } catch { /* first run */ }
+
+        if (ingested.includes(dateStr)) return;
+
+        const result = await ingestDocument(supabase, content, {
+          source: "journal",
+          sourcePath: journalPath,
+          title: `Daily Journal — ${dateStr}`,
+          metadata: { type: "journal", date: dateStr },
+        });
+
+        if (!result.error) {
+          ingested.push(dateStr);
+          // Keep only last 90 days in state
+          if (ingested.length > 90) ingested = ingested.slice(-90);
+          writeFileSync(statePath, JSON.stringify(ingested));
+          log("journal-ingest", `Ingested journal ${dateStr}: ${result.chunks_created} chunks`);
+        } else {
+          warn("journal-ingest", `Failed to ingest ${dateStr}: ${result.error}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -1849,6 +2499,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - Every 10min  Lead auto-enrichment (business hours)");
   console.log("  - 10AM/3PM     Stale lead reactivation (weekdays)");
   console.log("  - 8:00 PM      Lead volume monitoring + attribution");
+  console.log("  - 9:00 PM      Ad creative performance tracker (daily snapshots + analysis)");
   console.log("  - Every 15min  Anomaly scan (business hours)");
   console.log("  - Every 5min   Monitor: fast tier (leads, reviews, urgent email)");
   console.log("  - Every 15min  Monitor: medium tier (ads, pipeline, speed-to-lead)");
@@ -1861,6 +2512,21 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 11:00 PM     Tox tray: collect social analytics");
   console.log("  - Sunday 5 PM  Tox tray: weekly digest");
   console.log("  - 6:00 AM      Tox tray: Etsy listing sync (if configured)");
+  console.log("  - 11:30 PM     Overnight content draft (sonnet + content critic)");
+  console.log("  - 10:00 PM     Night Shift planner (haiku, generates overnight work queue)");
+  console.log("  - 10:15 PM     Night Shift worker (processes queue, budget-capped)");
+  console.log("  - Saturday 9PM Weekly strategic memo (sonnet)");
+  console.log("  - 3:15 AM      Codex decay (prune stale lessons)");
+  console.log("  - 3:20 AM      Progress notes cleanup (7-day retention)");
+  console.log("  - 3:25 AM      Agent event log cleanup (14-day retention)");
+  console.log("  - 3:35 AM      Journal ingestion (yesterday's journal -> searchable)");
+  console.log("  - 9:00 AM      Midas: funnel conversion monitor (daily)");
+  console.log("  - 9:30 PM      Midas: ad performance digest (daily, after ad-tracker)");
+  console.log("  - Sunday 9 AM  Midas: weekly full-funnel attribution report");
+  console.log("  - Tue/Fri 7AM  Midas: content hooks memo (opus)");
+  console.log("  - Wed 8 AM     Midas: competitor recon (opus)");
+  console.log("  - Mon/Thu 7:30 Midas: GBP content draft (sonnet, requires approval)");
+  console.log("  - 1st 10 AM    Midas: monthly strategic brief (opus)");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.

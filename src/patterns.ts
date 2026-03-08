@@ -11,6 +11,10 @@
  * - Error spiral: Repeated failed Bash commands
  * - Stuck exploration: 20+ tool calls with no Write/Edit
  * - Search loop: Same search pattern repeated
+ * - Heartbeat timeout: No tool call for >120s (warn) or >300s (kill)
+ * - Output stagnation: Output hasn't grown by >100 chars in 60s
+ *
+ * Also exports computeStuckScore() for probabilistic stuck detection (0-1).
  */
 
 import { info, warn } from "./logger.ts";
@@ -26,7 +30,9 @@ export type PatternType =
   | "error_spiral"
   | "stuck_exploration"
   | "search_loop"
-  | "duplicate_call";
+  | "duplicate_call"
+  | "heartbeat_timeout"
+  | "output_stagnation";
 
 export type InterventionAction = "none" | "warn" | "kill_restart" | "kill_abort";
 
@@ -64,6 +70,14 @@ const SEARCH_LOOP_THRESHOLD = 3;
 const DUPLICATE_CALL_THRESHOLD = 4;
 const PATTERN_WINDOW = 30;
 
+// ---- Heartbeat thresholds (seconds since last tool call) ----
+const HEARTBEAT_WARN_SEC = 120;
+const HEARTBEAT_KILL_SEC = 300;
+
+// ---- Output stagnation thresholds ----
+const OUTPUT_STAGNATION_MIN_CHARS = 100;
+const OUTPUT_STAGNATION_WINDOW_SEC = 60;
+
 // ---- Relaxed thresholds for read-only tasks (audits, plan mode, reviews) ----
 const RO_READ_LOOP_THRESHOLD = 10;
 const RO_STUCK_EXPLORATION_THRESHOLD = 60;
@@ -90,6 +104,16 @@ export class PatternDetector {
   private toolsSinceWrite = 0;
   private hasWrittenOrEdited = false;
   private lastPatternLog = new Map<string, number>();
+
+  // Heartbeat tracking: time of last tool call
+  private lastToolCallTime: number = Date.now();
+
+  // Output stagnation tracking
+  private lastOutputSize: number = 0;
+  private lastOutputCheckTime: number = Date.now();
+
+  // Unique files touched (for stuck score complexity factor)
+  private uniqueFilesTouched: Set<string> = new Set();
 
   // Effective thresholds (adjusted for read-only tasks)
   private readonly readLoopThreshold: number;
@@ -122,6 +146,9 @@ export class PatternDetector {
    */
   check(call: ToolCall): DetectedPattern | null {
     this.toolHistory.push(call);
+
+    // Update heartbeat on every tool call
+    this.lastToolCallTime = Date.now();
 
     // Keep history bounded
     if (this.toolHistory.length > PATTERN_WINDOW * 2) {
@@ -169,6 +196,9 @@ export class PatternDetector {
     toolsSinceWrite: number;
     hasWrittenOrEdited: boolean;
     recentTools: string[];
+    lastToolCallTime: number;
+    uniqueFilesTouched: number;
+    detectedPatternCount: number;
   } {
     return {
       totalCalls: this.toolHistory.length,
@@ -178,6 +208,9 @@ export class PatternDetector {
       toolsSinceWrite: this.toolsSinceWrite,
       hasWrittenOrEdited: this.hasWrittenOrEdited,
       recentTools: this.toolHistory.slice(-10).map((t) => t.toolName),
+      lastToolCallTime: this.lastToolCallTime,
+      uniqueFilesTouched: this.uniqueFilesTouched.size,
+      detectedPatternCount: this.lastPatternLog.size,
     };
   }
 
@@ -203,6 +236,10 @@ export class PatternDetector {
     this.consecutiveErrors = 0;
     this.toolsSinceWrite = 0;
     this.hasWrittenOrEdited = false;
+    this.lastToolCallTime = Date.now();
+    this.lastOutputSize = 0;
+    this.lastOutputCheckTime = Date.now();
+    this.uniqueFilesTouched.clear();
   }
 
   // ============================================================
@@ -238,6 +275,7 @@ export class PatternDetector {
     if (toolName === "Read" && toolInput?.file_path) {
       const path = this.normalizePath(toolInput.file_path);
       this.fileReadCounts.set(path, (this.fileReadCounts.get(path) || 0) + 1);
+      this.uniqueFilesTouched.add(path);
     }
 
     // Track file edits
@@ -246,6 +284,7 @@ export class PatternDetector {
       const history = this.fileEditHistory.get(path) || [];
       history.push(toolName);
       this.fileEditHistory.set(path, history);
+      this.uniqueFilesTouched.add(path);
     }
 
     // Track search patterns
@@ -418,6 +457,74 @@ export class PatternDetector {
     return null;
   }
 
+  /**
+   * Check heartbeat: called periodically (not on every tool call) to detect
+   * agents that have gone silent (no tool calls for extended periods).
+   * Returns a detected pattern if the agent appears unresponsive.
+   */
+  checkHeartbeat(): DetectedPattern | null {
+    const now = Date.now();
+    const silentSec = (now - this.lastToolCallTime) / 1000;
+
+    if (silentSec >= HEARTBEAT_KILL_SEC) {
+      const pattern: DetectedPattern = {
+        type: "heartbeat_timeout",
+        description: `No tool call for ${Math.round(silentSec)}s (kill threshold: ${HEARTBEAT_KILL_SEC}s)`,
+        severity: "high",
+        action: "kill_restart",
+        details: { count: Math.round(silentSec) },
+      };
+      this.logPattern(pattern);
+      return pattern;
+    }
+
+    if (silentSec >= HEARTBEAT_WARN_SEC) {
+      const pattern: DetectedPattern = {
+        type: "heartbeat_timeout",
+        description: `No tool call for ${Math.round(silentSec)}s (warn threshold: ${HEARTBEAT_WARN_SEC}s)`,
+        severity: "high",
+        action: "warn",
+        details: { count: Math.round(silentSec) },
+      };
+      this.logPattern(pattern);
+      return pattern;
+    }
+
+    return null;
+  }
+
+  /**
+   * Update cumulative output size and check for stagnation.
+   * Called periodically by the supervisor worker with the current total output size.
+   * Returns a detected pattern if output hasn't grown meaningfully.
+   */
+  checkOutputStagnation(currentOutputSize: number): DetectedPattern | null {
+    const now = Date.now();
+    const elapsedSec = (now - this.lastOutputCheckTime) / 1000;
+
+    // Only check once per stagnation window
+    if (elapsedSec < OUTPUT_STAGNATION_WINDOW_SEC) return null;
+
+    const growth = currentOutputSize - this.lastOutputSize;
+    this.lastOutputSize = currentOutputSize;
+    this.lastOutputCheckTime = now;
+
+    // If output hasn't grown by more than threshold, agent may be stuck in a thinking loop
+    if (growth <= OUTPUT_STAGNATION_MIN_CHARS && this.toolHistory.length > 5) {
+      const pattern: DetectedPattern = {
+        type: "output_stagnation",
+        description: `Output grew only ${growth} chars in ${Math.round(elapsedSec)}s`,
+        severity: "medium",
+        action: "warn",
+        details: { count: growth },
+      };
+      this.logPattern(pattern);
+      return pattern;
+    }
+
+    return null;
+  }
+
   private createSignature(call: ToolCall): string {
     // Use 500 chars (was 200) to reduce false collisions on tools where
     // differentiating content appears later in the JSON (e.g., status changes in TodoWrite)
@@ -466,4 +573,50 @@ export function isReadOnlyTask(prompt: string): boolean {
     "architecture audit", "code review", "security audit",
   ];
   return readOnlyKeywords.some(kw => lower.includes(kw));
+}
+
+// ============================================================
+// STUCK SCORE (PROBABILISTIC)
+// ============================================================
+
+/**
+ * Compute a 0-1 probability that a code agent is stuck.
+ *
+ * Formula: sigmoid(w_r * repetition + w_l * latency_ratio + w_c * complexity - bias)
+ * Where:
+ *   repetition = detected repetition patterns / total tool calls
+ *   latency_ratio = avg time between recent tool calls / expected avg (15s)
+ *   complexity = number of unique files touched (higher = harder task, more lenient)
+ *   bias = 2.0 (default threshold)
+ *   weights: w_r=3.0, w_l=2.0, w_c=-0.5
+ */
+export function computeStuckScore(detector: PatternDetector): number {
+  const summary = detector.getSummary();
+  const totalCalls = summary.totalCalls;
+
+  // Avoid division by zero on fresh detectors
+  if (totalCalls < 3) return 0;
+
+  // repetition = number of detected patterns / total tool calls
+  const repetition = summary.detectedPatternCount / totalCalls;
+
+  // latency_ratio = avg time between recent tool calls / expected avg (15s)
+  const now = Date.now();
+  const silentMs = now - summary.lastToolCallTime;
+  const expectedAvgMs = 15_000;
+  const latencyRatio = silentMs / expectedAvgMs;
+
+  // complexity = number of unique files touched
+  const complexity = summary.uniqueFilesTouched;
+
+  // Weights and bias
+  const w_r = 3.0;
+  const w_l = 2.0;
+  const w_c = -0.5;
+  const bias = 2.0;
+
+  const x = w_r * repetition + w_l * latencyRatio + w_c * complexity - bias;
+
+  // sigmoid
+  return 1 / (1 + Math.exp(-x));
 }

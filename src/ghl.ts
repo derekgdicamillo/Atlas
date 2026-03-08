@@ -173,11 +173,57 @@ export function initGHL(): boolean {
 }
 
 // ============================================================
+// HARDCODED SAFETY GUARDRAILS (never remove)
+// Derek's explicit instruction: NEVER message patients, NEVER delete contacts.
+// These blocks are at the lowest fetch level — no code path can bypass them.
+// ============================================================
+
+const BLOCKED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  // NEVER send SMS/email/messages to patients
+  { pattern: /\/conversations\/messages/i, reason: "Sending messages to patients is permanently blocked" },
+  { pattern: /\/conversations\/.*\/messages/i, reason: "Sending messages to patients is permanently blocked" },
+  // NEVER delete contacts
+  { pattern: /^DELETE$/i, reason: "Deleting contacts is permanently blocked" }, // checked against method
+];
+
+const BLOCKED_DELETE_ENDPOINTS: RegExp[] = [
+  /\/contacts\/[^/]+$/,        // DELETE /contacts/{id}
+  /\/contacts\/bulk/i,         // bulk delete
+  /\/opportunities\/[^/]+$/,   // DELETE /opportunities/{id}
+];
+
+function enforceGHLSafety(endpoint: string, options: RequestInit): void {
+  const method = (options.method || "GET").toUpperCase();
+
+  // Block all message-sending endpoints regardless of method
+  for (const { pattern, reason } of BLOCKED_PATTERNS) {
+    if (pattern.source.startsWith("^DELETE")) continue; // method check below
+    if (pattern.test(endpoint)) {
+      logError("ghl", `BLOCKED: ${method} ${endpoint} — ${reason}`);
+      throw new Error(`GHL SAFETY BLOCK: ${reason}`);
+    }
+  }
+
+  // Block DELETE on protected resources
+  if (method === "DELETE") {
+    for (const pattern of BLOCKED_DELETE_ENDPOINTS) {
+      if (pattern.test(endpoint)) {
+        logError("ghl", `BLOCKED: DELETE ${endpoint} — Deleting records is permanently blocked`);
+        throw new Error("GHL SAFETY BLOCK: Deleting records is permanently blocked");
+      }
+    }
+  }
+}
+
+// ============================================================
 // FETCH HELPER
 // ============================================================
 
 async function ghlFetchRaw<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   if (!GHL_TOKEN) throw new Error("GHL_API_TOKEN not configured");
+
+  // Safety check BEFORE any network call
+  enforceGHLSafety(endpoint, options);
 
   const url = `${GHL_BASE_URL}${endpoint}`;
   const res = await fetch(url, {
@@ -340,8 +386,8 @@ export async function searchContacts(
     query,
     limit: String(limit),
   });
-  const res = await ghlFetch<{ contacts: GHLContact[] }>(
-    `/contacts/search/duplicate?${params.toString()}`
+  const res = await ghlFetch<{ contacts: GHLContact[]; meta: { total: number } }>(
+    `/contacts/?${params.toString()}`
   );
   return res.contacts || [];
 }
@@ -842,6 +888,105 @@ export async function getOpsSnapshot(): Promise<OpsSnapshot> {
     todayAppointments,
     noShowsThisWeek,
   };
+}
+
+// ============================================================
+// PIPELINE ATTRIBUTION DATA (for Midas weekly attribution)
+// ============================================================
+
+export interface PipelineAttribution {
+  /** Opportunities created in the date range, grouped by source */
+  bySource: Record<string, {
+    leads: number;
+    booked: number;   // reached a booking/scheduled stage
+    showed: number;   // reached consultation/showed stage or won
+    closed: number;   // status = won
+    lost: number;     // status = lost
+    noShow: number;   // in a no-show stage
+    revenue: number;  // sum of monetaryValue for won
+  }>;
+  stages: GHLPipelineStage[];
+  totalOpps: number;
+}
+
+/**
+ * Get pipeline funnel data for attribution.
+ * Pulls all opportunities from the weight loss pipeline within a date range,
+ * classifies them by stage into funnel positions, and groups by source.
+ */
+export async function getPipelineAttribution(days = 7): Promise<PipelineAttribution> {
+  const stages = await getStages(PIPELINES.PATIENT_JOURNEY_WEIGHT_LOSS);
+  const startDate = new Date(Date.now() - days * 86_400_000).toISOString().split("T")[0];
+
+  // Get all opportunities in the date range (all statuses)
+  const { opportunities } = await searchOpportunities(
+    PIPELINES.PATIENT_JOURNEY_WEIGHT_LOSS,
+    { status: "all", startDate, limit: 100 }
+  );
+
+  // Classify stages into funnel positions by name patterns
+  const bookingStageIds = new Set(
+    stages.filter(s => {
+      const n = s.name.toLowerCase();
+      return n.includes("book") || n.includes("schedul") || n.includes("appoint") || n.includes("confirmed");
+    }).map(s => s.id)
+  );
+
+  const showedStageIds = new Set(
+    stages.filter(s => {
+      const n = s.name.toLowerCase();
+      return n.includes("consult") || n.includes("showed") || n.includes("visit") || n.includes("seen");
+    }).map(s => s.id)
+  );
+
+  const noShowStageIds = new Set(
+    stages.filter(s => {
+      const n = s.name.toLowerCase();
+      return n.includes("no show") || n.includes("noshow") || n.includes("no-show");
+    }).map(s => s.id)
+  );
+
+  // Build attribution by source
+  const bySource: PipelineAttribution["bySource"] = {};
+
+  for (const opp of opportunities) {
+    const source = opp.source || "unknown";
+    if (!bySource[source]) {
+      bySource[source] = { leads: 0, booked: 0, showed: 0, closed: 0, lost: 0, noShow: 0, revenue: 0 };
+    }
+
+    const entry = bySource[source];
+    entry.leads++;
+
+    // Check if they've progressed through funnel stages
+    // Won/lost status is the definitive signal
+    if (opp.status === "won") {
+      entry.closed++;
+      entry.showed++; // won implies showed
+      entry.booked++; // won implies booked
+      entry.revenue += opp.monetaryValue || 0;
+    } else if (opp.status === "lost") {
+      entry.lost++;
+      // Check if they at least booked/showed before being lost
+      if (showedStageIds.has(opp.pipelineStageId) || bookingStageIds.has(opp.pipelineStageId)) {
+        entry.booked++;
+      }
+    } else {
+      // Open opportunity - check current stage
+      if (noShowStageIds.has(opp.pipelineStageId)) {
+        entry.noShow++;
+        entry.booked++; // no-show implies they booked
+      } else if (showedStageIds.has(opp.pipelineStageId)) {
+        entry.showed++;
+        entry.booked++;
+      } else if (bookingStageIds.has(opp.pipelineStageId)) {
+        entry.booked++;
+      }
+      // else: still in early stages (new lead, contacted, etc.)
+    }
+  }
+
+  return { bySource, stages, totalOpps: opportunities.length };
 }
 
 // ============================================================

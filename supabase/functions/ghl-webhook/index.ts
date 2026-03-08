@@ -31,7 +31,8 @@ const WORKFLOW_EVENT_MAP: Record<string, string> = {
 
 // Instant alert: sends Telegram message to PV GHL Alerts group immediately
 const INSTANT_ALERT_EVENTS = new Set([
-  "ContactCreate",        // New lead - act fast
+  // ContactCreate removed: GHL already sends native new-lead notifications.
+  // The webhook still stores the event for the lead-enrich pipeline.
   "ContactDndUpdate",     // Opted out - compliance critical
 ]);
 

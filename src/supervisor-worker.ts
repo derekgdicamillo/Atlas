@@ -17,11 +17,14 @@ import { readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync, statSync } from "fs";
 import { join } from "path";
 import { info, warn, error as logError, trackClaudeCall } from "./logger.ts";
-import { createPatternDetector, isReadOnlyTask, type PatternDetector, type DetectedPattern } from "./patterns.ts";
+import { createPatternDetector, isReadOnlyTask, computeStuckScore, type PatternDetector, type DetectedPattern } from "./patterns.ts";
 import { createShadowEvaluator, storeEvaluation, type ShadowEvaluator } from "./shadow-evaluator.ts";
 import { extractPatternsFromTask, findSimilarPatterns } from "./learned-patterns.ts";
+import { parseExitInterview, addLesson } from "./codex.ts";
 import { createStreamParser } from "./claude.ts";
 import { taskEvents, getTask, restartCodeTask } from "./supervisor.ts";
+import { writeProgressNote } from "./progress-notes.ts";
+import { logEvent, inputHash } from "./agent-events.ts";
 import {
   SUPERVISOR_ENABLED,
   SUPERVISOR_PATTERN_DETECT,
@@ -73,6 +76,14 @@ interface AgentState {
   isComplete: boolean;
   exitCode: number | null;
   costUsd: number;
+  /** Timestamp of last progress note write (for 60s throttle) */
+  lastProgressNoteAt: number;
+  /** Files touched by this agent (tracked from tool calls) */
+  filesTouched: Set<string>;
+  /** Current stuck score (0-1 probability agent is stuck) */
+  stuckScore: number;
+  /** Consecutive checks where stuck score > 0.95 */
+  consecutiveHighStuckScore: number;
 }
 
 // Track agent states across supervisor runs
@@ -182,6 +193,10 @@ async function checkAgent(
       isComplete: false,
       exitCode: null,
       costUsd: 0,
+      lastProgressNoteAt: 0,
+      filesTouched: new Set(),
+      stuckScore: 0,
+      consecutiveHighStuckScore: 0,
     };
     agentStates.set(taskId, state);
     info("supervisor-worker", `Started monitoring agent ${taskId}${readOnly ? " (read-only mode)" : ""}`);
@@ -251,6 +266,29 @@ async function checkAgent(
     warn("supervisor-worker", `Agent ${taskId} budget exceeded ($${state.costUsd.toFixed(2)})`);
     await killAgent(state, "budget");
     return { intervention: true, completed: false, reason: "budget" };
+  }
+
+  // Heartbeat check: detect agents that stopped making tool calls
+  if (SUPERVISOR_PATTERN_DETECT && state.toolCallCount > 0) {
+    const heartbeat = state.patternDetector.checkHeartbeat();
+    if (heartbeat && heartbeat.action === "kill_restart") {
+      warn("supervisor-worker", `Agent ${taskId} heartbeat timeout: ${heartbeat.description}`);
+      await killAgent(state, `heartbeat_timeout`);
+      return { intervention: true, completed: false, reason: "heartbeat_timeout" };
+    }
+  }
+
+  // Output stagnation check: detect agents stuck in thinking loops
+  if (SUPERVISOR_PATTERN_DETECT && existsSync(outputPath)) {
+    try {
+      const outputStats = statSync(outputPath);
+      const stagnation = state.patternDetector.checkOutputStagnation(outputStats.size);
+      if (stagnation) {
+        state.detectedPatterns.push(stagnation.type);
+      }
+    } catch {
+      // Ignore stat errors
+    }
   }
 
   // Run shadow evaluation if due
@@ -349,6 +387,36 @@ async function processEvent(state: AgentState, event: StreamEvent): Promise<void
     // Tool call - run pattern detection
     state.toolCallCount++;
 
+    // Event sourcing: log tool call
+    logEvent(state.meta.taskId, "tool_call", {
+      toolName: event.toolName,
+      toolInputHash: event.toolInput ? inputHash(event.toolInput) : undefined,
+    });
+
+    // Track files touched by Write/Edit tool calls
+    if (event.toolInput) {
+      const filePath = event.toolInput.file_path || event.toolInput.path;
+      if (filePath && typeof filePath === "string" && (event.toolName === "Write" || event.toolName === "Edit")) {
+        state.filesTouched.add(filePath);
+      }
+    }
+
+    // Periodic progress note (every 60 seconds)
+    const progressNow = Date.now();
+    if (progressNow - state.lastProgressNoteAt >= 60_000) {
+      state.lastProgressNoteAt = progressNow;
+      const hasWrites = state.filesTouched.size > 0;
+      const phase = hasWrites ? "implement" : "explore";
+      writeProgressNote(state.meta.taskId, {
+        phase,
+        stepsCompleted: state.toolCallCount,
+        currentStep: `Tool call #${state.toolCallCount}: ${event.toolName || "unknown"}`,
+        keyFindings: state.detectedPatterns.length > 0 ? [`Detected patterns: ${state.detectedPatterns.join(", ")}`] : [],
+        filesModified: Array.from(state.filesTouched),
+        costUsd: state.costUsd,
+      }).catch(() => {}); // fire-and-forget
+    }
+
     if (SUPERVISOR_PATTERN_DETECT) {
       const detected = state.patternDetector.check({
         toolName: event.toolName || "unknown",
@@ -359,6 +427,9 @@ async function processEvent(state: AgentState, event: StreamEvent): Promise<void
 
       if (detected && detected.action !== "none") {
         state.detectedPatterns.push(detected.type);
+
+        // Event sourcing: log detected pattern
+        logEvent(state.meta.taskId, "pattern_detected", { pattern: detected.type });
 
         // Patterns that are safe to act on regardless of SUPERVISOR_MODE.
         // stuck_exploration and read_loop with high severity mean the agent is burning
@@ -389,6 +460,41 @@ async function processEvent(state: AgentState, event: StreamEvent): Promise<void
             patternLogTimes.set(logKey, now);
           }
         }
+      }
+
+      // Compute stuck score after each pattern detection cycle
+      const score = computeStuckScore(state.patternDetector);
+      state.stuckScore = score;
+
+      // Log when score first crosses 0.5
+      if (score > 0.5) {
+        const logKey = `${state.meta.taskId}-stuck_score_warn`;
+        const lastLogged = patternLogTimes.get(logKey) || 0;
+        const now = Date.now();
+        if (now - lastLogged > 300_000) {
+          info("supervisor-worker", `Stuck score for ${state.meta.taskId}: ${score.toFixed(3)}`);
+          patternLogTimes.set(logKey, now);
+
+          // Event sourcing: log intervention when stuck score crosses threshold
+          logEvent(state.meta.taskId, "intervention", { stuckScore: score });
+        }
+      }
+
+      // Track consecutive high stuck scores for kill decision
+      if (score > 0.95) {
+        state.consecutiveHighStuckScore++;
+        if (state.consecutiveHighStuckScore >= 2) {
+          warn("supervisor-worker", `Stuck score ${score.toFixed(3)} for ${state.meta.taskId} (${state.consecutiveHighStuckScore} consecutive). Killing.`);
+          await killAgent(state, `stuck_score: ${score.toFixed(3)} (${state.consecutiveHighStuckScore} consecutive)`);
+        } else {
+          warn("supervisor-worker", `Stuck score ${score.toFixed(3)} for ${state.meta.taskId} (1 consecutive, watching)`);
+        }
+      } else if (score > 0.8) {
+        // High but not critical. Add warning, reset consecutive counter.
+        state.consecutiveHighStuckScore = 0;
+        state.detectedPatterns.push(`stuck_score_warn:${score.toFixed(3)}`);
+      } else {
+        state.consecutiveHighStuckScore = 0;
       }
     }
   }
@@ -568,6 +674,7 @@ export function getCodeAgentStatus(): Array<{
   lastTool: string;
   detectedPatterns: string[];
   isAlive: boolean;
+  stuckScore: number;
 }> {
   const statuses: Array<{
     taskId: string;
@@ -579,6 +686,7 @@ export function getCodeAgentStatus(): Array<{
     lastTool: string;
     detectedPatterns: string[];
     isAlive: boolean;
+    stuckScore: number;
   }> = [];
 
   for (const [taskId, state] of agentStates) {
@@ -598,6 +706,7 @@ export function getCodeAgentStatus(): Array<{
       lastTool: summary.recentTools[summary.recentTools.length - 1] || "none",
       detectedPatterns: state.detectedPatterns,
       isAlive: isProcessAlive(state.meta.pid),
+      stuckScore: state.stuckScore,
     });
   }
 
@@ -616,6 +725,7 @@ export async function getCodeAgentDetail(taskId: string): Promise<{
   detectedPatterns: string[];
   isAlive: boolean;
   isComplete: boolean;
+  stuckScore: number;
 } | null> {
   const state = agentStates.get(taskId);
   if (!state) return null;
@@ -633,5 +743,15 @@ export async function getCodeAgentDetail(taskId: string): Promise<{
     detectedPatterns: state.detectedPatterns,
     isAlive: isProcessAlive(state.meta.pid),
     isComplete: state.isComplete,
+    stuckScore: state.stuckScore,
   };
+}
+
+/**
+ * Get the current stuck score for a task (for use in supervisor.ts fingerprint).
+ * Returns 0 if the task is not being monitored by the worker.
+ */
+export function getTaskStuckScore(taskId: string): number {
+  const state = agentStates.get(taskId);
+  return state?.stuckScore ?? 0;
 }

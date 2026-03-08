@@ -28,6 +28,22 @@ import {
   saveProspectiveMemories,
   type ConflictResult,
 } from "./cognitive.ts";
+import { markMemoryShared } from "./shared-memory.ts";
+
+// ── Auto-share: business-relevant patterns ──
+const SHARED_PATTERNS = [
+  /revenue|profit|margin|financ/i,
+  /pricing|price|cost|package/i,
+  /hours|schedule|location|address/i,
+  /employee|staff|hire|role/i,
+  /policy|procedure|protocol/i,
+  /peptide|glp.?1|tirzepatide|semaglutide/i,
+  /appointment|booking|consultation/i,
+];
+
+function shouldAutoShare(content: string): boolean {
+  return SHARED_PATTERNS.some((p) => p.test(content));
+}
 
 /**
  * Parse Claude's response for memory intent tags.
@@ -67,6 +83,11 @@ export async function processMemoryIntents(
                 access_count: 0, // reset access count on update
               })
               .eq("id", conflict.existingId);
+
+            // Auto-share updated business-relevant facts
+            if (shouldAutoShare(newFact)) {
+              markMemoryShared(supabase, conflict.existingId).catch(() => {});
+            }
           }
           break;
 
@@ -88,14 +109,19 @@ export async function processMemoryIntents(
           // Assign to a narrative thread
           const threadId = await assignThread(supabase, newFact);
 
-          await supabase.from("memory").insert({
+          const { data: inserted } = await supabase.from("memory").insert({
             type: "fact",
             content: newFact,
             salience: salience.overall,
             confidence: 0.9, // direct from Claude = high confidence
             source: "direct_statement",
             thread_id: threadId,
-          });
+          }).select("id").single();
+
+          // Auto-share business-relevant facts for cross-agent visibility
+          if (inserted?.id && shouldAutoShare(newFact)) {
+            markMemoryShared(supabase, inserted.id).catch(() => {});
+          }
           break;
         }
       }
@@ -123,14 +149,19 @@ export async function processMemoryIntents(
     if (goalText) {
       try {
         const salience = scoreSalience(goalText);
-        await supabase.from("memory").insert({
+        const { data: insertedGoal } = await supabase.from("memory").insert({
           type: "goal",
           content: goalText,
           deadline,
           salience: Math.max(salience.overall, 0.6), // goals are always at least moderately salient
           confidence: 0.9,
           source: "direct_statement",
-        });
+        }).select("id").single();
+
+        // Auto-share business-relevant goals
+        if (insertedGoal?.id && shouldAutoShare(goalText)) {
+          markMemoryShared(supabase, insertedGoal.id).catch(() => {});
+        }
         invalidateCache("memory");
       } catch (err) {
         console.warn(`[memory] GOAL insert failed: ${err}`);

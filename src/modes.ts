@@ -1,12 +1,15 @@
 /**
  * Atlas — Mode System
  *
- * Provides specialized context injection for social media, marketing,
- * and Skool content creation. Modes can be activated explicitly via
- * slash commands or automatically via intent detection from message content.
+ * Modes serve two purposes:
+ * 1. Agent-bound modes (tox-tray, fitness): always-on for dedicated agents
+ * 2. Intent frameworks (marketing, social, skool): loaded per-message based
+ *    on intent classification, not sticky mode state. This means Atlas
+ *    automatically brings in marketing frameworks when you discuss ads,
+ *    social frameworks when you discuss content, etc. No manual switching.
  *
- * Each mode loads a specialized prompt file that gets injected into
- * the Claude prompt alongside the base personality.
+ * Slash commands (/marketing, /social, /skool) still exist as manual hints
+ * that force the intent flag for the current conversation context.
  */
 
 import { readFileSync } from "fs";
@@ -268,4 +271,12 @@ export function listModes(): { id: ModeId; name: string; description: string }[]
  */
 export function isValidMode(id: string): id is ModeId {
   return MODE_CONFIGS.some((c) => c.id === id);
+}
+
+/**
+ * Get framework prompt for a given mode ID (used by intent-based injection).
+ * Returns the loaded prompt content or empty string if not loaded.
+ */
+export function getFrameworkPrompt(modeId: ModeId): string {
+  return modeRuntimes.get(modeId)?.prompt || "";
 }

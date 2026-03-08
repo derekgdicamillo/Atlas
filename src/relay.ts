@@ -98,16 +98,15 @@ import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSu
 import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
 import { processAutomationPauseTags, shouldSuppressAnnouncement, recordSuppressedTask, pauseAutomation, resumeAutomation, getPauseStatus } from "./automation-pause.ts";
+import { addToLearningQueue } from "./night-shift.ts";
 import { PDFParse } from "pdf-parse";
 import { getSwarmContext, pauseSwarm, getActiveSwarms } from "./dag.ts";
 import {
   loadModes,
-  resolveMode,
   setMode,
   clearMode,
   getActiveMode,
-  listModes,
-  isValidMode,
+  getFrameworkPrompt,
   type ModeId,
 } from "./modes.ts";
 import {
@@ -474,6 +473,12 @@ if (derekOAuth && initGA4(derekOAuth)) {
 loadModes(PROJECT_ROOT);
 info("startup", "Mode system loaded");
 
+// Auto-sync capabilities.md from code declarations
+import { registerAllCapabilities } from "./capability-registry.ts";
+import { syncCapabilities } from "./capabilities.ts";
+registerAllCapabilities();
+syncCapabilities(PROJECT_ROOT);
+
 // Initialize Care Plan module (loads knowledge base)
 initCarePlan().then((ready) => {
   if (ready) info("startup", "Care plan module initialized");
@@ -733,6 +738,24 @@ function resolveAgent(userId: string, chatId?: string, botId?: string): AgentRun
 const recentMessages: Map<string, number> = new Map();
 const DEDUP_WINDOW_MS = 300_000; // 5 minutes (covers long CLI processing cycles)
 
+// Track which Telegram update IDs received a successful response delivery.
+// Used by bot.catch() to decide whether to notify the user of errors.
+// If the response was already delivered, a follow-up "Something went wrong" is confusing.
+// If not, the user needs to know their message didn't go through.
+const respondedUpdates = new Set<number>();
+const RESPONDED_TTL_MS = 600_000; // 10 min retention
+let lastRespondedCleanup = Date.now();
+
+function markUpdateResponded(updateId: number): void {
+  respondedUpdates.add(updateId);
+  // Periodic cleanup to prevent unbounded growth
+  const now = Date.now();
+  if (now - lastRespondedCleanup > RESPONDED_TTL_MS) {
+    respondedUpdates.clear(); // simple: nuke all. 10 min window means old IDs are irrelevant.
+    lastRespondedCleanup = now;
+  }
+}
+
 // Context provider cache: avoids re-fetching slow external APIs on rapid successive messages.
 // 5 min TTL. Entries: { value: string, ts: number }
 const contextCache: Map<string, { value: string; ts: number }> = new Map();
@@ -753,10 +776,10 @@ const CIRCUIT_BREAKER_COOLDOWN_MS = 60_000; // skip external context for 60s aft
 const CIRCUIT_BREAKER_THRESHOLD = 4; // trip if 4+ sources timeout in a single fetch
 
 function isDuplicate(userId: string, text: string): boolean {
-  const key = `${userId}:${text.substring(0, 200)}`;
+  const key = `${userId}:${(text || "").substring(0, 200)}`;
   const lastSeen = recentMessages.get(key);
   const now = Date.now();
-  recentMessages.set(key, now);
+  // Don't mark as seen here. Call markDelivered() after successful response.
 
   // Clean old entries periodically
   if (recentMessages.size > 100) {
@@ -765,8 +788,14 @@ function isDuplicate(userId: string, text: string): boolean {
     }
   }
 
-  maybeSaveDedupCache();
   return !!lastSeen && now - lastSeen < DEDUP_WINDOW_MS;
+}
+
+/** Mark a message as successfully delivered so future duplicates are blocked. */
+function markDelivered(userId: string, text: string): void {
+  const key = `${userId}:${(text || "").substring(0, 200)}`;
+  recentMessages.set(key, Date.now());
+  maybeSaveDedupCache();
 }
 
 // Dedup cache persistence: survive restarts without losing dedup state
@@ -2084,65 +2113,39 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
     }
 
     case "/social": {
-      const key = sessionKey(agentId, userId);
-      const { modeName } = setMode(key, "social");
-      await ctx.reply(`Switched to ${modeName} mode. I'm ready to create content, build posting calendars, and strategize your social presence.`);
-      info("command", `Mode set to social by ${userId}`);
+      await ctx.reply("Social frameworks loaded. What are we creating?");
+      info("command", `Social context hint from ${userId}`);
       return true;
     }
 
     case "/marketing": {
-      const key = sessionKey(agentId, userId);
-      const { modeName } = setMode(key, "marketing");
-      await ctx.reply(`Switched to ${modeName} mode. I'm ready to work on ads, funnels, campaigns, and growth strategy.`);
-      info("command", `Mode set to marketing by ${userId}`);
+      await ctx.reply("Marketing frameworks loaded (Hormozi, Brunson, Andromeda). What are we working on?");
+      info("command", `Marketing context hint from ${userId}`);
       return true;
     }
 
     case "/skool": {
-      const key = sessionKey(agentId, userId);
-      const { modeName } = setMode(key, "skool");
-      await ctx.reply(`Switched to ${modeName} mode. I'm ready to create Vitality Unchained community content, course materials, and engagement posts.`);
-      info("command", `Mode set to skool by ${userId}`);
+      await ctx.reply("Skool frameworks loaded (5 Pillars, Vitality Unchained). What are we building?");
+      info("command", `Skool context hint from ${userId}`);
       return true;
     }
 
     case "/coach":
     case "/fitness": {
-      const key = sessionKey(agentId, userId);
-      const { modeName } = setMode(key, "fitness");
-      await ctx.reply(`Switched to ${modeName} mode. What are we working on today, Coach?`);
-      info("command", `Mode set to fitness by ${userId}`);
+      await ctx.reply("Use the Coach bot for fitness. Frameworks auto-load when you discuss training, macros, or workouts here too.");
+      info("command", `Fitness redirect from ${userId}`);
       return true;
     }
 
     case "/mode": {
-      const key = sessionKey(agentId, userId);
-      const sub = args[0];
-
-      if (sub === "off" || sub === "clear" || sub === "reset") {
-        clearMode(key);
-        await ctx.reply("Mode cleared. Back to general Atlas mode.");
-        return true;
-      }
-
-      if (sub && isValidMode(sub)) {
-        const { modeName } = setMode(key, sub as ModeId);
-        await ctx.reply(`Switched to ${modeName} mode.`);
-        return true;
-      }
-
-      const currentMode = getActiveMode(key);
-      const modes = listModes();
-      const modeList = modes.map((m) =>
-        `/${m.id} - ${m.description}${currentMode === m.id ? " (active)" : ""}`
-      ).join("\n");
-
       await ctx.reply(
-        `${currentMode ? `Current mode: ${currentMode}` : "No mode active (general Atlas)"}\n\n` +
-        `Available modes:\n${modeList}\n\n` +
-        `/mode off - return to general mode\n\n` +
-        `Modes also activate automatically based on what you ask about.`
+        "Modes are now automatic. Atlas pulls in the right frameworks based on what you're asking about.\n\n" +
+        "Specialized agents:\n" +
+        "/coach - fitness (use Coach bot)\n\n" +
+        "Manual hints (force-load frameworks):\n" +
+        "/marketing - Hormozi, Brunson, Meta Ads\n" +
+        "/social - content creation, posting strategy\n" +
+        "/skool - Vitality Unchained, 5 Pillars"
       );
       return true;
     }
@@ -2421,7 +2424,7 @@ const INTENT_PATTERNS = {
 };
 
 /** Casual message heuristic: short + no strong intent signals */
-const CASUAL_MAX_LENGTH = 120;
+const CASUAL_MAX_LENGTH = 60;
 
 function classifyIntent(messages: PendingMessage[], activeMode: string | null): MessageIntent {
   const combined = messages.map((m) => m.text).join(" ");
@@ -2457,7 +2460,10 @@ function classifyIntent(messages: PendingMessage[], activeMode: string | null): 
     intent.coding || intent.taskDelegation || intent.todos || intent.m365 ||
     intent.ingest || intent.browser;
 
-  if (!hasAnyIntent && combined.length <= CASUAL_MAX_LENGTH) {
+  // Memory-recall patterns should never be casual, regardless of length
+  const isRecallQuestion = /\b(remember|recall|we discussed|what did|earlier|yesterday|last time|that thing|what about|what was|did we|have we|you said|you mentioned|we set up|we configured|we built|we fixed|go back to)\b/i.test(combined);
+
+  if (!hasAnyIntent && !isRecallQuestion && combined.length <= CASUAL_MAX_LENGTH) {
     intent.casual = true;
   }
 
@@ -2515,8 +2521,8 @@ function planContextSources(
     intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy || intent.m365;
 
   return {
-    // Memory facts/goals: cached (see cachedContext), cheap to include when non-casual
-    memory: features.memory && !intent.casual,
+    // Memory facts/goals: always include when available (cached, cheap, prevents amnesia)
+    memory: features.memory,
     // Search: only for substantive queries (skip "yes", "ok", "thanks", short follow-ups)
     search: features.search && features.memory && hasSubstantiveIntent,
     conversation: true,
@@ -2614,6 +2620,34 @@ function logPrePrompt(
 }
 
 // ============================================================
+// LEARNING GAP DETECTION
+// ============================================================
+
+/**
+ * Detect when Claude's response indicates a knowledge gap and queue it
+ * for overnight research via the learning queue.
+ */
+async function detectLearningGaps(responseText: string, userMessage: string): Promise<void> {
+  const gapPatterns = [
+    /I don't (?:have|know|currently have) (?:access to|information about|data on|details about) (.+?)[.!]/i,
+    /I'm not (?:sure|certain|aware) (?:about|of|whether) (.+?)[.!]/i,
+    /I couldn't find (?:information|data|details) (?:about|on|for) (.+?)[.!]/i,
+    /I don't have (?:enough|sufficient) (?:information|data|context) (?:about|on|to) (.+?)[.!]/i,
+    /(?:Unfortunately|I'm afraid),? I (?:can't|cannot) (?:find|locate|access) (.+?)[.!]/i,
+  ];
+
+  for (const pattern of gapPatterns) {
+    const match = responseText.match(pattern);
+    if (match && match[1] && match[1].length > 10 && match[1].length < 200) {
+      const topic = match[1].trim();
+      const context = `User asked: "${userMessage.substring(0, 200)}"`;
+      await addToLearningQueue(topic, `conversation-gap: ${context}`, 2).catch(() => {});
+      break; // one gap per response is enough
+    }
+  }
+}
+
+// ============================================================
 // UNIFIED MESSAGE HANDLER
 // ============================================================
 
@@ -2702,21 +2736,20 @@ async function handleUserMessage(
     // 5. Drain ALL accumulated messages (ours + any that arrived while waiting)
     const pending = drain(key);
 
-    // 6. Resolve mode FIRST (needed for intent classification)
+    // 6. Prepare combined text and classify intent
     const combinedText = pending.map((m) => m.text).join(" ");
-    // Auto-activate default mode for agents that have one (e.g. toxtray -> tox-tray)
+
+    // Agent-bound modes (tox-tray, fitness): always-on for dedicated agents.
+    // These are real modes because they're distinct personas, not just context.
     const agentDefaultMode = agent?.config.defaultMode;
     if (agentDefaultMode && getActiveMode(key) !== agentDefaultMode) {
       setMode(key, agentDefaultMode);
     }
-    const modeResult = resolveMode(key, combinedText);
-    if (modeResult.switched && modeResult.modeName) {
-      ctx.reply(`[${modeResult.modeName} mode activated]`).catch(() => {});
-    }
 
     // 6a. Classify intent to determine which context sources to fetch.
     //     This is the key optimization: casual messages skip expensive API calls entirely.
-    const activeMode = getActiveMode(key);
+    //     Mode auto-detection removed: frameworks are injected by intent, not sticky state.
+    const activeMode = agentDefaultMode || null; // only agent-bound modes affect intent
     const regexIntent = classifyIntent(pending, activeMode);
 
     // Cognitive enhancement: supplement regex intent with conversation-aware heuristics.
@@ -2892,14 +2925,15 @@ async function handleUserMessage(
     }
 
     // 7b. Get conversation history from ring buffer.
-    //     When resuming a session, Claude already has recent turns in session state.
-    //     Skip the ring buffer to avoid duplicating 3-8K chars of conversation.
-    let conversationContext = shouldResume && session.sessionId
-      ? "" // Session already carries conversation context
-      : await formatForPrompt(key, pending.length);
-
+    //     When resuming, inject a condensed version (last 4 entries) as a safety net.
+    //     The CLI session carries full history, but if it's incomplete or stale,
+    //     the ring buffer provides redundancy.
+    let conversationContext: string;
     if (shouldResume && session.sessionId) {
-      info("trace", `[${traceId}] Skipping conversation buffer injection (session ${session.sessionId} has history)`);
+      conversationContext = await formatForPrompt(key, pending.length, 4); // condensed: last 4 entries only
+      info("trace", `[${traceId}] Injecting condensed ring buffer alongside session ${session.sessionId}`);
+    } else {
+      conversationContext = await formatForPrompt(key, pending.length);
     }
 
     // 7b2. Inline compaction: if conversation consumes too much of the prompt budget, compress
@@ -2937,7 +2971,18 @@ async function handleUserMessage(
         todoContext,
         googleContext,
         conversationContext,
-        modePrompt: modeResult.modePrompt,
+        // Intent-based framework injection: pull in specialized knowledge
+        // when the intent matches, no sticky mode state needed.
+        // Agent-bound modes (tox-tray, fitness) always get their framework.
+        modePrompt: agentDefaultMode
+          ? getFrameworkPrompt(agentDefaultMode as ModeId)
+          : intent.marketing
+            ? getFrameworkPrompt("marketing")
+            : /\b(skool|vitality unchained|5 pillars|fuel code|calm core)\b/i.test(combinedText)
+              ? getFrameworkPrompt("skool")
+              : /\b(content waterfall|social post|create a post|posting calendar|write hooks)\b/i.test(combinedText)
+                ? getFrameworkPrompt("social")
+                : "",
         dashboardContext,
         ghlContext,
         financialContext,
@@ -2953,7 +2998,7 @@ async function handleUserMessage(
         proactiveContext,
         // Tox tray business operator context (always fetched for toxtray agent, on-demand for others)
         toxTrayContext: (featureFlags.canva || featureFlags.social || featureFlags.etsy || featureFlags.approval)
-          && (isGroupAgent || modeResult.modeId === "tox-tray" || intent.tox_tray || /\b(tox tray|etsy|tox.?tray)\b/i.test(combinedText))
+          && (isGroupAgent || agentDefaultMode === "tox-tray" || intent.tox_tray || /\b(tox tray|etsy|tox.?tray)\b/i.test(combinedText))
           ? await Promise.all([
               featureFlags.canva ? getCanvaContext().catch(() => "") : "",
               featureFlags.social ? getSocialContext().catch(() => "") : "",
@@ -3001,7 +3046,8 @@ async function handleUserMessage(
 
     // Finalize streaming (sends final edit)
     if (streaming) {
-      await streaming.finish();
+      try { await streaming.finish(); }
+      catch (e) { warn("streaming", `streaming.finish() failed: ${e}`); }
     }
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
@@ -3014,6 +3060,30 @@ async function handleUserMessage(
 
       // Fire-and-forget: compress old conversation entries in background
       compressOldEntries(key, (p) => runPrompt(p, MODELS.haiku)).catch(() => {});
+
+      // Auto-persist: extract key facts from long responses and save to memory.
+      // This supplements the behavioral AUTO-PERSIST RULE with an enforced mechanism.
+      // Only runs on substantial responses (>800 chars) that don't already contain [REMEMBER:].
+      if (supabase && rawResponse.length > 800 && !/\[REMEMBER:/i.test(rawResponse)) {
+        (async () => {
+          try {
+            const extractPrompt =
+              "Extract 0-2 key operational facts from this assistant response that should be remembered long-term. " +
+              "Focus on: actions completed, configurations changed, decisions made, things set up or deployed. " +
+              "Skip routine conversation, explanations, or anything speculative. " +
+              "If nothing is worth persisting, respond with just 'NONE'. " +
+              "Otherwise, output each fact as a [REMEMBER: fact] tag on its own line. Be brief and factual.\n\n" +
+              rawResponse.substring(0, 3000);
+            const extracted = await runPrompt(extractPrompt, MODELS.haiku);
+            if (extracted && !extracted.includes("NONE") && /\[REMEMBER:/i.test(extracted)) {
+              await processMemoryIntents(supabase, extracted);
+              info("auto-persist", `Extracted facts from response (${extracted.match(/\[REMEMBER:/gi)?.length || 0} facts)`);
+            }
+          } catch (e) {
+            warn("auto-persist", `Fact extraction failed: ${e}`);
+          }
+        })();
+      }
     }
 
     // 10b. Intelligence hooks (fire-and-forget, never block response delivery)
@@ -3090,58 +3160,79 @@ async function handleUserMessage(
     }
 
     // 11. Post-process (memory intents, graph intents, google intents)
+    // Skip all intent processing on empty/error responses — nothing to parse.
+    // Without this guard, tag processors run on empty strings and can fire phantom
+    // task spawns, blank GHL notes, or corrupt memory state.
+    const isEmptyResponse = !rawResponse || !rawResponse.trim() || rawResponse.startsWith("Error:") || rawResponse.startsWith("Sorry, that took too long");
+
     // Tag recovery: capture any incomplete (unclosed) tags before they're lost
-    let preProcessed = await captureIncompleteTags(rawResponse);
+    let preProcessed = isEmptyResponse ? rawResponse : await captureIncompleteTags(rawResponse);
     // Recover any pending tags from previous session rollovers
-    preProcessed = await recoverPendingTags(preProcessed);
+    preProcessed = isEmptyResponse ? preProcessed : await recoverPendingTags(preProcessed);
 
-    let response = hasMemory
-      ? await processMemoryIntents(supabase, preProcessed)
-      : preProcessed;
+    let response = preProcessed;
 
-    if (featureFlags.graph) {
-      response = await processGraphIntents(supabase, response);
-    }
-
-    if (hasGoogle) {
-      response = await processGoogleIntents(response);
-    }
-
-    if (featureFlags.ghl) {
-      response = await processGHLIntents(response);
-    }
-
-    if (featureFlags.m365) {
-      response = await processM365Intents(response);
-    }
-
-    if (isWebsiteReady()) {
-      response = await processWebsiteIntents(response);
-    }
-
-    // Browser automation tags (agent-browser CLI)
-    if (isBrowserReady()) {
-      const browserResult = await processBrowserIntents(response);
-      response = browserResult.cleanedResponse;
-      // Send screenshots to Telegram
-      for (const ssPath of browserResult.screenshots) {
-        try {
-          await ctx.replyWithPhoto(new InputFile(ssPath));
-        } catch (ssErr) {
-          warn("browser", `Failed to send screenshot ${ssPath}: ${ssErr}`);
-        }
+    // Intent processors are isolated: each one gets a try-catch so a failure in
+    // memory save doesn't kill GHL tags, calendar events, or WP updates.
+    if (!isEmptyResponse) {
+      if (hasMemory) {
+        try { response = await processMemoryIntents(supabase, response); }
+        catch (e) { warn("intents", `processMemoryIntents failed: ${e}`); }
       }
-    }
 
-    // Tox Tray business operator tags
-    if (featureFlags.canva) {
-      response = await processCanvaIntents(response);
-    }
-    if (featureFlags.social) {
-      response = await processSocialIntents(response);
-    }
-    if (featureFlags.etsy) {
-      response = await processEtsyIntents(response);
+      if (featureFlags.graph) {
+        try { response = await processGraphIntents(supabase, response); }
+        catch (e) { warn("intents", `processGraphIntents failed: ${e}`); }
+      }
+
+      if (hasGoogle) {
+        try { response = await processGoogleIntents(response); }
+        catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
+      }
+
+      if (featureFlags.ghl) {
+        try { response = await processGHLIntents(response); }
+        catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
+      }
+
+      if (featureFlags.m365) {
+        try { response = await processM365Intents(response); }
+        catch (e) { warn("intents", `processM365Intents failed: ${e}`); }
+      }
+
+      if (isWebsiteReady()) {
+        try { response = await processWebsiteIntents(response); }
+        catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+      }
+
+      // Browser automation tags (agent-browser CLI)
+      if (isBrowserReady()) {
+        try {
+          const browserResult = await processBrowserIntents(response);
+          response = browserResult.cleanedResponse;
+          for (const ssPath of browserResult.screenshots) {
+            try {
+              await ctx.replyWithPhoto(new InputFile(ssPath));
+            } catch (ssErr) {
+              warn("browser", `Failed to send screenshot ${ssPath}: ${ssErr}`);
+            }
+          }
+        } catch (e) { warn("intents", `processBrowserIntents failed: ${e}`); }
+      }
+
+      // Tox Tray business operator tags
+      if (featureFlags.canva) {
+        try { response = await processCanvaIntents(response); }
+        catch (e) { warn("intents", `processCanvaIntents failed: ${e}`); }
+      }
+      if (featureFlags.social) {
+        try { response = await processSocialIntents(response); }
+        catch (e) { warn("intents", `processSocialIntents failed: ${e}`); }
+      }
+      if (featureFlags.etsy) {
+        try { response = await processEtsyIntents(response); }
+        catch (e) { warn("intents", `processEtsyIntents failed: ${e}`); }
+      }
     }
 
     // Process scheduled message intents
@@ -3251,19 +3342,13 @@ async function handleUserMessage(
       }
     }
 
-    // Phantom dispatch detection: when Claude talks about dispatching agents but emits no tags.
-    // Injects a system note so the next turn forces proper tag emission.
-    const PHANTOM_DISPATCH_PATTERN = /\b(dispatch(?:ed|ing)?|spawn(?:ed|ing)?|spinning up|launch(?:ed|ing)?|fir(?:ed|ing)|code agents?\b.{0,20}\b(?:running|dispatched|launched|started)|agents? (?:are|have been) (?:dispatched|launched|started|fired))\b/i;
+    // Phantom dispatch detection: when Claude claims agents ARE running NOW but emits no tags.
+    // Only triggers on present-tense/past-tense claims of active dispatch, not future plans or instructions.
+    const PHANTOM_DISPATCH_PATTERN = /\b((?:I(?:'ve| have)|I'm|agents? (?:are|have been)) (?:dispatch|spawn|launch|start|fir)(?:ed|ing))\b/i;
     const tasksActuallyChanged = response !== beforeTaskProcessing || capturedCodeTasks.length > 0;
     if (!isPhotoObservation && !tasksActuallyChanged && PHANTOM_DISPATCH_PATTERN.test(rawResponse)) {
       warn("supervisor", `Phantom dispatch: no text tags AND no TodoWrite interception`);
       response += "\n\n⚠️ I mentioned dispatching agents but no task tags were emitted. The tasks did NOT actually start. Please re-request so I can emit proper [CODE_TASK:] or [TASK:] tags.";
-      // Inject system note so Claude self-corrects on next turn
-      addEntry(key, {
-        role: "system",
-        content: "SYSTEM: PHANTOM DISPATCH DETECTED. Your previous response mentioned dispatching/spawning agents but ZERO tags were emitted. No agents started. You MUST emit proper TodoWrite CODE_TASK: entries AND [CODE_TASK: cwd=... | PROMPT: ...] text tags on the next request. Do not just talk about it, actually call the tools.",
-        timestamp: new Date().toISOString(),
-      }).catch(() => {});
     }
 
     // Process folder ingestion delegations
@@ -3451,7 +3536,17 @@ async function handleUserMessage(
         }
       }
     } else {
-      await sendResponse(ctx, response);
+      try {
+        await sendResponse(ctx, response);
+      } catch (sendErr) {
+        warn("delivery", `sendResponse failed, retrying once: ${sendErr}`);
+        try {
+          await new Promise(r => setTimeout(r, 1000));
+          await sendResponse(ctx, response);
+        } catch (retryErr) {
+          logError("delivery", `sendResponse retry failed, response lost: ${retryErr}`);
+        }
+      }
     }
 
     // 14. Fire session-end hooks (timing, memory save, etc.)
@@ -3464,6 +3559,9 @@ async function handleUserMessage(
       responseText: response,
       durationMs: sessionDurationMs,
     }).catch(() => {}); // fire-and-forget, don't block response delivery
+
+    // 15. Learning gap detection (fire-and-forget)
+    detectLearningGaps(response, combinedText).catch(() => {});
 
     info("trace", `[${traceId}] END ${response.length} chars delivered (${Math.round(sessionDurationMs / 1000)}s)`);
     return response;
@@ -3493,7 +3591,8 @@ handlers.use((ctx, next) => {
 // No backslash normalization is applied. Internal paths use path.join().
 // See OpenClaw #11547 for context on this pattern.
 handlers.on("message:text", async (ctx) => {
-  const text = ctx.message.text;
+  const text = ctx.message?.text;
+  if (!text) return; // safety: skip if text somehow undefined
   const userId = ctx.from?.id.toString() || "";
   const updateId = ctx.update.update_id;
   trackMessage();
@@ -3541,6 +3640,7 @@ handlers.on("message:text", async (ctx) => {
         await ctx.reply(`Failed: ${err}`);
       }
       pendingForgets.delete(userId);
+      markUpdateResponded(updateId);
       await saveLastUpdateId(updateId, botIdFromCtx(ctx));
       return;
     }
@@ -3553,6 +3653,7 @@ handlers.on("message:text", async (ctx) => {
   }
 
   if (await handleCommand(ctx, text, userId)) {
+    markUpdateResponded(updateId);
     await saveLastUpdateId(updateId, botIdFromCtx(ctx));
     return;
   }
@@ -3566,7 +3667,11 @@ handlers.on("message:text", async (ctx) => {
   info("message", `[${agentId}] Text from ${userId}: ${text.substring(0, 80)}...`);
   await ctx.replyWithChatAction("typing");
 
-  await handleUserMessage(ctx, userId, { text, type: "text" });
+  const response = await handleUserMessage(ctx, userId, { text, type: "text" });
+  if (response && response.trim()) {
+    markUpdateResponded(updateId);
+    markDelivered(userId, text);
+  }
   await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
@@ -3625,6 +3730,7 @@ handlers.on("message:voice", async (ctx) => {
 
     // Voice response: TTS is best-effort, text response is already delivered above
     if (responseText) {
+      markUpdateResponded(updateId);
       try {
         info("tts", `Starting TTS for voice reply (${responseText.length} chars)`);
         await ctx.replyWithChatAction("record_voice");
@@ -3729,7 +3835,7 @@ handlers.on("message:photo", async (ctx) => {
     const imageBase64 = imageBuffer.toString("base64");
     const caption = ctx.message.caption || "Analyze this image.";
 
-    await handleUserMessage(ctx, userId, {
+    const photoResponse = await handleUserMessage(ctx, userId, {
       text: caption,
       type: "photo",
       filePath, // keep as backup reference on disk
@@ -3737,6 +3843,7 @@ handlers.on("message:photo", async (ctx) => {
       imageMimeType: "image/jpeg",
       cleanupFile: filePath,
     });
+    if (photoResponse && photoResponse.trim()) markUpdateResponded(updateId);
   } catch (err) {
     logError("image", `Image processing failed: ${err}`);
     await ctx.reply("Could not process image.");
@@ -3859,12 +3966,13 @@ handlers.on("message:document", async (ctx) => {
 
     const caption = ctx.message.caption || `Analyze: ${doc.file_name}`;
 
-    await handleUserMessage(ctx, userId, {
+    const docResponse = await handleUserMessage(ctx, userId, {
       text: `[File: ${filePath}]\n\n${caption}`,
       type: "document",
       filePath,
       cleanupFile: filePath,
     });
+    if (docResponse && docResponse.trim()) markUpdateResponded(updateId);
   } catch (err) {
     logError("document", `Document processing failed: ${err}`);
     await ctx.reply("Could not process document.");
@@ -4056,7 +4164,8 @@ function buildPrompt(
   let behavioralRules =
     "CONFIRMATION RULE: When a user says Yes/No/OK/Sure/Go ahead after a multi-option proposal, briefly restate your interpretation in the first sentence before executing.\n" +
     "CAPABILITY GAP RULE: When you identify something Atlas cannot do (e.g. receive Telegram file attachments, write GHL custom fields), immediately spawn a [CODE_TASK:] in the same response to implement the fix, unless the user explicitly says not to.\n" +
-    "HIPAA/COMPLIANCE RULE: When explaining why something can't be shared (PHI, HIPAA, etc.), keep it to 2-3 lines max. No CFR subsections or regulatory footnotes in Telegram. Derek and Esther are clinicians, they know the basics. State the constraint and offer the workaround.";
+    "HIPAA/COMPLIANCE RULE: When explaining why something can't be shared (PHI, HIPAA, etc.), keep it to 2-3 lines max. No CFR subsections or regulatory footnotes in Telegram. Derek and Esther are clinicians, they know the basics. State the constraint and offer the workaround.\n" +
+    "AUTO-PERSIST RULE: When you complete a significant action (set up tracking, create/rename/delete ads, configure an integration, change a workflow, update a landing page, or any operational change), emit a [REMEMBER:] tag summarizing what was done. This prevents you from forgetting work you just did as the conversation grows. Keep it factual and brief, e.g. [REMEMBER: GTM tracking (GTM-5SHBBKD) installed on telehealth landing page 2026-03-07. Meta Pixel + GA4 + Google Ads conversion all fire via GTM.]";
 
   if (imageObservationOnly) {
     behavioralRules +=
@@ -4094,8 +4203,8 @@ function buildPrompt(
   }
 
   // ── P3: Core memory context ─────────────────────────────
-  if (hasMemory && contexts.memoryContext && budgetRemaining() > 3000) {
-    const maxMem = Math.min(charCount(contexts.memoryContext), 4000);
+  if (hasMemory && contexts.memoryContext && budgetRemaining() > 2000) {
+    const maxMem = Math.min(charCount(contexts.memoryContext), 6000);
     parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY (may be stale — cite as \"based on memory\" for third-party facts about named people not introduced this session)")}`));
   }
 
@@ -4283,9 +4392,12 @@ async function sendResponse(ctx: Context, response: string): Promise<void> {
     return;
   }
 
-  // Write-ahead: persist before delivery so we can retry on crash
-  const chatId = String(ctx.chat?.id || "");
-  const deliveryId = chatId ? await enqueueReply(chatId, response) : null;
+  // Write-ahead queue disabled for interactive responses. The WAQ was causing
+  // duplicate message delivery on every restart: enqueue happens before send,
+  // but markDelivered runs after send. Any restart between those two points
+  // (including intentional pm2 restart) replays the message. The retry wrapper
+  // around sendResponse() handles transient Telegram failures instead.
+  const deliveryId: string | null = null;
 
   const MAX_LENGTH = 4000;
 
@@ -4328,6 +4440,7 @@ async function sendResponse(ctx: Context, response: string): Promise<void> {
 bot.catch((err) => {
   const ctx = err.ctx;
   const e = err.error;
+  const updateId = ctx.update.update_id;
 
   // 409 = two bot instances polling simultaneously. Log and don't crash.
   if (e && typeof e === "object" && "error_code" in e && (e as any).error_code === 409) {
@@ -4335,8 +4448,25 @@ bot.catch((err) => {
     return;
   }
 
-  logError("grammy", `Error handling update ${ctx.update.update_id}: ${e}`);
-  ctx.reply("Something went wrong. I've logged the error.").catch(() => {});
+  // Always log the full error with stack trace for debugging
+  logError("grammy", `Error handling update ${updateId}: ${e}`);
+  if (e instanceof Error && e.stack) {
+    logError("grammy", `Stack: ${e.stack}`);
+  }
+
+  // Smart notification: only tell the user if we know their response wasn't delivered.
+  // If the response WAS already delivered, sending "Something went wrong" is confusing
+  // and makes Atlas look unreliable. If NOT delivered, the user needs to know.
+  const alreadyResponded = respondedUpdates.has(updateId);
+  if (alreadyResponded) {
+    info("grammy", `Post-delivery error on update ${updateId} (user already got response, suppressing notification)`);
+    return;
+  }
+
+  // Response was NOT delivered. User sent a message and got nothing back.
+  // Tell them so they know to retry.
+  ctx.reply("Something went wrong processing your message. Try again, or check /status if it keeps happening.")
+    .catch(() => {});
 });
 
 // ============================================================

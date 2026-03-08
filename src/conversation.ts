@@ -15,6 +15,7 @@
  */
 
 import { readFile, writeFile, mkdir } from "fs/promises";
+import { writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { info, warn } from "./logger.ts";
 import { CONTEXT_PRUNE_AGE_ENTRIES, CONTEXT_PRUNE_MAX_CHARS, IMAGE_DEDUP_TAIL_KEEP, COMPACTION_BUDGET_THRESHOLD, COMPACTION_MIN_ENTRIES, DEFAULT_QUEUE_MODE, type QueueMode } from "./constants.ts";
@@ -22,7 +23,7 @@ import { CONTEXT_PRUNE_AGE_ENTRIES, CONTEXT_PRUNE_MAX_CHARS, IMAGE_DEDUP_TAIL_KE
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const CONVERSATIONS_DIR = join(PROJECT_ROOT, "data", "conversations");
 const MAX_ENTRIES = 20;
-const MAX_CONTENT_LENGTH = 500; // truncate ring buffer entries for context efficiency
+const MAX_CONTENT_LENGTH = 2000; // ring buffer entry limit (prompt formatting caps total at 8K)
 const MAX_ACCUMULATOR_SIZE = 50; // cap pending messages per session to prevent memory spikes
 const USER_TIMEZONE = process.env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -80,11 +81,19 @@ export async function compressOldEntries(
   const summary = await summarizeFn(prompt);
   if (!summary) return;
 
-  compressions.set(key, {
+  const compression = {
     summary,
     coveredCount: oldCount,
     generatedAt: Date.now(),
-  });
+  };
+  compressions.set(key, compression);
+
+  // Persist to disk so compression survives restarts
+  try {
+    const summaryPath = join(CONVERSATIONS_DIR, `${key}-summary.json`);
+    writeFileSync(summaryPath, JSON.stringify(compression));
+  } catch { /* non-fatal */ }
+
   info("conversation", `Compressed ${oldCount} entries for ${key} (${summary.length} chars)`);
 }
 
@@ -133,6 +142,19 @@ async function loadBuffer(key: string): Promise<ConversationEntry[]> {
     const raw = await readFile(bufferFilePath(key), "utf-8");
     const entries: ConversationEntry[] = JSON.parse(raw);
     buffers.set(key, entries);
+
+    // Load persisted compression summary if available
+    if (!compressions.has(key)) {
+      try {
+        const summaryPath = join(CONVERSATIONS_DIR, `${key}-summary.json`);
+        const summaryRaw = await readFile(summaryPath, "utf-8");
+        const compression = JSON.parse(summaryRaw) as CompressedConversation;
+        if (compression.summary && compression.coveredCount) {
+          compressions.set(key, compression);
+        }
+      } catch { /* no persisted compression, that's fine */ }
+    }
+
     return entries;
   } catch {
     const entries: ConversationEntry[] = [];
@@ -191,9 +213,10 @@ export async function getEntries(key: string): Promise<ConversationEntry[]> {
  * @param excludeLastN - Exclude the last N entries (used to avoid duplicating
  *   current-turn user messages that also appear in the accumulated messages section).
  */
-export async function formatForPrompt(key: string, excludeLastN = 0): Promise<string> {
+export async function formatForPrompt(key: string, excludeLastN = 0, maxEntries?: number): Promise<string> {
   const entries = await loadBuffer(key);
-  const show = excludeLastN > 0 ? entries.slice(0, -excludeLastN) : entries;
+  let show = excludeLastN > 0 ? entries.slice(0, -excludeLastN) : entries;
+  if (maxEntries && show.length > maxEntries) show = show.slice(-maxEntries);
   if (show.length === 0) return "";
 
   // Check if we have a valid compression for older entries

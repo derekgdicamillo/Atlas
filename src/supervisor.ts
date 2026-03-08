@@ -22,6 +22,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
 import { fireHooks } from "./hooks.ts";
 import { acquireWorktree, releaseWorktree, cleanupStaleWorktrees, getWorktree } from "./worktree.ts";
+import { writeProgressNote, buildResumeContext } from "./progress-notes.ts";
+import { getTaskStuckScore } from "./supervisor-worker.ts";
+import { buildCodexContext, EXIT_INTERVIEW_PROMPT, parseExitInterview, addLesson } from "./codex.ts";
+import { logEvent } from "./agent-events.ts";
+import { persistTask } from "./task-persistence.ts";
+import { autoRoute } from "./model-router.ts";
+import { recordTaskPerformance } from "./darwin.ts";
 
 /**
  * Graceful process termination: SIGTERM first, SIGKILL after grace period.
@@ -229,9 +236,14 @@ export const taskEvents = new EventEmitter();
 //   "task:timeout"    (task: SupervisedTask)
 //   "task:progress"   (task: SupervisedTask, update: CodeAgentProgress)
 
-/** Emit a task lifecycle event. Safe (never throws). */
+/** Emit a task lifecycle event. Safe (never throws). Dedup: skip if already announced. */
 function emitTaskEvent(event: string, task: SupervisedTask, extra?: any): void {
   try {
+    // Dedup guard: don't re-emit completion/failure for already-announced tasks
+    if (task.announced && (event === "task:completed" || event === "task:failed")) {
+      info("supervisor", `Skipping duplicate ${event} for ${task.id} (already announced)`);
+      return;
+    }
     taskEvents.emit(event, task, extra);
   } catch (err) {
     warn("supervisor", `Event emission error (${event}): ${err}`);
@@ -358,6 +370,11 @@ export function getRunningCount(): number {
 /** Exported for queue.ts to check concurrency limit */
 export function getMaxConcurrent(): number {
   return MAX_CONCURRENT_SUBAGENTS;
+}
+
+/** Exported for task-persistence sync: returns set of all local task IDs */
+export function getLocalTaskIds(): Set<string> {
+  return new Set(store.tasks.map((t) => t.id));
 }
 
 function wrapPrompt(userPrompt: string, outputFile: string): string {
@@ -729,6 +746,18 @@ export async function registerTask(opts: {
     opts.outputFile ||
     (opts.prompt ? join("data", "task-output", `${Date.now().toString(36)}.md`) : null);
 
+  // If model not explicitly set, use model router for intelligent selection
+  let selectedModel: ModelTier = opts.model || "sonnet";
+  if (!opts.model && opts.description) {
+    try {
+      const route = await autoRoute("research", opts.description);
+      selectedModel = route.model;
+      info("supervisor", `Model router: ${route.reason} -> ${route.model}`);
+    } catch {
+      // Fall back to sonnet on any error
+    }
+  }
+
   const task: SupervisedTask = {
     id: generateId(),
     description: opts.description,
@@ -745,7 +774,7 @@ export async function registerTask(opts: {
     lastCheckedAt: null,
     error: null,
     pid: null,
-    model: opts.model || "sonnet",
+    model: selectedModel,
     prompt: opts.prompt || null,
     taskType: "research",
     cwd: null,
@@ -771,6 +800,7 @@ export async function registerTask(opts: {
       task.status = "pending";
       store.tasks.push(task);
       await saveTasks();
+      persistTask(task).catch(() => {});
       info("supervisor", `Registered task: ${task.id} — ${task.description} (blocked on ${unmet.waitingOn.length} dep(s))`);
       return task.id;
     }
@@ -781,6 +811,7 @@ export async function registerTask(opts: {
       store.tasks.push(task);
       store.totalFailed++;
       await saveTasks();
+      persistTask(task).catch(() => {});
       warn("supervisor", `Task ${task.id} cascade-failed due to dependency failure`);
       emitTaskEvent("task:failed", task);
       fireHooks("task-complete", { task }).catch(() => {});
@@ -791,7 +822,9 @@ export async function registerTask(opts: {
 
   store.tasks.push(task);
   await saveTasks();
+  persistTask(task).catch(() => {}); // fire-and-forget Supabase sync
   info("supervisor", `Registered task: ${task.id} — ${task.description}`);
+  logEvent(task.id, "phase_transition", { phase: "started" });
 
   // Auto-spawn subagent if prompt and output file are available
   if (opts.prompt && task.outputFile) {
@@ -920,6 +953,41 @@ export async function completeTask(id: string, result?: string): Promise<void> {
 
   info("supervisor", `Task completed: ${task.id} — ${task.description} (${Math.round(durationMs / 1000)}s)${task.status === "completed_with_errors" ? " [with errors]" : ""}`);
   await saveTasks();
+  persistTask(task).catch(() => {}); // fire-and-forget Supabase sync
+  recordTaskPerformance({
+    taskId: task.id,
+    category: task.taskType || "research",
+    model: task.model || "sonnet",
+    timeoutMs: task.timeoutMs || 0,
+    wallClockMs: durationMs,
+    costUsd: task.costUsd || 0,
+    outcome: "success",
+    toolCalls: task.toolCallCount || 0,
+    createdAt: new Date().toISOString(),
+  }).catch(() => {});
+  logEvent(id, "completion", { exitCode: 0, costUsd: task.costUsd || undefined });
+
+  // Extract lessons from agent output (codex learning loop)
+  if (task.result && task.taskType === "code") {
+    try {
+      const lessons = parseExitInterview(task.result);
+      for (const lesson of lessons) {
+        await addLesson(
+          lesson.domain,
+          lesson.lesson,
+          lesson.guidance,
+          lesson.keywords,
+          task.id,
+          lesson.isAntipattern,
+        );
+      }
+      if (lessons.length > 0) {
+        info("supervisor", `Codex: extracted ${lessons.length} lesson(s) from task ${task.id}`);
+      }
+    } catch (err) {
+      warn("supervisor", `Codex lesson extraction failed (non-fatal): ${err}`);
+    }
+  }
 
   // Event-driven delivery (immediate, doesn't wait for cron)
   emitTaskEvent("task:completed", task);
@@ -948,6 +1016,18 @@ export async function failTask(id: string, error: string): Promise<void> {
 
   logError("supervisor", `Task failed: ${task.id} — ${task.description}: ${error} (${Math.round(durationMs / 1000)}s)`);
   await saveTasks();
+  persistTask(task).catch(() => {}); // fire-and-forget Supabase sync
+  recordTaskPerformance({
+    taskId: task.id,
+    category: task.taskType || "research",
+    model: task.model || "sonnet",
+    timeoutMs: task.timeoutMs || 0,
+    wallClockMs: durationMs,
+    costUsd: task.costUsd || 0,
+    outcome: "failure",
+    toolCalls: task.toolCallCount || 0,
+    createdAt: new Date().toISOString(),
+  }).catch(() => {});
 
   // Event-driven delivery (immediate)
   emitTaskEvent("task:failed", task);
@@ -1044,7 +1124,8 @@ export async function checkTasks(): Promise<{
     // Mid-flight progress monitoring (safeguard #1): detect stalled tasks
     if (task.pid && elapsed > task.timeoutMs * 0.5) {
       // Build a progress fingerprint from observable state
-      const fingerprint = `tc=${task.toolCallCount}|tool=${task.lastToolName}|file=${task.lastFileTouched}|cost=${task.costUsd}`;
+      const stuckScore = getTaskStuckScore(task.id);
+      const fingerprint = `tc=${task.toolCallCount}|tool=${task.lastToolName}|file=${task.lastFileTouched}|cost=${task.costUsd}|stuck=${stuckScore.toFixed(2)}`;
 
       if (task.lastOutputSample === fingerprint) {
         // Output hasn't changed since last check
@@ -1389,11 +1470,12 @@ export function getUnannouncedTasks(): SupervisedTask[] {
  */
 export async function markAnnounced(taskId: string): Promise<void> {
   const task = store.tasks.find((t) => t.id === taskId);
-  if (task) {
-    task.announced = true;
-    task.lastAnnounceAt = new Date().toISOString();
-    await saveTasks();
-  }
+  if (!task) return;
+  // Idempotent guard: skip if already announced (prevents duplicate Telegram messages)
+  if (task.announced) return;
+  task.announced = true;
+  task.lastAnnounceAt = new Date().toISOString();
+  await saveTasks();
 }
 
 /**
@@ -1590,6 +1672,7 @@ export async function cancelTask(id: string, reason?: string): Promise<boolean> 
   task.error = reason || "Cancelled by user";
   store.totalFailed++;
   await saveTasks();
+  persistTask(task).catch(() => {}); // fire-and-forget Supabase sync
   info("supervisor", `Task cancelled: ${task.id} — ${task.description}`);
   return true;
 }
@@ -2062,6 +2145,7 @@ function wrapCodePromptBase(userPrompt: string, depth = 0): string {
     "",
     "TASK:",
     userPrompt,
+    EXIT_INTERVIEW_PROMPT,
   ].join("\n");
 }
 
@@ -2116,6 +2200,16 @@ async function wrapCodePromptWithContext(opts: {
         if (guidance) {
           contextBundle.context += "\n\n" + guidance;
         }
+      }
+
+      // Inject institutional knowledge from codex
+      try {
+        const codexContext = await buildCodexContext(opts.prompt);
+        if (codexContext) {
+          contextBundle.context += "\n\n" + codexContext;
+        }
+      } catch (err) {
+        warn("supervisor", `Codex context injection failed (non-fatal): ${err}`);
       }
     }
 
@@ -2409,6 +2503,38 @@ async function streamToFile(
 
     await saveTasks();
 
+    // Write final progress note
+    writeProgressNote(taskId, {
+      phase: "complete",
+      stepsCompleted: task.toolCallCount,
+      currentStep: success ? "Task completed successfully" : `Task failed (exit ${proc.exitCode})`,
+      keyFindings: [],
+      filesModified: [],
+      costUsd: task.costUsd,
+    }).catch(() => {}); // fire-and-forget
+
+    // Extract lessons from agent output (codex learning loop)
+    if (success && task.result && task.taskType === "code") {
+      try {
+        const lessons = parseExitInterview(task.result);
+        for (const lesson of lessons) {
+          await addLesson(
+            lesson.domain,
+            lesson.lesson,
+            lesson.guidance,
+            lesson.keywords,
+            task.id,
+            lesson.isAntipattern,
+          );
+        }
+        if (lessons.length > 0) {
+          info("supervisor", `Codex: extracted ${lessons.length} lesson(s) from code agent ${task.id}`);
+        }
+      } catch (err) {
+        warn("supervisor", `Codex lesson extraction failed (non-fatal): ${err}`);
+      }
+    }
+
     // NOTE: Do NOT emit task events here. The supervisor worker (checkTasks/completeTask/failTask)
     // is the single source of truth for event emission. Emitting here caused duplicate Telegram
     // notifications due to a race between streamToFile and the supervisor worker both firing events.
@@ -2500,6 +2626,7 @@ export async function registerCodeTask(opts: RegisterCodeTaskOptions): Promise<s
   store.tasks.push(task);
   await saveTasks();
   info("supervisor", `Registered code task: ${task.id} — ${task.description} (cwd: ${opts.cwd})`);
+  logEvent(task.id, "phase_transition", { phase: "started" });
 
   // Acquire a git worktree for isolation (if cwd is a git repo).
   // Falls back gracefully to the original cwd if worktree creation fails.
@@ -2564,6 +2691,16 @@ export async function registerCodeTask(opts: RegisterCodeTaskOptions): Promise<s
       conversationContext: opts.conversationContext,
       depth,
     });
+
+    // Write initial progress note
+    writeProgressNote(task.id, {
+      phase: "explore",
+      stepsCompleted: 0,
+      currentStep: "Agent spawned, beginning work",
+      keyFindings: [],
+      filesModified: [],
+      costUsd: 0,
+    }).catch(() => {}); // fire-and-forget
   } catch (err) {
     // Clean up worktree on spawn failure
     if (task.worktreeBranch) {
@@ -2630,6 +2767,18 @@ export async function restartCodeTask(
 
   info("supervisor", `Restarting task ${failedTaskId} (attempt ${restartCount + 1}/${SUPERVISOR_MAX_RESTARTS + 1})`);
 
+  // Append structured progress notes to the attempt summary (if any exist)
+  let enrichedSummary = attemptSummary;
+  try {
+    const resumeContext = await buildResumeContext(failedTaskId);
+    if (resumeContext) {
+      enrichedSummary = attemptSummary + "\n\n" + resumeContext;
+      info("supervisor", `Injected progress notes into restart context for ${failedTaskId}`);
+    }
+  } catch (err) {
+    warn("supervisor", `Failed to build resume context for ${failedTaskId}: ${err}`);
+  }
+
   try {
     const newTaskId = await registerCodeTask({
       description: `[Retry] ${failedTask.description}`,
@@ -2638,7 +2787,7 @@ export async function restartCodeTask(
       model: failedTask.model,
       isRestart: true,
       restartOf: failedTaskId,
-      previousAttemptSummary: attemptSummary,
+      previousAttemptSummary: enrichedSummary,
       avoidPatterns: allAvoidPatterns,
     });
 
