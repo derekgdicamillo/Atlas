@@ -21,10 +21,19 @@ logs/
 # Git worktrees (parallel agent isolation)
 .worktrees/
 
+# Build outputs
+.next/
+dist/
+disttypecheck/
+
+# Package manager
+package-lock.json
+
 # Relay temp files
 .claude-relay/
 session-*.json
 .last_update_id
+.last_update_id_*
 
 # OS
 .DS_Store
@@ -40,6 +49,7 @@ supabase/.temp/
 # Test artifacts
 *.mp3
 *.ogg
+*.wav
 nul
 tmp_*
 tmp-*
@@ -47,9 +57,45 @@ test-*.ts
 atlas-out.log
 atlas-err.log
 
+# Generated images
+*.png
+
 # One-off research/analysis docs
 *-analysis.md
 *-research.md
+
+# Workspace artifacts (task outputs, temp docs)
+/ad-creative-library.md
+/ad-performance-tracker.md
+/backup-log.txt
+/canva-toxtray-search.md
+/content-performance-baseline.md
+/evolve-manual-run.md
+/father-daughter-date-night.md
+/fb-capi-event-enhancement.md
+/gbp-data-check.md
+/ghl-capi-setup.md
+/ghl-capi-testing.md
+/glp1-cme-module11-handouts.md
+/landing-page-cro-sections.md
+/landing-page-rewrite.md
+/meta-ads-feb-report.md
+/meta-ads-reassessment-feb24.md
+/nightly-evolution-20260223.md
+/skool-seed-posts.md
+/sms-booking-link-compliance.md
+/stape-capig-setup.md
+/stape-sgtm-vs-capig.md
+/teams-file-inventory.md
+/toxtray-*.md
+/vercel-deploy-error.md
+/12-week-email-series.md
+/tag-*.md
+/temp-backup*.ps1
+/Loaded
+/2-3
+/7
+/UsersderekProjects*.json
 
 # Don't commit evolved personality files to avoid merge conflicts
 # (backed up to OneDrive daily via cron)

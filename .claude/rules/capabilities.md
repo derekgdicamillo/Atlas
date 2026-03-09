@@ -14,9 +14,9 @@ WORKAROUND for custom values/trigger links: must be done manually in GHL dashboa
 CAN: list unread emails (up to 10), read full email body by ID, create drafts (Derek), send email (Atlas account), list today's calendar events, create calendar events with invites/location/description, delete calendar events by search, search contacts by name (max 5), list recent contacts (max 20)
 CANNOT: send from Derek's email (only draft), search email by custom query (only unread inbox), read attachments, modify existing calendar events (only create/delete), modify contacts, access Atlas inbox
 
-## Dashboard - read-only via PV Dashboard API (QuickBooks + GHL + Meta)
-CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics), pipeline stats (stages, close rate, show rate, stale leads), overview (leads, ad spend, CTR, CPL), speed-to-lead (percentiles), attribution by source, deep financials (category breakdown), financial anomaly detection
-CANNOT: write to QuickBooks, modify any records
+## Dashboard - Supabase business_scorecard (primary) + GHL direct (pipeline) + legacy API (fallback)
+CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase, pipeline stats (stages, close rate, show rate, stale leads) via GHL direct, overview (leads, ad spend, CTR, CPL) via Supabase daily aggregates + GHL, deep financials (category breakdown, anomaly detection) via Supabase, financial anomaly detection
+CANNOT: write to QuickBooks, modify any records, speed-to-lead (removed from dashboard, not in scorecard), attribution by source (removed from dashboard, not in scorecard)
 COMMANDS: /finance [deep], /pipeline, /scorecard, /pulse, /leads [days], /stl, /ops
 
 ## GBP (Google Business Profile) - read-only (API posts rejected by Google)
