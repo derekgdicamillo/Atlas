@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@azure/msal-node": "^5.0.4",
+    "@google/genai": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@supabase/supabase-js": "^2.45.0",
     "cron": "^4.4.0",

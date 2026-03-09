@@ -24,6 +24,7 @@ This skill runs non-interactively via cron (`claude -p`). There is no human on t
 - Auto-select ALL parameters (pillar, subtopic, format, audience) using the rotation state and the rules below.
 - Your ONLY output must be the finished content waterfall text. Nothing else.
 - If any data is missing or a file doesn't exist, use sensible defaults and proceed. Never stop to ask.
+- NEVER fabricate specific patient stories with invented details (age, weight numbers, timelines, specific outcomes). General clinical observations are OK ("I see this three times a week," "patients often tell me"). If a real patient story is needed, Derek will provide it. Fabricated anecdotes erode trust and read as fake.
 
 ## Task
 
@@ -121,7 +122,7 @@ You MUST pick the format yourself. Rotate the format so it differs from the last
 
 1. **Educational deep dive** (primary format, 500-800 words) - thorough explanation of the concept
 2. **Myth-buster** (200-300 words) - "Myth: X. Reality: Y" structure with evidence
-3. **Patient story / transformation** (anonymized composite) - narrative arc showing change
+3. **Transformation / clinical observation** - general patterns Derek sees in clinic (e.g. "I hear this from patients," "I see this three times a week"). NEVER fabricate specific patient anecdotes with invented details (age, weight numbers, timelines, outcomes). Those read as fake and erode trust.
 4. **Challenge post** (7-day action challenge) - daily micro-actions readers can follow
 5. **Weekly check-in / engagement prompt** - open-ended question that invites sharing
 6. **Research breakdown** (cite a recent study) - accessible summary of clinical evidence
@@ -143,6 +144,7 @@ Read `memory/voice-guide.md` and apply ALL rules throughout the content. Key rul
 - Collaborative tone: "we'll work together" not "you should do X."
 - Personal anecdotes use complete first-person sentences, not fragments.
 - Celebrate non-scale victories alongside scale progress.
+- **Patient stories rule**: General clinical observations are OK ("I hear this from patients," "I see this probably three times a week"). NEVER fabricate specific patient anecdotes with invented details (age, weight numbers, timelines, outcomes). If citing a real patient story, Derek will provide it.
 
 ## Step 6: Generate the Waterfall
 
@@ -169,8 +171,14 @@ Each post is 100-200 words with a different hook style:
 Each Facebook post should:
 - Stand alone (don't assume reader saw the Skool post)
 - End with a soft CTA (comment, share, or visit link)
-- Include an **image prompt** for Gemini generation: a short description of a relevant, on-brand image (clean, medical-professional, warm tones, no stock-photo feel)
 - Include an **X (Twitter) version**: condensed to under 280 characters. Same core message, punchy and direct. No hashtags needed.
+- Output a `[GEMINI_IMAGE:]` tag AFTER the post copy. The image prompt must be DERIVED from the hook's specific content (not generic). Read `memory/brand-style-guide.md` for image prompt engineering rules and banned elements. Each prompt must:
+  1. Start with the image category (lifestyle, educational, authority, offer, community). Infer from the hook content.
+  2. Include specific subject and setting description drawn from what the hook talks about.
+  3. Include lighting direction ("warm natural light", "golden hour Arizona", etc.)
+  4. Include brand color reference when relevant ("accent color PV teal #6CC3E0")
+  5. End with "high quality, professional photography style, no watermarks, square 1:1"
+  6. Validate against banned elements: no InBody/DEXA (use "body comp scale"), no brand drug names (Ozempic/Wegovy/Mounjaro/Zepbound), no syringes, no before/after splits, no stock-photo style
 
 ### 6c. Email Newsletter
 
@@ -247,20 +255,20 @@ X VERSION (SKOOL TEASER): [under 280 chars, teases the Skool post topic]
 FACEBOOK POST 1 - Pain Point Hook
 ----------------------------------
 [Content]
-Image prompt: [description]
 X VERSION: [under 280 chars]
+[GEMINI_IMAGE: category + subject/setting derived from this hook's content + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 FACEBOOK POST 2 - Curiosity Hook
 ---------------------------------
 [Content]
-Image prompt: [description]
 X VERSION: [under 280 chars]
+[GEMINI_IMAGE: category + subject/setting derived from this hook's content + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 FACEBOOK POST 3 - Transformation Hook
 --------------------------------------
 [Content]
-Image prompt: [description]
 X VERSION: [under 280 chars]
+[GEMINI_IMAGE: category + subject/setting derived from this hook's content + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 EMAIL NEWSLETTER
 ----------------

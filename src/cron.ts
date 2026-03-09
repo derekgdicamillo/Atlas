@@ -42,6 +42,7 @@ import { emit as emitAlert, deliver as deliverAlerts } from "./alerts.ts";
 import { checkAppointmentReminders, cleanupStaleReminderTags, getShowRateDigest } from "./show-rate.ts";
 import { isEffectivelyPaused, shouldSuppressAnnouncement, recordSuppressedTask } from "./automation-pause.ts";
 import { critiqueContent, formatCriticReport } from "./content-critic.ts";
+import { processGeminiIntents, isGeminiReady } from "./gemini-image.ts";
 import { runNightShiftPlanner, runNightShiftWorker, getNightShiftReport } from "./night-shift.ts";
 import { trackContentGeneration } from "./content-tracker.ts";
 import { runStrategicMemo } from "./strategic-memo.ts";
@@ -415,6 +416,22 @@ async function sendTelegramMessage(chatId: string, text: string, threadId?: numb
   }
 }
 
+/** Send a photo to a Telegram chat via Bot API. */
+async function sendTelegramPhoto(chatId: string, filePath: string): Promise<void> {
+  if (!BOT_TOKEN || !chatId) return;
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append("photo", Bun.file(filePath));
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+      method: "POST",
+      body: form,
+    });
+  } catch (err) {
+    log("telegram", `Failed to send photo: ${err}`);
+  }
+}
+
 // ============================================================
 // JOB DEFINITIONS
 // ============================================================
@@ -582,6 +599,26 @@ jobs.push(
           ? `Content Waterfall:\n\n${summary}${criticTelegram}\n\n${statusLine}`
           : `Content Waterfall:\n\n${summary}${criticTelegram}`;
         await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
+
+        // Process any GEMINI_IMAGE tags in the waterfall output
+        if (isGeminiReady()) {
+          try {
+            const geminiResult = await processGeminiIntents(result);
+            for (const imgPath of geminiResult.imagePaths) {
+              try {
+                await sendTelegramPhoto(DEREK_CHAT_ID, imgPath);
+              } catch (imgErr) {
+                warn("content-engine", `Failed to send image: ${imgErr}`);
+              }
+            }
+            if (geminiResult.imagePaths.length > 0) {
+              log("content-engine", `Generated ${geminiResult.imagePaths.length} image(s) from waterfall`);
+            }
+          } catch (e) {
+            warn("content-engine", `Gemini image processing failed: ${e}`);
+          }
+        }
+
         log("content-engine", `Sent to Derek (vault: ${!!vaultPath}, email: ${emailed})`);
       } else {
         log("content-engine", "No output generated");
@@ -646,7 +683,24 @@ jobs.push(
         const criticHeader = critic.passed
           ? `<!-- Content Critic: PASSED (${Math.round(critic.overallScore * 100)}%) -->\n\n`
           : `<!-- Content Critic: FLAGGED (${Math.round(critic.overallScore * 100)}%) — ${critic.issues.join("; ")} -->\n\n`;
-        const draftContent = criticHeader + criticBlock + "\n\n---\n\n" + result;
+        // Process GEMINI_IMAGE tags — save images but don't send to Telegram at 11:30 PM
+        let imagePaths: string[] = [];
+        if (isGeminiReady()) {
+          try {
+            const geminiResult = await processGeminiIntents(result);
+            imagePaths = geminiResult.imagePaths;
+            if (imagePaths.length > 0) {
+              log("overnight-content", `Generated ${imagePaths.length} image(s) from overnight draft`);
+            }
+          } catch (e) {
+            warn("overnight-content", `Gemini image processing failed: ${e}`);
+          }
+        }
+
+        const imageNote = imagePaths.length > 0
+          ? `\n\n<!-- Generated images: ${imagePaths.join(", ")} -->`
+          : "";
+        const draftContent = criticHeader + criticBlock + "\n\n---\n\n" + result + imageNote;
         writeFileSync(join(CONTENT_DRAFTS_DIR, draftFilename), draftContent, "utf-8");
         log("overnight-content", `Saved draft: ${draftFilename} (critic: ${critic.passed ? "PASSED" : "FLAGGED"})`);
       } else {
@@ -1041,7 +1095,8 @@ jobs.push(
         `4. Suggested image concept\n\n` +
         `Format each post clearly with headers: POST 1 (Mon), POST 2 (Wed), POST 3 (Fri).\n` +
         `Under each, include sections: FACEBOOK:, X VERSION:, PILLAR:, IMAGE IDEA:\n` +
-        `Apply /humanizer principles (no AI smell, no em dashes, Derek's voice).` +
+        `Apply /humanizer principles (no AI smell, no em dashes, Derek's voice).\n` +
+        `PATIENT STORIES RULE: General clinical observations OK ("I hear this from patients"). NEVER fabricate specific patient anecdotes with invented details (age, weight, timelines). Those read as fake.\n` +
         pulseContext;
 
       const contentResult = await runPrompt(weekPrompt, MODELS.sonnet);
@@ -1691,10 +1746,10 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
-  // Stale lead reactivation: twice daily (10 AM, 3 PM), scan for leads
-  // sitting >7 days in early pipeline stages and trigger re-engagement.
-  // Recovers leads that would otherwise be lost to inaction.
-  if (isGHLReady()) {
+  // Stale lead reactivation: DISABLED 2026-03-09 per Derek.
+  // Many "stale" leads are actually waiting for scheduled consults, not truly stale.
+  // Needs reworked logic to exclude leads with upcoming appointments before re-enabling.
+  if (false && isGHLReady()) {
     jobs.push(
       CronJob.from({
         cronTime: "0 10,15 * * 1-5",
@@ -2019,6 +2074,26 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           if (result) {
             // Send a brief notification (not the full memo)
             await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Content Hooks** ready.\nSee memory/marketing/content-hooks/ for 3 new hook ideas.`);
+
+            // Process any GEMINI_IMAGE tags in the hooks memo
+            if (isGeminiReady()) {
+              try {
+                const geminiResult = await processGeminiIntents(result);
+                for (const imgPath of geminiResult.imagePaths) {
+                  try {
+                    await sendTelegramPhoto(DEREK_CHAT_ID, imgPath);
+                  } catch (imgErr) {
+                    warn("midas-hooks", `Failed to send image: ${imgErr}`);
+                  }
+                }
+                if (geminiResult.imagePaths.length > 0) {
+                  log("midas-hooks", `Generated ${geminiResult.imagePaths.length} image(s) from hooks memo`);
+                }
+              } catch (e) {
+                warn("midas-hooks", `Gemini image processing failed: ${e}`);
+              }
+            }
+
             log("midas-hooks", "Content hooks memo complete");
           }
         } catch (err) {

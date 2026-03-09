@@ -28,7 +28,7 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - Weight loss landing page: https://landing.pvmedispa.com/weightloss
 
 ## Business Performance
-- 2025: ~$670k revenue, ~$97k net profit
+- 2025: $668K revenue, ~$97k net profit (QB-validated 03-08)
 - 2026 target: 30% net margin
 - 2026 focus: YouTube/content creation + optimizing/scaling Facebook ads
 - Strategic fork: scale local clinic vs telemedicine; Skool group as patient value-add vs standalone product
@@ -98,3 +98,4 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - 2026-03-05: Generalized agent restart loss pattern (research agents lost to overnight restart in 03-04 session; Gemini note was too narrow -- any long-running agent is at risk across restarts)
 - 2026-03-05: Added WP relay env dependency note (WP credentials changed mid-session 03-04; relay tags silently failed until Atlas restarted; username slug format required)
 - 2026-03-05: Added peptide program to business context (full 6-phase build completed 03-04; July 2026 launch; materials on OneDrive)
+

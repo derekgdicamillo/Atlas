@@ -88,6 +88,24 @@ Suggest 3 CTA options ranked by friction level:
 - Medium friction (book free consult, take the quiz)
 - High friction (schedule appointment, call now)
 
+## Step 4b: Image Generation
+
+Generate a matching ad image for each ad copy variant (A, B, C). Read `memory/brand-style-guide.md` for brand rules and prompt structure. The image prompt must be derived from each variant's specific copy content and visual direction.
+
+For each variant:
+
+1. Classify the image into one of the 5 brand categories (lifestyle, educational, authority, offer, community) based on what the ad copy describes
+2. Build a Gemini-optimized prompt following the brand guide's prompt engineering rules:
+   - Start with the image category
+   - Include specific subject, setting, and lighting direction derived from the ad copy
+   - Reference brand colors when relevant (PV teal #6CC3E0)
+   - End with "high quality, professional photography style, no watermarks"
+   - Specify aspect ratio (square 1:1 for feed, vertical 9:16 for Stories)
+3. Validate against banned elements (no InBody/DEXA, no brand drug names like Ozempic/Wegovy/Mounjaro/Zepbound, no before/after splits, no syringes, no stock-photo style)
+4. Output the prompt as a `[GEMINI_IMAGE:]` tag immediately after the variant's copy
+
+Images auto-save to `data/images/` and copy to OneDrive (`02_Marketing/Ad_Creative/Ad Images/`). They also send to Telegram for preview.
+
 ## Step 5: A/B Testing Plan
 
 For each of the 3 ad copy variants, provide:
@@ -137,16 +155,19 @@ VARIANT A - SHORT (retargeting/warm)
 -------------------------------------
 [Copy]
 CTA: [action]
+[GEMINI_IMAGE: category + subject/setting derived from this variant's copy + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 VARIANT B - MEDIUM (cold/education)
 ------------------------------------
 [Copy]
 CTA: [action]
+[GEMINI_IMAGE: category + subject/setting derived from this variant's copy + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 VARIANT C - LONG (cold/trust-building)
 ---------------------------------------
 [Copy]
 CTA: [action]
+[GEMINI_IMAGE: category + subject/setting derived from this variant's copy + lighting + brand color ref + "high quality, professional photography style, no watermarks, square 1:1"]
 
 VISUAL DIRECTION
 ----------------

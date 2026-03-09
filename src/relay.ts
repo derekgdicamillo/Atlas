@@ -233,6 +233,11 @@ import {
   isBrowserReady,
   processBrowserIntents,
 } from "./browser.ts";
+import {
+  initGemini,
+  isGeminiReady,
+  processGeminiIntents,
+} from "./gemini-image.ts";
 import { runPrompt } from "./prompt-runner.ts";
 import { formatPulse } from "./metrics-engine.ts";
 import {
@@ -472,6 +477,13 @@ if (derekOAuth && initGA4(derekOAuth)) {
   info("startup", "Google Analytics 4 integration initialized");
 } else {
   info("startup", "GA4 not configured (missing GA4_PROPERTY_ID)");
+}
+
+// Initialize Gemini image generation (optional, API key only)
+if (initGemini()) {
+  info("startup", "Gemini image generation initialized");
+} else {
+  info("startup", "Gemini not configured (missing GEMINI_API_KEY)");
 }
 
 // Load mode configurations (social, marketing, skool)
@@ -3274,6 +3286,21 @@ async function handleUserMessage(
         } catch (e) { warn("intents", `processBrowserIntents failed: ${e}`); }
       }
 
+      // Gemini image generation tags
+      if (isGeminiReady()) {
+        try {
+          const geminiResult = await processGeminiIntents(response);
+          response = geminiResult.cleanedResponse;
+          for (const imgPath of geminiResult.imagePaths) {
+            try {
+              await ctx.replyWithPhoto(new InputFile(imgPath));
+            } catch (imgErr) {
+              warn("gemini", `Failed to send image ${imgPath}: ${imgErr}`);
+            }
+          }
+        } catch (e) { warn("intents", `processGeminiIntents failed: ${e}`); }
+      }
+
       // Tox Tray business operator tags
       if (featureFlags.canva) {
         try { response = await processCanvaIntents(response); }
@@ -4359,6 +4386,14 @@ function buildPrompt(
       "\nFill form field: [BROWSE_FILL: https://example.com | @e2 | text to type]" +
       "\nPrefer WebFetch for simple content reads. Use BROWSE for JS-rendered pages, form interaction, or screenshots." +
       "\nFor multi-step interactive browsing (navigate, inspect, decide, act), use the /browser skill instead."
+    ));
+  }
+
+  if (isGeminiReady() && (intent.marketing || intent.coding) && budgetRemaining() > 300) {
+    parts.push(addSection("gemini_tags",
+      "\nIMAGE GENERATION (Gemini, sent to Telegram):" +
+      "\nGenerate: [GEMINI_IMAGE: detailed prompt describing the image to create]" +
+      "\nWrite rich, descriptive prompts for best results. One tag per image. Image is auto-delivered to chat."
     ));
   }
 

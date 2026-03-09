@@ -767,6 +767,13 @@ Classify each hook by type: ELIG (eligibility), CURI (curiosity), PAIN (pain poi
 - **Why now:** [What trend or news makes this timely]
 - **Ad copy starter:** [2-3 sentence hook that could open an ad or post]
 - **Visual suggestion:** [IMG/VID/UGC/GFX/TST/CRS + brief description]
+- **Image prompt** (for IMG types only, skip VID/UGC): Output a [GEMINI_IMAGE: ...] tag. The prompt must be DERIVED from the hook's ad copy starter content. Follow these rules:
+  - Start with image category (lifestyle/educational/authority/offer/community)
+  - Include specific subject and setting description drawn from the hook content
+  - Include lighting direction ("warm natural light", "golden hour Arizona", etc.)
+  - Reference brand color PV teal #6CC3E0 when relevant
+  - End with "high quality, professional photography style, no watermarks, square 1:1"
+  - BANNED elements: no InBody/DEXA (use "body comp scale"), no brand drug names (Ozempic/Wegovy/Mounjaro/Zepbound), no syringes, no before/after splits, no stock-photo style
 
 ### Hook 2: [Title]
 (same structure)

@@ -240,6 +240,7 @@ export const SENTINEL_TAG_PATTERNS = [
   /\[BROWSE_SCREENSHOT:\s*[^\]]*\]/gi,
   /\[BROWSE_CLICK:\s*[^\]]*\]/gi,
   /\[BROWSE_FILL:\s*[^\]]*\]/gi,
+  /\[GEMINI_IMAGE:\s*[^\]]*\]/gi,
 ];
 
 // ============================================================
