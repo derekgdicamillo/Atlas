@@ -77,12 +77,17 @@ export async function otterLogin(): Promise<OtterSession> {
   const url = `${API_BASE}login?username=${encodeURIComponent(email)}`;
 
   const res = await fetch(url, {
-    headers: { Authorization: authHeader },
-    redirect: "manual",
+    headers: {
+      Authorization: authHeader,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Referer: "https://otter.ai/",
+      Origin: "https://otter.ai",
+    },
   });
 
   if (!res.ok) {
-    throw new Error(`Otter login failed: ${res.status} ${res.statusText}`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`Otter login failed: ${res.status} ${body.substring(0, 200)}`);
   }
 
   const data = await res.json();
@@ -94,6 +99,8 @@ export async function otterLogin(): Promise<OtterSession> {
     cookies,
     headers: {
       Cookie: cookieString(cookies),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Referer: "https://otter.ai/",
     },
   };
 
