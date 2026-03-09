@@ -68,9 +68,11 @@ function cookieString(cookies: Record<string, string>): string {
 
 export async function otterLogin(): Promise<OtterSession> {
   const email = process.env.OTTER_EMAIL;
-  const password = process.env.OTTER_PASSWORD;
+  // Password stored as base64 to avoid dotenv mangling special chars ($$)
+  const pwB64 = process.env.OTTER_PASSWORD_B64;
+  const password = pwB64 ? atob(pwB64) : process.env.OTTER_PASSWORD;
   if (!email || !password) {
-    throw new Error("OTTER_EMAIL and OTTER_PASSWORD env vars required");
+    throw new Error("OTTER_EMAIL and OTTER_PASSWORD_B64 env vars required");
   }
 
   const authHeader = "Basic " + btoa(`${email}:${password}`);
