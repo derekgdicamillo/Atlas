@@ -50,6 +50,7 @@ import { decayStaleEntries } from "./codex.ts";
 import { cleanupOldEvents } from "./agent-events.ts";
 import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./ad-tracker.ts";
 import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
+import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -219,6 +220,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "progress-cleanup": 60 * 1000,      //  1 min — delete old progress notes
   "event-cleanup":   60 * 1000,       //  1 min — delete old agent event logs
   "journal-ingest":  5 * 60 * 1000,   //  5 min — ingest journals to searchable store
+  "daily-scorecard": 2 * 60 * 1000, //  2 min — daily business scorecard to Supabase
   "midas-funnel":    3 * 60 * 1000, //  3 min — daily funnel conversion monitor
   "midas-digest":    3 * 60 * 1000, //  3 min — daily ad performance digest
   "midas-attribution": 5 * 60 * 1000, //  5 min — weekly full-funnel attribution
@@ -1845,6 +1847,30 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
             log("lead-volume", "Today: " + todayLeads.length + " leads (avg: " + dailyAvg.toFixed(1) + "). Sources: " + (srcSummary || "none"));
           } catch (err) {
             logError("cron", "Lead volume monitoring failed: " + err);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // Daily business scorecard: 9:15 PM daily
+  // Snapshots funnel + pipeline metrics to Supabase business_scorecard table.
+  // Runs after ad-tracker (9 PM) so Meta data is fresh.
+  if (supabase) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "15 21 * * *",
+        onTick: safeTick("daily-scorecard", async () => {
+          try {
+            const result = await captureDailyScorecard(supabase!);
+            if (result) {
+              log("daily-scorecard", `Captured: ${result.leads} leads, $${result.ad_spend} spend, ${result.show_rate}% show`);
+            } else {
+              warn("daily-scorecard", "Capture returned null (Supabase write may have failed)");
+            }
+          } catch (err) {
+            logError("cron", `Daily scorecard capture failed: ${err}`);
           }
         }),
         timeZone: TIMEZONE,
