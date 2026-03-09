@@ -86,7 +86,8 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
       "financial anomaly detection",
     ],
     cannot: ["write to QuickBooks", "modify any records"],
-    module: "src/dashboard.ts",
+    commands: "/finance [deep], /pipeline, /scorecard, /pulse, /leads [days], /stl, /ops",
+    module: "src/dashboard.ts, src/metrics-engine.ts",
   },
   {
     section: "GBP (Google Business Profile)",

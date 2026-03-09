@@ -233,6 +233,7 @@ import {
   processBrowserIntents,
 } from "./browser.ts";
 import { runPrompt } from "./prompt-runner.ts";
+import { formatPulse } from "./metrics-engine.ts";
 import {
   setCacheRef,
   scoreSalience,
@@ -1582,6 +1583,22 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       } catch (err) {
         logError("dashboard", `Scorecard command failed: ${err}`);
         await ctx.reply(`Failed to build scorecard: ${err}`);
+      }
+      return true;
+    }
+
+    case "/pulse": {
+      if (!supabase) {
+        await ctx.reply("Supabase not configured.");
+        return true;
+      }
+      await ctx.replyWithChatAction("typing");
+      try {
+        const text = await formatPulse(supabase);
+        await ctx.reply(text);
+      } catch (err) {
+        logError("dashboard", `Pulse command failed: ${err}`);
+        await ctx.reply(`Failed to build pulse: ${err}`);
       }
       return true;
     }

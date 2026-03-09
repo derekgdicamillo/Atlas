@@ -6,7 +6,7 @@ These are handled directly by the bot (not Claude skills). Know what each does w
 `/restart` `/status` `/costs` `/ping` `/model [name]` `/timeout [ms]` `/session [reset|info]` `/help`
 
 ## Business Intelligence
-`/finance [deep]` `/pipeline` `/scorecard` `/leads [days]` `/stl` `/ops`
+`/finance [deep]` `/pipeline` `/scorecard` `/pulse` `/leads [days]` `/stl` `/ops`
 
 ## CRM (GoHighLevel)
 `/messages <name>` `/sms <name>` `/appointments [days]` `/appts` `/workflows` `/graph [type|search <term>]`

@@ -17,6 +17,7 @@ CANNOT: send from Derek's email (only draft), search email by custom query (only
 ## Dashboard - read-only via PV Dashboard API (QuickBooks + GHL + Meta)
 CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics), pipeline stats (stages, close rate, show rate, stale leads), overview (leads, ad spend, CTR, CPL), speed-to-lead (percentiles), attribution by source, deep financials (category breakdown), financial anomaly detection
 CANNOT: write to QuickBooks, modify any records
+COMMANDS: /finance [deep], /pipeline, /scorecard, /pulse, /leads [days], /stl, /ops
 
 ## GBP (Google Business Profile) - read-only (API posts rejected by Google)
 CAN: read reviews (count, rating, distribution, unreplied, 30d velocity, recent snippets), performance metrics (impressions, clicks, calls, directions, bookings, search vs maps split), top 20 search keywords
