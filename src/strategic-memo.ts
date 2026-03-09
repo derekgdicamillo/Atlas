@@ -15,6 +15,7 @@ import { runPrompt } from "./prompt-runner.ts";
 import { MODELS } from "./constants.ts";
 import { info, warn } from "./logger.ts";
 import { isGHLReady, getOpsSnapshot, searchContacts, addTagToContact, removeTagFromContact } from "./ghl.ts";
+import { getFinancials, isDashboardReady } from "./dashboard.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -189,28 +190,32 @@ export async function runStrategicMemo(): Promise<string> {
   const outputs = getWeekOutputs();
   const systemHealth = await getLiveSystemHealth();
 
-  // Load canonical business metrics at runtime
-  let businessContext = "(business-metrics.json not found)";
+  // Load canonical business metrics from Supabase business_scorecard
+  let businessContext = "(business_scorecard not available)";
   try {
-    const metricsPath = join(DATA_DIR, "business-metrics.json");
-    if (existsSync(metricsPath)) {
-      const m = JSON.parse(readFileSync(metricsPath, "utf-8"));
-      businessContext = [
-        `- Revenue: $${Math.round(m.revenue.annual2025_quickbooks / 1000)}K (QB) / $${Math.round(m.revenue.annual2025_invoices_collected / 1000)}K (invoices) in 2025`,
-        `- Net income: $${m.profitability.netIncome2025.toLocaleString()} (${m.profitability.netMargin2025}% margin), targeting 30% net margin in 2026`,
-        `- Active patients: ${m.patients.activePatients} (${m.patients.membershipLines} membership lines)`,
-        `- Monthly churn: ${m.churn.monthlyChurnRate}% | Close rate: ${m.pipeline.closeRate_wonOverTotal}% (won/total)`,
-        `- Meta Ads 2025 avg: $${Math.round(m.acquisition.metaAds2025.monthlyAvgSpend)}/mo spend, $${m.acquisition.metaAds2025.overallCPL} CPL, ${m.acquisition.metaAds2025.monthlyAvgLeads} leads/mo`,
-        `- CAC: $${m.unitEconomics.cac} | LTV:CAC: ${m.unitEconomics.ltvCacRatio}x`,
-        "- Core services: GLP-1 weight loss, functional medicine, aesthetics",
-        "- Peptide therapy launching July 2026",
-        "- Marketing: Facebook ads, Google, YouTube/content creation focus",
-        "- Community: Vitality Unchained (Skool group, currently inactive)",
-        "- Midas marketing agent: 7 cron jobs live (funnel monitor, ad digest, attribution, content hooks, competitor recon, GBP drafts, monthly brief)",
-      ].join("\n");
+    if (isDashboardReady()) {
+      const fin = await getFinancials("month");
+      if (fin?.currentMonth) {
+        const cm = fin.currentMonth;
+        const ue = fin.unitEconomics;
+        businessContext = [
+          `- Revenue: $${Math.round((cm.revenue || 0) / 1000)}K this month`,
+          `- Net margin: ${cm.profitMargin ? (cm.profitMargin * 100).toFixed(1) : "N/A"}%`,
+          `- Active patients: ${cm.totalPatients || "N/A"}`,
+          `- Monthly churn: ${ue?.churnRate ? (ue.churnRate * 100).toFixed(1) : "N/A"}%`,
+          `- Close rate: ${cm.closeRate ? (cm.closeRate * 100).toFixed(1) : "N/A"}%`,
+          `- Ad spend: $${Math.round(cm.adSpend || 0)} | CPL: $${Math.round(cm.costPerLead || 0)}`,
+          `- CAC: $${Math.round(ue?.cac || 0)} | LTV:CAC: ${ue?.ltvCacRatio?.toFixed(1) || "N/A"}x`,
+          "- Core services: GLP-1 weight loss, functional medicine, aesthetics",
+          "- Peptide therapy launching July 2026",
+          "- Marketing: Facebook ads, Google, YouTube/content creation focus",
+          "- Community: Vitality Unchained (Skool group, currently inactive)",
+          "- Midas marketing agent: 7 cron jobs live (funnel monitor, ad digest, attribution, content hooks, competitor recon, GBP drafts, monthly brief)",
+        ].join("\n");
+      }
     }
   } catch {
-    businessContext = "- Revenue ~$668K in 2025, targeting 30% net margin in 2026\n- (Could not load business-metrics.json for full context)";
+    businessContext = "- (Could not load business metrics from Supabase. Check dashboard.ts init.)";
   }
 
   const prompt = `You are Atlas, strategic advisor to Derek DiCamillo (FNP, owner of PV MediSpa & Weight Loss in Prescott Valley, AZ).
@@ -231,7 +236,7 @@ ${systemHealth}
 
 IMPORTANT: The system health section above reflects the CURRENT state of integrations, checked live seconds ago. If journals mention API errors or broken systems but the live health check shows HEALTHY, trust the live check. Do NOT recommend fixing something that is already working.
 
-## Business Context (from validated data/business-metrics.json)
+## Business Context (from Supabase business_scorecard)
 ${businessContext}
 
 ## Memo Rules

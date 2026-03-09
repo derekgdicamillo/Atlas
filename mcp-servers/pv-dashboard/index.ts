@@ -17,12 +17,13 @@
  *   }
  * }
  *
- * Env: DASHBOARD_API_TOKEN, DASHBOARD_URL (optional, defaults to Vercel)
+ * Env: SUPABASE_URL, SUPABASE_ANON_KEY (primary), DASHBOARD_API_TOKEN (fallback)
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { log, warn, error as logError } from "../shared/logger.js";
 import { formatMcpError } from "../shared/errors.js";
 import { TTLCache, withCache } from "../shared/cache.js";
@@ -52,10 +53,21 @@ let initialized = false;
 async function ensureInit(): Promise<void> {
   if (initialized) return;
 
-  const { initDashboard, isDashboardReady } = await import("../../src/dashboard.ts");
+  const { initDashboard, isDashboardReady, setDashboardSupabase } = await import("../../src/dashboard.ts");
+
+  // Primary: Supabase direct queries (same pattern as relay.ts)
+  const sbUrl = process.env.SUPABASE_URL;
+  const sbKey = process.env.SUPABASE_ANON_KEY;
+  if (sbUrl && sbKey) {
+    const supabase = createClient(sbUrl, sbKey);
+    setDashboardSupabase(supabase);
+    log(SERVER, "Supabase client initialized (primary data source)");
+  }
+
+  // Legacy fallback: dashboard API token
   const ok = initDashboard();
-  if (!ok || !isDashboardReady()) {
-    throw new Error("Dashboard init failed. Check DASHBOARD_API_TOKEN env var.");
+  if (!isDashboardReady()) {
+    throw new Error("Dashboard init failed. Need SUPABASE_URL+SUPABASE_ANON_KEY or DASHBOARD_API_TOKEN.");
   }
   initialized = true;
   log(SERVER, "Dashboard module initialized");

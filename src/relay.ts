@@ -177,6 +177,7 @@ import {
 } from "./executive.ts";
 import {
   initDashboard,
+  setDashboardSupabase,
   isDashboardReady,
   getFinancials,
   getPipeline,
@@ -441,11 +442,14 @@ initMeta().then((ready) => {
   }
 });
 
-// Initialize PV Dashboard integration (optional)
+// Initialize PV Dashboard integration — Supabase is primary data source
+if (supabase) {
+  setDashboardSupabase(supabase);
+}
 if (initDashboard()) {
-  info("startup", "PV Dashboard integration initialized");
+  info("startup", "PV Dashboard integration initialized" + (supabase ? " (Supabase primary)" : ""));
 } else {
-  info("startup", "PV Dashboard not configured (missing DASHBOARD_API_TOKEN)");
+  info("startup", "PV Dashboard not configured (no Supabase or DASHBOARD_API_TOKEN)");
 }
 
 // Initialize GoHighLevel direct integration (optional)

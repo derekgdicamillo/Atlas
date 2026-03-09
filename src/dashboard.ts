@@ -1,24 +1,27 @@
 /**
  * Atlas — PV Dashboard Integration
  *
- * Connects to the PV Dashboard API (Next.js on Vercel) to surface
- * financial, pipeline, and marketing data directly in Telegram.
+ * Primary data source: Supabase business_scorecard table.
+ * Secondary: GHL ops snapshot (for pipeline stage detail).
+ * Fallback: Dashboard API (legacy, endpoints removed 2026-03-08).
  *
- * The dashboard already integrates GoHighLevel (CRM), Meta Ads,
- * and QuickBooks Online. Atlas reads from these aggregated endpoints
- * rather than re-implementing each integration.
- *
- * Auth: Bearer token via DASHBOARD_API_TOKEN env var.
+ * All exported types and function signatures are preserved so that
+ * executive.ts, monitor.ts, relay.ts, and MCP consumers work unchanged.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { info, warn, error as logError } from "./logger.ts";
 import { dashboardBreaker } from "./circuit-breaker.ts";
+import { isGHLReady, getOpsSnapshot } from "./ghl.ts";
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "https://pv-dashboard-ten.vercel.app";
 const API_TOKEN = process.env.DASHBOARD_API_TOKEN || "";
 
+// Supabase client, set by relay.ts at startup via setDashboardSupabase()
+let _supabase: SupabaseClient | null = null;
+
 // ============================================================
-// TYPES
+// TYPES (unchanged — all consumers depend on these)
 // ============================================================
 
 export interface FinancialSnapshot {
@@ -143,40 +146,176 @@ export interface AttributionSnapshot {
 // INIT
 // ============================================================
 
+/**
+ * Set the Supabase client for direct scorecard queries.
+ * Called by relay.ts at startup.
+ */
+export function setDashboardSupabase(client: SupabaseClient): void {
+  _supabase = client;
+  info("dashboard", "Supabase client set for direct scorecard queries");
+}
+
 export function isDashboardReady(): boolean {
-  return !!API_TOKEN;
+  return !!_supabase || !!API_TOKEN;
 }
 
 export function initDashboard(): boolean {
+  if (_supabase) {
+    info("dashboard", "Dashboard ready via Supabase direct connection");
+    return true;
+  }
   if (!API_TOKEN) {
-    warn("dashboard", "DASHBOARD_API_TOKEN not set. Dashboard integration disabled.");
+    warn("dashboard", "No Supabase or DASHBOARD_API_TOKEN. Dashboard integration disabled.");
     return false;
   }
   info("dashboard", `Dashboard integration ready: ${DASHBOARD_URL}`);
   return true;
 }
 
-/** Quick auth check. Returns true if token is valid, false if 401/403. */
 export async function checkDashboardHealth(): Promise<boolean> {
-  if (!API_TOKEN) return false;
-  try {
-    const res = await fetch(new URL("/api/metrics/overview", DASHBOARD_URL).toString(), {
-      headers: { Authorization: `Bearer ${API_TOKEN}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (res.status === 401 || res.status === 403) {
-      logError("dashboard", `Health check failed: ${res.status}. DASHBOARD_API_TOKEN may be stale.`);
-      return false;
-    }
-    return res.ok;
-  } catch (err) {
-    warn("dashboard", `Health check error: ${err}`);
-    return false;
+  if (_supabase) {
+    try {
+      const { error } = await _supabase
+        .from("business_scorecard")
+        .select("date")
+        .eq("period_type", "monthly")
+        .limit(1);
+      return !error;
+    } catch { return false; }
   }
+  return false;
 }
 
 // ============================================================
-// FETCH HELPER
+// SUPABASE SCORECARD QUERIES
+// ============================================================
+
+interface ScorecardRow {
+  date: string;
+  period_type: string;
+  revenue: number | null;
+  cogs: number | null;
+  gross_margin: number | null;
+  net_income: number | null;
+  net_margin: number | null;
+  cash_on_hand: number | null;
+  active_patients: number | null;
+  mrr: number | null;
+  new_patients: number | null;
+  cancellations: number | null;
+  churn_rate: number | null;
+  annual_churn: number | null;
+  avg_tenure_months: number | null;
+  median_tenure_months: number | null;
+  ltv: number | null;
+  leads: number | null;
+  ad_spend: number | null;
+  cpl: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  ctr: number | null;
+  lp_views: number | null;
+  show_rate: number | null;
+  close_rate: number | null;
+  cac: number | null;
+  ltv_cac_ratio: number | null;
+  pipeline_total: number | null;
+  pipeline_open: number | null;
+  pipeline_won: number | null;
+  pipeline_lost: number | null;
+  pipeline_noshow: number | null;
+  metadata: Record<string, unknown> | null;
+}
+
+function num(v: number | null | undefined): number {
+  return v ?? 0;
+}
+
+async function getLatestMonthly(): Promise<ScorecardRow | null> {
+  if (!_supabase) return null;
+  const { data, error } = await _supabase
+    .from("business_scorecard")
+    .select("*")
+    .eq("period_type", "monthly")
+    .order("date", { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  return data as ScorecardRow;
+}
+
+async function getMonthlyHistory(months = 6): Promise<ScorecardRow[]> {
+  if (!_supabase) return [];
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const { data, error } = await _supabase
+    .from("business_scorecard")
+    .select("*")
+    .eq("period_type", "monthly")
+    .gte("date", cutoff.toISOString().split("T")[0])
+    .order("date", { ascending: true });
+  if (error || !data) return [];
+  return data as ScorecardRow[];
+}
+
+async function getDailyAgg(days = 30): Promise<{
+  totalLeads: number;
+  totalAdSpend: number;
+  avgCpl: number;
+  avgShowRate: number;
+  avgCloseRate: number;
+  totalImpressions: number;
+  totalClicks: number;
+  avgCtr: number;
+  totalWon: number;
+  totalLost: number;
+  totalNoShow: number;
+}> {
+  if (!_supabase) return {
+    totalLeads: 0, totalAdSpend: 0, avgCpl: 0, avgShowRate: 0,
+    avgCloseRate: 0, totalImpressions: 0, totalClicks: 0, avgCtr: 0,
+    totalWon: 0, totalLost: 0, totalNoShow: 0,
+  };
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const { data, error } = await _supabase
+    .from("business_scorecard")
+    .select("*")
+    .eq("period_type", "daily")
+    .gte("date", cutoff.toISOString().split("T")[0])
+    .order("date", { ascending: true });
+
+  if (error || !data || data.length === 0) return {
+    totalLeads: 0, totalAdSpend: 0, avgCpl: 0, avgShowRate: 0,
+    avgCloseRate: 0, totalImpressions: 0, totalClicks: 0, avgCtr: 0,
+    totalWon: 0, totalLost: 0, totalNoShow: 0,
+  };
+
+  const rows = data as ScorecardRow[];
+  const sum = (fn: (r: ScorecardRow) => number) => rows.reduce((acc, r) => acc + fn(r), 0);
+  const avg = (fn: (r: ScorecardRow) => number) => {
+    const vals = rows.map(fn).filter(v => v > 0);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  };
+
+  return {
+    totalLeads: sum(r => num(r.leads)),
+    totalAdSpend: sum(r => num(r.ad_spend)),
+    avgCpl: avg(r => num(r.cpl)),
+    avgShowRate: avg(r => num(r.show_rate)),
+    avgCloseRate: avg(r => num(r.close_rate)),
+    totalImpressions: sum(r => num(r.impressions)),
+    totalClicks: sum(r => num(r.clicks)),
+    avgCtr: avg(r => num(r.ctr)),
+    totalWon: sum(r => num(r.pipeline_won)),
+    totalLost: sum(r => num(r.pipeline_lost)),
+    totalNoShow: sum(r => num(r.pipeline_noshow)),
+  };
+}
+
+// ============================================================
+// LEGACY DASHBOARD API FETCH (fallback only)
 // ============================================================
 
 async function dashboardFetchRaw<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -202,41 +341,246 @@ async function dashboardFetchRaw<T>(path: string, params?: Record<string, string
   return res.json() as Promise<T>;
 }
 
-/** Dashboard fetch with circuit breaker protection */
 async function dashboardFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
   return dashboardBreaker.exec(() => dashboardFetchRaw<T>(path, params));
 }
 
 // ============================================================
-// DATA FETCHERS
+// DATA FETCHERS — Supabase first, legacy API fallback
 // ============================================================
 
-export async function getFinancials(period = "month"): Promise<FinancialSnapshot> {
-  return dashboardFetch<FinancialSnapshot>("/api/metrics/financials", { period });
+export async function getFinancials(_period = "month"): Promise<FinancialSnapshot> {
+  // Try Supabase scorecard first
+  if (_supabase) {
+    try {
+      const [current, history] = await Promise.all([
+        getLatestMonthly(),
+        getMonthlyHistory(6),
+      ]);
+
+      if (current) {
+        const revenue = num(current.revenue);
+        const cogs = num(current.cogs);
+        const grossProfit = revenue - cogs;
+        const netIncome = num(current.net_income);
+        const profitMargin = revenue > 0 ? netIncome / revenue : 0;
+        const expenses = revenue - netIncome - cogs; // opex approximation
+
+        const snapshot: FinancialSnapshot = {
+          authenticated: true,
+          currentMonth: {
+            revenue,
+            cogs,
+            grossProfit,
+            expenses,
+            netIncome,
+            profitMargin,
+            expenseBreakdown: (current.metadata?.expense_breakdown as { name: string; amount: number }[]) || [],
+            revenueBreakdown: [],
+            period: {
+              start: current.date,
+              end: current.date.replace(/-01$/, "-30"),
+            },
+          },
+          balance: {
+            cashOnHand: num(current.cash_on_hand),
+            totalAssets: 0,
+            totalLiabilities: 0,
+            equity: 0,
+          },
+          unitEconomics: {
+            cac: num(current.cac),
+            wonCount: num(current.new_patients),
+            closeRate: num(current.close_rate) / 100, // scorecard stores as pct, type expects decimal
+            cpl: num(current.cpl),
+            adSpend: num(current.ad_spend),
+          },
+        };
+
+        // Previous month for MoM comparison
+        if (history.length >= 2) {
+          const prev = history[history.length - 2];
+          if (prev && prev.date !== current.date) {
+            const prevRevenue = num(prev.revenue);
+            const prevCogs = num(prev.cogs);
+            const prevNetIncome = num(prev.net_income);
+            const prevMargin = prevRevenue > 0 ? prevNetIncome / prevRevenue : 0;
+            const monthName = new Date(prev.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+            snapshot.lastMonth = {
+              name: monthName,
+              revenue: prevRevenue,
+              cogs: prevCogs,
+              grossProfit: prevRevenue - prevCogs,
+              expenses: prevRevenue - prevNetIncome - prevCogs,
+              netIncome: prevNetIncome,
+              profitMargin: prevMargin,
+              period: { start: prev.date, end: prev.date.replace(/-01$/, "-30") },
+            };
+          }
+        }
+
+        // Monthly trend
+        if (history.length > 1) {
+          snapshot.monthlyTrend = history.map(r => {
+            const rev = num(r.revenue);
+            const ni = num(r.net_income);
+            const monthLabel = new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
+            return {
+              month: monthLabel,
+              revenue: rev,
+              expenses: rev - ni - num(r.cogs),
+              profit: ni,
+            };
+          });
+        }
+
+        return snapshot;
+      }
+    } catch (err) {
+      warn("dashboard", `Supabase financials failed, trying legacy: ${err}`);
+    }
+  }
+
+  // Legacy fallback
+  if (API_TOKEN) {
+    return dashboardFetch<FinancialSnapshot>("/api/metrics/financials", { period: _period });
+  }
+
+  return { authenticated: false, error: "No data source available" };
 }
 
-export async function getPipeline(period = "month"): Promise<PipelineSnapshot> {
-  return dashboardFetch<PipelineSnapshot>("/api/metrics/pipeline", { period });
+export async function getPipeline(_period = "month"): Promise<PipelineSnapshot> {
+  // GHL direct is the best source for live pipeline data
+  if (isGHLReady()) {
+    try {
+      const ops = await getOpsSnapshot();
+      return {
+        pipelineName: "Weight Loss",
+        stages: [], // Stage breakdown not available from ops snapshot
+        metrics: {
+          totalOpportunities: ops.pipeline.total,
+          wonCount: ops.pipeline.won,
+          lostCount: ops.pipeline.lost,
+          closeRate: ops.pipeline.closeRate,
+          consultScheduled: 0,
+          noShowCount: ops.noShowsThisWeek,
+          showRate: ops.pipeline.showRate,
+          totalMonetaryValue: 0,
+          avgDealValue: 0,
+        },
+        staleLeads: { count: ops.pipeline.staleCount || 0, threshold: 7 },
+      };
+    } catch (err) {
+      warn("dashboard", `GHL pipeline failed: ${err}`);
+    }
+  }
+
+  // Legacy fallback
+  if (API_TOKEN) {
+    return dashboardFetch<PipelineSnapshot>("/api/metrics/pipeline", { period: _period });
+  }
+
+  throw new Error("No pipeline data source available");
 }
 
-export async function getOverview(period = "month"): Promise<OverviewSnapshot> {
-  return dashboardFetch<OverviewSnapshot>("/api/metrics/overview", { period });
+export async function getOverview(_period = "month"): Promise<OverviewSnapshot> {
+  // Compose from Supabase daily agg + GHL ops
+  if (_supabase) {
+    try {
+      const days = _period === "week" ? 7 : 30;
+      const [agg, ops] = await Promise.all([
+        getDailyAgg(days),
+        isGHLReady() ? getOpsSnapshot().catch(() => null) : Promise.resolve(null),
+      ]);
+
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(start.getDate() - days);
+
+      return {
+        period: {
+          start: start.toISOString().split("T")[0],
+          end: now.toISOString().split("T")[0],
+          label: _period === "week" ? "This Week" : "This Month",
+        },
+        totalLeads: agg.totalLeads,
+        newLeadsThisWeek: _period === "week" ? agg.totalLeads : 0,
+        newLeadsThisMonth: _period !== "week" ? agg.totalLeads : 0,
+        adSpend: agg.totalAdSpend,
+        impressions: agg.totalImpressions,
+        clicks: agg.totalClicks,
+        ctr: agg.avgCtr,
+        cpl: agg.avgCpl,
+        totalOpportunities: ops?.pipeline.total ?? 0,
+        wonCount: ops?.pipeline.won ?? agg.totalWon,
+        lostCount: ops?.pipeline.lost ?? agg.totalLost,
+        closeRate: ops?.pipeline.closeRate ?? (agg.avgCloseRate / 100),
+        consultScheduled: 0,
+        noShowCount: ops?.noShowsThisWeek ?? agg.totalNoShow,
+        showRate: ops?.pipeline.showRate ?? (agg.avgShowRate / 100),
+        formSubmits: agg.totalLeads,
+        costPerWon: agg.totalWon > 0 ? agg.totalAdSpend / agg.totalWon : 0,
+      };
+    } catch (err) {
+      warn("dashboard", `Supabase overview failed: ${err}`);
+    }
+  }
+
+  // Legacy fallback
+  if (API_TOKEN) {
+    return dashboardFetch<OverviewSnapshot>("/api/metrics/overview", { period: _period });
+  }
+
+  throw new Error("No overview data source available");
 }
 
-export async function getSpeedToLead(period = "month"): Promise<SpeedToLeadSnapshot> {
-  return dashboardFetch<SpeedToLeadSnapshot>("/api/metrics/speed-to-lead", { period });
+export async function getSpeedToLead(_period = "month"): Promise<SpeedToLeadSnapshot> {
+  // Speed-to-lead requires GHL response time data not in business_scorecard.
+  // Legacy endpoint was removed. Return empty for now.
+  if (API_TOKEN) {
+    try {
+      return await dashboardFetch<SpeedToLeadSnapshot>("/api/metrics/speed-to-lead", { period: _period });
+    } catch {}
+  }
+
+  return {
+    totalOpportunities: 0,
+    withResponseData: 0,
+    summary: {
+      avgMinutes: 0,
+      medianMinutes: 0,
+      under5min: 0,
+      under5minPct: 0,
+      under30min: 0,
+      under60min: 0,
+      avgWonMinutes: 0,
+      avgLostMinutes: 0,
+    },
+  };
 }
 
-export async function getAttribution(period = "month"): Promise<AttributionSnapshot> {
-  return dashboardFetch<AttributionSnapshot>("/api/metrics/attribution", { period });
+export async function getAttribution(_period = "month"): Promise<AttributionSnapshot> {
+  // Attribution by source requires GHL pipeline data not in business_scorecard.
+  // Legacy endpoint was removed. Return empty for now.
+  if (API_TOKEN) {
+    try {
+      return await dashboardFetch<AttributionSnapshot>("/api/metrics/attribution", { period: _period });
+    } catch {}
+  }
+
+  return {
+    totalOpportunities: 0,
+    bySource: [],
+    stageAging: { count: 0, avgDays: 0 },
+  };
 }
 
 // ============================================================
-// FORMATTERS
+// FORMATTERS (unchanged)
 // ============================================================
 
 function usd(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(1)}k`;
   return `$${n.toFixed(0)}`;
 }
 
@@ -246,22 +590,22 @@ function pct(n: number): string {
 
 export function formatFinancials(f: FinancialSnapshot): string {
   if (!f.authenticated) {
-    return "QuickBooks not connected. Reconnect at the dashboard.";
+    return "No financial data available. Check Supabase connection.";
   }
 
   const lines: string[] = ["FINANCIALS"];
 
-  if (f.balance) {
+  if (f.balance && f.balance.cashOnHand > 0) {
     lines.push(`Cash on hand: ${usd(f.balance.cashOnHand)}`);
   }
 
   if (f.currentMonth) {
     const cm = f.currentMonth;
     lines.push(
-      `\nThis month (${cm.period.start} to ${cm.period.end}):`,
+      `\nThis month (${cm.period.start}):`,
       `  Revenue: ${usd(cm.revenue)}`,
       `  COGS: ${usd(cm.cogs)}`,
-      `  Expenses: ${usd(cm.expenses)}`,
+      `  Gross profit: ${usd(cm.grossProfit)} (${pct(cm.revenue > 0 ? cm.grossProfit / cm.revenue : 0)} margin)`,
       `  Net income: ${usd(cm.netIncome)} (${pct(cm.profitMargin)} margin)`,
     );
   }
@@ -271,13 +615,6 @@ export function formatFinancials(f: FinancialSnapshot): string {
     lines.push(
       `\n${lm.name} (reconciled):`,
       `  Revenue: ${usd(lm.revenue)} | Net: ${usd(lm.netIncome)} (${pct(lm.profitMargin)})`,
-    );
-  }
-
-  if (f.ytd) {
-    lines.push(
-      `\nYTD:`,
-      `  Revenue: ${usd(f.ytd.revenue)} | Net: ${usd(f.ytd.netIncome)} (${pct(f.ytd.profitMargin)})`,
     );
   }
 
@@ -308,8 +645,11 @@ export function formatPipeline(p: PipelineSnapshot): string {
   lines.push(
     `Total: ${m.totalOpportunities} | Won: ${m.wonCount} | Lost: ${m.lostCount}`,
     `Close rate: ${pct(m.closeRate)} | Show rate: ${pct(m.showRate)}`,
-    `Avg deal value: ${usd(m.avgDealValue)}`,
   );
+
+  if (m.avgDealValue > 0) {
+    lines.push(`Avg deal value: ${usd(m.avgDealValue)}`);
+  }
 
   if (p.stages.length > 0) {
     lines.push(`\nStage breakdown:`);
@@ -331,9 +671,13 @@ export function formatOverview(o: OverviewSnapshot): string {
   const lines: string[] = [`OVERVIEW (${o.period.label})`];
 
   lines.push(
-    `Leads: ${o.totalLeads} total | ${o.newLeadsThisWeek} this week | ${o.newLeadsThisMonth} this month`,
-    `Ad spend: ${usd(o.adSpend)} | CPL: ${usd(o.cpl)} | Cost/won: ${usd(o.costPerWon)}`,
-    `Consults: ${o.consultScheduled} scheduled | ${o.noShowCount} no-shows (${pct(o.showRate)} show rate)`,
+    `Leads: ${o.totalLeads} total`,
+    `Ad spend: ${usd(o.adSpend)} | CPL: ${usd(o.cpl)}${o.costPerWon > 0 ? ` | Cost/won: ${usd(o.costPerWon)}` : ""}`,
+  );
+  if (o.noShowCount > 0 || o.showRate > 0) {
+    lines.push(`No-shows: ${o.noShowCount} (${pct(o.showRate)} show rate)`);
+  }
+  lines.push(
     `Pipeline: ${o.wonCount} won | ${o.lostCount} lost (${pct(o.closeRate)} close rate)`,
   );
 
@@ -343,6 +687,12 @@ export function formatOverview(o: OverviewSnapshot): string {
 export function formatSpeedToLead(s: SpeedToLeadSnapshot): string {
   const lines: string[] = ["SPEED TO LEAD"];
   const sm = s.summary;
+
+  if (sm.medianMinutes === 0 && sm.avgMinutes === 0) {
+    lines.push("Speed-to-lead data not available (dashboard endpoint removed).");
+    lines.push("Pipeline data from /ops is still live via GHL.");
+    return lines.join("\n");
+  }
 
   if (sm.avgMinutes != null && sm.medianMinutes != null) {
     lines.push(
@@ -381,7 +731,7 @@ export function formatAttribution(a: AttributionSnapshot): string {
 
 /**
  * Full scorecard combining overview + pipeline + financials.
- * Used by /scorecard command and morning brief.
+ * Used by /scorecard command.
  */
 export async function getScorecard(period = "month"): Promise<string> {
   const [overview, pipeline, financials] = await Promise.all([
@@ -395,14 +745,13 @@ export async function getScorecard(period = "month"): Promise<string> {
   if (pipeline) sections.push(formatPipeline(pipeline));
   if (financials) sections.push(formatFinancials(financials));
 
-  if (sections.length === 0) return "Could not reach the dashboard. Check connection.";
+  if (sections.length === 0) return "No data available. Check Supabase connection.";
 
   return sections.join("\n\n");
 }
 
 /**
  * Compact financial pulse for the morning brief digest.
- * Returns a short string or empty if unavailable.
  */
 export async function getFinancialPulse(): Promise<string> {
   try {
@@ -411,7 +760,7 @@ export async function getFinancialPulse(): Promise<string> {
 
     const lines: string[] = ["--- Business Pulse ---"];
 
-    if (f.balance) {
+    if (f.balance && f.balance.cashOnHand > 0) {
       lines.push(`Cash: ${usd(f.balance.cashOnHand)}`);
     }
     if (f.currentMonth) {
@@ -436,10 +785,7 @@ export async function getFinancialPulse(): Promise<string> {
  */
 export async function getPipelinePulse(): Promise<string> {
   try {
-    const [pipeline, stl] = await Promise.all([
-      getPipeline("week"),
-      getSpeedToLead("week").catch(() => null),
-    ]);
+    const pipeline = await getPipeline("week");
 
     const m = pipeline.metrics;
     const lines: string[] = ["--- Pipeline Pulse ---"];
@@ -448,10 +794,6 @@ export async function getPipelinePulse(): Promise<string> {
 
     if (pipeline.staleLeads.count > 0) {
       lines.push(`Stale leads: ${pipeline.staleLeads.count} (>${pipeline.staleLeads.threshold}d)`);
-    }
-
-    if (stl?.summary?.medianMinutes != null) {
-      lines.push(`Speed to lead: ${stl.summary.medianMinutes.toFixed(0)} min median`);
     }
 
     return lines.join("\n");
@@ -463,23 +805,20 @@ export async function getPipelinePulse(): Promise<string> {
 
 /**
  * Dashboard context injected into Claude's prompt.
- * Gives Atlas awareness of current business metrics.
  */
 export async function getDashboardContext(): Promise<string> {
   if (!isDashboardReady()) return "";
 
   try {
-    const [overview, pipeline] = await Promise.all([
-      getOverview("month").catch(() => null),
-      getPipeline("month").catch(() => null),
-    ]);
+    const overview = await getOverview("month").catch(() => null);
+    const pipeline = await getPipeline("month").catch(() => null);
 
     const parts: string[] = [];
 
     if (overview) {
       parts.push(
         `CURRENT BUSINESS METRICS (this month):`,
-        `Leads: ${overview.totalLeads} | CPL: ${usd(overview.cpl)} | Cost/won: ${usd(overview.costPerWon)}`,
+        `Leads: ${overview.totalLeads} | CPL: ${usd(overview.cpl)}${overview.costPerWon > 0 ? ` | Cost/won: ${usd(overview.costPerWon)}` : ""}`,
         `Won: ${overview.wonCount} | Lost: ${overview.lostCount} | Close rate: ${pct(overview.closeRate)}`,
         `Show rate: ${pct(overview.showRate)} | Ad spend: ${usd(overview.adSpend)}`,
       );
@@ -497,66 +836,45 @@ export async function getDashboardContext(): Promise<string> {
 }
 
 // ============================================================
-// DEEP FINANCIALS (Phase 3: QuickBooks Intelligence)
+// DEEP FINANCIALS
 // ============================================================
 
 /**
- * Comprehensive financial dump formatted for Claude analysis.
- * Used by `/finance deep` command. Gives Claude all the data it
- * needs to answer conversational financial questions.
+ * Comprehensive financial dump for `/finance deep`.
+ * Uses Supabase scorecard data + monthly history.
  */
 export async function getDeepFinancials(): Promise<string> {
-  if (!isDashboardReady()) return "Dashboard not connected.";
-
   try {
     const f = await getFinancials("month");
-    if (!f.authenticated) return "QuickBooks not connected. Reconnect at the dashboard.";
+    if (!f.authenticated) return "No financial data available. Check Supabase connection.";
 
     const sections: string[] = ["DETAILED FINANCIAL ANALYSIS"];
 
-    // Balance sheet
-    if (f.balance) {
-      const b = f.balance;
+    if (f.balance && f.balance.cashOnHand > 0) {
       sections.push(
-        `\nBALANCE SHEET:`,
-        `  Cash on hand: $${b.cashOnHand.toLocaleString()}`,
-        `  Total assets: $${b.totalAssets.toLocaleString()}`,
-        `  Total liabilities: $${b.totalLiabilities.toLocaleString()}`,
-        `  Equity: $${b.equity.toLocaleString()}`,
-        `  Debt-to-equity: ${b.equity > 0 ? (b.totalLiabilities / b.equity).toFixed(2) : "n/a"}`,
+        `\nCASH POSITION:`,
+        `  Cash on hand: $${f.balance.cashOnHand.toLocaleString()}`,
       );
     }
 
-    // Current month with full breakdown
     if (f.currentMonth) {
       const cm = f.currentMonth;
       sections.push(
-        `\nCURRENT MONTH P&L (${cm.period.start} to ${cm.period.end}):`,
+        `\nCURRENT MONTH P&L (${cm.period.start}):`,
         `  Revenue: $${cm.revenue.toLocaleString()}`,
         `  COGS: $${cm.cogs.toLocaleString()} (${cm.revenue > 0 ? ((cm.cogs / cm.revenue) * 100).toFixed(1) : 0}% of revenue)`,
         `  Gross profit: $${cm.grossProfit.toLocaleString()} (${pct(cm.revenue > 0 ? cm.grossProfit / cm.revenue : 0)} margin)`,
-        `  Operating expenses: $${cm.expenses.toLocaleString()}`,
         `  Net income: $${cm.netIncome.toLocaleString()} (${pct(cm.profitMargin)} net margin)`,
       );
-
-      if (cm.revenueBreakdown && cm.revenueBreakdown.length > 0) {
-        sections.push(`\n  Revenue by category:`);
-        for (const r of cm.revenueBreakdown.sort((a, b) => b.amount - a.amount).slice(0, 10)) {
-          const pctOfRev = cm.revenue > 0 ? ((r.amount / cm.revenue) * 100).toFixed(1) : "0";
-          sections.push(`    ${r.name}: $${r.amount.toLocaleString()} (${pctOfRev}%)`);
-        }
-      }
 
       if (cm.expenseBreakdown && cm.expenseBreakdown.length > 0) {
         sections.push(`\n  Expenses by category:`);
         for (const e of cm.expenseBreakdown.sort((a, b) => b.amount - a.amount).slice(0, 10)) {
-          const pctOfExp = cm.expenses > 0 ? ((e.amount / cm.expenses) * 100).toFixed(1) : "0";
-          sections.push(`    ${e.name}: $${e.amount.toLocaleString()} (${pctOfExp}%)`);
+          sections.push(`    ${e.name}: $${e.amount.toLocaleString()}`);
         }
       }
     }
 
-    // Month-over-month comparison
     if (f.currentMonth && f.lastMonth) {
       const cm = f.currentMonth;
       const lm = f.lastMonth;
@@ -572,16 +890,6 @@ export async function getDeepFinancials(): Promise<string> {
       );
     }
 
-    // YTD
-    if (f.ytd) {
-      sections.push(
-        `\nYEAR TO DATE:`,
-        `  Revenue: $${f.ytd.revenue.toLocaleString()}`,
-        `  Net income: $${f.ytd.netIncome.toLocaleString()} (${pct(f.ytd.profitMargin)})`,
-      );
-    }
-
-    // Trend
     if (f.monthlyTrend && f.monthlyTrend.length > 0) {
       sections.push(`\nMONTHLY TREND (last ${f.monthlyTrend.length} months):`);
       for (const m of f.monthlyTrend) {
@@ -590,20 +898,18 @@ export async function getDeepFinancials(): Promise<string> {
       }
     }
 
-    // Unit economics
     if (f.unitEconomics && f.unitEconomics.wonCount > 0) {
       const ue = f.unitEconomics;
       sections.push(
         `\nUNIT ECONOMICS:`,
-        `  Customer acquisition cost (CAC): $${ue.cac.toLocaleString()}`,
-        `  Cost per lead (CPL): $${ue.cpl.toLocaleString()}`,
+        `  CAC: $${ue.cac.toLocaleString()}`,
+        `  CPL: $${ue.cpl.toLocaleString()}`,
         `  Close rate: ${pct(ue.closeRate)}`,
         `  New patients won: ${ue.wonCount}`,
         `  Ad spend: $${ue.adSpend.toLocaleString()}`,
       );
     }
 
-    // Anomaly detection
     const anomalies = detectFinancialAnomalies(f);
     if (anomalies.length > 0) {
       sections.push(`\nALERTS:`);
@@ -625,7 +931,6 @@ export async function getDeepFinancials(): Promise<string> {
 export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
   const alerts: string[] = [];
 
-  // 1. Margin compression
   if (f.currentMonth && f.lastMonth) {
     const marginDelta = f.currentMonth.profitMargin - f.lastMonth.profitMargin;
     if (marginDelta < -0.05) {
@@ -633,7 +938,6 @@ export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
     }
   }
 
-  // 2. Revenue decline
   if (f.currentMonth && f.lastMonth && f.lastMonth.revenue > 0) {
     const revChange = (f.currentMonth.revenue - f.lastMonth.revenue) / f.lastMonth.revenue;
     if (revChange < -0.10) {
@@ -641,7 +945,6 @@ export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
     }
   }
 
-  // 3. Revenue up but profit down (cost problem)
   if (f.currentMonth && f.lastMonth) {
     const revUp = f.currentMonth.revenue > f.lastMonth.revenue;
     const profitDown = f.currentMonth.netIncome < f.lastMonth.netIncome;
@@ -650,7 +953,6 @@ export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
     }
   }
 
-  // 4. COGS ratio spike
   if (f.currentMonth && f.currentMonth.revenue > 0) {
     const cogsRatio = f.currentMonth.cogs / f.currentMonth.revenue;
     if (cogsRatio > 0.50) {
@@ -658,23 +960,6 @@ export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
     }
   }
 
-  // 5. Low cash relative to monthly expenses
-  if (f.balance && f.currentMonth && f.currentMonth.expenses > 0) {
-    const monthsOfRunway = f.balance.cashOnHand / f.currentMonth.expenses;
-    if (monthsOfRunway < 2) {
-      alerts.push(`Cash runway: ${monthsOfRunway.toFixed(1)} months at current expense rate`);
-    }
-  }
-
-  // 6. High CAC relative to revenue per patient
-  if (f.unitEconomics && f.currentMonth && f.unitEconomics.wonCount > 0) {
-    const revenuePerPatient = f.currentMonth.revenue / f.unitEconomics.wonCount;
-    if (f.unitEconomics.cac > revenuePerPatient * 0.5) {
-      alerts.push(`CAC ($${f.unitEconomics.cac.toFixed(0)}) is ${((f.unitEconomics.cac / revenuePerPatient) * 100).toFixed(0)}% of revenue per patient ($${revenuePerPatient.toFixed(0)})`);
-    }
-  }
-
-  // 7. Declining trend (3+ months of revenue decline)
   if (f.monthlyTrend && f.monthlyTrend.length >= 3) {
     const last3 = f.monthlyTrend.slice(-3);
     if (last3[0].revenue > last3[1].revenue && last3[1].revenue > last3[2].revenue) {
@@ -687,7 +972,6 @@ export function detectFinancialAnomalies(f: FinancialSnapshot): string[] {
 
 /**
  * Enhanced financial context for Claude's prompt.
- * Includes anomaly alerts so Atlas can proactively bring up issues.
  */
 export async function getFinancialContext(): Promise<string> {
   if (!isDashboardReady()) return "";
@@ -698,7 +982,7 @@ export async function getFinancialContext(): Promise<string> {
 
     const parts: string[] = [];
 
-    if (f.balance) {
+    if (f.balance && f.balance.cashOnHand > 0) {
       parts.push(`Cash: $${f.balance.cashOnHand.toLocaleString()}`);
     }
     if (f.currentMonth) {

@@ -12,7 +12,7 @@ This applies to EVERYTHING, not just pricing or financials. Patient names, busin
 5. Conversation ring buffer — recent exchanges
 
 ## Key reference files:
-- `data/business-metrics.json` — **CANONICAL source of truth** for all business metrics (revenue, churn, CPL, CAC, LTV, close rate, patient count, ad spend). Always check here FIRST before citing any number.
+- Supabase `business_scorecard` table — **CANONICAL source of truth** for all business metrics. Query via `src/metrics-engine.ts` functions. Never hardcode numbers from memory. See `.claude/rules/canonical-metrics.md`.
 - `memory/medication-pricing.md` — Hallandale Pharmacy COGS, tier pricing, margin analysis
 - `memory/competitive-intel.md` — Competitor pricing, positioning, market data
 - `memory/glp1-market.md` — GLP-1 market trends, brand pricing, regulatory updates
