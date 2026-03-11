@@ -575,6 +575,82 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
 }
 
 // ============================================================
+// OAUTH TOKEN REFRESH
+// ============================================================
+
+/**
+ * Track whether an OAuth refresh is already in progress (debounce concurrent calls).
+ * Multiple callClaude() invocations hitting 401 simultaneously should not all
+ * try to refresh the token — only the first one does, others wait for the result.
+ */
+let oauthRefreshInProgress: Promise<boolean> | null = null;
+
+/**
+ * Attempt to refresh the Claude CLI OAuth token.
+ *
+ * The Claude CLI stores OAuth tokens locally and handles refresh internally
+ * when the CLI is invoked. If the refresh token itself has expired or been
+ * revoked, this will fail and the user needs to run `claude auth login`.
+ *
+ * Strategy:
+ * 1. Run `claude auth status` to check current auth state
+ * 2. If logged in but token expired, the CLI may auto-refresh on next invocation
+ * 3. If not logged in, return false (manual login required)
+ *
+ * Returns true if auth looks healthy after the check, false if manual login is needed.
+ */
+async function attemptOAuthRefresh(): Promise<boolean> {
+  // Debounce: if a refresh is already in progress, wait for it
+  if (oauthRefreshInProgress) {
+    return oauthRefreshInProgress;
+  }
+
+  oauthRefreshInProgress = (async () => {
+    try {
+      // Check current auth status — this may trigger internal token refresh
+      const proc = spawn([CLAUDE_PATH, "auth", "status"], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: sanitizedEnv(),
+        windowsHide: true,
+      });
+
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      const exitCode = await proc.exited;
+
+      // Parse the JSON status output
+      try {
+        const status = JSON.parse(stdout.trim().split("\n").pop() || "{}");
+        if (status.loggedIn) {
+          info("claude", `OAuth status: logged in via ${status.authMethod || "unknown"}`);
+          return true;
+        }
+      } catch {
+        // stdout might not be valid JSON
+      }
+
+      // Exit code 0 with loggedIn: true means the token is valid
+      if (exitCode === 0) {
+        info("claude", "OAuth status check returned 0 — token may be refreshed");
+        return true;
+      }
+
+      // Not logged in — manual intervention required
+      warn("claude", `OAuth status check failed (exit ${exitCode}): ${(stdout + stderr).substring(0, 200)}`);
+      return false;
+    } catch (err) {
+      logError("claude", `OAuth refresh attempt threw: ${err}`);
+      return false;
+    } finally {
+      oauthRefreshInProgress = null;
+    }
+  })();
+
+  return oauthRefreshInProgress;
+}
+
+// ============================================================
 // CORE: Call Claude CLI
 // ============================================================
 
@@ -629,6 +705,7 @@ export async function callClaude(
     workspaceDir?: string; // per-agent workspace directory (overrides cwd for Claude CLI)
     _isFallback?: boolean; // internal: tracks fallback depth to prevent infinite chains
     _fallbackDepth?: number; // internal: how many fallbacks have been attempted (max 2: opus->sonnet->haiku)
+    _isAuthRetry?: boolean; // internal: prevents infinite OAuth refresh retries
     _isEmptyRetry?: boolean; // internal: prevents infinite empty-result retries
     _isSpawnRetry?: boolean; // internal: prevents infinite spawn-error retries
   }
@@ -1129,6 +1206,44 @@ export async function callClaude(
           return `I got stuck repeating the same operation (${timeoutReason}). Try rephrasing or breaking this into smaller steps.`;
         }
         return `Hit the tool call limit (${toolCallCount} calls). For complex tasks like this, try the /code command or break it into smaller pieces.`;
+      }
+
+      // OAuth token expiry: detect 401 authentication errors from the Anthropic API.
+      // Model fallback won't help since all models share the same auth token.
+      // Attempt automatic token refresh, then retry once.
+      const isAuthError = stderrLower.includes("401") ||
+        stderrLower.includes("authentication_error") ||
+        stderrLower.includes("oauth token has expired") ||
+        stderrLower.includes("token has expired") ||
+        stderrLower.includes("unauthorized");
+      const isAuthRetry = !!(options as any)?._isAuthRetry;
+
+      if (isAuthError && !isAuthRetry) {
+        warn("claude", `[${agentId}] OAuth token expired. Attempting automatic refresh...`);
+
+        if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+
+        // Attempt to refresh the token by re-running auth status / login
+        const refreshed = await attemptOAuthRefresh();
+
+        if (refreshed) {
+          info("claude", `[${agentId}] OAuth token refreshed successfully. Retrying call.`);
+          return callClaude(prompt, {
+            ...options,
+            skipLock: options?.skipLock ?? false,
+            _isAuthRetry: true,
+          } as any);
+        }
+
+        // Refresh failed — surface actionable error to user
+        logError("claude", `[${agentId}] OAuth token refresh failed. Manual re-authentication required.`);
+        return "Authentication expired. Run `claude auth login` on the host machine to re-authenticate, then restart Atlas.";
+      }
+
+      // Auth retry failed again — don't loop, surface the error
+      if (isAuthError && isAuthRetry) {
+        logError("claude", `[${agentId}] OAuth token still expired after refresh attempt.`);
+        return "Authentication still failing after token refresh. Run `claude auth login` on the host machine to re-authenticate, then restart Atlas.";
       }
 
       // Model fallback: if rate-limited or model unavailable, retry with next tier

@@ -192,7 +192,7 @@ export interface SupervisedTask {
   /** Last stderr output from subprocess (for death diagnostics, truncated to 500 chars) */
   lastStderr?: string | null;
   /** Categorized death type (for targeted retry strategies) */
-  deathCategory?: "oom" | "timeout_kill" | "rate_limit" | "session_corrupt" | "api_error" | "unknown" | null;
+  deathCategory?: "oom" | "timeout_kill" | "auth_expired" | "rate_limit" | "session_corrupt" | "api_error" | "unknown" | null;
   /** Nesting depth: 0 = main session spawned, 1 = subagent spawned by subagent (max SUBAGENT_MAX_DEPTH) */
   depth?: number;
 }
@@ -508,6 +508,8 @@ export async function spawnSubagent(opts: {
           t.deathCategory = "timeout_kill";
         } else if (exitCode === 1 && (!stderr || stderr.trim() === "")) {
           t.deathCategory = "session_corrupt";
+        } else if (exitCode === 1 && /401|authentication_error|oauth token has expired|token has expired|unauthorized/i.test(stderr)) {
+          t.deathCategory = "auth_expired";
         } else if (exitCode === 1 && /rate.limit|429|too many requests/i.test(stderr)) {
           t.deathCategory = "rate_limit";
         } else if (exitCode === 1 && /error|exception|failed/i.test(stderr)) {
@@ -1090,7 +1092,16 @@ export async function checkTasks(): Promise<{
           warn("supervisor", `Subagent PID ${task.pid} for ${task.id} died unexpectedly after ${Math.round(durationMs / 1000)}s${exitInfo}`);
           task.pid = null;
 
-          if (task.retries < task.maxRetries && task.prompt && task.outputFile) {
+          // Don't retry on auth_expired — retrying won't help, token needs manual refresh
+          if (task.deathCategory === "auth_expired") {
+            task.status = "failed";
+            task.completedAt = new Date().toISOString();
+            task.error = "OAuth token expired. Run `claude auth login` on the host machine to re-authenticate.";
+            task.outcome = { status: "failed", summary: task.error, durationMs };
+            alerts.push(`Task "${task.description}" failed: OAuth token expired. Manual re-authentication required.`);
+            await saveTasks();
+            await onTaskFinished(task.id);
+          } else if (task.retries < task.maxRetries && task.prompt && task.outputFile) {
             task.retries++;
             task.startedAt = new Date().toISOString();
             // Reset stalling state so retry gets a clean slate
