@@ -594,10 +594,11 @@ let oauthRefreshInProgress: Promise<boolean> | null = null;
  *
  * Strategy:
  * 1. Run `claude auth status` to check current auth state
- * 2. If logged in but token expired, the CLI may auto-refresh on next invocation
- * 3. If not logged in, return false (manual login required)
+ * 2. If status says logged in, verify the token actually works with a lightweight API call
+ * 3. If verification fails, explicitly attempt `claude auth refresh`
+ * 4. If refresh fails, return false (manual login required)
  *
- * Returns true if auth looks healthy after the check, false if manual login is needed.
+ * Returns true if auth is verified working after the refresh, false if manual login is needed.
  */
 async function attemptOAuthRefresh(): Promise<boolean> {
   // Debounce: if a refresh is already in progress, wait for it
@@ -607,37 +608,93 @@ async function attemptOAuthRefresh(): Promise<boolean> {
 
   oauthRefreshInProgress = (async () => {
     try {
-      // Check current auth status — this may trigger internal token refresh
-      const proc = spawn([CLAUDE_PATH, "auth", "status"], {
+      // Step 1: Check current auth status
+      const statusProc = spawn([CLAUDE_PATH, "auth", "status"], {
         stdout: "pipe",
         stderr: "pipe",
         env: sanitizedEnv(),
         windowsHide: true,
       });
 
-      const stdout = await new Response(proc.stdout).text();
-      const stderr = await new Response(proc.stderr).text();
-      const exitCode = await proc.exited;
+      const statusStdout = await new Response(statusProc.stdout).text();
+      const statusStderr = await new Response(statusProc.stderr).text();
+      const statusExitCode = await statusProc.exited;
 
-      // Parse the JSON status output
+      let isLoggedIn = false;
+      let authMethod = "unknown";
       try {
-        const status = JSON.parse(stdout.trim().split("\n").pop() || "{}");
-        if (status.loggedIn) {
-          info("claude", `OAuth status: logged in via ${status.authMethod || "unknown"}`);
-          return true;
-        }
+        const status = JSON.parse(statusStdout.trim().split("\n").pop() || "{}");
+        isLoggedIn = !!status.loggedIn;
+        authMethod = status.authMethod || "unknown";
       } catch {
-        // stdout might not be valid JSON
+        // stdout might not be valid JSON; trust exit code
+        isLoggedIn = statusExitCode === 0;
       }
 
-      // Exit code 0 with loggedIn: true means the token is valid
-      if (exitCode === 0) {
-        info("claude", "OAuth status check returned 0 — token may be refreshed");
+      if (!isLoggedIn) {
+        warn("claude", `OAuth status: not logged in (exit ${statusExitCode}): ${(statusStdout + statusStderr).substring(0, 200)}`);
+        return false;
+      }
+
+      info("claude", `OAuth status: logged in via ${authMethod}. Verifying token works...`);
+
+      // Step 2: Verify the token actually works with a lightweight API call.
+      // `claude auth status` can report loggedIn: true based on local credential
+      // existence even when the access token has expired. A real API call confirms.
+      const verifyOk = await verifyTokenWorks();
+      if (verifyOk) {
+        info("claude", "OAuth token verified working after status check");
         return true;
       }
 
-      // Not logged in — manual intervention required
-      warn("claude", `OAuth status check failed (exit ${exitCode}): ${(stdout + stderr).substring(0, 200)}`);
+      warn("claude", "OAuth token reported logged-in but verification failed. Attempting explicit refresh...");
+
+      // Step 3: Attempt explicit token refresh via `claude auth refresh`
+      // This forces the CLI to use the refresh token to obtain a new access token.
+      const refreshProc = spawn([CLAUDE_PATH, "auth", "refresh"], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: sanitizedEnv(),
+        windowsHide: true,
+      });
+
+      const refreshStdout = await new Response(refreshProc.stdout).text();
+      const refreshStderr = await new Response(refreshProc.stderr).text();
+      const refreshExitCode = await refreshProc.exited;
+
+      if (refreshExitCode === 0) {
+        info("claude", `OAuth refresh command succeeded: ${refreshStdout.substring(0, 100)}`);
+
+        // Verify the refreshed token actually works
+        const postRefreshOk = await verifyTokenWorks();
+        if (postRefreshOk) {
+          info("claude", "OAuth token verified working after explicit refresh");
+          return true;
+        }
+        warn("claude", "OAuth refresh command exited 0 but token still doesn't work");
+      } else {
+        warn("claude", `OAuth refresh command failed (exit ${refreshExitCode}): ${(refreshStdout + refreshStderr).substring(0, 300)}`);
+      }
+
+      // Step 4: Last resort — try a no-op CLI invocation which may trigger internal refresh
+      info("claude", "Attempting fallback: lightweight CLI invocation to trigger internal refresh...");
+      const fallbackProc = spawn([CLAUDE_PATH, "--version"], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: sanitizedEnv(),
+        windowsHide: true,
+      });
+      await new Response(fallbackProc.stdout).text();
+      await fallbackProc.exited;
+
+      // One final verification
+      const finalOk = await verifyTokenWorks();
+      if (finalOk) {
+        info("claude", "OAuth token working after fallback refresh");
+        return true;
+      }
+
+      logError("claude", "All OAuth refresh attempts failed. Manual re-authentication required.");
       return false;
     } catch (err) {
       logError("claude", `OAuth refresh attempt threw: ${err}`);
@@ -648,6 +705,59 @@ async function attemptOAuthRefresh(): Promise<boolean> {
   })();
 
   return oauthRefreshInProgress;
+}
+
+/**
+ * Verify the current OAuth token actually works by making a lightweight API call.
+ * Uses `claude api models` or a minimal prompt to test authentication without
+ * consuming significant tokens.
+ *
+ * Returns true if the API responds successfully, false on auth errors.
+ */
+async function verifyTokenWorks(): Promise<boolean> {
+  try {
+    // Use a minimal CLI invocation that hits the API.
+    // `claude -p "hi" --max-turns 1` is lightweight (~10 tokens).
+    const proc = spawn([CLAUDE_PATH, "-p", "ok", "--max-turns", "1"], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: sanitizedEnv(),
+      windowsHide: true,
+    });
+
+    // Timeout: don't wait forever for verification
+    const timeout = setTimeout(() => {
+      try { proc.kill(); } catch {}
+    }, 30_000);
+
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+    clearTimeout(timeout);
+
+    const combined = (stdout + stderr).toLowerCase();
+    const hasAuthError = combined.includes("401") ||
+      combined.includes("authentication_error") ||
+      combined.includes("oauth token has expired") ||
+      combined.includes("token has expired") ||
+      combined.includes("unauthorized");
+
+    if (hasAuthError) {
+      warn("claude", `Token verification failed (auth error): ${combined.substring(0, 200)}`);
+      return false;
+    }
+
+    if (exitCode === 0) {
+      return true;
+    }
+
+    // Non-zero exit that isn't auth — might be a different issue, treat as potentially ok
+    warn("claude", `Token verification exited ${exitCode} (non-auth): ${combined.substring(0, 200)}`);
+    return exitCode === 0;
+  } catch (err) {
+    warn("claude", `Token verification threw: ${err}`);
+    return false;
+  }
 }
 
 // ============================================================
@@ -1215,7 +1325,9 @@ export async function callClaude(
         stderrLower.includes("authentication_error") ||
         stderrLower.includes("oauth token has expired") ||
         stderrLower.includes("token has expired") ||
-        stderrLower.includes("unauthorized");
+        stderrLower.includes("unauthorized") ||
+        stderrLower.includes("please obtain a new token") ||
+        stderrLower.includes("please run /login");
       const isAuthRetry = !!(options as any)?._isAuthRetry;
 
       if (isAuthError && !isAuthRetry) {
