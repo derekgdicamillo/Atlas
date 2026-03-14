@@ -535,14 +535,7 @@ export async function getOverview(_period = "month"): Promise<OverviewSnapshot> 
 }
 
 export async function getSpeedToLead(_period = "month"): Promise<SpeedToLeadSnapshot> {
-  // Speed-to-lead requires GHL response time data not in business_scorecard.
-  // Legacy endpoint was removed. Return empty for now.
-  if (API_TOKEN) {
-    try {
-      return await dashboardFetch<SpeedToLeadSnapshot>("/api/metrics/speed-to-lead", { period: _period });
-    } catch {}
-  }
-
+  // Speed-to-lead endpoint removed from dashboard (2026-03-09). Return empty snapshot.
   return {
     totalOpportunities: 0,
     withResponseData: 0,

@@ -483,17 +483,17 @@ async function checkPipelineChanges(supabase: SupabaseClient): Promise<MonitorRe
       });
     }
 
-    // Stale leads
-    if (ops.pipeline.staleCount > 5) {
-      results.push({
-        metricKey: "pipeline.stale_count",
-        value: ops.pipeline.staleCount,
-        severity: "warning",
-        category: "Pipeline",
-        message: `${ops.pipeline.staleCount} stale leads (>7d in early stages). Revenue leaking.`,
-        metadata: { staleCount: ops.pipeline.staleCount },
-      });
-    }
+    // Stale leads — disabled 2026-03-09 per Derek (too many false positives on leads awaiting consult)
+    // if (ops.pipeline.staleCount > 5) {
+    //   results.push({
+    //     metricKey: "pipeline.stale_count",
+    //     value: ops.pipeline.staleCount,
+    //     severity: "warning",
+    //     category: "Pipeline",
+    //     message: `${ops.pipeline.staleCount} stale leads (>7d in early stages). Revenue leaking.`,
+    //     metadata: { staleCount: ops.pipeline.staleCount },
+    //   });
+    // }
   } catch (err) {
     warn("monitor", `Pipeline changes check failed: ${err}`);
   }
@@ -807,7 +807,7 @@ function registerChecks(): void {
   checkRegistry.push({
     key: "pipeline.speed_to_lead",
     schedule: "medium",
-    enabled: true,
+    enabled: false, // Disabled 2026-03-09: endpoint removed from dashboard, was causing OPEN circuit breaker noise
     run: checkSpeedToLead,
   });
 

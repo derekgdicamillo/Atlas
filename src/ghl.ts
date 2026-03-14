@@ -1037,9 +1037,10 @@ export function formatOpsSnapshot(ops: OpsSnapshot): string {
     `Close rate: ${pct(p.closeRate)} | Show rate: ${pct(p.showRate)}`,
   );
 
-  if (p.staleCount > 0) {
-    lines.push(`Stale leads (>7d in early stage): ${p.staleCount}`);
-  }
+  // Stale leads line disabled 2026-03-09 (false positives on leads awaiting consult)
+  // if (p.staleCount > 0) {
+  //   lines.push(`Stale leads (>7d in early stage): ${p.staleCount}`);
+  // }
 
   if (ops.noShowsThisWeek > 0) {
     lines.push(`No-shows this week: ${ops.noShowsThisWeek}`);

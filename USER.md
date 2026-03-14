@@ -71,6 +71,8 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - Long-running background agents (research tasks, code agents) are lost when Atlas restarts overnight. If a task result is missing after a restart, assume the agent is gone and redo the work inline. Pivot fast, do not wait.
 - WP_POST relay tags depend on the live Atlas process having current env vars. When WP credentials change mid-session, bypass relay and post directly via REST API until Atlas restarts. WP_USER must be the username slug (e.g., derekgdicamillo), NOT email format.
 - Peptide therapy program planned for PV MediSpa launch July 1, 2026. Full protocol book, pricing, and marketing on OneDrive/Peptide Program/. Core tier: BPC-157, CJC-1295/Ipamorelin, PT-141, Thymosin Alpha-1. Add-on pricing model layered onto existing GLP-1 packages.
+- **QuickBooks API integration live (2026-03-13).** OAuth2 via Intuit, token storage in Supabase `qb_tokens` table (migration 019). Authenticated to EdenSkinNBody, refresh token valid 101 days. Dashboard endpoints: /api/qb/auth, /api/qb/callback, /api/qb/token-status, /api/qb/clear, /api/metrics/financials. Can pull P&L, balance sheet, revenue trends, classes, cash on hand. Read-only. Dashboard URL: pv-dashboard-ten.vercel.app.
+- 2024 P&L (QB-validated): Revenue $586,934 | COGS $323,999 (55.2%) | GP $262,935 | Expenses $175,132 | Net $87,467 (14.9%). Confirmed during Hormozi valuation worksheet session 03-11. NRR 107%, LTV:CAC 5.8x, EBITDA 82% YoY growth.
 
 ---
 
@@ -98,4 +100,6 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 - 2026-03-05: Generalized agent restart loss pattern (research agents lost to overnight restart in 03-04 session; Gemini note was too narrow -- any long-running agent is at risk across restarts)
 - 2026-03-05: Added WP relay env dependency note (WP credentials changed mid-session 03-04; relay tags silently failed until Atlas restarted; username slug format required)
 - 2026-03-05: Added peptide program to business context (full 6-phase build completed 03-04; July 2026 launch; materials on OneDrive)
+- 2026-03-12: Added QB integration gap and 2024 P&L to Learned Over Time (Derek assumed QB API existed on 03-11; it does not; data path is always manual. 2024 P&L and Hormozi valuation metrics recorded for future reference.)
+- 2026-03-13: QB integration restored and live. Resurrected from git history (commit 37e7ccc), switched token storage from Vercel Blob to Supabase qb_tokens table (migration 019) to fix CDN caching issues. OAuth2 re-authed to EdenSkinNBody. Dashboard financials endpoint operational.
 

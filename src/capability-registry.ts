@@ -77,14 +77,15 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     section: "Dashboard",
     description: "Supabase business_scorecard (primary) + GHL direct (pipeline) + legacy API (fallback)",
     can: [
-      "financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase",
+      "financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase + QuickBooks API",
+      "QuickBooks read-only API: P&L, balance sheet, revenue trends, class-based filtering, cash on hand (OAuth2, Supabase token storage)",
       "pipeline stats (stages, close rate, show rate, stale leads) via GHL direct",
       "overview (leads, ad spend, CTR, CPL) via Supabase daily aggregates + GHL",
-      "deep financials (category breakdown, anomaly detection) via Supabase",
+      "deep financials (category breakdown, anomaly detection) via Supabase + QB",
       "financial anomaly detection",
     ],
     cannot: [
-      "write to QuickBooks",
+      "write to QuickBooks (read-only API access)",
       "modify any records",
       "speed-to-lead (removed from dashboard, not in scorecard)",
       "attribution by source (removed from dashboard, not in scorecard)",

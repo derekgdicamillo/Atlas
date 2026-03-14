@@ -15,8 +15,8 @@ CAN: list unread emails (up to 10), read full email body by ID, create drafts (D
 CANNOT: send from Derek's email (only draft), search email by custom query (only unread inbox), read attachments, modify existing calendar events (only create/delete), modify contacts, access Atlas inbox
 
 ## Dashboard - Supabase business_scorecard (primary) + GHL direct (pipeline) + legacy API (fallback)
-CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase, pipeline stats (stages, close rate, show rate, stale leads) via GHL direct, overview (leads, ad spend, CTR, CPL) via Supabase daily aggregates + GHL, deep financials (category breakdown, anomaly detection) via Supabase, financial anomaly detection
-CANNOT: write to QuickBooks, modify any records, speed-to-lead (removed from dashboard, not in scorecard), attribution by source (removed from dashboard, not in scorecard)
+CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase + QuickBooks API, QuickBooks read-only API: P&L, balance sheet, revenue trends, class-based filtering, cash on hand (OAuth2, Supabase token storage), pipeline stats (stages, close rate, show rate, stale leads) via GHL direct, overview (leads, ad spend, CTR, CPL) via Supabase daily aggregates + GHL, deep financials (category breakdown, anomaly detection) via Supabase + QB, financial anomaly detection
+CANNOT: write to QuickBooks (read-only API access), modify any records, speed-to-lead (removed from dashboard, not in scorecard), attribution by source (removed from dashboard, not in scorecard)
 COMMANDS: /finance [deep], /pipeline, /scorecard, /pulse, /leads [days], /stl, /ops
 
 ## GBP (Google Business Profile) - read-only (API posts rejected by Google)

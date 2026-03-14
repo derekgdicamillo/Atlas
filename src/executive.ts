@@ -206,13 +206,14 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
   if (isGHLReady()) {
     try {
       const ops = await getOpsSnapshot();
-      if (ops.pipeline.staleCount > 5) {
-        alerts.push({
-          severity: "warning",
-          category: "Pipeline",
-          message: `${ops.pipeline.staleCount} stale leads sitting >7 days in early stages. Revenue leaking.`,
-        });
-      }
+      // Stale leads — disabled 2026-03-09 per Derek (false positives on leads awaiting consult)
+      // if (ops.pipeline.staleCount > 5) {
+      //   alerts.push({
+      //     severity: "warning",
+      //     category: "Pipeline",
+      //     message: `${ops.pipeline.staleCount} stale leads sitting >7 days in early stages. Revenue leaking.`,
+      //   });
+      // }
       if (ops.noShowsThisWeek > 3) {
         alerts.push({
           severity: "warning",
