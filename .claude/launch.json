@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "preview-server",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8765", "-d", "C:\\Users\\derek\\Projects\\atlas\\data"],
+      "port": 8765
+    }
+  ]
+}

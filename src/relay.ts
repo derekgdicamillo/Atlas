@@ -460,6 +460,8 @@ if (initDashboard()) {
 // Initialize GoHighLevel direct integration (optional)
 if (initGHL()) {
   info("startup", "GoHighLevel integration initialized");
+  // Initialize Social Planner (async, non-blocking)
+  import("./ghl-social.ts").then(({ initSocial }) => initSocial()).catch(() => {});
 } else {
   info("startup", "GoHighLevel not configured (missing GHL_API_TOKEN or GHL_LOCATION_ID)");
 }
@@ -3746,6 +3748,9 @@ handlers.on("message:text", async (ctx) => {
 
   const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Text from ${userId}: ${text.substring(0, 80)}...`);
+  // Save offset BEFORE Claude call. If Claude triggers a restart (e.g. pm2 restart atlas),
+  // the offset is already committed so the message won't be re-processed on boot. (#crash-loop-fix)
+  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
   await ctx.replyWithChatAction("typing");
 
   const response = await handleUserMessage(ctx, userId, { text, type: "text" });
@@ -3753,7 +3758,6 @@ handlers.on("message:text", async (ctx) => {
     markUpdateResponded(updateId);
     markDelivered(userId, text);
   }
-  await saveLastUpdateId(updateId, botIdFromCtx(ctx));
 });
 
 // Voice messages
@@ -4335,7 +4339,7 @@ function buildPrompt(
     parts.push(addSection("ghl", `\n${wrapContextBoundary(trimToFit(contexts.ghlContext, 1500), "GHL PIPELINE")}`));
   }
 
-  if (hasGHL && (intent.pipeline || intent.todos) && budgetRemaining() > 800) {
+  if (hasGHL && (intent.pipeline || intent.todos || intent.marketing) && budgetRemaining() > 800) {
     parts.push(addSection("ghl_tags",
       "\nGHL ACTIONS (use these tags to take actions in GoHighLevel):" +
       "\nAdd note to contact: [GHL_NOTE: contact name | note body]" +
@@ -4344,6 +4348,9 @@ function buildPrompt(
       "\nRemove tag: [GHL_TAG: contact name | tag name | action=remove]" +
       "\nEnroll in workflow: [GHL_WORKFLOW: contact name | workflowId | action=add]" +
       "\nRemove from workflow: [GHL_WORKFLOW: contact name | workflowId | action=remove]" +
+      "\nDraft social post: [GHL_SOCIAL: post text | platforms=facebook,instagram,google | media=image_url | schedule=ISO-date]" +
+      "\n  Defaults: platforms=facebook,instagram,google | status=draft (review before publish)" +
+      "\n  Optional: gbp_cta=book|learn_more|call (GBP CTA button)" +
       "\nWARNING: ALWAYS confirm with the user before using GHL_WORKFLOW (it sends automated messages to patients)."
     ));
   }
@@ -4418,6 +4425,21 @@ function buildPrompt(
   }
 
   // Google/GHL tag syntax now in CLAUDE.md (loaded by Claude Code automatically)
+
+  // Task delegation: when user explicitly asks to "spin up an agent" / "delegate" / "research in background",
+  // inject a strong directive to emit [TASK:] tags instead of handling inline.
+  if (intent.taskDelegation && budgetRemaining() > 400) {
+    parts.push(addSection("task_delegation",
+      "\nTASK DELEGATION DIRECTIVE: The user is explicitly asking you to delegate this work to a background agent. " +
+      "Do NOT handle it inline. Do NOT use your own tools (WebSearch, WebFetch, Read, etc.) to do the research yourself. " +
+      "Instead, emit one or more [TASK:] tags to spawn background research agents. Stay responsive to the user.\n" +
+      "Format: [TASK: short description | PROMPT: detailed instructions for the research agent]\n" +
+      "The PROMPT: field is mandatory. Be specific about what you want the agent to find.\n" +
+      "For parallel research, emit multiple [TASK:] tags in the same response.\n" +
+      "For complex multi-source work, use [SWARM: name | BUDGET: $3.00 | PROMPT: detailed instructions] instead.\n" +
+      "Acknowledge the delegation to the user briefly, then move on."
+    ));
+  }
 
   // Ingest routing: tell Atlas to use [INGEST_FOLDER:] instead of [CODE_TASK:] for document analysis
   if (intent.ingest && budgetRemaining() > 500) {

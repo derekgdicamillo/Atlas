@@ -1346,6 +1346,83 @@ export async function processGHLIntents(response: string): Promise<string> {
     clean = clean.replace(match[0], "");
   }
 
+  // [GHL_SOCIAL: summary text | platforms=facebook,instagram,google | media=url | schedule=ISO-date]
+  // Creates a DRAFT post in GHL Social Planner for review before publishing
+  for (const match of response.matchAll(
+    /\[GHL_SOCIAL:\s*([\s\S]+?)\]/gi
+  )) {
+    const inner = match[1];
+    // Split on | when followed by known field keys
+    const segments = inner.split(/\s*\|\s*(?=(?:platforms|media|schedule|status|gbp_cta)\s*=)/i);
+    const summary = segments[0].trim();
+
+    let platforms = ["facebook", "instagram", "google"];
+    let mediaUrl: string | undefined;
+    let scheduleDate: string | undefined;
+    let status: string = "draft";
+    let gbpCta: string | undefined;
+
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments[i].trim();
+      const platformMatch = seg.match(/^platforms\s*=\s*(.*)/i);
+      if (platformMatch) platforms = platformMatch[1].split(",").map(s => s.trim());
+      const mediaMatch = seg.match(/^media\s*=\s*(.*)/i);
+      if (mediaMatch) mediaUrl = mediaMatch[1].trim();
+      const scheduleMatch = seg.match(/^schedule\s*=\s*(.*)/i);
+      if (scheduleMatch) scheduleDate = scheduleMatch[1].trim();
+      const statusMatch = seg.match(/^status\s*=\s*(.*)/i);
+      if (statusMatch) status = statusMatch[1].trim();
+      const ctaMatch = seg.match(/^gbp_cta\s*=\s*(.*)/i);
+      if (ctaMatch) gbpCta = ctaMatch[1].trim();
+    }
+
+    if (!summary) {
+      warn("ghl", `GHL_SOCIAL missing summary text: ${match[0].substring(0, 100)}`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
+
+    try {
+      const { draftToAllPlatforms, createSocialPost, getAccountsByPlatform } = await import("./ghl-social.ts");
+      const media = mediaUrl ? [{ url: mediaUrl, type: mediaUrl.match(/\.(mp4|mov|avi)/i) ? "video/mp4" : "image/jpeg" }] : undefined;
+
+      if (status === "draft" && !scheduleDate && !gbpCta) {
+        // Simple draft to all platforms
+        const post = await draftToAllPlatforms(summary, platforms, media);
+        if (post) {
+          info("ghl", `GHL_SOCIAL: created draft post ${post.id}`);
+        } else {
+          warn("ghl", `GHL_SOCIAL: no connected accounts for platforms ${platforms.join(",")}`);
+        }
+      } else {
+        // Advanced: schedule, specific status, or GBP CTA
+        const accounts = await getAccountsByPlatform(platforms);
+        if (accounts.length === 0) {
+          warn("ghl", `GHL_SOCIAL: no connected accounts for ${platforms.join(",")}`);
+        } else {
+          const opts: Record<string, unknown> = {
+            summary,
+            accountIds: accounts.map(a => a.id),
+            status: scheduleDate ? "scheduled" : status,
+            media,
+          };
+          if (scheduleDate) opts.scheduleDate = scheduleDate;
+          if (gbpCta) {
+            opts.gmbPostDetails = {
+              actionType: gbpCta,
+              url: "https://landing.pvmedispa.com/weightloss",
+            };
+          }
+          const post = await createSocialPost(opts as any);
+          info("ghl", `GHL_SOCIAL: created ${opts.status} post ${post.id}`);
+        }
+      }
+    } catch (err) {
+      warn("ghl", `GHL_SOCIAL failed: ${err}`);
+    }
+    clean = clean.replace(match[0], "");
+  }
+
   return clean;
 }
 

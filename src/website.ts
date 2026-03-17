@@ -353,6 +353,23 @@ export async function processWebsiteIntents(response: string): Promise<string> {
 
       const post = await createPost({ title, content, status, categories: categoryIds });
       info("website", `Created post "${title}" (id=${post.id}, status=${status})`);
+
+      // Auto-draft a social post linking to the blog (if published)
+      if (status === "publish" && post.link) {
+        try {
+          const { draftToAllPlatforms } = await import("./ghl-social.ts");
+          const teaser = `New on the blog: ${title}\n\n${post.link}`;
+          const socialPost = await draftToAllPlatforms(
+            teaser,
+            ["facebook", "instagram", "google"]
+          );
+          if (socialPost) {
+            info("website", `Auto-drafted social post for blog "${title}" (${socialPost.id})`);
+          }
+        } catch (socialErr) {
+          warn("website", `Blog-to-social draft failed: ${socialErr}`);
+        }
+      }
     } catch (err) {
       logError("website", `WP_POST failed for "${title}": ${err}`);
     }

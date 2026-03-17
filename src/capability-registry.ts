@@ -50,6 +50,29 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     module: "src/ghl.ts",
   },
   {
+    section: "GHL Social Planner",
+    description: "Social media posting via GHL Social Planner API (PIT token, requires socialplanner/* scopes)",
+    can: [
+      "list connected social accounts (Facebook, Instagram, GBP, LinkedIn, TikTok, Twitter)",
+      "create draft posts for review before publishing",
+      "schedule posts to specific date/time",
+      "multi-platform posting in one call",
+      "include images/video via public URLs",
+      "GBP posts with CTA buttons (book, learn_more, call, etc.)",
+      "list/search existing posts by status",
+      "update post status (draft -> scheduled -> publish)",
+      "CSV bulk upload for batch scheduling",
+    ],
+    cannot: [
+      "upload media directly (must be publicly accessible URLs)",
+      "create/manage social account connections (done in GHL dashboard)",
+    ],
+    notes: "Posts default to draft status. Use [GHL_SOCIAL: text | platforms=facebook,instagram,google | media=url | schedule=ISO-date] tag. GBP posting via Social Planner bypasses the Google API rejection issue.",
+    module: "src/ghl-social.ts",
+    commands: ["/social (list accounts, draft posts)"],
+    tags: ["[GHL_SOCIAL: summary | platforms=... | media=... | schedule=... | gbp_cta=...]"],
+  },
+  {
     section: "Google",
     description: "OAuth2 (Derek read+draft+calendar+contacts, Atlas send-only)",
     can: [

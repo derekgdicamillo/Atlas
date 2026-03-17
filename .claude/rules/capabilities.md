@@ -10,6 +10,13 @@ CAN: search contacts, get contact by ID, read pipeline/opportunities/stages, rea
 CANNOT: write custom field values (API doesn't support via PIT), create/manage trigger links (not in API), send SMS or email directly (only via workflow enrollment), modify opportunity stage/status/value, update contact fields (email, phone, name), delete anything, access OAuth-only endpoints (calendar may fail)
 WORKAROUND for custom values/trigger links: must be done manually in GHL dashboard, or build a workflow that sets the values and enroll via [GHL_WORKFLOW:].
 
+## GHL Social Planner - Social media posting via GHL Social Planner API (PIT token, requires socialplanner/* scopes)
+CAN: list connected social accounts (Facebook, Instagram, GBP, LinkedIn, TikTok, Twitter), create draft posts for review before publishing, schedule posts to specific date/time, multi-platform posting in one call, include images/video via public URLs, GBP posts with CTA buttons (book, learn_more, call, etc.), list/search existing posts by status, update post status (draft -> scheduled -> publish), CSV bulk upload for batch scheduling
+CANNOT: upload media directly (must be publicly accessible URLs), create/manage social account connections (done in GHL dashboard)
+COMMANDS: /social (list accounts, draft posts)
+TAGS: [GHL_SOCIAL: summary | platforms=... | media=... | schedule=... | gbp_cta=...]
+Posts default to draft status. Use [GHL_SOCIAL: text | platforms=facebook,instagram,google | media=url | schedule=ISO-date] tag. GBP posting via Social Planner bypasses the Google API rejection issue.
+
 ## Google - OAuth2 (Derek read+draft+calendar+contacts, Atlas send-only)
 CAN: list unread emails (up to 10), read full email body by ID, create drafts (Derek), send email (Atlas account), list today's calendar events, create calendar events with invites/location/description, delete calendar events by search, search contacts by name (max 5), list recent contacts (max 20)
 CANNOT: send from Derek's email (only draft), search email by custom query (only unread inbox), read attachments, modify existing calendar events (only create/delete), modify contacts, access Atlas inbox

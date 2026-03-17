@@ -52,6 +52,7 @@ import { cleanupOldEvents } from "./agent-events.ts";
 import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./ad-tracker.ts";
 import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
 import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
+import { isMAABlogReady, publishMAABlog } from "./maa-blog.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -1102,17 +1103,60 @@ jobs.push(
       const contentResult = await runPrompt(weekPrompt, MODELS.sonnet);
 
       if (contentResult) {
-        // Step 3: Send summary to Derek
-        const summary = contentResult.length > 3800
-          ? contentResult.substring(0, 3800) + "\n\n(truncated — full content in Planner tasks)"
+        // Step 3: Push drafts to GHL Social Planner for Mon/Wed/Fri
+        let socialDrafts = 0;
+        try {
+          const { draftToAllPlatforms } = await import("./ghl-social.ts");
+
+          // Parse the 3 posts from the output (POST 1, POST 2, POST 3)
+          const postBlocks = contentResult.split(/POST\s+\d+\s*\([^)]*\)/i).filter((b: string) => b.trim().length > 50);
+
+          // Get next Mon/Wed/Fri dates
+          const now = new Date();
+          const nextMon = new Date(now);
+          nextMon.setDate(now.getDate() + ((1 - now.getDay() + 7) % 7 || 7));
+          const nextWed = new Date(nextMon);
+          nextWed.setDate(nextMon.getDate() + 2);
+          const nextFri = new Date(nextMon);
+          nextFri.setDate(nextMon.getDate() + 4);
+          const scheduleDates = [nextMon, nextWed, nextFri];
+
+          for (let i = 0; i < Math.min(postBlocks.length, 3); i++) {
+            const block = postBlocks[i];
+            // Extract the FACEBOOK section (the main post content)
+            const fbMatch = block.match(/FACEBOOK:\s*([\s\S]*?)(?=X\s*(?:VERSION|\/TWITTER)|PILLAR:|IMAGE\s*IDEA:|$)/i);
+            const postText = fbMatch ? fbMatch[1].trim() : block.substring(0, 500).trim();
+
+            if (postText.length > 20) {
+              const post = await draftToAllPlatforms(
+                postText,
+                ["facebook", "instagram", "google"]
+              );
+              if (post) {
+                socialDrafts++;
+                log("sunday-content-batch", `Created GHL Social draft ${i + 1} (${post.id})`);
+              }
+            }
+          }
+          log("sunday-content-batch", `Pushed ${socialDrafts} drafts to GHL Social Planner`);
+        } catch (socialErr) {
+          warn("sunday-content-batch", `GHL Social draft failed: ${socialErr}`);
+        }
+
+        // Step 4: Send summary to Derek
+        const summary = contentResult.length > 3500
+          ? contentResult.substring(0, 3500) + "\n\n(truncated)"
           : contentResult;
+
+        const socialLine = socialDrafts > 0
+          ? `\n${socialDrafts} drafts pushed to GHL Social Planner. Review and publish when ready.`
+          : "";
 
         const telegramMsg =
           `**Sunday Content Batch**\n\n` +
           `Social Pulse ran ${pulseResult ? "successfully" : "(no data, used defaults)"}.\n` +
-          `3 posts generated for next week.\n\n` +
-          `${summary}\n\n` +
-          `Posts will be pushed to Planner with due dates. Copy, paste, post, mark done.`;
+          `3 posts generated for next week.${socialLine}\n\n` +
+          `${summary}`;
 
         await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
         log("sunday-content-batch", "Sent weekly content batch to Derek");
@@ -2553,6 +2597,37 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // ============================================================
+  // MAA BLOG AUTO-PUBLISHER: Tuesdays & Fridays at 9 AM
+  // ============================================================
+  if (isMAABlogReady()) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 9 * * 2,5", // Tuesday & Friday at 9 AM MST
+        onTick: safeTick("maa-blog", async () => {
+          log("maa-blog", "Generating MAA blog post...");
+          const result = await publishMAABlog(async (prompt) => {
+            return runPrompt(prompt, MODELS.sonnet);
+          });
+          if (result.success) {
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              `MAA Blog published: "${result.title}"\n${result.link}`
+            );
+            log("maa-blog", `Published: ${result.title}`);
+          } else {
+            warn("maa-blog", `Failed: ${result.error}`);
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              `MAA blog publish failed: ${result.error}`
+            );
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
   // 3:35 AM — Ingest yesterday's journal into Supabase for semantic search.
   // Journals exist as markdown files in memory/ but are invisible to Atlas
   // unless explicitly read via tool calls. Ingesting makes them searchable
@@ -2649,6 +2724,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 3:20 AM      Progress notes cleanup (7-day retention)");
   console.log("  - 3:25 AM      Agent event log cleanup (14-day retention)");
   console.log("  - 3:35 AM      Journal ingestion (yesterday's journal -> searchable)");
+  console.log("  - Tue/Fri 9AM  MAA blog auto-publisher (sonnet)");
   console.log("  - 9:00 AM      Midas: funnel conversion monitor (daily)");
   console.log("  - 9:30 PM      Midas: ad performance digest (daily, after ad-tracker)");
   console.log("  - Sunday 9 AM  Midas: weekly full-funnel attribution report");

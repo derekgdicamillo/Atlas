@@ -25,6 +25,7 @@ import { runPrompt } from "./prompt-runner.ts";
 import { MODELS, type ModelTier } from "./constants.ts";
 import { info, warn, error as logError } from "./logger.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { runMaaScraper } from "./maa-scraper.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -44,7 +45,7 @@ const DIMINISHING_RETURNS_THRESHOLD = 2; // stop after N consecutive low-value o
 // TYPES
 // ============================================================
 
-export type NightShiftTaskType = "research" | "analysis" | "content" | "learning" | "self-improvement";
+export type NightShiftTaskType = "research" | "analysis" | "content" | "learning" | "self-improvement" | "maa-scrape";
 
 export interface NightShiftTask {
   id: string;
@@ -240,6 +241,7 @@ ${history}
 - **content**: Draft content pieces for review (Sonnet, $0.30-0.50)
 - **learning**: Research a knowledge gap from the learning queue (Sonnet, $0.50-1.00)
 - **self-improvement**: Atlas system improvements, documentation, skill creation (Sonnet, $0.30-0.80)
+- **maa-scrape**: Update S.A.G.E. knowledge base with state regulatory data (Sonnet, $0.50-1.50). Include 1 maa-scrape task per night to keep the knowledge base current. The scraper auto-picks which states to research.
 
 ## Rules
 - Generate 1-5 tasks, ordered by priority (1=highest)
@@ -362,6 +364,39 @@ export async function runNightShiftWorker(): Promise<{
 
     try {
       info("night-shift", `Executing: [${task.type}] ${task.title} (${task.model}, ~$${task.estimatedCost})`);
+
+      // MAA scraper has its own handler
+      if (task.type === "maa-scrape") {
+        const scraperResult = await runMaaScraper();
+        const summary = [
+          `# Night Shift: MAA Knowledge Scraper`,
+          `*Generated: ${new Date().toISOString()}*`,
+          ``,
+          `## Results`,
+          `- States processed: ${scraperResult.statesProcessed.join(", ") || "none"}`,
+          `- Chunks updated: ${scraperResult.chunksUpdated}`,
+          `- Chunks verified (unchanged): ${scraperResult.chunksVerified}`,
+          scraperResult.errors.length > 0 ? `- Errors: ${scraperResult.errors.join("; ")}` : "",
+        ].filter(Boolean).join("\n");
+
+        const outputDir = join(DATA_DIR, "task-output");
+        if (!existsSync(outputDir)) await mkdir(outputDir, { recursive: true });
+        const outputFilename = `ns-${queue.date}-maa-scrape-${task.id.split("-").pop()}.md`;
+        await writeFile(join(outputDir, outputFilename), summary);
+
+        task.status = "completed";
+        task.output = join(outputDir, outputFilename);
+        task.completedAt = new Date().toISOString();
+        task.actualCost = 0.75 * scraperResult.statesProcessed.length; // ~$0.75/state
+        queue.totalSpent += task.actualCost;
+        completed++;
+        consecutiveLowValue = 0;
+        highlights.push(`SAGE KB: ${scraperResult.statesProcessed.join(", ")} (${scraperResult.chunksUpdated} updated, ${scraperResult.chunksVerified} verified)`);
+        info("night-shift", `MAA scraper done: ${scraperResult.statesProcessed.length} states (~$${task.actualCost.toFixed(2)})`);
+
+        await saveQueue(queue);
+        continue;
+      }
 
       const outputFilename = `ns-${queue.date}-${task.type}-${task.id.split("-").pop()}.md`;
       const outputPath = join(DATA_DIR, "task-output", outputFilename);
