@@ -1,41 +1,71 @@
 # Atlas
 
-Personal AI assistant that lives in Telegram. Powered by Claude, backed by Supabase, and designed to actually remember what you tell it.
+AI operations platform for PV MediSpa and Weight Loss. Two agent personas (Atlas for Derek, Ishtar for Esther) on the same codebase. Powered by Claude, backed by Supabase, runs 24/7 on Telegram.
 
-Atlas spawns a Claude CLI session per conversation, manages persistent memory with semantic search, handles Google Calendar/Gmail, pulls live business metrics, and compresses old conversations into searchable summaries overnight.
+Spawns Claude CLI sessions per conversation, manages persistent memory with semantic search, orchestrates 25+ cron jobs, handles Google/GHL/Meta/QuickBooks integrations, and runs autonomous code and research agents overnight.
 
 ## What It Does
 
-- **Telegram bot** via Grammy, supports text, voice, photos, and documents
-- **Claude CLI integration** with session resume, model switching (opus/sonnet/haiku), and streaming inactivity detection
+### Core Platform
+- **Telegram bot** via Grammy, supports text, voice, photos, documents, and sticker reactions
+- **Dual agent system** with identity-aware routing (Atlas/Ishtar personas, separate Telegram bots)
+- **Claude CLI integration** with session resume, model switching (opus/sonnet/haiku), streaming inactivity detection
 - **Semantic memory** with OpenAI embeddings (text-embedding-3-small) and hybrid vector + full-text search
-- **Knowledge base** with document ingestion, recursive chunking, and dedup
-- **Google integration** for Gmail (read, draft, send), Calendar, and Contacts via OAuth2
-- **Business intelligence** with executive dashboards, full-funnel analytics, and cross-source anomaly detection
-- **GoHighLevel CRM** with live pipeline tracking, new lead polling, no-show and stale lead alerts
-- **Google Business Profile** with review monitoring, performance metrics, and search keyword tracking
-- **Google Analytics 4** with traffic sources, landing pages, conversions, and week-over-week trends
-- **Meta Ads** with campaign performance and spend tracking
-- **Mode system** for social media, marketing, and Skool content generation with auto-detection
-- **Code agent spawning** for autonomous multi-file coding tasks with streamed progress
-- **Research subagents** for fire-and-forget background tasks
+- **Entity graph** with 2,500+ nodes (person, org, tool, concept, location) and relationship traversal
+- **Knowledge base** with document/folder ingestion, recursive chunking, SHA-256 dedup
 - **Conversation history** with ring buffer persistence and nightly summarization
-- **Cron system** with 15 scheduled jobs: heartbeats, journals, morning briefs, executive summaries, backups, and more
-- **Todo management** with priority levels and due dates
-- **Voice** transcription (Groq/Whisper) and TTS (Edge TTS)
+
+### Business Intelligence
+- **Executive intelligence** with cross-source anomaly detection (15+ checks across financial/pipeline/ads/ops/reputation)
+- **QuickBooks API** (OAuth2, read-only) for P&L, balance sheet, revenue trends, class-based filtering
+- **Supabase business_scorecard** as canonical metrics source with daily and monthly capture
+- **GoHighLevel CRM** with pipeline tracking, lead polling, contact actions, workflow enrollment, social planner
+- **Google Business Profile** with review monitoring, performance metrics, search keyword tracking
+- **Google Analytics 4** with traffic sources, landing pages, conversions, real-time users
+- **Meta Ads** with campaign performance, spend tracking, ad management (rename, pause, copy, status)
+- **PV Dashboard** (Next.js/Vercel) with financials, pipeline, attribution views
+
+### Marketing & Content
+- **Midas marketing intelligence** with daily funnel monitoring, ad digest, weekly attribution, content hooks, competitor recon, GBP drafts, monthly strategic brief
+- **Content waterfall** automation: Skool longform -> 3 Facebook hooks -> newsletter -> YouTube outline
+- **Content critic** quality gate (brand voice, compliance, engagement, accuracy scoring)
+- **Ad creative pipeline** with Hormozi/Brunson/Andromeda frameworks, Gemini image generation
+- **GHL Social Planner** for multi-platform post scheduling (Facebook, Instagram, GBP)
+- **Mode system** for social media, marketing, and Skool content with auto-detection
+
+### Automation & Agents
+- **25+ cron jobs**: heartbeats, journals, morning briefs, executive summaries, ad tracking, lead monitoring, appointment reminders, night shift, marketing intelligence, content generation
+- **Code agent spawning** for autonomous multi-file coding (opus, 500 tools, 180 min timeout, $5 cap)
+- **Research subagents** for fire-and-forget background tasks (sonnet, parallel execution)
+- **Night shift** with Haiku planner + worker for autonomous overnight tasks ($5/night budget)
+- **Show rate engine** with tiered appointment reminders (72h, 24h, 2h) and no-show recovery
+- **Lead pipeline automation** with enrichment, source tagging, stale lead reactivation, volume tracking
+- **Institutional memory (Codex)** with agent lesson recording, keyword search, and confidence decay
+
+### Integrations
+- **Google** OAuth2 for Gmail (read, draft, send), Calendar (create, delete, invite), Contacts
+- **Microsoft 365** for Planner (task boards), Teams, SharePoint/Loop, OneDrive
+- **Home Assistant** via REST API (lights, thermostat, locks, scenes, automations)
+- **OBS Studio** via WebSocket for recording automation with teleprompter
+- **WordPress** REST API for pvmedispa.com and MAA site management
+- **Voice** transcription (Groq/Whisper) and TTS (OpenAI)
+- **Gemini** for image generation with structured JSON prompt schema
 
 ## Architecture
 
 ```
-Telegram <-> Grammy Bot <-> Relay (session lock + queue)
+Telegram <-> Grammy Bot <-> Relay (session lock + queue + dedup)
                               |
-                              +-> Claude CLI (spawned per message)
-                              +-> Code Agents (autonomous coding, streamed progress)
-                              +-> Research Subagents (fire-and-forget background tasks)
-                              +-> Supabase (memory, messages, documents, summaries)
+                              +-> Claude CLI (spawned per message, model routing)
+                              +-> Code Agents (opus, 500 tools, streamed progress)
+                              +-> Research Subagents (sonnet, fire-and-forget)
+                              +-> Supabase (memory, messages, documents, scorecard, tasks)
                               +-> Google APIs (Gmail, Calendar, Contacts)
-                              +-> Business APIs (Dashboard, GHL, GBP, GA4, Meta)
-                              +-> Cron Jobs (15 scheduled: heartbeat, briefs, executive, backups)
+                              +-> Microsoft 365 (Planner, Teams, SharePoint, OneDrive)
+                              +-> Business APIs (GHL, GBP, GA4, Meta, QuickBooks)
+                              +-> Cron System (25+ jobs: intel, marketing, content, ops)
+                              +-> Home Assistant (smart home control)
+                              +-> OBS + Teleprompter (recording automation)
 ```
 
 ### Key Modules
@@ -50,18 +80,27 @@ Telegram <-> Grammy Bot <-> Relay (session lock + queue)
 | `src/conversation.ts` | Ring buffer for recent conversation context |
 | `src/summarize.ts` | Nightly conversation compression via haiku |
 | `src/google.ts` | Gmail, Calendar, Contacts integration |
-| `src/dashboard.ts` | PV Dashboard API: financials, pipeline, attribution, speed-to-lead |
+| `src/metrics-engine.ts` | Canonical business metrics: Supabase scorecard capture and query |
+| `src/dashboard.ts` | PV Dashboard API: financials, pipeline, QuickBooks integration |
 | `src/executive.ts` | Cross-source analytics, full-funnel view, anomaly detection |
-| `src/ghl.ts` | GoHighLevel CRM: pipeline tracking, lead polling, ops dashboard |
+| `src/marketing.ts` | Midas marketing intelligence: funnel monitor, ad digest, attribution, hooks, recon |
+| `src/ghl.ts` | GoHighLevel CRM: pipeline tracking, lead polling, ops, social planner |
+| `src/ghl-social.ts` | GHL Social Planner: multi-platform post scheduling |
 | `src/gbp.ts` | Google Business Profile: reviews, performance, search keywords |
 | `src/analytics.ts` | Google Analytics 4: traffic, conversions, realtime users |
-| `src/meta.ts` | Meta Ads API: campaign performance, spend tracking |
+| `src/meta.ts` | Meta Ads API: campaign performance, spend, ad management |
 | `src/modes.ts` | Mode system: social, marketing, skool with auto-detection |
-| `src/cron.ts` | 15 scheduled jobs (heartbeat, journal, briefs, executive, backups) |
-| `src/todo.ts` | Todo CRUD with priorities and due dates |
+| `src/cron.ts` | 25+ scheduled jobs (intel, marketing, content, ops, overnight) |
+| `src/night-shift.ts` | Autonomous overnight work: Haiku planner + worker pipeline |
+| `src/show-rate.ts` | Appointment reminders (72h/24h/2h) and no-show recovery |
+| `src/website.ts` | WordPress REST API: page updates, blog posts, CSS management |
+| `src/maa-blog.ts` | MAA WordPress: blog publishing, category management |
+| `src/gemini-image.ts` | Gemini image generation with structured JSON prompt schema |
+| `src/obs.ts` | OBS WebSocket: recording automation, scene switching |
+| `src/capability-registry.ts` | Auto-generates capabilities.md from registered integrations |
 | `src/heartbeat.ts` | Proactive check-ins during active hours |
 | `src/transcribe.ts` | Voice-to-text via Groq |
-| `src/tts.ts` | Text-to-speech via Edge TTS |
+| `src/tts.ts` | Text-to-speech via OpenAI |
 
 ### Edge Functions (Supabase)
 
@@ -70,6 +109,7 @@ Telegram <-> Grammy Bot <-> Relay (session lock + queue)
 | `embed` | Auto-generates OpenAI embeddings on INSERT (triggered by pg_net webhook) |
 | `search` | Vector-only or hybrid search with RRF fusion across all tables |
 | `ingest` | Document chunking (~512 tokens), SHA-256 dedup, knowledge base ingestion |
+| `maa-search` | Semantic search for MAA knowledge base content |
 
 ## Setup
 
@@ -134,8 +174,15 @@ pm2 start ecosystem.config.cjs --only atlas
 | `GBP_ACCOUNT_ID` | Google Business Profile account ID |
 | `GBP_LOCATION_ID` | Google Business Profile location ID |
 | `GA4_PROPERTY_ID` | Google Analytics 4 property ID |
+| `QB_CLIENT_ID` | QuickBooks OAuth2 client ID |
+| `QB_CLIENT_SECRET` | QuickBooks OAuth2 client secret |
+| `HA_URL` | Home Assistant URL (Nabu Casa or local) |
+| `HA_TOKEN` | Home Assistant long-lived access token |
+| `OBS_WS_PASSWORD` | OBS WebSocket server password |
+| `GEMINI_API_KEY` | Google Gemini API key for image generation |
+| `MAA_WP_APP_PASSWORD` | WordPress app password for MAA site |
 
-Google OAuth credentials are configured via `bun run setup/google-auth.ts`. GBP account/location IDs can be discovered with `bun run setup/discover-google-ids.ts`.
+Google OAuth credentials are configured via `bun run setup/google-auth.ts`. GBP account/location IDs can be discovered with `bun run setup/discover-google-ids.ts`. QuickBooks OAuth2 via `src/dashboard.ts` endpoints.
 
 ## Commands
 
@@ -166,11 +213,22 @@ Google OAuth credentials are configured via `bun run setup/google-auth.ts`. GBP 
 | `/alerts` | Cross-source anomaly detection |
 | `/channels` | Lead source scorecards with close rates |
 | `/weekly` | Comprehensive weekly business summary |
-| `/social` | Switch to social media content mode |
-| `/marketing` | Switch to marketing strategy mode |
-| `/skool` | Switch to Skool community content mode |
+| `/ads [range]` | Meta Ads performance (today, 7d, 30d, mtd) |
+| `/adspend [range]` | Ad spend breakdown |
+| `/topcreative [range]` | Top performing ad creatives |
+| `/social` | Social media content mode + GHL Social Planner |
+| `/marketing` | Marketing strategy mode |
+| `/skool` | Skool community content mode |
+| `/coach` | Personal fitness coaching mode |
 | `/mode` | List, switch, or clear active mode |
 | `/code <dir> <instructions>` | Spawn autonomous code agent |
+| `/executive [week\|month]` | Full-funnel executive report |
+| `/alerts` | Cross-source anomaly detection |
+| `/planner [name]` | Microsoft Planner board view |
+| `/ha [command]` | Home Assistant smart home control |
+| `/record [module]` | OBS recording with teleprompter |
+| `/careplan <data>` | GLP-1 clinical care plan generator |
+| `/diagnose` | Atlas system health check |
 | `/help` | Show all commands |
 
 ## Enterprise Search System
@@ -276,10 +334,12 @@ Atlas can spawn independent Claude instances for background work.
 
 ### Code Agents
 - Autonomous coding with streamed progress updates to Telegram
-- Default model: opus, 200 tool call limit, 90 min wall clock, $5 budget cap
+- Default model: opus, 500 tool call limit, 180 min wall clock, $5 budget cap
 - Command: `/code <project_dir> <instructions>`
 - Self-delegation tag: `[CODE_TASK: cwd=<dir> | PROMPT: instructions]` (optional: `| TIMEOUT: 120m`)
-- Progress updates every 30s showing tool name, file, and running cost
+- Progress updates every 60s showing tool name, file, and running cost
+- Task persistence via Supabase `agent_tasks` table (survives restarts)
+- Institutional memory (Codex): lessons learned from completed agents injected into future prompts
 
 ## Process Management
 
