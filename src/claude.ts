@@ -797,6 +797,10 @@ export async function callClaude(
     let toolCallCount = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let currentToolStartAt: number | null = null; // Track active tool calls for dynamic inactivity extension
+    let currentToolName: string | null = null; // Track which tool is running for per-tool timeout ceilings
+    const LONG_TOOL_INACTIVITY_MS = 720_000; // 12 min ceiling for normal tools
+    const FORK_TOOL_INACTIVITY_MS = 2_400_000; // 40 min ceiling for forked skills/agents (no stream events)
 
     // Progress-aware phased loop detection (OpenClaw #16808).
     // Phases: hard-block known no-progress loops, warn on identical repeats,
@@ -827,6 +831,9 @@ export async function callClaude(
 
       switch (event.type) {
         case "assistant":
+          lastActivityAt = Date.now(); // Tool start = activity (prevents timeout during long Bash/skill execution)
+          currentToolStartAt = Date.now(); // Track when this tool call started (for dynamic inactivity extension)
+          currentToolName = event.toolName || null; // Track tool name for per-tool timeout ceilings
           toolCallCount++;
           // Loop detection: kill process if tool calls exceed threshold
           if (toolCallCount > MAX_TOOL_CALLS_PER_REQUEST) {
@@ -974,10 +981,12 @@ export async function callClaude(
         // OpenClaw #20635: Thinking events keep session alive during extended reasoning
         case "thinking":
           lastActivityAt = Date.now();
+          currentToolStartAt = null; // Tool completed if we're back to thinking
           break;
 
         case "text_delta":
           lastActivityAt = Date.now();
+          currentToolStartAt = null; // Tool completed if we're getting text output
           if (event.textDelta && options?.onTextDelta) {
             options.onTextDelta(event.textDelta);
           }
@@ -985,6 +994,7 @@ export async function callClaude(
 
         case "result":
           gotResultEvent = true;
+          currentToolStartAt = null;
           resultText = event.resultText || "";
           if (event.isError) {
             isError = true;
@@ -1042,10 +1052,21 @@ export async function callClaude(
           timeoutReason = `wall clock exceeded (${Math.round(wallElapsed / 1000)}s)`;
           clearInterval(check);
           resolve("timeout");
-        } else if (idleElapsed > effectiveInactivityMs) {
-          timeoutReason = `inactive for ${Math.round(idleElapsed / 1000)}s (limit: ${Math.round(effectiveInactivityMs / 1000)}s)`;
-          clearInterval(check);
-          resolve("timeout");
+        } else {
+          // Dynamic inactivity extension: if a tool call is in progress, use a per-tool
+          // timeout ceiling. Forked tools (Skill, Agent) produce no stream events while
+          // running, so they need a much longer ceiling (40 min) than normal tools (12 min).
+          const toolCeiling = (currentToolName === "Skill" || currentToolName === "Agent")
+            ? FORK_TOOL_INACTIVITY_MS
+            : LONG_TOOL_INACTIVITY_MS;
+          const activeInactivityMs = currentToolStartAt !== null
+            ? Math.max(effectiveInactivityMs, toolCeiling)
+            : effectiveInactivityMs;
+          if (idleElapsed > activeInactivityMs) {
+            timeoutReason = `inactive for ${Math.round(idleElapsed / 1000)}s (limit: ${Math.round(activeInactivityMs / 1000)}s${currentToolStartAt !== null ? ", tool active" : ""})`;
+            clearInterval(check);
+            resolve("timeout");
+          }
         }
       }, 5000); // Check every 5 seconds
 
