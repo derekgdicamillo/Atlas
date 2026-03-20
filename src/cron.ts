@@ -20,7 +20,7 @@ import { runEvolutionPipeline } from "./evolution/index.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
 import { runPrompt } from "./prompt-runner.ts";
-import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, getLocalTaskIds, type CompletedTaskInfo } from "./supervisor.ts";
+import { loadTasks, checkTasks, registerTask, registerCodeTask, markAnnounced, incrementAnnounceRetry, getLocalTaskIds, type CompletedTaskInfo } from "./supervisor.ts";
 import { initTaskPersistence, syncTasksFromSupabase } from "./task-persistence.ts";
 import { runSupervisorWorker, getCodeAgentStatus } from "./supervisor-worker.ts";
 import { withLock } from "./supervisor-lock.ts";
@@ -41,10 +41,8 @@ import { sendEmail } from "./google.ts";
 import { emit as emitAlert, deliver as deliverAlerts } from "./alerts.ts";
 import { checkAppointmentReminders, cleanupStaleReminderTags, getShowRateDigest } from "./show-rate.ts";
 import { isEffectivelyPaused, shouldSuppressAnnouncement, recordSuppressedTask } from "./automation-pause.ts";
-import { critiqueContent, formatCriticReport } from "./content-critic.ts";
 import { processGeminiIntents, isGeminiReady } from "./gemini-image.ts";
 import { runNightShiftPlanner, runNightShiftWorker, getNightShiftReport } from "./night-shift.ts";
-import { trackContentGeneration } from "./content-tracker.ts";
 import { runStrategicMemo } from "./strategic-memo.ts";
 import { cleanupOldNotes } from "./progress-notes.ts";
 import { decayStaleEntries } from "./codex.ts";
@@ -53,6 +51,8 @@ import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./
 import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
 import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
 import { isMAABlogReady, publishMAABlog } from "./maa-blog.ts";
+import { runStateSweep, runNationalSweep, runDemandResearch } from "./sage-research.ts";
+import { runAnalyzer } from "./sage-analyzer.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -68,22 +68,12 @@ const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
 const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BACKUP_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
-const WATERFALL_VAULT_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\PV Vault\\02 - PV MediSpa\\Content\\Waterfalls";
-
 /** Atomic JSON write: write to tmp file, then rename. Prevents corrupt state on crash. */
 function atomicWriteFileSync(filePath: string, data: string): void {
   const tmp = filePath + ".tmp";
   writeFileSync(tmp, data);
   renameSync(tmp, filePath);
 }
-
-const PILLAR_NAMES: Record<number, string> = {
-  1: "Precision Weight Science",
-  2: "Nourishing Health",
-  3: "Dynamic Movement",
-  4: "Mindful Wellness",
-  5: "Functional Wellness",
-};
 
 function today(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
@@ -92,76 +82,6 @@ function today(): string {
 function log(job: string, message: string): void {
   const ts = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
   console.log(`[cron:${job}] ${ts} — ${message}`);
-}
-
-// ============================================================
-// CONTENT WATERFALL HELPERS (OneDrive vault save + email)
-// ============================================================
-
-/** Parse pillar number and subtopic from waterfall output header.
- *  Expects a line like: "Pillar: Nourishing Health | Subtopic: Protein Paradox ..." */
-function parseWaterfallMeta(content: string): { pillar: number; subtopic: string } {
-  // Try to match the header line: "Pillar: <name> | Subtopic: <name> | Format: <type>"
-  const headerMatch = content.match(/Pillar:\s*([^|]+)\|\s*Subtopic:\s*([^|]+)/i);
-  if (headerMatch) {
-    const pillarName = headerMatch[1].trim();
-    const subtopic = headerMatch[2].trim();
-    // Map name back to number
-    const pillarNum = Object.entries(PILLAR_NAMES).find(
-      ([, name]) => pillarName.toLowerCase() === name.toLowerCase()
-    );
-    return { pillar: pillarNum ? Number(pillarNum[0]) : 0, subtopic };
-  }
-
-  // Fallback: read the rotation file for the current state (already updated by the skill)
-  try {
-    const rotationPath = join(MEMORY_DIR, "content-rotation.json");
-    if (existsSync(rotationPath)) {
-      const rotation = JSON.parse(readFileSync(rotationPath, "utf-8"));
-      return {
-        pillar: rotation.lastPillar || 0,
-        subtopic: rotation.lastSubtopic || "Unknown",
-      };
-    }
-  } catch (e) { warn("cron", `Failed to parse content-rotation.json: ${e}`); }
-  return { pillar: 0, subtopic: "Unknown" };
-}
-
-/** Save waterfall markdown to the OneDrive vault directory. */
-function saveWaterfallToVault(content: string, pillarNum: number): string | null {
-  try {
-    if (!existsSync(WATERFALL_VAULT_DIR)) {
-      mkdirSync(WATERFALL_VAULT_DIR, { recursive: true });
-    }
-    const date = today();
-    const filename = `${date}-pillar-${pillarNum}.md`;
-    const filepath = join(WATERFALL_VAULT_DIR, filename);
-    writeFileSync(filepath, content, "utf-8");
-    log("content-engine", `Saved waterfall to vault: ${filename}`);
-    return filepath;
-  } catch (err) {
-    logError("cron", `Failed to save waterfall to vault: ${err}`);
-    return null;
-  }
-}
-
-/** Email the waterfall content to Derek via Atlas's Gmail. */
-async function emailWaterfall(content: string, pillarNum: number, subtopic: string): Promise<boolean> {
-  const subject = `Content Waterfall — Pillar ${pillarNum}: ${subtopic}`;
-  const body = `${subject}\n\n${content}`;
-
-  try {
-    const msgId = await sendEmail("derek@pvmedispa.com", subject, body);
-    if (msgId) {
-      log("content-engine", `Emailed waterfall to Derek (msgId: ${msgId})`);
-      return true;
-    }
-    warn("cron", "sendEmail returned null (Atlas Gmail may not be configured)");
-    return false;
-  } catch (err) {
-    logError("cron", `Failed to email waterfall: ${err}`);
-    return false;
-  }
 }
 
 // ============================================================
@@ -183,7 +103,6 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "evolution":      20 * 60 * 1000, // 20 min — includes code agent spawn
   "summarize":      15 * 60 * 1000, // 15 min — may process many conversations
   "reflect":        10 * 60 * 1000, // 10 min
-  "content-engine": 10 * 60 * 1000, // 10 min
   "morning-brief":   5 * 60 * 1000, //  5 min
   "weekly-exec":     8 * 60 * 1000, //  8 min
   "todo-review":     3 * 60 * 1000, //  3 min
@@ -214,7 +133,6 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "metric-cleanup":  60 * 1000,     //  1 min (single Supabase RPC)
   "ghl-webhook-health": 30 * 1000,  // 30 sec (single Supabase query)
   "pharmacy-invoices": 5 * 60 * 1000, // 5 min — M365 API + PDF parsing + OneDrive save
-  "overnight-content": 10 * 60 * 1000, // 10 min — overnight draft generation
   "night-shift-plan": 3 * 60 * 1000, //  3 min — Haiku planner, quick
   "night-shift-work": 15 * 60 * 1000, // 15 min — processes up to 5 tasks
   "strategic-memo":   5 * 60 * 1000, //  5 min — Sonnet weekly memo
@@ -232,6 +150,10 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "midas-gbp":       3 * 60 * 1000, //  3 min — GBP content draft (Sonnet)
   "metrics-reminder": 30 * 1000,    // 30 sec — just sends a Telegram message
   "meeting-check":   3 * 60 * 1000, // 3 min — fetch + process transcripts via Claude
+  "sage-state-sweep": 15 * 60 * 1000, // 15 min — nightly state regulatory sweep
+  "sage-national-sweep": 10 * 60 * 1000, // 10 min — nightly national topic rotation
+  "sage-analyzer":   5 * 60 * 1000, //  5 min — weekly conversation analysis
+  "sage-demand-research": 15 * 60 * 1000, // 15 min — demand-driven research
   "default":         5 * 60 * 1000, //  5 min catch-all
 };
 
@@ -534,178 +456,6 @@ jobs.push(
         log("morning-brief", "Sent to Derek (with system digest + business pulse + show rate + trends)");
       } else {
         log("morning-brief", "No output generated");
-      }
-    }),
-    timeZone: TIMEZONE,
-  })
-);
-
-// 5. Content engine — 7:00 AM daily (sonnet)
-//    Auto-saves to OneDrive vault + emails to Derek after generation.
-jobs.push(
-  CronJob.from({
-    cronTime: "0 7 * * *",
-    onTick: safeTick("content-engine", async () => {
-      log("content-engine", "Running content waterfall...");
-      const result = await runSkill("pv-content-waterfall", MODELS.sonnet);
-      if (result) {
-        // Parse pillar/subtopic from the output
-        const { pillar, subtopic } = parseWaterfallMeta(result);
-
-        // Run content critic quality gate
-        const critic = await critiqueContent(result, "skool");
-        const criticBlock = formatCriticReport(critic);
-        log("content-engine", criticBlock);
-
-        // Track content generation for engagement analysis
-        trackContentGeneration({
-          date: today(),
-          pillar,
-          pillarName: PILLAR_NAMES[pillar] || "Unknown",
-          subtopic,
-          format: "skool",
-          criticScore: critic.overallScore,
-          criticPassed: critic.passed,
-        });
-
-        // Save to OneDrive vault
-        const vaultPath = saveWaterfallToVault(result, pillar);
-
-        // Build email body with critic report prepended
-        const criticHeader = critic.passed
-          ? `Content Critic: PASSED (${Math.round(critic.overallScore * 100)}%)\n\n`
-          : `\u26a0\ufe0f Content Critic flagged issues: ${critic.issues.join("; ")}\n${criticBlock}\n\n`;
-        const emailContent = criticHeader + result;
-
-        // Email to Derek (with critic results)
-        const subject = `Content Waterfall — Pillar ${pillar}: ${subtopic}`;
-        const emailed = !!(await sendEmail("derek@pvmedispa.com", subject, emailContent).catch(() => null));
-        if (emailed) {
-          log("content-engine", `Emailed waterfall to Derek`);
-        }
-
-        // Send Telegram summary (truncated if long)
-        const statusLine = [
-          vaultPath ? "Saved to OneDrive vault." : "",
-          emailed ? "Emailed to derek@pvmedispa.com." : "",
-        ].filter(Boolean).join(" ");
-
-        const summary = result.length > 3900
-          ? result.substring(0, 3900) + "\n\n(truncated, full output saved to vault and emailed)"
-          : result;
-        const criticTelegram = critic.passed
-          ? `\n\n${criticBlock}`
-          : `\n\n\u26a0\ufe0f ${criticBlock}`;
-        const telegramMsg = statusLine
-          ? `Content Waterfall:\n\n${summary}${criticTelegram}\n\n${statusLine}`
-          : `Content Waterfall:\n\n${summary}${criticTelegram}`;
-        await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
-
-        // Process any GEMINI_IMAGE tags in the waterfall output
-        if (isGeminiReady()) {
-          try {
-            const geminiResult = await processGeminiIntents(result);
-            for (const imgPath of geminiResult.imagePaths) {
-              try {
-                await sendTelegramPhoto(DEREK_CHAT_ID, imgPath);
-              } catch (imgErr) {
-                warn("content-engine", `Failed to send image: ${imgErr}`);
-              }
-            }
-            if (geminiResult.imagePaths.length > 0) {
-              log("content-engine", `Generated ${geminiResult.imagePaths.length} image(s) from waterfall`);
-            }
-          } catch (e) {
-            warn("content-engine", `Gemini image processing failed: ${e}`);
-          }
-        }
-
-        log("content-engine", `Sent to Derek (vault: ${!!vaultPath}, email: ${emailed})`);
-      } else {
-        log("content-engine", "No output generated");
-      }
-    }),
-    timeZone: TIMEZONE,
-  })
-);
-
-// 5b. Overnight content draft — 11:30 PM daily (sonnet)
-//     Generates tomorrow's content waterfall as a draft for morning review.
-//     Does NOT send to Telegram. Saves to data/content-drafts/ with date prefix.
-//     Runs content critic on output.
-const CONTENT_DRAFTS_DIR = join(DATA_DIR, "content-drafts");
-jobs.push(
-  CronJob.from({
-    cronTime: "30 23 * * *",
-    onTick: safeTick("overnight-content", async () => {
-      log("overnight-content", "Generating overnight content draft for tomorrow...");
-
-      // Calculate tomorrow's date
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-
-      // Determine tomorrow's pillar rotation
-      let nextPillar = 1;
-      try {
-        const rotationPath = join(MEMORY_DIR, "content-rotation.json");
-        if (existsSync(rotationPath)) {
-          const rotation = JSON.parse(readFileSync(rotationPath, "utf-8"));
-          nextPillar = ((rotation.lastPillar || 0) % 5) + 1;
-        }
-      } catch (e) { warn("overnight-content", `Failed to read content rotation: ${e}`); }
-      const pillarName = PILLAR_NAMES[nextPillar] || "Unknown";
-      log("overnight-content", `Tomorrow's pillar: ${nextPillar} (${pillarName})`);
-
-      const result = await runSkill("pv-content-waterfall", MODELS.sonnet);
-      if (result) {
-        // Run content critic quality gate
-        const critic = await critiqueContent(result, "skool");
-        const criticBlock = formatCriticReport(critic);
-        log("overnight-content", criticBlock);
-
-        // Track overnight content generation for engagement analysis
-        const { pillar: overnightPillar, subtopic: overnightSubtopic } = parseWaterfallMeta(result);
-        trackContentGeneration({
-          date: tomorrowStr,
-          pillar: overnightPillar,
-          pillarName: PILLAR_NAMES[overnightPillar] || "Unknown",
-          subtopic: overnightSubtopic,
-          format: "skool",
-          criticScore: critic.overallScore,
-          criticPassed: critic.passed,
-        });
-
-        // Save draft to data/content-drafts/
-        if (!existsSync(CONTENT_DRAFTS_DIR)) {
-          mkdirSync(CONTENT_DRAFTS_DIR, { recursive: true });
-        }
-        const draftFilename = `${tomorrowStr}-pillar-${overnightPillar}-draft.md`;
-        const criticHeader = critic.passed
-          ? `<!-- Content Critic: PASSED (${Math.round(critic.overallScore * 100)}%) -->\n\n`
-          : `<!-- Content Critic: FLAGGED (${Math.round(critic.overallScore * 100)}%) — ${critic.issues.join("; ")} -->\n\n`;
-        // Process GEMINI_IMAGE tags — save images but don't send to Telegram at 11:30 PM
-        let imagePaths: string[] = [];
-        if (isGeminiReady()) {
-          try {
-            const geminiResult = await processGeminiIntents(result);
-            imagePaths = geminiResult.imagePaths;
-            if (imagePaths.length > 0) {
-              log("overnight-content", `Generated ${imagePaths.length} image(s) from overnight draft`);
-            }
-          } catch (e) {
-            warn("overnight-content", `Gemini image processing failed: ${e}`);
-          }
-        }
-
-        const imageNote = imagePaths.length > 0
-          ? `\n\n<!-- Generated images: ${imagePaths.join(", ")} -->`
-          : "";
-        const draftContent = criticHeader + criticBlock + "\n\n---\n\n" + result + imageNote;
-        writeFileSync(join(CONTENT_DRAFTS_DIR, draftFilename), draftContent, "utf-8");
-        log("overnight-content", `Saved draft: ${draftFilename} (critic: ${critic.passed ? "PASSED" : "FLAGGED"})`);
-      } else {
-        log("overnight-content", "No output generated");
       }
     }),
     timeZone: TIMEZONE,
@@ -2628,6 +2378,163 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
+  // ============================================================
+  // S.A.G.E. KNOWLEDGE AUDIT: 1st of month at 10:30 AM
+  // ============================================================
+  // Monthly audit + auto-update of S.A.G.E. prompt modules.
+  // The nightly sage-state-sweep and sage-national-sweep crons handle regulatory + topic data (sage_chunks table).
+  // This job handles the OTHER modules: marketing, finance, operations, business, content, hormozi.
+  // Uses a code agent so it can edit .ts files and deploy via wrangler.
+  // Rotation: marketing + finance every month, operations + business odd months, content + hormozi even months.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 10 1 * *", // 1st of month at 10:30 AM
+      onTick: safeTick("sage-audit", async () => {
+        const month = new Date().getMonth() + 1; // 1-12
+        const isOdd = month % 2 === 1;
+
+        const modules = ["marketing", "finance"];
+        if (isOdd) {
+          modules.push("operations", "business");
+        } else {
+          modules.push("content", "hormozi");
+        }
+
+        const moduleList = modules.join(", ");
+        log("sage-audit", `Starting monthly S.A.G.E. knowledge audit: ${moduleList}`);
+
+        try {
+          const auditPrompt = `You are updating the S.A.G.E. (Strategic Aesthetics Guidance Engine) knowledge base for the Medical Aesthetics Association. S.A.G.E. is an AI advisor for aesthetic nurses, NPs, and estheticians about starting and running medical aesthetics practices.
+
+## Modules to Update This Month: ${moduleList}
+
+The prompt modules are TypeScript files at: worker/src/prompts/
+Each exports a const string that gets injected into Claude's system prompt based on user intent.
+
+## Process
+
+For each module (${moduleList}):
+
+1. **Read the .ts file** (e.g., worker/src/prompts/marketing.ts)
+2. **Research what's changed** using web searches:
+   - marketing.ts: Meta Ads/Andromeda updates, Google Ads changes, new ad formats, algorithm shifts, medspa marketing benchmarks
+   - finance.ts: Medspa revenue benchmarks, medical director compensation data, injectable pricing trends, KPI standards
+   - operations.ts: HIPAA rule changes, new compliance requirements, staffing trends in medical aesthetics, EMR updates
+   - business.ts: Entity formation changes, malpractice insurance rates, new medspa business models, startup cost shifts
+   - content.ts: Social media algorithm changes, new platform features (Instagram, TikTok), content strategy shifts
+   - hormozi.ts: Pricing frameworks, offer optimization, lead magnet trends relevant to medspas
+3. **If anything is outdated, wrong, or missing**: Edit the .ts file directly. Update the specific sections. Keep the same export format and structure.
+4. **If a module is current**: Skip it, don't touch it. Only edit files that actually need changes.
+
+## After All Modules Are Reviewed
+
+If ANY files were modified:
+1. Run: npx wrangler deploy (from the worker/ directory)
+2. Run: git add -A && git commit with a message like "chore: monthly SAGE knowledge update (marketing, finance)"
+
+If NO files needed changes, just note that everything is current.
+
+## Rules
+- Only update facts you can verify via web search. Don't speculate or pad.
+- Preserve the existing structure and formatting of each module.
+- Keep the same export name and template literal format.
+- Don't change the base.ts or regulatory.ts modules (those are handled separately).
+- Focus on: platform features, pricing benchmarks, compliance requirements, industry statistics, best practices.
+- Be surgical. Update specific numbers/facts, don't rewrite entire sections unnecessarily.`;
+
+          const taskId = await registerCodeTask({
+            description: `S.A.G.E. Knowledge Update (${moduleList})`,
+            prompt: auditPrompt,
+            cwd: "C:\\Users\\derek\\Projects\\maa-advisor",
+            model: "sonnet",
+            wallClockMs: 45 * 60 * 1000, // 45 min
+            budgetUsd: 5,
+            requestedBy: "cron:sage-audit",
+          });
+
+          await sendTelegramMessage(
+            DEREK_CHAT_ID,
+            `🧠 S.A.G.E. monthly knowledge update started.\nModules: ${moduleList}\nTask: ${taskId}`
+          );
+          log("sage-audit", `Code agent spawned: ${taskId}`);
+        } catch (err) {
+          logError("cron", `S.A.G.E. audit failed to start: ${err}`);
+          await sendTelegramMessage(
+            DEREK_CHAT_ID,
+            `S.A.G.E. audit failed to start: ${err}`
+          );
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // ============================================================
+  // S.A.G.E. KNOWLEDGE ENGINE
+  // ============================================================
+
+  // Track 1: State regulatory sweep
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 22 * * *",
+      onTick: safeTick("sage-state-sweep", async () => {
+        log("sage-state-sweep", "Starting nightly state regulatory sweep...");
+        const result = await runStateSweep();
+        const summary = `SAGE State: ${result.statesProcessed.join(", ")} | ${result.chunksUpdated} updated, ${result.chunksVerified} verified, ${result.chunksRejected} rejected${result.errors.length > 0 ? ` | ${result.errors.length} errors` : ""}`;
+        await sendTelegramMessage(DEREK_CHAT_ID, summary);
+        log("sage-state-sweep", summary);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Track 2: National topic rotation
+  jobs.push(
+    CronJob.from({
+      cronTime: "45 22 * * *",
+      onTick: safeTick("sage-national-sweep", async () => {
+        log("sage-national-sweep", "Starting nightly national topic rotation...");
+        const result = await runNationalSweep();
+        const summary = `SAGE National: ${result.topicsResearched} topics | ${result.chunksUpdated} updated, ${result.chunksRejected} rejected`;
+        await sendTelegramMessage(DEREK_CHAT_ID, summary);
+        log("sage-national-sweep", summary);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Weekly analyzer - mines conversations for knowledge gaps
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 20 * * 0",
+      onTick: safeTick("sage-analyzer", async () => {
+        log("sage-analyzer", "Starting weekly conversation analysis...");
+        const result = await runAnalyzer();
+        const summary = `SAGE Analyzer: ${result.conversationsAnalyzed} sessions, ${result.questionsClassified} classified, ${result.gapsDetected} gaps found`;
+        await sendTelegramMessage(DEREK_CHAT_ID, summary);
+        log("sage-analyzer", summary);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Track 3: Demand-driven research - fills gaps found by analyzer
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 23 * * 0",
+      onTick: safeTick("sage-demand-research", async () => {
+        log("sage-demand-research", "Starting demand-driven research...");
+        const result = await runDemandResearch();
+        if (result.topicsResearched > 0) {
+          const summary = `SAGE Demand: ${result.topicsResearched} gaps | ${result.chunksUpdated} updated, ${result.chunksRejected} rejected`;
+          await sendTelegramMessage(DEREK_CHAT_ID, summary);
+        }
+        log("sage-demand-research", `Done: ${result.topicsResearched} topics researched`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   // 3:35 AM — Ingest yesterday's journal into Supabase for semantic search.
   // Journals exist as markdown files in memory/ but are invisible to Atlas
   // unless explicitly read via tool calls. Ingesting makes them searchable
@@ -2687,7 +2594,6 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 4:00 AM      Backup .md files to OneDrive");
   console.log("  - 5:00 AM      Git backup to GitHub");
   console.log("  - 6:00 AM      Morning brief (sonnet)");
-  console.log("  - 7:00 AM      Content waterfall (sonnet)");
   console.log("  - Every 15min  Health state dump");
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
   console.log("  - Sunday 6 PM  Weekly executive summary");
@@ -2716,7 +2622,6 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 11:00 PM     Tox tray: collect social analytics");
   console.log("  - Sunday 5 PM  Tox tray: weekly digest");
   console.log("  - 6:00 AM      Tox tray: Etsy listing sync (if configured)");
-  console.log("  - 11:30 PM     Overnight content draft (sonnet + content critic)");
   console.log("  - 10:00 PM     Night Shift planner (haiku, generates overnight work queue)");
   console.log("  - 10:15 PM     Night Shift worker (processes queue, budget-capped)");
   console.log("  - Saturday 9PM Weekly strategic memo (sonnet)");
