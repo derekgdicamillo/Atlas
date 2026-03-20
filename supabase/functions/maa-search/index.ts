@@ -1,18 +1,20 @@
 /**
- * MAA Knowledge Search Edge Function
+ * MAA Knowledge Search Edge Function (v2 — weighted retrieval)
  *
- * Embeds a query via OpenAI, then performs vector search on maa_knowledge.
+ * Embeds a query via OpenAI, then performs vector search on maa_knowledge
+ * with category-aware scoring via maa_search_knowledge_v2 RPC.
  * Called by the MAA Advisor Cloudflare Worker.
  *
  * POST body:
  *   {
- *     query: string,          -- the user's question
- *     state_code?: string,    -- optional 2-letter state filter (e.g., "TX")
- *     match_count?: number,   -- default: 5
- *     match_threshold?: number -- default: 0.5
+ *     query: string,            -- the user's question
+ *     state_code?: string,      -- optional 2-letter state filter (e.g., "TX")
+ *     categories?: string[],    -- optional category filter (e.g., ["compliance", "business"])
+ *     match_count?: number,     -- default: 8
+ *     match_threshold?: number  -- default: 0.45
  *   }
  *
- * Returns: array of matching knowledge chunks with similarity scores.
+ * Returns: array of matching knowledge chunks with similarity + final_score.
  *
  * Secrets: OPENAI_API_KEY (auto-available from existing embed function config)
  * Auto-injected: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -38,8 +40,9 @@ Deno.serve(async (req) => {
     const {
       query,
       state_code = null,
-      match_count = 5,
-      match_threshold = 0.5,
+      categories = null,
+      match_count = 8,
+      match_threshold = 0.45,
     } = body;
 
     if (!query || typeof query !== "string") {
@@ -82,12 +85,13 @@ Deno.serve(async (req) => {
     );
 
     const { data: results, error } = await supabase.rpc(
-      "maa_search_knowledge",
+      "maa_search_knowledge_v2",
       {
         query_embedding: embedding,
         p_state_code: state_code,
-        p_match_count: match_count,
-        p_match_threshold: match_threshold,
+        p_categories: categories || null,
+        match_count: match_count,
+        match_threshold: match_threshold,
       }
     );
 
