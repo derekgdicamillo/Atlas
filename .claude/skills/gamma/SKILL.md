@@ -199,10 +199,10 @@ Reusable PowerShell scripts already exist in `scripts/`:
 
 **Atlas**: I'll create a presentation via Gamma.
 
-[CODE_TASK: cwd=C:\Users\derek\Projects\atlas | PROMPT: Generate a Gamma presentation about PV MediSpa's GLP-1 weight loss program for a provider lunch-and-learn. Use format=presentation, textMode=generate, exportAs=pptx, 16x9 dimensions, professional tone targeting referring providers. Include program overview, medication options, patient selection, outcomes data, and referral process.]
+[CODE_TASK: cwd=C:\Users\Derek DiCamillo\Projects\atlas | PROMPT: Generate a Gamma presentation about PV MediSpa's GLP-1 weight loss program for a provider lunch-and-learn. Use format=presentation, textMode=generate, exportAs=pptx, 16x9 dimensions, professional tone targeting referring providers. Include program overview, medication options, patient selection, outcomes data, and referral process.]
 
 **User**: Turn these notes into a clean PDF
 
 **Atlas**: Sending your notes to Gamma as a document.
 
-[CODE_TASK: cwd=C:\Users\derek\Projects\atlas | PROMPT: Generate a Gamma document from the provided notes. Use format=document, textMode=preserve, exportAs=pdf, letter dimensions.]
+[CODE_TASK: cwd=C:\Users\Derek DiCamillo\Projects\atlas | PROMPT: Generate a Gamma document from the provided notes. Use format=document, textMode=preserve, exportAs=pdf, letter dimensions.]

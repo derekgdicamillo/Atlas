@@ -1363,8 +1363,8 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
           await ctx.reply(
             "Usage: /ingest folder <path>\n\n" +
             "Examples:\n" +
-            `/ingest folder C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\03_VitalityUnchained\n` +
-            `/ingest folder C:\\Users\\derek\\Projects\\atlas\\data\\training`
+            `/ingest folder C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\03_VitalityUnchained\n` +
+            `/ingest folder C:\\Users\\Derek DiCamillo\\Projects\\atlas\\data\\training`
           );
           return true;
         }
@@ -2275,7 +2275,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       // Use original text (not lowercased) to preserve paths and instructions
       const codeArgs = text.replace(/^\/code\s*/i, "").trim();
       if (!codeArgs) {
-        await ctx.reply("Usage: /code <project_dir> <instructions>\nExample: /code C:\\Users\\derek\\Projects\\my-app Fix the login bug");
+        await ctx.reply("Usage: /code <project_dir> <instructions>\nExample: /code C:\\Users\\Derek DiCamillo\\Projects\\my-app Fix the login bug");
         return true;
       }
 
@@ -4447,7 +4447,7 @@ function buildPrompt(
       "\nDOCUMENT ANALYSIS ROUTING: The user wants to analyze/review documents in a folder. " +
       "Do NOT spawn a code agent to read these files. Instead use the [INGEST_FOLDER:] tag to ingest the folder into the knowledge base. " +
       "Format: [INGEST_FOLDER: path=<absolute_path> | SOURCE: <source_name> | QUERY: <what user wants to know>]\n" +
-      "Known paths: OneDrive=C:\\Users\\derek\\OneDrive - PV MEDISPA LLC, Atlas=C:\\Users\\derek\\Projects\\atlas, Training=C:\\Users\\derek\\Projects\\atlas\\data\\training\n" +
+      "Known paths: OneDrive=C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC, Atlas=C:\\Users\\Derek DiCamillo\\Projects\\atlas, Training=C:\\Users\\Derek DiCamillo\\Projects\\atlas\\data\\training\n" +
       "Source names: onedrive, local, training. Files are deduped by content hash (already-ingested files are skipped).\n" +
       "After ingestion completes, the system auto-searches with your QUERY and delivers results to the user."
     ));

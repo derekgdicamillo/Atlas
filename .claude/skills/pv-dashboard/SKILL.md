@@ -23,13 +23,13 @@ Fix bugs, add features, and deploy the PV MediSpa executive dashboard.
 
 ## Project Location & Git
 
-- **Repo:** C:\Users\derek\Projects\pv-dashboard
+- **Repo:** C:\Users\Derek DiCamillo\Projects\pv-dashboard
 - **Remote:** https://github.com/derekgdicamillo/pv-dashboard.git
 - **Deploy:** Vercel auto-deploys on push to main. No manual deploy step needed.
 - **Live URL:** https://pv-dashboard-ten.vercel.app
 
 ```bash
-cd "C:/Users/derek/Projects/pv-dashboard"
+cd "C:/Users/Derek DiCamillo/Projects/pv-dashboard"
 git status
 ```
 
@@ -132,7 +132,7 @@ src/
 ## Commands
 
 ```bash
-cd "C:/Users/derek/Projects/pv-dashboard"
+cd "C:/Users/Derek DiCamillo/Projects/pv-dashboard"
 npm run dev        # localhost:3000
 npm run build      # production build (catches type errors)
 npm run lint       # ESLint
@@ -181,7 +181,7 @@ Atlas calls the dashboard via REST from `src/dashboard.ts`:
 - Endpoints: `/api/metrics/overview`, `/api/metrics/pipeline`, `/api/metrics/financials`, etc.
 - Telegram commands: /finance, /pipeline, /scorecard, /leads, /stl
 
-When changing API response shapes, keep backward compatibility with Atlas's TypeScript interfaces in `C:\Users\derek\Projects\atlas\src\dashboard.ts`.
+When changing API response shapes, keep backward compatibility with Atlas's TypeScript interfaces in `C:\Users\Derek DiCamillo\Projects\atlas\src\dashboard.ts`.
 
 ## Common Patterns
 
@@ -208,7 +208,7 @@ When changing API response shapes, keep backward compatibility with Atlas's Type
 ## Git Workflow
 
 ```bash
-cd "C:/Users/derek/Projects/pv-dashboard"
+cd "C:/Users/Derek DiCamillo/Projects/pv-dashboard"
 git add <specific files>
 git commit -m "description of change"
 git push origin main

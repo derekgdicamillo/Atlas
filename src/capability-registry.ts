@@ -447,7 +447,7 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
       "manage users or WP options",
     ],
     tags: "[WP_UPDATE: page-slug | HTML content], [WP_POST: title | content | status=draft | categories=cat1,cat2]",
-    notes: "SAFETY: WP_POST defaults to draft. WP_UPDATE requires user confirmation. Always back up before overwriting.\nLOCAL DEV: C:\\Users\\derek\\Local Sites\\pv-medispa-weight-loss\\ (Local by Flywheel, Kadence theme, WP-CLI via wp.sh)\nDEPLOY: WP Engine Git Push for theme/code changes",
+    notes: "SAFETY: WP_POST defaults to draft. WP_UPDATE requires user confirmation. Always back up before overwriting.\nLOCAL DEV: C:\\Users\\Derek DiCamillo\\Local Sites\\pv-medispa-weight-loss\\ (Local by Flywheel, Kadence theme, WP-CLI via wp.sh)\nDEPLOY: WP Engine Git Push for theme/code changes",
     module: "src/website.ts",
   },
   {

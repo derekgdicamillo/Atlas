@@ -60,7 +60,7 @@ Parse the user's input to determine intent:
 ### Screenshot (`/browser screenshot https://example.com`)
 1. `agent-browser --session-name atlas open <url>`
 2. `agent-browser --session-name atlas wait --load networkidle`
-3. `agent-browser --session-name atlas screenshot C:\Users\derek\Projects\atlas\data\screenshots\<timestamp>.png`
+3. `agent-browser --session-name atlas screenshot C:\Users\Derek DiCamillo\Projects\atlas\data\screenshots\<timestamp>.png`
 4. Report the file path
 
 ### Click (`/browser click <url> <selector>`)
@@ -109,5 +109,5 @@ Show usage help:
 - When summarizing pages, focus on the main content, skip nav/footer/ads
 - Always close the browser when done: `agent-browser --session-name atlas close`
 - For errors, retry once then report what happened
-- Screenshots go to: `C:\Users\derek\Projects\atlas\data\screenshots\`
+- Screenshots go to: `C:\Users\Derek DiCamillo\Projects\atlas\data\screenshots\`
 - Use `wait --load networkidle` after navigation to let JS-rendered pages settle

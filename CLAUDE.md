@@ -84,7 +84,7 @@ Commands: `/logs`, `/logs errors`, `/logs output`, `/logs <#>`, `/logs clear`
 
 ## File Sharing via Email
 When sending files via email, ALWAYS copy the file to the appropriate OneDrive folder first, then include the SharePoint link in the email. Never attach files directly. Never ask whether to use OneDrive. Just do it.
-- OneDrive root: `C:\Users\derek\OneDrive - PV MEDISPA LLC\`
+- OneDrive root: `C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\`
 - SharePoint base: derive from OneDrive sync path
 
 ## Compact Instructions

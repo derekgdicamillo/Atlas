@@ -38,7 +38,7 @@ Be Safe Healthcare (Byron's company) provides embedded CCM services to physician
 - **Frontend:** Next.js 14 (App Router) on Vercel
 - **Backend:** Supabase (Postgres + Auth + RLS)
 - **Styling:** Tailwind CSS
-- **Project repo:** C:\Users\derek\Projects\besafe-website
+- **Project repo:** C:\Users\Derek DiCamillo\Projects\besafe-website
 
 ## Handling $ARGUMENTS
 
@@ -85,7 +85,7 @@ Be Safe Healthcare (Byron's company) provides embedded CCM services to physician
 ## Troubleshooting
 
 ### Vercel deploy fails
-- Check `besafe-website` build: `cd C:\Users\derek\Projects\besafe-website && npm run build`
+- Check `besafe-website` build: `cd C:\Users\Derek DiCamillo\Projects\besafe-website && npm run build`
 - Common issues: missing env vars, TypeScript errors, Supabase client config
 
 ### Supabase connection issues

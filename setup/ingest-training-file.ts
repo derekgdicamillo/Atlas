@@ -35,7 +35,7 @@ const dryRun = process.argv.includes("--dry-run");
 const all = process.argv.includes("--all");
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const TRAINING_DIR = join("C:/Users/derek/Projects/atlas/data/training");
+const TRAINING_DIR = join("C:/Users/Derek DiCamillo/Projects/atlas/data/training");
 const SOURCE = "training";
 
 async function ingestFile(filename: string): Promise<void> {

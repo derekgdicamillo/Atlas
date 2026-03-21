@@ -17,7 +17,7 @@ if (!GEMINI_API_KEY) {
 const client = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-image";
 const IMAGES_DIR = join(process.cwd(), "data", "images");
-const ONEDRIVE_AD_IMAGES = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\02_Marketing\\Ad_Creative\\Ad Images";
+const ONEDRIVE_AD_IMAGES = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\02_Marketing\\Ad_Creative\\Ad Images";
 
 // ─── The 6 Ad Images ─────────────────────────────────────────
 

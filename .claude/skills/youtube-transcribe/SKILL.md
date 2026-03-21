@@ -36,7 +36,7 @@ If no URL found in arguments, respond: "Need a YouTube URL to transcribe."
 Run the helper script. This uses yt-dlp to grab YouTube auto-captions (no audio download needed, fast):
 
 ```bash
-python C:/Users/derek/Projects/atlas/scripts/yt-transcript.py "THE_URL" --output C:/Users/derek/Projects/atlas/tmp/yt-VIDEOID.json
+python C:/Users/Derek DiCamillo/Projects/atlas/scripts/yt-transcript.py "THE_URL" --output C:/Users/Derek DiCamillo/Projects/atlas/tmp/yt-VIDEOID.json
 ```
 
 If this fails:

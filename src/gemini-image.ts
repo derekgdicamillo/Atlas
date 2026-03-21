@@ -32,7 +32,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-image";
 const IMAGES_DIR = join(process.cwd(), "data", "images");
 const PROMPTS_DIR = join(process.cwd(), "data", "prompts", "history");
-const ONEDRIVE_AD_IMAGES = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\02_Marketing\\Ad_Creative\\Ad Images";
+const ONEDRIVE_AD_IMAGES = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\02_Marketing\\Ad_Creative\\Ad Images";
 
 /** Valid category subdirectories */
 const CATEGORY_DIRS: ImageCategory[] = ["lifestyle", "educational", "authority", "offer", "community"];

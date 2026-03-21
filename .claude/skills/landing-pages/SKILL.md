@@ -31,11 +31,11 @@ Manage the two PV MediSpa weight loss landing pages on WordPress.
 
 ## File Locations
 
-- **Local page HTML:** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\pages\weightloss-local.html`
-- **Telehealth page HTML:** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\pages\weightloss-telehealth.html`
-- **Image URL map:** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\image-url-map.json`
-- **Upload script (telehealth):** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\upload-page.py`
-- **Upload script (local):** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\upload-local-page.py`
+- **Local page HTML:** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\pages\weightloss-local.html`
+- **Telehealth page HTML:** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\pages\weightloss-telehealth.html`
+- **Image URL map:** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\image-url-map.json`
+- **Upload script (telehealth):** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\upload-page.py`
+- **Upload script (local):** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\upload-local-page.py`
 
 ## How to Make Changes
 
@@ -49,12 +49,12 @@ Manage the two PV MediSpa weight loss landing pages on WordPress.
 
 For the **telehealth** page (ID 5910):
 ```bash
-cd "C:\Users\derek\Local Sites\pv-medispa-weight-loss" && python upload-page.py
+cd "C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss" && python upload-page.py
 ```
 
 For the **local** page (ID 5943):
 ```bash
-cd "C:\Users\derek\Local Sites\pv-medispa-weight-loss" && python upload-local-page.py
+cd "C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss" && python upload-local-page.py
 ```
 
 Both scripts read the HTML file, JSON-encode it, and PUT/POST to the WP REST API with Basic Auth.

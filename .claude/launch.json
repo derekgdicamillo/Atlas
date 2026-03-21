@@ -4,7 +4,7 @@
     {
       "name": "preview-server",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8765", "-d", "C:\\Users\\derek\\Projects\\atlas\\data"],
+      "runtimeArgs": ["-m", "http.server", "8765", "-d", "C:\\Users\\Derek DiCamillo\\Projects\\atlas\\data"],
       "port": 8765
     }
   ]

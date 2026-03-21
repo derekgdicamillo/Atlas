@@ -400,7 +400,7 @@ brand/
 ### CSS Custom Properties
 All design tokens are defined as CSS custom properties in `custom-pvmedispa.css` on the Kadence theme. The source of truth for visual styling lives there.
 
-**File location:** `C:\Users\derek\Local Sites\pv-medispa-weight-loss\app\public\wp-content\themes\kadence\custom-pvmedispa.css`
+**File location:** `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\app\public\wp-content\themes\kadence\custom-pvmedispa.css`
 
 ### WordPress Stack
 - Theme: Kadence (direct, no child theme)

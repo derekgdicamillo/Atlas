@@ -2,8 +2,8 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
-const TASKS_DIR = String.raw`C:\Users\derek\AppData\Local\Temp\claude\C--Users-derek--claude-projects-C--Users-derek-Projects-atlas\tasks`;
-const OUTPUT_DIR = String.raw`C:\Users\derek\Projects\atlas\data\training\business-intelligence`;
+const TASKS_DIR = String.raw`C:\Users\Derek DiCamillo\AppData\Local\Temp\claude\C--Users-derek--claude-projects-C--Users-derek-Projects-atlas\tasks`;
+const OUTPUT_DIR = String.raw`C:\Users\Derek DiCamillo\Projects\atlas\data\training\business-intelligence`;
 
 const FILES: Record<string, string> = {
   "a0599e4.output": "warren-buffett.md",

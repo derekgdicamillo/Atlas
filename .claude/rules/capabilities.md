@@ -152,7 +152,7 @@ CAN: list pages (slug, title, id), get page content by slug or ID, update page c
 CANNOT: upload media (planned), delete pages/posts, modify plugins or theme settings, manage users or WP options
 TAGS: [WP_UPDATE: page-slug | HTML content], [WP_POST: title | content | status=draft | categories=cat1,cat2]
 SAFETY: WP_POST defaults to draft. WP_UPDATE requires user confirmation. Always back up before overwriting.
-LOCAL DEV: C:\Users\derek\Local Sites\pv-medispa-weight-loss\ (Local by Flywheel, Kadence theme, WP-CLI via wp.sh)
+LOCAL DEV: C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\ (Local by Flywheel, Kadence theme, WP-CLI via wp.sh)
 DEPLOY: WP Engine Git Push for theme/code changes
 
 ## Planner (Microsoft) - Graph API via M365 integration

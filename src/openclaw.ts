@@ -250,7 +250,7 @@ export function buildEvolutionPrompt(opts: {
       "Analyze these release notes. Identify features or patterns that would benefit Atlas.",
       "Atlas is a Telegram bot built on Claude Code CLI with: multi-agent swarms, Supabase memory,",
       "cron jobs, circuit breakers, GHL/Google/Meta/GA4 integrations, and a supervisor system.",
-      "Implement any relevant improvements directly in the Atlas codebase at C:\\Users\\derek\\Projects\\atlas.",
+      "Implement any relevant improvements directly in the Atlas codebase at C:\\Users\\Derek DiCamillo\\Projects\\atlas.",
       ""
     );
   }

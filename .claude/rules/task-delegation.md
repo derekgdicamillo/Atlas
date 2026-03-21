@@ -27,7 +27,7 @@ For quick fixes (typos, single-line changes, config tweaks), just do them inline
 
 ```
 TodoWrite({todos: [
-  {content: "CODE_TASK: cwd=C:\\Users\\derek\\Projects\\atlas | PROMPT: <detailed instructions>", status: "in_progress", activeForm: "<short description>"}
+  {content: "CODE_TASK: cwd=C:\\Users\\Derek DiCamillo\\Projects\\atlas | PROMPT: <detailed instructions>", status: "in_progress", activeForm: "<short description>"}
 ]})
 ```
 
@@ -39,7 +39,7 @@ RULES:
 - When spawning multiple code agents, put ALL entries in ONE TodoWrite call (they run in parallel).
 - BEFORE delegating, spend 1-3 tool calls (Read, Grep, Glob) to understand the current state of the code being changed. Include relevant context in your CODE_TASK prompt. A well-informed prompt = a successful code agent.
 - NEVER describe dispatching agents without actually calling TodoWrite and emitting tags.
-- Known dirs: Atlas=C:\Users\derek\Projects\atlas, PV Dashboard=C:\Users\derek\Projects\pv-dashboard, OpenClaw=C:\Users\derek\.openclaw
+- Known dirs: Atlas=C:\Users\Derek DiCamillo\Projects\atlas, PV Dashboard=C:\Users\Derek DiCamillo\Projects\pv-dashboard, OpenClaw=C:\Users\Derek DiCamillo\.openclaw
 - Code agent: opus, 500 tools, 180 min (custom timeout via TIMEOUT field).
 - When any code agent modifies an integration module (ghl.ts, google.ts, dashboard.ts, gbp.ts, analytics.ts, meta.ts, search.ts, graph.ts, supervisor.ts, modes.ts), it MUST also update the matching entry in `src/capability-registry.ts`. The capabilities.md file is auto-generated on startup from capability-registry.ts. NEVER edit capabilities.md directly.
 
@@ -58,7 +58,7 @@ RULES:
 When asked to analyze, review, or find content in documents/folders, ALWAYS ingest into the knowledge base first, then search. NEVER spawn a code agent to read PDF/DOCX files directly.
 
 Tag: `[INGEST_FOLDER: path=<absolute_path> | SOURCE: <source_name> | QUERY: <what to search after>]`
-Known paths: OneDrive: C:\Users\derek\OneDrive - PV MEDISPA LLC, Atlas: C:\Users\derek\Projects\atlas, Training: C:\Users\derek\Projects\atlas\data\training
+Known paths: OneDrive: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC, Atlas: C:\Users\Derek DiCamillo\Projects\atlas, Training: C:\Users\Derek DiCamillo\Projects\atlas\data\training
 
 Routing:
 - "Analyze the PDFs on OneDrive" -> [INGEST_FOLDER:] then search. NOT [CODE_TASK:]

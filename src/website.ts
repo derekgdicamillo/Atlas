@@ -6,7 +6,7 @@
  *
  * Auth: Application Password (Basic Auth over HTTPS).
  * Hosting: WP Engine with Git Push deployment.
- * Local dev: Local by Flywheel at C:\Users\derek\Local Sites\pv-medispa-weight-loss\
+ * Local dev: Local by Flywheel at C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\
  */
 
 import { info, warn, error as logError } from "./logger.ts";

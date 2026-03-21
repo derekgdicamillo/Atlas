@@ -4,13 +4,13 @@
  * LLM-based evaluation of code agent progress. Runs in parallel with the agent,
  * checking every N tool calls to assess coherence, approach, and efficiency.
  *
- * Uses Haiku for fast, cheap evaluations (~$0.002 per eval).
+ * Uses Claude CLI (OAuth/Max plan) for evaluations via Haiku.
  * Returns intervention decisions: none, warn, kill_restart, kill_abort.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { spawn } from "child_process";
 import { info, warn, error as logError } from "./logger.ts";
-import { MODELS, TOKEN_COSTS, type ModelTier } from "./constants.ts";
+import { MODELS, type ModelTier } from "./constants.ts";
 import type { PatternDetector } from "./patterns.ts";
 
 // ============================================================
@@ -46,6 +46,8 @@ export interface EvaluationContext {
 // CONFIGURATION
 // ============================================================
 
+const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
 /** Default model for shadow evaluation */
 const DEFAULT_EVAL_MODEL: ModelTier = "haiku";
 
@@ -58,7 +60,7 @@ const EVALUATION_PROMPT = `You are a code agent supervisor. Evaluate the agent's
 ## Current Status
 - Tool calls: {TOOL_COUNT}
 - Elapsed time: {ELAPSED_SEC}s
-- Cost so far: ${"{COST_USD}"}
+- Cost so far: $\{COST_USD}
 - Recent tools: {RECENT_TOOLS}
 - Last file touched: {LAST_FILE}
 
@@ -92,17 +94,69 @@ Score each dimension 0-10:
 }`;
 
 // ============================================================
+// CLI HELPER
+// ============================================================
+
+/**
+ * Run a prompt through Claude CLI and return the text response.
+ * Uses --print mode (no tools, no session) for fast eval.
+ */
+function runClaudeCli(prompt: string, model: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-p",
+      "--output-format", "text",
+      "--model", model,
+      "--max-turns", "1",
+      "--dangerously-skip-permissions",
+    ];
+
+    const child = spawn(CLAUDE_PATH, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
+
+    // Pipe the prompt via stdin to avoid arg length limits
+    child.stdin.write(prompt);
+    child.stdin.end();
+
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("Shadow eval CLI timed out after 30s"));
+    }, 30_000);
+
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(`Claude CLI exited with code ${code}: ${stderr.slice(0, 500)}`));
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
+// ============================================================
 // SHADOW EVALUATOR CLASS
 // ============================================================
 
 export class ShadowEvaluator {
-  private client: Anthropic;
   private model: ModelTier;
   private evaluationHistory: EvaluationResult[] = [];
   private enabled: boolean;
 
   constructor(options: { model?: ModelTier; enabled?: boolean } = {}) {
-    this.client = new Anthropic();
     this.model = options.model || DEFAULT_EVAL_MODEL;
     this.enabled = options.enabled ?? true;
   }
@@ -120,23 +174,13 @@ export class ShadowEvaluator {
 
     try {
       const prompt = this.buildPrompt(context);
+      const modelId = MODELS[this.model];
 
-      const response = await this.client.messages.create({
-        model: MODELS[this.model],
-        max_tokens: 500,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      });
-
+      const text = await runClaudeCli(prompt, modelId);
       const durationMs = Date.now() - startTime;
-      const costUsd = this.calculateCost(response.usage);
 
-      // Parse response
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      // CLI uses OAuth plan, no per-token cost
+      const costUsd = 0;
       const result = this.parseResponse(text, costUsd, durationMs);
 
       // Store in history
@@ -279,11 +323,6 @@ export class ShadowEvaluator {
   private clampScore(score: unknown): number {
     if (typeof score !== "number") return 5;
     return Math.max(0, Math.min(10, Math.round(score)));
-  }
-
-  private calculateCost(usage: { input_tokens: number; output_tokens: number }): number {
-    const rates = TOKEN_COSTS[this.model];
-    return (usage.input_tokens * rates.input + usage.output_tokens * rates.output) / 1_000_000;
   }
 
   private noOpResult(): EvaluationResult {

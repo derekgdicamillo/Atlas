@@ -67,8 +67,8 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
 const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
-const BACKUP_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
-const WATERFALL_VAULT_DIR = "C:\\Users\\derek\\OneDrive - PV MEDISPA LLC\\PV Vault\\02 - PV MediSpa\\Content\\Waterfalls";
+const BACKUP_DIR = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
+const WATERFALL_VAULT_DIR = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\PV Vault\\02 - PV MediSpa\\Content\\Waterfalls";
 
 /** Atomic JSON write: write to tmp file, then rename. Prevents corrupt state on crash. */
 function atomicWriteFileSync(filePath: string, data: string): void {

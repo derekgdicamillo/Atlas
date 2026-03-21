@@ -10,8 +10,8 @@
  * {
  *   "mcpServers": {
  *     "atlas": {
- *       "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
- *       "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\src\\mcp-server.ts"]
+ *       "command": "C:\\Users\\Derek DiCamillo\\.bun\\bin\\bun.exe",
+ *       "args": ["run", "C:\\Users\\Derek DiCamillo\\Projects\\atlas\\src\\mcp-server.ts"]
  *     }
  *   }
  * }

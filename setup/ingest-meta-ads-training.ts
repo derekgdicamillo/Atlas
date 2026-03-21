@@ -26,7 +26,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 const dryRun = process.argv.includes("--dry-run");
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const FILE_PATH = join("C:/Users/derek/Projects/atlas/data/training/facebook-ads-bestpractices.md");
+const FILE_PATH = join("C:/Users/Derek DiCamillo/Projects/atlas/data/training/facebook-ads-bestpractices.md");
 const SOURCE = "training";
 const SOURCE_PATH = "facebook-ads-bestpractices.md";
 

@@ -11,8 +11,8 @@
  * {
  *   "mcpServers": {
  *     "atlas-dashboard": {
- *       "command": "C:\\Users\\derek\\.bun\\bin\\bun.exe",
- *       "args": ["run", "C:\\Users\\derek\\Projects\\atlas\\mcp-servers\\pv-dashboard\\index.ts"]
+ *       "command": "C:\\Users\\Derek DiCamillo\\.bun\\bin\\bun.exe",
+ *       "args": ["run", "C:\\Users\\Derek DiCamillo\\Projects\\atlas\\mcp-servers\\pv-dashboard\\index.ts"]
  *     }
  *   }
  * }

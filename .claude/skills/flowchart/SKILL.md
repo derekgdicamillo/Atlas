@@ -85,12 +85,12 @@ Use `rankdir=LR` (left to right) for horizontal flows.
    - Keep it clean. Fewer nodes with clear labels beats many nodes with clutter.
 
 3. **Write the DOT file** to a temp location:
-   - Path: `C:\Users\derek\Projects\atlas\data\temp\flowchart.dot`
+   - Path: `C:\Users\Derek DiCamillo\Projects\atlas\data\temp\flowchart.dot`
    - Create the `data\temp\` directory if it doesn't exist
 
 4. **Render to PNG** using Graphviz (use absolute path to dot.exe):
    ```
-   & "C:\Program Files\Graphviz\bin\dot.exe" -Tpng "C:\Users\derek\Projects\atlas\data\temp\flowchart.dot" -o "C:\Users\derek\Projects\atlas\data\temp\flowchart.png" -Gdpi=150
+   & "C:\Program Files\Graphviz\bin\dot.exe" -Tpng "C:\Users\Derek DiCamillo\Projects\atlas\data\temp\flowchart.dot" -o "C:\Users\Derek DiCamillo\Projects\atlas\data\temp\flowchart.png" -Gdpi=150
    ```
    - Use `-Gdpi=150` for crisp output on mobile (Telegram)
    - If the diagram is very wide, consider `-Gdpi=120` to keep file size reasonable

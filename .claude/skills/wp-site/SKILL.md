@@ -24,11 +24,11 @@ Manage the PV MediSpa website via WP REST API (content) and local file editing (
 ## Site Architecture
 
 - **Live site:** https://pvmedispa.com (WP Engine)
-- **Local dev:** C:\Users\derek\Local Sites\pv-medispa-weight-loss\app\public\
+- **Local dev:** C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\app\public\
 - **Theme:** Kadence (direct customizations, no child theme)
 - **Custom CSS:** wp-content/themes/kadence/custom-pvmedispa.css
-- **WP-CLI:** C:\Users\derek\Local Sites\pv-medispa-weight-loss\wp.sh
-- **Page backups:** C:\Users\derek\Local Sites\pv-medispa-weight-loss\pages\
+- **WP-CLI:** C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\wp.sh
+- **Page backups:** C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\pages\
 
 ## Credentials
 
@@ -39,7 +39,7 @@ WP REST API credentials are in the Atlas .env file:
 
 Load them:
 ```bash
-source <(grep -E '^WP_' "C:/Users/derek/Projects/atlas/.env" | sed 's/\r//')
+source <(grep -E '^WP_' "C:/Users/Derek DiCamillo/Projects/atlas/.env" | sed 's/\r//')
 ```
 
 ## Two Workflows
@@ -89,7 +89,7 @@ curl -s -u "$WP_USER:$WP_APP_PASSWORD" "$WP_SITE_URL/wp-json/wp/v2/posts?per_pag
 For CSS, PHP templates, or custom code. Edit locally, then push to WP Engine.
 
 **Key paths in local dev:**
-- Theme root: `C:\Users\derek\Local Sites\pv-medispa-weight-loss\app\public\wp-content\themes\kadence\`
+- Theme root: `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\app\public\wp-content\themes\kadence\`
 - Custom CSS: `custom-pvmedispa.css` (brand colors, fonts, component styles)
 - Functions: `functions.php`
 - Assets: `assets/` (fonts, images)
@@ -107,7 +107,7 @@ For CSS, PHP templates, or custom code. Edit locally, then push to WP Engine.
 
 **WP Engine Git Push deployment:**
 ```bash
-cd "C:\Users\derek\Local Sites\pv-medispa-weight-loss\app\public"
+cd "C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\app\public"
 git add -A
 git commit -m "description of change"
 git push production master
@@ -170,7 +170,7 @@ WP REST API expects raw HTML in the `content` field. If Kadence blocks or Gutenb
 - WP Engine rejects pushes if the repo history diverged. Never force push. If stuck, re-clone from WP Engine and reapply changes.
 
 ### Local site won't start
-Local by Flywheel issue. Try: right-click the site in Local > Restart. If persistent, check that the site's PHP/MySQL versions are compatible. The site path is `C:\Users\derek\Local Sites\pv-medispa-weight-loss\`.
+Local by Flywheel issue. Try: right-click the site in Local > Restart. If persistent, check that the site's PHP/MySQL versions are compatible. The site path is `C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\`.
 
 ### Blog post created but not visible
 Posts default to `draft` status (intentionally). To publish: either change status in WP Admin, or explicitly set `"status":"publish"` in the REST API call (only after Derek confirms).

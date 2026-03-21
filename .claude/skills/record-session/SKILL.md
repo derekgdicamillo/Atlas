@@ -65,7 +65,7 @@ curl -s http://localhost:8585/api/status
 If it fails, start it:
 
 ```bash
-cd C:\Users\derek\Projects\atlas && bun run teleprompter/server.ts &
+cd C:\Users\Derek DiCamillo\Projects\atlas && bun run teleprompter/server.ts &
 ```
 
 Wait 2 seconds, then verify with status check.
@@ -75,7 +75,7 @@ Wait 2 seconds, then verify with status check.
 1. GET `http://localhost:8585/api/status` for teleprompter state
 2. Run this to check OBS:
    ```bash
-   cd C:\Users\derek\Projects\atlas && bun -e "
+   cd C:\Users\Derek DiCamillo\Projects\atlas && bun -e "
      import { getStatus } from './src/obs.ts';
      const s = await getStatus();
      console.log(JSON.stringify(s));
@@ -99,7 +99,7 @@ Wait 2 seconds, then verify with status check.
 3. POST to teleprompter:
    ```bash
    # Read file content and POST it
-   cd C:\Users\derek\Projects\atlas
+   cd C:\Users\Derek DiCamillo\Projects\atlas
    bun -e "
      import { readFileSync } from 'fs';
      const text = readFileSync('scripts/gamma-inputs/MODULE_FILE', 'utf-8');
@@ -118,7 +118,7 @@ Wait 2 seconds, then verify with status check.
 
 1. Start OBS recording:
    ```bash
-   cd C:\Users\derek\Projects\atlas && bun -e "
+   cd C:\Users\Derek DiCamillo\Projects\atlas && bun -e "
      import { startRecording } from './src/obs.ts';
      const r = await startRecording();
      console.log(JSON.stringify(r));
@@ -139,7 +139,7 @@ Wait 2 seconds, then verify with status check.
    ```
 2. Stop OBS recording:
    ```bash
-   cd C:\Users\derek\Projects\atlas && bun -e "
+   cd C:\Users\Derek DiCamillo\Projects\atlas && bun -e "
      import { stopRecording } from './src/obs.ts';
      const r = await stopRecording();
      console.log(JSON.stringify(r));
@@ -155,7 +155,7 @@ Wait 2 seconds, then verify with status check.
 
 For pause:
 ```bash
-cd C:\Users\derek\Projects\atlas && bun -e "
+cd C:\Users\Derek DiCamillo\Projects\atlas && bun -e "
   import { pauseRecording } from './src/obs.ts';
   console.log(JSON.stringify(await pauseRecording()));
 "
@@ -164,7 +164,7 @@ Also stop teleprompter scroll: `curl -s -X POST http://localhost:8585/api/scroll
 
 For resume:
 ```bash
-cd C:\Users\derek\Projects\atlas && bun -e "
+cd C:\Users\Derek DiCamillo\Projects\atlas && bun -e "
   import { resumeRecording } from './src/obs.ts';
   console.log(JSON.stringify(await resumeRecording()));
 "

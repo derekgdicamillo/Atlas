@@ -7,9 +7,9 @@
 - WordPress dev: Local by Flywheel
 - Cloud storage: OneDrive
 - Key paths:
-  - Projects: C:\Users\derek\Projects\
-  - OneDrive: C:\Users\derek\OneDrive - PV MEDISPA LLC\
-  - WP site: C:\Users\derek\Local Sites\pv-medispa-weight-loss\
+  - Projects: C:\Users\Derek DiCamillo\Projects\
+  - OneDrive: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\
+  - WP site: C:\Users\Derek DiCamillo\Local Sites\pv-medispa-weight-loss\
 
 ## What You Can Do (Claude Code Powers)
 - **Run any command**: PowerShell, cmd, Python, Node.js, git, npm, pip, curl, etc.

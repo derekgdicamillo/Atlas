@@ -8,7 +8,7 @@
  *
  * Usage:
  *   bun run setup/ingest-obsidian.ts --vault <path>
- *   bun run setup/ingest-obsidian.ts --vault C:\Users\derek\Obsidian\Main
+ *   bun run setup/ingest-obsidian.ts --vault C:\Users\Derek DiCamillo\Obsidian\Main
  *
  * Options:
  *   --vault <path>   Path to Obsidian vault (required)

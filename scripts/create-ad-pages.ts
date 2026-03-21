@@ -174,7 +174,7 @@ async function main() {
   const SITE_ID = "pvmedispa.sharepoint.com,c3497b86-eede-4485-b817-d71a921a2536,356e2b6c-a376-4430-b129-bbc6807b22c3";
 
   // 1. Parse ad library
-  const concepts = parseAdLibrary("C:\\Users\\derek\\Projects\\atlas\\ad-creative-library.md");
+  const concepts = parseAdLibrary("C:\\Users\\Derek DiCamillo\\Projects\\atlas\\ad-creative-library.md");
   console.log(`Parsed ${concepts.length} ad concepts`);
 
   // 2. Create pages (skip if already exist)

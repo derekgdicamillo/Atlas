@@ -25,7 +25,7 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const force = args.includes("--force");
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const BI_DIR = join("C:/Users/derek/Projects/atlas/data/training/business-intelligence");
+const BI_DIR = join("C:/Users/Derek DiCamillo/Projects/atlas/data/training/business-intelligence");
 // ============================================================
 // SHA-256
 // ============================================================

@@ -10,7 +10,7 @@
  *   bun run scripts/ar-accounting-report.ts --month 2026-02
  *   bun run scripts/ar-accounting-report.ts --all  (processes all available data)
  *
- * Input: CSV/XLS files from C:/Users/derek/Downloads/
+ * Input: CSV/XLS files from C:/Users/Derek DiCamillo/Downloads/
  * Output: data/accounting/YYYY-MM-accounting-report.csv + summary.txt
  */
 
@@ -20,7 +20,7 @@ import { join } from "path";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const DOWNLOADS = "C:/Users/derek/Downloads";
+const DOWNLOADS = "C:/Users/Derek DiCamillo/Downloads";
 const OUTPUT_DIR = "data/accounting";
 
 // QuickBooks classes (must match QB exactly)

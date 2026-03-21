@@ -71,7 +71,7 @@ Address them by their correct name. Never call Esther "Derek" or vice versa.
 
 ## Learned Over Time
 - SharePoint tenant prefix is **pvmedispa** (not pvmedispallc). Correct base URL: pvmedispa-my.sharepoint.com. Always use this prefix when generating SharePoint links.
-- Derek is building a second venture: **Be Safe Healthcare** (separate brand from PV MediSpa). Branding assets in OneDrive/Be Safe Healthcare/ and C:/Users/derek/Projects/besafe-website/public/. Logo selection pending as of 2026-02-28.
+- Derek is building a second venture: **Be Safe Healthcare** (separate brand from PV MediSpa). Branding assets in OneDrive/Be Safe Healthcare/ and C:/Users/Derek DiCamillo/Projects/besafe-website/public/. Logo selection pending as of 2026-02-28.
 - Gemini image generation via background code agents reliably fails (timeouts 50-90 min, no output). Use inline bash jobs; do NOT block on TaskOutput waits for image gen.
 - Long-running background agents (research tasks, code agents) are lost when Atlas restarts overnight. If a task result is missing after a restart, assume the agent is gone and redo the work inline. Pivot fast, do not wait.
 - WP_POST relay tags depend on the live Atlas process having current env vars. When WP credentials change mid-session, bypass relay and post directly via REST API until Atlas restarts. WP_USER must be the username slug (e.g., derekgdicamillo), NOT email format.
