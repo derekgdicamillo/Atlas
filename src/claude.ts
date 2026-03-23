@@ -20,7 +20,7 @@ import {
   trackClaudeCall,
   trackTimeout,
 } from "./logger.ts";
-import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PHASE_NAMES, SESSION_IDLE_RESET_MS, type ModelTier } from "./constants.ts";
+import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PHASE_NAMES, SESSION_IDLE_RESET_MS, PERSISTENT_PROCESS_ENABLED, type ModelTier } from "./constants.ts";
 import { addEntry, formatForPrompt } from "./conversation.ts";
 import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 
@@ -608,6 +608,31 @@ export function getEffectiveTimeout(modelTier: string): number {
   return Math.round(base * multiplier);
 }
 
+/**
+ * Determine whether a callClaude invocation should use the persistent process.
+ */
+export function shouldUsePersistent(options?: {
+  persistent?: boolean;
+  isolated?: boolean;
+  skipLock?: boolean;
+  lockBehavior?: "wait" | "skip";
+  _isFallback?: boolean;
+  _isEmptyRetry?: boolean;
+  _isSpawnRetry?: boolean;
+}): boolean {
+  if (!PERSISTENT_PROCESS_ENABLED) return false;
+  if (!options) return false;
+  if (options.persistent === false) return false;
+  if (options.persistent === true) return true;
+  if (options.isolated) return false;
+  if ((options as any)._isFallback) return false;
+  if ((options as any)._isEmptyRetry) return false;
+  if ((options as any)._isSpawnRetry) return false;
+  if (options.lockBehavior === "skip") return false;
+  if (options.skipLock) return true;
+  return false;
+}
+
 export async function callClaude(
   prompt: string,
   options?: {
@@ -631,6 +656,7 @@ export async function callClaude(
     _fallbackDepth?: number; // internal: how many fallbacks have been attempted (max 2: opus->sonnet->haiku)
     _isEmptyRetry?: boolean; // internal: prevents infinite empty-result retries
     _isSpawnRetry?: boolean; // internal: prevents infinite spawn-error retries
+    persistent?: boolean; // explicit override: true = force persistent, false = force one-shot
   }
 ): Promise<string> {
   const modelTier = options?.model || DEFAULT_MODEL;
