@@ -1071,6 +1071,22 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/procstatus": {
+      const procStatus = processPool.getStatus();
+      if (Object.keys(procStatus).length === 0) {
+        await ctx.reply("No persistent processes initialized.");
+        return true;
+      }
+      const procLines = Object.entries(procStatus).map(([id, state]) => {
+        const lastAct = state.lastActivityAt > 0
+          ? `${Math.round((Date.now() - state.lastActivityAt) / 1000)}s ago`
+          : "never";
+        return `**${id}**: ${state.status} | PID: ${state.pid || "none"} | restarts: ${state.restartCount} | last activity: ${lastAct}`;
+      });
+      await ctx.reply(`**Persistent Processes**\n${procLines.join("\n")}`);
+      return true;
+    }
+
     case "/costs": {
       const claudeCosts = getTodayClaudeCosts();
       const searchCosts = await getTodayCosts(supabase);
