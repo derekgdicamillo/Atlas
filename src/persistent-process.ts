@@ -70,6 +70,12 @@ export interface SendTurnOptions {
   onTextDelta?: (delta: string) => void;
   /** Called on tool use events for status updates */
   onToolUse?: (toolName: string, toolInput?: Record<string, any>) => void;
+  /** Called when typing indicator should be sent */
+  onTyping?: () => void;
+  /** Called for periodic status updates */
+  onStatus?: (msg: string) => void;
+  /** Called when CODE_TASK entries are captured from TodoWrite tool calls (per-turn override) */
+  onCodeTaskCaptured?: (tasks: Array<{ cwd: string; prompt: string; timeoutMs?: number }>) => void;
 }
 
 // ============================================================
@@ -613,10 +619,15 @@ export class PersistentProcess {
    * Intercept TodoWrite tool calls to capture CODE_TASK: prefixed entries.
    */
   private interceptCodeTasks(toolInput: Record<string, any>): void {
-    if (!this.config.onCodeTaskCaptured) return;
+    // Per-turn callback takes priority over config-level callback
+    const perTurnCb = this.turnOptions?.onCodeTaskCaptured;
+    const configCb = this.config.onCodeTaskCaptured;
+    if (!perTurnCb && !configCb) return;
 
     const todos = toolInput.todos || toolInput.content;
     if (!Array.isArray(todos)) return;
+
+    const captured: Array<{ cwd: string; prompt: string; timeoutMs?: number }> = [];
 
     for (const todo of todos) {
       const content = todo.content || todo.text || "";
@@ -625,8 +636,15 @@ export class PersistentProcess {
       const parsed = parseCodeTaskFromTodoContent(content);
       if (parsed) {
         info("persistent", `Intercepted CODE_TASK from agent ${this.config.agentId}: ${parsed.prompt.substring(0, 100)}`);
-        this.config.onCodeTaskCaptured(parsed);
+        captured.push(parsed);
+        // Also fire config-level callback (single task)
+        configCb?.(parsed);
       }
+    }
+
+    // Fire per-turn callback with all captured tasks at once
+    if (captured.length > 0 && perTurnCb) {
+      perTurnCb(captured);
     }
   }
 

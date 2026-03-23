@@ -5,7 +5,7 @@
  * Integration tests with live CLI are in Task 8.
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { PersistentProcess, type PersistentProcessConfig } from "../src/persistent-process.ts";
 
 function makeConfig(overrides?: Partial<PersistentProcessConfig>): PersistentProcessConfig {
@@ -20,6 +20,21 @@ function makeConfig(overrides?: Partial<PersistentProcessConfig>): PersistentPro
 }
 
 describe("PersistentProcess", () => {
+  // Track instances for cleanup
+  const instances: PersistentProcess[] = [];
+  function create(overrides?: Partial<PersistentProcessConfig>): PersistentProcess {
+    const proc = new PersistentProcess(makeConfig(overrides));
+    instances.push(proc);
+    return proc;
+  }
+
+  afterEach(async () => {
+    // Clean up all instances to prevent leaked timers
+    for (const proc of instances) {
+      await proc.shutdown();
+    }
+    instances.length = 0;
+  });
 
   describe("exports", () => {
     test("module exports PersistentProcess class", () => {
@@ -30,38 +45,38 @@ describe("PersistentProcess", () => {
 
   describe("constructor", () => {
     test("accepts config and sets agentId", () => {
-      const proc = new PersistentProcess(makeConfig({ agentId: "atlas-main" }));
+      const proc = create({ agentId: "atlas-main" });
       expect(proc.agentId).toBe("atlas-main");
     });
 
     test("accepts sessionId in config", () => {
-      const proc = new PersistentProcess(makeConfig({ sessionId: "sess-123" }));
+      const proc = create({ sessionId: "sess-123" });
       expect(proc.getSessionId()).toBe("sess-123");
     });
 
     test("defaults sessionId to null when not provided", () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       expect(proc.getSessionId()).toBeNull();
     });
   });
 
   describe("isAlive()", () => {
     test("returns false initially", () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       expect(proc.isAlive()).toBe(false);
     });
   });
 
   describe("isBusy()", () => {
     test("returns false initially", () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       expect(proc.isBusy()).toBe(false);
     });
   });
 
   describe("getState()", () => {
     test("returns correct initial state", () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       const state = proc.getState();
 
       expect(state.status).toBe("idle");
@@ -75,7 +90,7 @@ describe("PersistentProcess", () => {
 
   describe("setSessionId / getSessionId", () => {
     test("set and get session ID", () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       expect(proc.getSessionId()).toBeNull();
 
       proc.setSessionId("session-abc");
@@ -86,7 +101,7 @@ describe("PersistentProcess", () => {
     });
 
     test("set session ID to null", () => {
-      const proc = new PersistentProcess(makeConfig({ sessionId: "existing" }));
+      const proc = create({ sessionId: "existing" });
       expect(proc.getSessionId()).toBe("existing");
 
       proc.setSessionId(null);
@@ -96,14 +111,14 @@ describe("PersistentProcess", () => {
 
   describe("shutdown()", () => {
     test("can be called on idle process without error", async () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       await proc.shutdown();
       // Should not throw
       expect(proc.getState().status).toBe("shutdown");
     });
 
     test("shutdown is idempotent", async () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       await proc.shutdown();
       await proc.shutdown();
       expect(proc.getState().status).toBe("shutdown");
@@ -112,10 +127,10 @@ describe("PersistentProcess", () => {
 
   describe("sendTurn() without live process", () => {
     test("returns error result when process is not alive and cannot start", async () => {
-      const proc = new PersistentProcess(makeConfig({
+      const proc = create({
         // Use a nonexistent path so spawn fails
         claudePath: "/nonexistent/claude-binary-that-does-not-exist",
-      }));
+      });
 
       const result = await proc.sendTurn("hello");
       expect(result.isError).toBe(true);
@@ -123,7 +138,7 @@ describe("PersistentProcess", () => {
     });
 
     test("returns error after shutdown", async () => {
-      const proc = new PersistentProcess(makeConfig());
+      const proc = create();
       await proc.shutdown();
 
       const result = await proc.sendTurn("hello");
@@ -134,7 +149,7 @@ describe("PersistentProcess", () => {
 
   describe("agentId getter", () => {
     test("returns the configured agentId", () => {
-      const proc = new PersistentProcess(makeConfig({ agentId: "my-special-agent" }));
+      const proc = create({ agentId: "my-special-agent" });
       expect(proc.agentId).toBe("my-special-agent");
     });
   });
