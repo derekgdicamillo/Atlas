@@ -23,6 +23,7 @@ import {
 import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PHASE_NAMES, SESSION_IDLE_RESET_MS, PERSISTENT_PROCESS_ENABLED, type ModelTier } from "./constants.ts";
 import { addEntry, formatForPrompt } from "./conversation.ts";
 import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
+import { processPool } from "./persistent-pool.ts";
 
 // ============================================================
 // CONFIGURATION
@@ -686,6 +687,64 @@ export async function callClaude(
   activeClaudeCalls++;
 
   try {
+    // ── Persistent process routing ──────────────────────────
+    if (shouldUsePersistent(options)) {
+      try {
+        const session = await getSession(agentId, userId);
+        const proc = processPool.get(agentId, modelTier);
+        // Pass session ID so the persistent process can --resume on spawn/restart
+        if (session.sessionId && !proc.isAlive()) {
+          proc.setSessionId(session.sessionId);
+        }
+        const turnImages = options?.imageBase64 && options?.imageMimeType
+          ? [{ type: "base64" as const, media_type: options.imageMimeType, data: options.imageBase64 }]
+          : undefined;
+        const turnResult = await proc.sendTurn(prompt, {
+          images: turnImages,
+          onTextDelta: options?.onTextDelta,
+          onTyping: options?.onTyping,
+          onStatus: options?.onStatus,
+          onCodeTaskCaptured: options?.onCodeTaskCaptured,
+        });
+
+        // Track cost
+        const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
+        const callCostUsd = (turnResult.inputTokens * costRates.input + turnResult.outputTokens * costRates.output) / 1_000_000;
+        trackClaudeCall(turnResult.durationMs, {
+          model: modelTier,
+          inputTokens: turnResult.inputTokens,
+          outputTokens: turnResult.outputTokens,
+          costUsd: callCostUsd,
+        });
+
+        info(
+          "claude",
+          `[${agentId}] PERSISTENT responded in ${Math.round(turnResult.durationMs / 1000)}s (${modelTier}) | ` +
+          `${turnResult.inputTokens}in/${turnResult.outputTokens}out | $${callCostUsd.toFixed(4)} | ${turnResult.toolCallCount} tools`
+        );
+
+        // Update session state with the persistent session ID
+        if (turnResult.sessionId && !options?.isolated) {
+          session.sessionId = turnResult.sessionId;
+          session.lastActivity = new Date().toISOString();
+          await saveSessionState(agentId, userId, session);
+        }
+
+        // On crash/error, fall back to one-shot for this turn
+        if (turnResult.isError && (turnResult.errorInfo === "process_crash" || turnResult.errorInfo === "spawn_failed")) {
+          warn("claude", `[${agentId}] Persistent process failed (${turnResult.errorInfo}). Falling back to one-shot.`);
+          // Fall through to one-shot path below
+        } else {
+          // Success or non-crash error — return the result
+          return stripReasoningTags(turnResult.text) || "No response generated.";
+        }
+      } catch (err) {
+        warn("claude", `[${agentId}] Persistent path failed: ${err}. Falling back to one-shot.`);
+        // Fall through to one-shot path
+      }
+    }
+    // ── End persistent process routing ──────────────────────
+
     const session = await getSession(agentId, userId);
     // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
     const args = [CLAUDE_PATH, "-p"];
