@@ -606,7 +606,10 @@ export class PersistentProcess {
         }
 
         this.resolveTurn({
-          text: event.resultText || this.turnText,
+          // Prefer accumulated text from deltas (clean, no thinking tags) over
+          // result event text (which may contain thinking artifacts that get stripped).
+          // Fall back to resultText only if no deltas were received.
+          text: this.turnText || event.resultText || "",
           sessionId: event.sessionId || this.lastSessionId || "",
           isError: !!event.isError,
           errorInfo: event.isError ? (event.errorSubtype || "unknown error") : "",
