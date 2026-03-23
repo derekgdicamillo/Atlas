@@ -461,6 +461,31 @@ export const CRON_JITTER_EXEMPT = new Set([
 // Session idle reset: auto-clear stale sessions
 export const SESSION_IDLE_RESET_MS = 8 * 60 * 60 * 1000; // 8 hours idle = auto-reset (covers full workday gap)
 
+// ============================================================
+// PERSISTENT PROCESS (Phase 1 — long-lived Claude CLI subprocess)
+// ============================================================
+
+/** Max consecutive crash restarts before giving up and falling back to one-shot */
+export const PERSISTENT_MAX_RESTART_ATTEMPTS = 5;
+
+/** Initial restart delay (doubles each attempt, capped at PERSISTENT_MAX_RESTART_DELAY_MS) */
+export const PERSISTENT_RESTART_DELAY_MS = 2_000;
+
+/** Maximum restart delay */
+export const PERSISTENT_MAX_RESTART_DELAY_MS = 30_000;
+
+/** How long a process can sit idle before we proactively kill it to save resources.
+ *  Set to 30 min — if no message arrives in 30 min, kill the process.
+ *  Next message will re-spawn it (cheap compared to keeping it alive). */
+export const PERSISTENT_IDLE_KILL_MS = 30 * 60 * 1000;
+
+/** Grace period after sending SIGTERM before escalating to SIGKILL */
+export const PERSISTENT_SHUTDOWN_GRACE_MS = 10_000;
+
+/** Feature flag: enable persistent process for interactive calls.
+ *  Set PERSISTENT_PROCESS_ENABLED=false in .env to disable without code change. */
+export const PERSISTENT_PROCESS_ENABLED = process.env.PERSISTENT_PROCESS_ENABLED !== "false";
+
 // Queue mode: how to handle messages arriving while Claude is busy
 export type QueueMode = "collect" | "interrupt";
 export const DEFAULT_QUEUE_MODE: QueueMode = "collect";

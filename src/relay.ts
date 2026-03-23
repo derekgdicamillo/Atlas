@@ -38,6 +38,7 @@ import {
 import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
+import { processPool } from "./persistent-pool.ts";
 import {
   loadAgents,
   getAgentForUser,
@@ -677,6 +678,8 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
       clearInterval(pollingWatchdogTimer);
       pollingWatchdogTimer = null;
     }
+    // Shut down persistent processes first (they hold Claude CLI subprocesses)
+    await processPool.shutdownAll().catch(() => {});
     stopCronJobs();
     // Pause all active swarms (they'll resume on restart)
     for (const dag of getActiveSwarms()) {
@@ -1065,6 +1068,22 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         lines.push("", "Issues:", ...h.issues.map((i) => `  - ${i}`));
       }
       await ctx.reply(lines.join("\n"));
+      return true;
+    }
+
+    case "/procstatus": {
+      const procStatus = processPool.getStatus();
+      if (Object.keys(procStatus).length === 0) {
+        await ctx.reply("No persistent processes initialized.");
+        return true;
+      }
+      const procLines = Object.entries(procStatus).map(([id, state]) => {
+        const lastAct = state.lastActivityAt > 0
+          ? `${Math.round((Date.now() - state.lastActivityAt) / 1000)}s ago`
+          : "never";
+        return `**${id}**: ${state.status} | PID: ${state.pid || "none"} | restarts: ${state.restartCount} | last activity: ${lastAct}`;
+      });
+      await ctx.reply(`**Persistent Processes**\n${procLines.join("\n")}`);
       return true;
     }
 
