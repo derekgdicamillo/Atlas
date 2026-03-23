@@ -263,6 +263,21 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     module: "src/supervisor.ts",
   },
   {
+    section: "Persistent Process Pool",
+    description: "Long-lived Claude CLI subprocesses for interactive messages",
+    can: [
+      "persistent Claude CLI process per agent (Atlas, Ishtar) — eliminates cold starts",
+      "prompt cache reuse across turns (--resume on restart)",
+      "streaming responses via NDJSON pipe",
+      "auto-restart with exponential backoff on crash (max 5 attempts)",
+      "30-min idle auto-shutdown to save resources",
+      "feature flag: PERSISTENT_PROCESS_ENABLED (env var, default true)",
+    ],
+    cannot: [],
+    commands: "/procstatus (show process state)",
+    module: "src/persistent-process.ts, src/persistent-pool.ts",
+  },
+  {
     section: "Night Shift",
     description: "Autonomous overnight work",
     can: [
