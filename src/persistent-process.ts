@@ -11,6 +11,10 @@
  *
  * Crash recovery: auto-restarts with exponential backoff (2s, 4s, 8s... max 30s).
  * Gives up after 5 consecutive failures. Counter resets on successful turn.
+ *
+ * MCP: The persistent process always gets the full MCP config (all servers).
+ * Claude CLI lazy-loads MCP servers, so unused ones have zero runtime cost.
+ * This avoids needing to restart the process when intent changes between turns.
  */
 
 import { spawn, type Subprocess } from "bun";
