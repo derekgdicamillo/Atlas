@@ -38,6 +38,7 @@ import {
 import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
+import { processPool } from "./persistent-pool.ts";
 import {
   loadAgents,
   getAgentForUser,
@@ -677,6 +678,8 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
       clearInterval(pollingWatchdogTimer);
       pollingWatchdogTimer = null;
     }
+    // Shut down persistent processes first (they hold Claude CLI subprocesses)
+    await processPool.shutdownAll().catch(() => {});
     stopCronJobs();
     // Pause all active swarms (they'll resume on restart)
     for (const dag of getActiveSwarms()) {
