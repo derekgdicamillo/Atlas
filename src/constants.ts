@@ -486,6 +486,11 @@ export const PERSISTENT_SHUTDOWN_GRACE_MS = 10_000;
  *  Set PERSISTENT_PROCESS_ENABLED=false in .env to disable without code change. */
 export const PERSISTENT_PROCESS_ENABLED = process.env.PERSISTENT_PROCESS_ENABLED !== "false";
 
+/** Feature flag: enable tiered context loading (Phase 2).
+ *  When true, heavy context (memory, observations, search) is only injected on first turn
+ *  and topic changes. Set TIERED_CONTEXT_ENABLED=true in .env to enable. */
+export const TIERED_CONTEXT_ENABLED = process.env.TIERED_CONTEXT_ENABLED === "true";
+
 // Queue mode: how to handle messages arriving while Claude is busy
 export type QueueMode = "collect" | "interrupt";
 export const DEFAULT_QUEUE_MODE: QueueMode = "collect";
