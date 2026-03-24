@@ -464,9 +464,11 @@ export class PersistentProcess {
       args.push("--mcp-config", this.config.mcpConfigPath);
     }
 
-    if (this.lastSessionId) {
-      args.push("--resume", this.lastSessionId);
-    }
+    // NOTE: --resume is intentionally NOT used with persistent processes.
+    // The persistent pipe maintains conversation context natively via stream-json.
+    // Using --resume causes double context (CLI's history + injected ring buffer),
+    // which leads to the process silently dropping messages after a few turns.
+    // Session ID is still tracked for the one-shot fallback path.
 
     try {
       validateSpawnArgs(args);
