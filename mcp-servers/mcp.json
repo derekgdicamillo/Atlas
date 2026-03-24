@@ -45,8 +45,8 @@
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--headless"],
-      "description": "Playwright: browser automation — navigate, click, fill forms, screenshot, extract data"
+      "args": ["-y", "@playwright/mcp@latest"],
+      "description": "Playwright: browser automation — navigate, click, fill forms, screenshot, extract data. Runs visible Chrome window so user can intervene (login, captcha, etc.)"
     }
   }
 }
