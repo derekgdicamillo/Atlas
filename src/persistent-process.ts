@@ -634,6 +634,13 @@ export class PersistentProcess {
           this.lastSessionId = event.sessionId;
         }
 
+        // Debug: log what we have for text sources
+        if (!this.turnText && !event.resultText) {
+          warn("persistent", `[${this.config.agentId}] EMPTY RESULT: turnText="${this.turnText}" resultText="${event.resultText}" isError=${event.isError} errorSubtype=${event.errorSubtype}`);
+        } else {
+          info("persistent", `[${this.config.agentId}] Result: turnText=${this.turnText.length}chars resultText=${(event.resultText || "").length}chars`);
+        }
+
         this.resolveTurn({
           // Prefer accumulated text from deltas (clean, no thinking tags) over
           // result event text (which may contain thinking artifacts that get stripped).
