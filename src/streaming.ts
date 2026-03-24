@@ -8,7 +8,7 @@
  * Rate-limited to 1 edit per STREAMING_EDIT_INTERVAL_MS (Telegram rate limit safety).
  */
 
-import { STREAMING_EDIT_INTERVAL_MS, STREAMING_CHUNK_THRESHOLD, SENTINEL_TAG_PATTERNS } from "./constants.ts";
+import { STREAMING_EDIT_INTERVAL_MS, STREAMING_FAST_EDIT_INTERVAL_MS, STREAMING_CHUNK_THRESHOLD, SENTINEL_TAG_PATTERNS } from "./constants.ts";
 import { info, warn } from "./logger.ts";
 
 interface StreamingContext {
@@ -61,6 +61,7 @@ export function createStreamingSession(ctx: StreamingContext): StreamingSession 
   let editTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingEdit = false;
   let hasContent = false;
+  let messageStarting = false; // Guard: prevents duplicate startNewMessage during rapid deltas
 
   // Current message's text (for multi-message: text of the current message only)
   let currentMessageText = "";
@@ -85,8 +86,12 @@ export function createStreamingSession(ctx: StreamingContext): StreamingSession 
   function scheduleEdit(): void {
     if (editTimer) return; // already scheduled
 
+    // Adaptive interval: faster edits for short messages, standard for long ones
+    const interval = currentMessageText.length < 500
+      ? STREAMING_FAST_EDIT_INTERVAL_MS
+      : STREAMING_EDIT_INTERVAL_MS;
     const elapsed = Date.now() - lastEditAt;
-    const delay = Math.max(0, STREAMING_EDIT_INTERVAL_MS - elapsed);
+    const delay = Math.max(0, interval - elapsed);
 
     editTimer = setTimeout(async () => {
       editTimer = null;
@@ -122,6 +127,25 @@ export function createStreamingSession(ctx: StreamingContext): StreamingSession 
       accumulated += text;
       currentMessageText += text;
       hasContent = true;
+
+      // First delta: send placeholder + immediate first edit (no waiting for interval)
+      // Guard with messageStarting flag to prevent duplicate placeholder messages
+      // when multiple deltas arrive before startNewMessage() resolves.
+      if (!currentMessageId && !messageStarting) {
+        messageStarting = true;
+        startNewMessage().then(() => {
+          messageStarting = false;
+          pendingEdit = true;
+          sendEdit(); // immediate first edit — user sees text in <1s
+        }).catch(() => { messageStarting = false; });
+        return;
+      }
+
+      // If message is still being created, just accumulate (edit will fire after init)
+      if (messageStarting) {
+        pendingEdit = true;
+        return;
+      }
 
       // Multi-message: if current message exceeds threshold and we're not mid-code-block
       if (currentMessageText.length > STREAMING_CHUNK_THRESHOLD && !isInsideCodeBlock(currentMessageText)) {

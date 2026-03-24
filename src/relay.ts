@@ -4296,24 +4296,25 @@ function buildPrompt(
   const captionRequestsCode = hasPhoto && intent.coding;
   const imageObservationOnly = hasPhoto && !captionRequestsCode;
 
-  let behavioralRules =
+  // Behavioral rules are a static string (deterministic for cache-friendly prefix)
+  const behavioralRules =
     "CONFIRMATION RULE: When a user says Yes/No/OK/Sure/Go ahead after a multi-option proposal, briefly restate your interpretation in the first sentence before executing.\n" +
     "CAPABILITY GAP RULE: When you identify something Atlas cannot do (e.g. receive Telegram file attachments, write GHL custom fields), immediately spawn a [CODE_TASK:] in the same response to implement the fix, unless the user explicitly says not to.\n" +
     "HIPAA/COMPLIANCE RULE: When explaining why something can't be shared (PHI, HIPAA, etc.), keep it to 2-3 lines max. No CFR subsections or regulatory footnotes in Telegram. Derek and Esther are clinicians, they know the basics. State the constraint and offer the workaround.\n" +
     "AUTO-PERSIST RULE: When you complete a significant action (set up tracking, create/rename/delete ads, configure an integration, change a workflow, update a landing page, or any operational change), emit a [REMEMBER:] tag summarizing what was done. This prevents you from forgetting work you just did as the conversation grows. Keep it factual and brief, e.g. [REMEMBER: GTM tracking (GTM-5SHBBKD) installed on telehealth landing page 2026-03-07. Meta Pixel + GA4 + Google Ads conversion all fire via GTM.]";
 
-  if (imageObservationOnly) {
-    behavioralRules +=
-      "\nIMAGE OBSERVATION RULE: The user sent a screenshot/image. Analyze and describe what you see. Do NOT spawn [CODE_TASK:] agents, [TASK:] research agents, or emit any action tags. If you think code changes are needed, describe them in plain text and let the user decide whether to proceed. The CAPABILITY GAP RULE does NOT apply to images.";
-  }
-
   parts.push(addSection("behavioral_rules", behavioralRules));
 
-  parts.push(addSection("system", `Current time: ${timeStr}`));
+  // Image observation rule: separate section so base behavioral_rules stays deterministic
+  if (imageObservationOnly) {
+    parts.push(addSection("image_rules",
+      "IMAGE OBSERVATION RULE: The user sent a screenshot/image. Analyze and describe what you see. Do NOT spawn [CODE_TASK:] agents, [TASK:] research agents, or emit any action tags. If you think code changes are needed, describe them in plain text and let the user decide whether to proceed. The CAPABILITY GAP RULE does NOT apply to images."));
+  }
 
   // User message(s) are P0 - always included, measured early for budget
+  // Timestamp moved here (was in a separate "system" section) for cache-friendly prefix
   const userSection = formatAccumulated(pendingMessages);
-  const userSectionText = `\n${userSection}`;
+  const userSectionText = `\nCurrent time: ${timeStr}\n\n${userSection}`;
   addSection("user_message", userSectionText);
   // (appended to parts[] at the very end so it's last in the prompt)
 
