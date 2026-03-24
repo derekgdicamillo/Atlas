@@ -496,10 +496,11 @@ export type QueueMode = "collect" | "interrupt";
 export const DEFAULT_QUEUE_MODE: QueueMode = "collect";
 
 // Session compaction: inline summarization when conversation exceeds budget
-export const COMPACTION_BUDGET_THRESHOLD = 0.30; // compact if conversation > 30% of prompt budget
+export const COMPACTION_BUDGET_THRESHOLD = 0.20; // compact if conversation > 20% of prompt budget (was 0.30)
 export const COMPACTION_MIN_ENTRIES = 10;         // don't compact tiny buffers
 
 // Telegram streaming: progressive response delivery
 export const STREAMING_ENABLED = process.env.STREAMING_ENABLED !== "false";
-export const STREAMING_EDIT_INTERVAL_MS = 1_200;   // min ms between editMessageText calls
+export const STREAMING_EDIT_INTERVAL_MS = 1_200;   // min ms between editMessageText calls (standard rate)
+export const STREAMING_FAST_EDIT_INTERVAL_MS = 800; // faster edits for first 500 chars of a message
 export const STREAMING_CHUNK_THRESHOLD = 3_800;     // start new message before hitting 4096 limit
