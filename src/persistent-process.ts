@@ -123,6 +123,7 @@ export class PersistentProcess {
   // Timers
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private watchdogInterval: ReturnType<typeof setInterval> | null = null;
+  private typingInterval: ReturnType<typeof setInterval> | null = null;
 
   // Read loop abort
   private readLoopAbort: AbortController | null = null;
@@ -294,6 +295,12 @@ export class PersistentProcess {
 
       // Start watchdog
       this.startWatchdog();
+
+      // Start typing indicator (fires every 4s, matches Telegram's 5s typing action TTL)
+      if (this.turnOptions?.onTyping) {
+        this.turnOptions.onTyping(); // fire immediately
+        this.typingInterval = setInterval(() => this.turnOptions?.onTyping?.(), 4000);
+      }
 
       try {
         this.proc!.stdin.write(payload);
@@ -704,6 +711,10 @@ export class PersistentProcess {
     this.turnReject = null;
     this.turnOptions = null;
     this.clearWatchdog();
+    if (this.typingInterval) {
+      clearInterval(this.typingInterval);
+      this.typingInterval = null;
+    }
   }
 
   // ============================================================
