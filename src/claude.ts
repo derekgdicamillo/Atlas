@@ -730,12 +730,12 @@ export async function callClaude(
           await saveSessionState(agentId, userId, session);
         }
 
-        // On crash/error, fall back to one-shot for this turn
-        if (turnResult.isError && (turnResult.errorInfo === "process_crash" || turnResult.errorInfo === "spawn_failed")) {
-          warn("claude", `[${agentId}] Persistent process failed (${turnResult.errorInfo}). Falling back to one-shot.`);
+        // On error with no text, fall back to one-shot for this turn
+        if (turnResult.isError && !turnResult.text.trim()) {
+          warn("claude", `[${agentId}] Persistent process error with no text (${turnResult.errorInfo}). Falling back to one-shot.`);
           // Fall through to one-shot path below
         } else {
-          // Success or non-crash error — return the result
+          // Success, or error with partial text — return what we have
           return stripReasoningTags(turnResult.text) || "No response generated.";
         }
       } catch (err) {
