@@ -636,11 +636,16 @@ export class PersistentProcess {
           this.lastSessionId = event.sessionId;
         }
 
-        // Debug: log what we have for text sources
+        // Debug: log text sources and check for thinking tags
+        const hasThinking = (event.resultText || "").includes("<thinking>");
+        const stripped = (event.resultText || "").replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
         if (!this.turnText && !event.resultText) {
-          warn("persistent", `[${this.config.agentId}] EMPTY RESULT: turnText="${this.turnText}" resultText="${event.resultText}" isError=${event.isError} errorSubtype=${event.errorSubtype}`);
+          warn("persistent", `[${this.config.agentId}] EMPTY RESULT: isError=${event.isError} errorSubtype=${event.errorSubtype}`);
         } else {
-          info("persistent", `[${this.config.agentId}] Result: turnText=${this.turnText.length}chars resultText=${(event.resultText || "").length}chars`);
+          info("persistent", `[${this.config.agentId}] Result: turnText=${this.turnText.length}chars resultText=${(event.resultText || "").length}chars thinking=${hasThinking} strippedLen=${stripped.length}`);
+          if (hasThinking && stripped.length < 50) {
+            warn("persistent", `[${this.config.agentId}] THINKING DOMINATED: resultText is mostly thinking tags. First 200 chars of resultText: ${(event.resultText || "").substring(0, 200)}`);
+          }
         }
 
         this.resolveTurn({
