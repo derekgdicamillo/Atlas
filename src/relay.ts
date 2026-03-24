@@ -523,6 +523,7 @@ import { initSocial, isSocialReady, processSocialIntents, getSocialContext } fro
 import { initEtsy, isEtsyReady, processEtsyIntents, getEtsyContext } from "./etsy.ts";
 import { initApproval, isApprovalReady, handleApprovalCallback, getApprovalContext } from "./approval.ts";
 import { getTrustSummary } from "./trust.ts";
+import { type TurnContext, shouldInjectTier1 } from "./tiered-context.ts";
 
 if (supabase) initTrust(supabase);
 if (initCanva()) {
@@ -4215,7 +4216,8 @@ function buildPrompt(
     observationsContext?: string;
     proactiveContext?: string;
     toxTrayContext?: string;
-  }
+  },
+  turnContext?: TurnContext,
 ): string {
   const now = new Date();
   const timeStr = now.toLocaleString("en-US", {
@@ -4241,6 +4243,12 @@ function buildPrompt(
 
   function budgetRemaining(): number {
     return MAX_PROMPT_CHARS - usedChars;
+  }
+
+  // Tiered context loading (Phase 2): determine if heavy context should be injected
+  const injectTier1 = !turnContext || shouldInjectTier1(turnContext, intent as Record<string, boolean>);
+  if (turnContext?.tieredContextEnabled && !injectTier1) {
+    info("prompt-budget", `Tier 1 SKIPPED (subsequent turn, no topic change)`);
   }
 
   const hasMemory = agent?.config.features.memory ?? true;
@@ -4287,7 +4295,7 @@ function buildPrompt(
   // (appended to parts[] at the very end so it's last in the prompt)
 
   // ── P1: Observation blocks (stable, cache-friendly prefix) ──
-  if (contexts.observationsContext && budgetRemaining() > 3000) {
+  if (injectTier1 && contexts.observationsContext && budgetRemaining() > 3000) {
     const maxObs = Math.min(charCount(contexts.observationsContext), 6000);
     parts.push(addSection("observations", `\n${wrapContextBoundary(trimToFit(contexts.observationsContext, maxObs), "OBSERVATIONS (compressed context from past interactions)")}`));
   }
@@ -4307,24 +4315,24 @@ function buildPrompt(
   }
 
   // ── P3: Core memory context ─────────────────────────────
-  if (hasMemory && contexts.memoryContext && budgetRemaining() > 2000) {
+  if (injectTier1 && hasMemory && contexts.memoryContext && budgetRemaining() > 2000) {
     const maxMem = Math.min(charCount(contexts.memoryContext), 6000);
     parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY (may be stale — cite as \"based on memory\" for third-party facts about named people not introduced this session)")}`));
   }
 
-  if (hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
+  if (injectTier1 && hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
     const maxSearch = Math.min(charCount(contexts.relevantContext), 5000);
     parts.push(addSection("search", `\n${wrapContextBoundary(trimToFit(contexts.relevantContext, maxSearch), "SEARCH RESULTS (web data — attribute sources when citing)")}`));
   }
 
   // Feedback lessons (from past corrections - helps avoid repeating mistakes)
-  if (contexts.feedbackContext && budgetRemaining() > 1500) {
+  if (injectTier1 && contexts.feedbackContext && budgetRemaining() > 1500) {
     const maxFeedback = Math.min(charCount(contexts.feedbackContext), 2000);
     parts.push(addSection("feedback", `\n${trimToFit(contexts.feedbackContext, maxFeedback)}`));
   }
 
   // Relevant past episodes (similar multi-turn interactions and their outcomes)
-  if (contexts.episodesContext && budgetRemaining() > 1500) {
+  if (injectTier1 && contexts.episodesContext && budgetRemaining() > 1500) {
     const maxEpisodes = Math.min(charCount(contexts.episodesContext), 2000);
     parts.push(addSection("episodes", `\n${trimToFit(contexts.episodesContext, maxEpisodes)}`));
   }
@@ -4343,7 +4351,7 @@ function buildPrompt(
   }
 
   // ── P4.5: Proactive insights (NOT intent-gated, Atlas volunteers information) ──
-  if (contexts.proactiveContext && budgetRemaining() > 1000) {
+  if (injectTier1 && contexts.proactiveContext && budgetRemaining() > 1000) {
     const maxProactive = Math.min(charCount(contexts.proactiveContext), 1500);
     parts.push(addSection("proactive", `\n${wrapContextBoundary(trimToFit(contexts.proactiveContext, maxProactive), "PROACTIVE INSIGHTS (mention naturally, e.g. \"By the way...\")")}`));
   }
