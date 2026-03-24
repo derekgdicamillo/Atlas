@@ -153,4 +153,19 @@ describe("PersistentProcess", () => {
       expect(proc.agentId).toBe("my-special-agent");
     });
   });
+
+  describe("turnCount / isFirstTurn / resetTurnCount", () => {
+    test("isFirstTurn returns true initially", () => {
+      const proc = create();
+      expect(proc.isFirstTurn()).toBe(true);
+      expect(proc.getTurnCount()).toBe(0);
+    });
+
+    test("resetTurnCount resets to zero", () => {
+      const proc = create();
+      proc.resetTurnCount();
+      expect(proc.getTurnCount()).toBe(0);
+      expect(proc.isFirstTurn()).toBe(true);
+    });
+  });
 });

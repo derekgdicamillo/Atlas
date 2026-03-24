@@ -108,6 +108,9 @@ export class PersistentProcess {
   private lastActivityAt: number = Date.now();
   private lastSessionId: string | null = null;
 
+  // Turn tracking (Phase 2: tiered context loading)
+  private turnCount = 0;
+
   // Turn state
   private turnResolve: ((result: TurnResult) => void) | null = null;
   private turnReject: ((err: Error) => void) | null = null;
@@ -167,6 +170,22 @@ export class PersistentProcess {
   /** Get last known session ID */
   getSessionId(): string | null {
     return this.lastSessionId;
+  }
+
+  /** How many turns have completed on this process instance */
+  getTurnCount(): number {
+    return this.turnCount;
+  }
+
+  /** True if this is the first turn (process just spawned or was reset) */
+  isFirstTurn(): boolean {
+    return this.turnCount <= 1;
+  }
+
+  /** Reset turn count without restarting the process (e.g., on /session reset) */
+  resetTurnCount(): void {
+    this.turnCount = 0;
+    info("persistent", `[${this.config.agentId}] Turn count reset`);
   }
 
   /** Get the agent ID */
@@ -279,6 +298,7 @@ export class PersistentProcess {
       try {
         this.proc!.stdin.write(payload);
         this.proc!.stdin.flush();
+        this.turnCount++;
       } catch (err: any) {
         this.cleanupTurn();
         resolve({
@@ -301,6 +321,7 @@ export class PersistentProcess {
   async shutdown(): Promise<void> {
     if (this.status === "shutdown") return;
     this.status = "shutdown";
+    this.turnCount = 0;
     this.clearIdleTimer();
     this.clearWatchdog();
 
@@ -372,6 +393,7 @@ export class PersistentProcess {
    */
   async restart(): Promise<boolean> {
     info("persistent", `Manual restart requested for agent ${this.config.agentId}`);
+    this.turnCount = 0;
 
     // Kill existing process
     if (this.proc) {
