@@ -35,7 +35,7 @@ import {
   getHealthStatus,
   getTodayClaudeCosts,
 } from "./logger.ts";
-import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
+import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, TIERED_CONTEXT_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
 import { processPool } from "./persistent-pool.ts";
@@ -523,6 +523,7 @@ import { initSocial, isSocialReady, processSocialIntents, getSocialContext } fro
 import { initEtsy, isEtsyReady, processEtsyIntents, getEtsyContext } from "./etsy.ts";
 import { initApproval, isApprovalReady, handleApprovalCallback, getApprovalContext } from "./approval.ts";
 import { getTrustSummary } from "./trust.ts";
+import { type TurnContext, shouldInjectTier1 } from "./tiered-context.ts";
 
 if (supabase) initTrust(supabase);
 if (initCanva()) {
@@ -783,6 +784,9 @@ function markUpdateResponded(updateId: number): void {
 const contextCache: Map<string, { value: string; ts: number }> = new Map();
 // Wire up cognitive module's cache reference for invalidation
 setCacheRef(contextCache);
+
+/** Track previous intent flags per session for topic change detection (Phase 2) */
+const previousIntentMap = new Map<string, Record<string, boolean>>();
 
 // Pending forget confirmations: maps userId -> { matches, expiresAt }
 const pendingForgets: Map<string, {
@@ -1239,6 +1243,9 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         await clearBuffer(sKey);
         clearMode(sKey);
         contextCache.clear();
+        // Phase 2: Reset persistent process turn count so next message gets full context
+        try { processPool.get(agentId).resetTurnCount(); } catch {}
+        previousIntentMap.delete(sKey);
         await ctx.reply("Session cleared. Next message starts fresh.");
         info("command", `Session reset by ${userId} (was: ${oldSessionId || "none"})`);
         if (oldSessionId) {
@@ -2798,7 +2805,12 @@ async function handleUserMessage(
   });
 
   // 3b. Check for idle session reset (before lock, so we don't reset mid-conversation)
-  await checkIdleReset(agentId, userId);
+  const wasIdleReset = await checkIdleReset(agentId, userId);
+  if (wasIdleReset) {
+    // Phase 2: Session was auto-reset — clear tiered context state
+    try { processPool.get(agentId).resetTurnCount(); } catch {}
+    previousIntentMap.delete(key);
+  }
 
   // 3c. Queue interrupt mode: kill running process so new message gets immediate attention
   if (getQueueMode(key) === "interrupt") {
@@ -3048,6 +3060,14 @@ async function handleUserMessage(
 
     // 8. Build prompt with fresh context + conversation history + accumulated messages
     //    Now uses intent classification and hard character budget.
+    // Phase 2: Build turn context for tiered loading
+    const persistentProc = processPool.get(agentId);
+    const turnContext: TurnContext = {
+      isFirstTurn: persistentProc.isFirstTurn(),
+      previousIntentFlags: previousIntentMap.get(key) || null,
+      tieredContextEnabled: TIERED_CONTEXT_ENABLED,
+    };
+
     const enrichedPrompt = buildPrompt(
       pending,
       agent,
@@ -3094,7 +3114,8 @@ async function handleUserMessage(
               getTrustSummary("tox_tray").catch(() => ""),
             ]).then((parts) => parts.filter(Boolean).join("\n\n"))
           : "",
-      }
+      },
+      turnContext,
     );
     logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, shouldResume && !!session.sessionId, traceId);
 
@@ -3136,6 +3157,9 @@ async function handleUserMessage(
       try { await streaming.finish(); }
       catch (e) { warn("streaming", `streaming.finish() failed: ${e}`); }
     }
+
+    // Store intent flags for next turn's topic change detection (Phase 2)
+    previousIntentMap.set(key, intent as Record<string, boolean>);
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
     if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
@@ -4215,7 +4239,8 @@ function buildPrompt(
     observationsContext?: string;
     proactiveContext?: string;
     toxTrayContext?: string;
-  }
+  },
+  turnContext?: TurnContext,
 ): string {
   const now = new Date();
   const timeStr = now.toLocaleString("en-US", {
@@ -4241,6 +4266,12 @@ function buildPrompt(
 
   function budgetRemaining(): number {
     return MAX_PROMPT_CHARS - usedChars;
+  }
+
+  // Tiered context loading (Phase 2): determine if heavy context should be injected
+  const injectTier1 = !turnContext || shouldInjectTier1(turnContext, intent as Record<string, boolean>);
+  if (turnContext?.tieredContextEnabled && !injectTier1) {
+    info("prompt-budget", `Tier 1 SKIPPED (subsequent turn, no topic change)`);
   }
 
   const hasMemory = agent?.config.features.memory ?? true;
@@ -4287,7 +4318,7 @@ function buildPrompt(
   // (appended to parts[] at the very end so it's last in the prompt)
 
   // ── P1: Observation blocks (stable, cache-friendly prefix) ──
-  if (contexts.observationsContext && budgetRemaining() > 3000) {
+  if (injectTier1 && contexts.observationsContext && budgetRemaining() > 3000) {
     const maxObs = Math.min(charCount(contexts.observationsContext), 6000);
     parts.push(addSection("observations", `\n${wrapContextBoundary(trimToFit(contexts.observationsContext, maxObs), "OBSERVATIONS (compressed context from past interactions)")}`));
   }
@@ -4307,24 +4338,24 @@ function buildPrompt(
   }
 
   // ── P3: Core memory context ─────────────────────────────
-  if (hasMemory && contexts.memoryContext && budgetRemaining() > 2000) {
+  if (injectTier1 && hasMemory && contexts.memoryContext && budgetRemaining() > 2000) {
     const maxMem = Math.min(charCount(contexts.memoryContext), 6000);
     parts.push(addSection("memory", `\n${wrapContextBoundary(trimToFit(contexts.memoryContext, maxMem), "MEMORY (may be stale — cite as \"based on memory\" for third-party facts about named people not introduced this session)")}`));
   }
 
-  if (hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
+  if (injectTier1 && hasMemory && contexts.relevantContext && budgetRemaining() > 2000) {
     const maxSearch = Math.min(charCount(contexts.relevantContext), 5000);
     parts.push(addSection("search", `\n${wrapContextBoundary(trimToFit(contexts.relevantContext, maxSearch), "SEARCH RESULTS (web data — attribute sources when citing)")}`));
   }
 
   // Feedback lessons (from past corrections - helps avoid repeating mistakes)
-  if (contexts.feedbackContext && budgetRemaining() > 1500) {
+  if (injectTier1 && contexts.feedbackContext && budgetRemaining() > 1500) {
     const maxFeedback = Math.min(charCount(contexts.feedbackContext), 2000);
     parts.push(addSection("feedback", `\n${trimToFit(contexts.feedbackContext, maxFeedback)}`));
   }
 
   // Relevant past episodes (similar multi-turn interactions and their outcomes)
-  if (contexts.episodesContext && budgetRemaining() > 1500) {
+  if (injectTier1 && contexts.episodesContext && budgetRemaining() > 1500) {
     const maxEpisodes = Math.min(charCount(contexts.episodesContext), 2000);
     parts.push(addSection("episodes", `\n${trimToFit(contexts.episodesContext, maxEpisodes)}`));
   }
@@ -4343,7 +4374,7 @@ function buildPrompt(
   }
 
   // ── P4.5: Proactive insights (NOT intent-gated, Atlas volunteers information) ──
-  if (contexts.proactiveContext && budgetRemaining() > 1000) {
+  if (injectTier1 && contexts.proactiveContext && budgetRemaining() > 1000) {
     const maxProactive = Math.min(charCount(contexts.proactiveContext), 1500);
     parts.push(addSection("proactive", `\n${wrapContextBoundary(trimToFit(contexts.proactiveContext, maxProactive), "PROACTIVE INSIGHTS (mention naturally, e.g. \"By the way...\")")}`));
   }
@@ -4504,8 +4535,11 @@ function buildPrompt(
     .slice(0, 5)
     .map(([name, size]) => `${name}=${size}`)
     .join(" ");
+  const tierLabel = turnContext?.tieredContextEnabled
+    ? (injectTier1 ? "tier1=INJECTED" : "tier1=SKIPPED")
+    : "tier1=ALWAYS";
   info("prompt-budget",
-    `total=${totalChars} intent=[${intentFlags}] sections: ${topSections}`
+    `total=${totalChars} ${tierLabel} intent=[${intentFlags}] sections: ${topSections}`
   );
 
   return parts.join("\n");
