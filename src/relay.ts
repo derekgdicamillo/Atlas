@@ -1243,6 +1243,9 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         await clearBuffer(sKey);
         clearMode(sKey);
         contextCache.clear();
+        // Phase 2: Reset persistent process turn count so next message gets full context
+        try { processPool.get(agentId).resetTurnCount(); } catch {}
+        previousIntentMap.delete(sKey);
         await ctx.reply("Session cleared. Next message starts fresh.");
         info("command", `Session reset by ${userId} (was: ${oldSessionId || "none"})`);
         if (oldSessionId) {
@@ -2802,7 +2805,12 @@ async function handleUserMessage(
   });
 
   // 3b. Check for idle session reset (before lock, so we don't reset mid-conversation)
-  await checkIdleReset(agentId, userId);
+  const wasIdleReset = await checkIdleReset(agentId, userId);
+  if (wasIdleReset) {
+    // Phase 2: Session was auto-reset — clear tiered context state
+    try { processPool.get(agentId).resetTurnCount(); } catch {}
+    previousIntentMap.delete(key);
+  }
 
   // 3c. Queue interrupt mode: kill running process so new message gets immediate attention
   if (getQueueMode(key) === "interrupt") {
