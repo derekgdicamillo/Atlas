@@ -590,6 +590,17 @@ const coachBot = COACH_BOT_TOKEN ? new Bot(COACH_BOT_TOKEN) : null;
 const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : [])];
 
 // ============================================================
+// GRAMMY PLUGINS (production resilience)
+// ============================================================
+
+// Auto-retry: handles Telegram 429 rate limits and 5xx errors automatically.
+// Without this, a rate limit or transient Telegram outage crashes the handler.
+import { autoRetry } from "@grammyjs/auto-retry";
+for (const b of allBots) {
+  b.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 30 }));
+}
+
+// ============================================================
 // VERBOSE MODE (OpenClaw verbose gating)
 // ============================================================
 
@@ -3794,6 +3805,8 @@ handlers.on("message:text", async (ctx) => {
   // Save offset BEFORE Claude call. If Claude triggers a restart (e.g. pm2 restart atlas),
   // the offset is already committed so the message won't be re-processed on boot. (#crash-loop-fix)
   await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+  // Acknowledge receipt with a reaction + typing indicator
+  ctx.react("👀").catch(() => {}); // eyes = "I see your message"
   await ctx.replyWithChatAction("typing");
 
   const response = await handleUserMessage(ctx, userId, { text, type: "text" });
@@ -3817,6 +3830,7 @@ handlers.on("message:voice", async (ctx) => {
 
   const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Voice from ${userId}: ${voice.duration}s`);
+  ctx.react("🎧").catch(() => {}); // headphones = "I hear your voice"
   await ctx.replyWithChatAction("typing");
 
   if (!process.env.VOICE_PROVIDER) {
@@ -3899,6 +3913,7 @@ handlers.on("message:photo", async (ctx) => {
 
   const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Image from ${userId}`);
+  ctx.react("👀").catch(() => {}); // eyes = "I see your image"
   await ctx.replyWithChatAction("typing");
 
   try {
@@ -3993,7 +4008,8 @@ handlers.on("message:document", async (ctx) => {
 
   const agentId = resolveAgent(userId, String(ctx.chat?.id || ""), botIdFromCtx(ctx))?.config.id || "atlas";
   info("message", `[${agentId}] Document from ${userId}: ${doc.file_name}`);
-  await ctx.replyWithChatAction("typing");
+  ctx.react("👀").catch(() => {});
+  await ctx.replyWithChatAction("upload_document");
 
   try {
     let file;
