@@ -35,7 +35,7 @@ import {
   getHealthStatus,
   getTodayClaudeCosts,
 } from "./logger.ts";
-import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
+import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, TIERED_CONTEXT_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
 import { processPool } from "./persistent-pool.ts";
@@ -784,6 +784,9 @@ function markUpdateResponded(updateId: number): void {
 const contextCache: Map<string, { value: string; ts: number }> = new Map();
 // Wire up cognitive module's cache reference for invalidation
 setCacheRef(contextCache);
+
+/** Track previous intent flags per session for topic change detection (Phase 2) */
+const previousIntentMap = new Map<string, Record<string, boolean>>();
 
 // Pending forget confirmations: maps userId -> { matches, expiresAt }
 const pendingForgets: Map<string, {
@@ -3049,6 +3052,14 @@ async function handleUserMessage(
 
     // 8. Build prompt with fresh context + conversation history + accumulated messages
     //    Now uses intent classification and hard character budget.
+    // Phase 2: Build turn context for tiered loading
+    const persistentProc = processPool.get(agentId);
+    const turnContext: TurnContext = {
+      isFirstTurn: persistentProc.isFirstTurn(),
+      previousIntentFlags: previousIntentMap.get(key) || null,
+      tieredContextEnabled: TIERED_CONTEXT_ENABLED,
+    };
+
     const enrichedPrompt = buildPrompt(
       pending,
       agent,
@@ -3095,7 +3106,8 @@ async function handleUserMessage(
               getTrustSummary("tox_tray").catch(() => ""),
             ]).then((parts) => parts.filter(Boolean).join("\n\n"))
           : "",
-      }
+      },
+      turnContext,
     );
     logPrePrompt(enrichedPrompt, agentId, agentModel, session.sessionId, shouldResume && !!session.sessionId, traceId);
 
@@ -3137,6 +3149,9 @@ async function handleUserMessage(
       try { await streaming.finish(); }
       catch (e) { warn("streaming", `streaming.finish() failed: ${e}`); }
     }
+
+    // Store intent flags for next turn's topic change detection (Phase 2)
+    previousIntentMap.set(key, intent as Record<string, boolean>);
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
     if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
