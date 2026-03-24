@@ -51,7 +51,7 @@ const INTENT_TO_MCP_SERVERS: Record<string, string[]> = {
   reputation: ["gbp"],
   analytics: ["ga4-analytics"],
   coding:    [],   // code tasks go through subagents, not MCP
-  browser:   [],   // browser uses agent-browser CLI via Bash, not MCP
+  browser:   ["playwright"],   // Playwright MCP: navigate, click, fill, screenshot
   todos:     [],
 };
 

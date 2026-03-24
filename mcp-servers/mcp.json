@@ -42,6 +42,11 @@
         "HEVY_API_KEY": "e95174f8-4f3c-412b-95e8-ab06e2479e16"
       },
       "description": "Hevy: workout logging, routines, exercise templates (fitness coach)"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"],
+      "description": "Playwright: browser automation — navigate, click, fill forms, screenshot, extract data"
     }
   }
 }
