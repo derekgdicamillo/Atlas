@@ -4535,8 +4535,11 @@ function buildPrompt(
     .slice(0, 5)
     .map(([name, size]) => `${name}=${size}`)
     .join(" ");
+  const tierLabel = turnContext?.tieredContextEnabled
+    ? (injectTier1 ? "tier1=INJECTED" : "tier1=SKIPPED")
+    : "tier1=ALWAYS";
   info("prompt-budget",
-    `total=${totalChars} intent=[${intentFlags}] sections: ${topSections}`
+    `total=${totalChars} ${tierLabel} intent=[${intentFlags}] sections: ${topSections}`
   );
 
   return parts.join("\n");
