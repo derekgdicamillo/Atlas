@@ -532,6 +532,16 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
               break;
 
             case "result":
+              // Debug: log raw result event fields
+              if (!raw.result && raw.usage?.output_tokens > 0) {
+                const { info: logInfo } = require("./logger.ts");
+                logInfo("stream-parser", `Result event with no result text but ${raw.usage.output_tokens} output tokens. Keys: ${Object.keys(raw).join(",")}`);
+                // Check for alternate text fields
+                const altText = raw.text || raw.content || raw.message?.content || raw.response || "";
+                if (altText) {
+                  logInfo("stream-parser", `Found alternate text field (${typeof altText === "string" ? altText.length : "non-string"} chars)`);
+                }
+              }
               onEvent({
                 type: "result",
                 sessionId,
