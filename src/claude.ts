@@ -500,6 +500,10 @@ export function createStreamParser(onEvent: (event: StreamEvent) => void) {
                       toolInput: block.input,
                     });
                   }
+                  // Capture text blocks from assistant messages (Claude's text between tool calls)
+                  if (block.type === "text" && block.text) {
+                    onEvent({ type: "text_delta", sessionId, textDelta: block.text });
+                  }
                   // OpenClaw #20635: Handle thinking blocks in assistant messages
                   if (block.type === "thinking" || block.type === "redacted_thinking") {
                     onEvent({ type: "thinking", sessionId });
