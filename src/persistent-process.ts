@@ -200,7 +200,12 @@ export class PersistentProcess {
    */
   async ensureAlive(): Promise<boolean> {
     if (this.isAlive()) return true;
-    if (this.status === "shutdown") return false;
+    if (this.status === "shutdown") {
+      // Process was shut down (idle timeout or explicit). Allow re-spawn.
+      info("persistent", `[${this.config.agentId}] Re-spawning after shutdown`);
+      this.status = "idle";
+      this.restartCount = 0;
+    }
     if (this.status === "spawning" || this.status === "restarting") {
       // Wait for the current spawn to finish
       await this.waitForReady(15_000);
