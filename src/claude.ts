@@ -730,15 +730,17 @@ export async function callClaude(
           await saveSessionState(agentId, userId, session);
         }
 
-        // On error with no text, fall back to one-shot for this turn
-        if (turnResult.isError && !turnResult.text.trim()) {
-          warn("claude", `[${agentId}] Persistent process error with no text (${turnResult.errorInfo}). Falling back to one-shot WITHOUT resume.`);
-          // Disable resume for the fallback — session may be stale/corrupt
+        // Fall back to one-shot if persistent returned no usable text
+        const persistentText = stripReasoningTags(turnResult.text);
+        if (!persistentText.trim()) {
+          // Empty text: could be error, tool-only response, or thinking-dominated.
+          // Fall through to one-shot which captures full output including tool results.
+          warn("claude", `[${agentId}] Persistent returned no text (isError=${turnResult.isError}, tools=${turnResult.toolCallCount}, tokens=${turnResult.outputTokens}). Falling back to one-shot.`);
           if (options) (options as any).resume = false;
           // Fall through to one-shot path below
         } else {
-          // Success, or error with partial text — return what we have
-          return stripReasoningTags(turnResult.text) || "No response generated.";
+          // Got usable text — return it
+          return persistentText;
         }
       } catch (err) {
         warn("claude", `[${agentId}] Persistent path failed: ${err}. Falling back to one-shot WITHOUT resume.`);
