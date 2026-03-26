@@ -654,6 +654,9 @@ export class PersistentProcess {
           }
         }
 
+        const turnTools = this.turnToolCallCount;
+        const turnDuration = Date.now() - this.turnStartedAt;
+
         this.resolveTurn({
           // Prefer accumulated text from deltas (clean, no thinking tags) over
           // result event text (which may contain thinking artifacts that get stripped).
@@ -664,9 +667,20 @@ export class PersistentProcess {
           errorInfo: event.isError ? (event.errorSubtype || "unknown error") : "",
           inputTokens: event.inputTokens || 0,
           outputTokens: event.outputTokens || 0,
-          toolCallCount: this.turnToolCallCount,
-          durationMs: Date.now() - this.turnStartedAt,
+          toolCallCount: turnTools,
+          durationMs: turnDuration,
         });
+
+        // Auto-restart after heavy turns to prevent process getting stuck.
+        // The CLI accumulates internal state from tool calls; after enough
+        // complexity, the next message hangs. Proactive restart is cheap
+        // compared to a stuck session.
+        const HEAVY_TOOL_THRESHOLD = 5;
+        const HEAVY_DURATION_THRESHOLD = 120_000; // 2 minutes
+        if (turnTools >= HEAVY_TOOL_THRESHOLD || turnDuration >= HEAVY_DURATION_THRESHOLD) {
+          info("persistent", `[${this.config.agentId}] Heavy turn (${turnTools} tools, ${Math.round(turnDuration / 1000)}s). Auto-restarting process for stability.`);
+          this.restart().catch(() => {});
+        }
         break;
     }
   }
