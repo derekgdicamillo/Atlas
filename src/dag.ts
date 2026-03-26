@@ -569,8 +569,22 @@ export async function onSwarmNodeComplete(
   const task = getTask(taskId);
 
   if (task && (task.status === "completed")) {
-    // Read output from scratchpad (supervisor writes output file, which IS the scratchpad for swarm tasks)
-    const output = await readScratchpad(swarmId, dagNodeId);
+    // Read output: try scratchpad first, fall back to task output file
+    let output = await readScratchpad(swarmId, dagNodeId);
+    if (!output && task.outputFile) {
+      // Scratchpad empty — read from the task's output file instead
+      try {
+        const { readFile } = await import("fs/promises");
+        output = await readFile(task.outputFile, "utf-8");
+        if (output) {
+          // Copy to scratchpad so synthesis can find it
+          await writeScratchpad(swarmId, dagNodeId, output);
+          info("dag", `Copied task output (${output.length} chars) to scratchpad for ${swarmId}/${dagNodeId}`);
+        }
+      } catch (err) {
+        warn("dag", `Failed to read task output file ${task.outputFile}: ${err}`);
+      }
+    }
     const hash = output
       ? createHash("sha256").update(output).digest("hex").slice(0, 16)
       : "empty";
