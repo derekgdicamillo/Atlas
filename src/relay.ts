@@ -1272,6 +1272,23 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/stop": {
+      // Abort the current turn — like hitting Escape in Claude Code.
+      // Returns partial text accumulated so far and restarts the process.
+      const proc = processPool.get(agentId);
+      if (proc.isBusy()) {
+        const aborted = proc.abortTurn();
+        if (aborted) {
+          await ctx.reply("Stopped. Send your next message.");
+        } else {
+          await ctx.reply("Nothing to stop — not currently working on anything.");
+        }
+      } else {
+        await ctx.reply("Not busy right now.");
+      }
+      return true;
+    }
+
     case "/ping": {
       const uptimeMs = Date.now() - BOT_START_TIME;
       const uptimeM = Math.floor(uptimeMs / 60_000);
@@ -4704,6 +4721,7 @@ const botCommands = [
   { command: "runs", description: "View cron job run history" },
   { command: "hooks", description: "View lifecycle hooks status" },
   { command: "agents", description: "View registered agents" },
+  { command: "stop", description: "Stop current response (like Escape in Claude Code)" },
   { command: "restart", description: "Restart the bot" },
   { command: "help", description: "List all commands" },
 ];

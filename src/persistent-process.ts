@@ -183,6 +183,35 @@ export class PersistentProcess {
     return this.turnCount <= 1;
   }
 
+  /**
+   * Abort the current turn early. Returns whatever text has been accumulated so far.
+   * The process stays alive for the next turn (unlike kill which restarts it).
+   * Used for /stop command and mid-turn corrections.
+   */
+  abortTurn(): boolean {
+    if (!this.isBusy() || !this.turnResolve) return false;
+
+    const partialText = this.turnText;
+    info("persistent", `[${this.config.agentId}] Turn aborted by user. Accumulated ${partialText.length} chars.`);
+
+    this.resolveTurn({
+      text: partialText,
+      sessionId: this.lastSessionId || "",
+      isError: false, // not an error — user chose to stop
+      errorInfo: "aborted",
+      inputTokens: 0,
+      outputTokens: 0,
+      toolCallCount: this.turnToolCallCount,
+      durationMs: Date.now() - this.turnStartedAt,
+    });
+
+    // Restart the process since the CLI is still mid-generation and will
+    // produce output we can't use. Fresh process for the next turn.
+    this.restart().catch(() => {});
+
+    return true;
+  }
+
   /** Reset turn count without restarting the process (e.g., on /session reset) */
   resetTurnCount(): void {
     this.turnCount = 0;
