@@ -63,7 +63,11 @@
       "Bash(which *)",
       "Bash(where *)",
       "Write",
+      "Write(.claude/**)",
       "Edit",
+      "Edit(.claude/**)",
+      "Bash(mkdir -p .claude/*)",
+      "Bash(cat > .claude/*)",
       "Agent",
       "Bash(npm *)",
       "Bash(npx *)"
