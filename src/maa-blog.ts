@@ -206,32 +206,93 @@ export function isMAABlogReady(): boolean {
   return !!(MAA_WP_USER && MAA_WP_APP_PASSWORD);
 }
 
+async function resolveTagIds(tagNames: string[]): Promise<number[]> {
+  const ids: number[] = [];
+
+  for (const name of tagNames.slice(0, 5)) {
+    try {
+      // Search for existing tag
+      const searchRes = await fetch(
+        `${API_BASE}/tags?search=${encodeURIComponent(name)}&per_page=5`,
+        {
+          headers: { Authorization: authHeader() },
+          signal: AbortSignal.timeout(API_TIMEOUT),
+        }
+      );
+
+      if (searchRes.ok) {
+        const tags = (await searchRes.json()) as { id: number; name: string }[];
+        const exact = tags.find(
+          (t) => t.name.toLowerCase() === name.toLowerCase()
+        );
+        if (exact) {
+          ids.push(exact.id);
+          continue;
+        }
+      }
+
+      // Create new tag
+      const createRes = await fetch(`${API_BASE}/tags`, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+        signal: AbortSignal.timeout(API_TIMEOUT),
+      });
+
+      if (createRes.ok) {
+        const created = (await createRes.json()) as { id: number };
+        ids.push(created.id);
+      } else {
+        warn("maa-blog", `Failed to create tag "${name}": ${createRes.status}`);
+      }
+    } catch (err) {
+      warn("maa-blog", `Tag resolution failed for "${name}": ${err}`);
+    }
+  }
+
+  return ids;
+}
+
 async function publishPost(
   title: string,
   content: string,
   excerpt: string,
-  categories: number[] = [CATEGORIES.blog]
+  categories: number[] = [CATEGORIES.blog],
+  slug?: string,
+  tagIds?: number[],
+  focusKeyphrase?: string,
+  metaDescription?: string
 ): Promise<{ id: number; link: string } | null> {
   try {
+    const body: Record<string, unknown> = {
+      title,
+      content,
+      excerpt,
+      status: "publish",
+      categories,
+    };
+
+    if (slug) body.slug = slug;
+    if (tagIds && tagIds.length > 0) body.tags = tagIds;
+    if (focusKeyphrase) body.yoast_wpseo_focuskw = focusKeyphrase;
+    if (metaDescription) body.yoast_wpseo_metadesc = metaDescription;
+
     const res = await fetch(`${API_BASE}/posts`, {
       method: "POST",
       headers: {
         Authorization: authHeader(),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        title,
-        content,
-        excerpt,
-        status: "publish",
-        categories,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(API_TIMEOUT),
     });
 
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      logError("maa-blog", `WP API ${res.status}: ${body.substring(0, 300)}`);
+      const text = await res.text().catch(() => "");
+      logError("maa-blog", `WP API ${res.status}: ${text.substring(0, 300)}`);
       return null;
     }
 
