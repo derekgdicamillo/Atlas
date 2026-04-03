@@ -106,6 +106,19 @@ import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSu
 import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
 import { approveNewsletter } from "./maa-newsletter.ts";
+import {
+  isPVNewsletterReady,
+  getDraftStatus,
+  getAssembledPreview,
+  loadState as loadNewsletterState,
+  setDraftTopic,
+  updateDraftSection,
+  setDraftSubjectLine,
+  pushDraftToGHL,
+  resetDraft,
+  skipWeek,
+  type DraftSections,
+} from "./pv-newsletter.ts";
 import { processAutomationPauseTags, shouldSuppressAnnouncement, recordSuppressedTask, pauseAutomation, resumeAutomation, getPauseStatus } from "./automation-pause.ts";
 import { addToLearningQueue } from "./night-shift.ts";
 import { PDFParse } from "pdf-parse";
@@ -660,6 +673,9 @@ function stripSentinels(text: string): string {
 // Initialize approval queue with bot instance
 const TOX_TRAY_CHAT_ID = process.env.TOX_TRAY_CHAT_ID || "";
 const TOX_TRAY_THREAD_ID = process.env.TOX_TRAY_THREAD_ID ? parseInt(process.env.TOX_TRAY_THREAD_ID, 10) : undefined;
+const PV_NEWSLETTER_TOPIC_ID = process.env.PV_NEWSLETTER_TOPIC_ID
+  ? parseInt(process.env.PV_NEWSLETTER_TOPIC_ID, 10)
+  : null;
 if (supabase && (TOX_TRAY_CHAT_ID || ALLOWED_USER_ID)) {
   initApproval(supabase, bot, TOX_TRAY_CHAT_ID || ALLOWED_USER_ID, TOX_TRAY_THREAD_ID);
 }
@@ -2805,6 +2821,114 @@ async function detectLearningGaps(responseText: string, userMessage: string): Pr
 }
 
 // ============================================================
+// PV NEWSLETTER HELPERS
+// ============================================================
+
+function buildNewsletterModeContext(): string {
+  const status = getDraftStatus();
+  const state = loadNewsletterState();
+  const preview = status.sectionsComplete.length > 0 ? getAssembledPreview() : "";
+
+  return `
+## NEWSLETTER MODE ACTIVE
+You are in the PV Newsletter topic thread. You are collaborating with Derek on this week's "Derek's Vitality Unchained Newsletter."
+
+### Current Draft Status
+- Status: ${status.status}
+- Topic: ${status.topic || "(not set yet)"}
+- Sections complete: ${status.sectionsComplete.length > 0 ? status.sectionsComplete.join(", ") : "none"}
+- Pillar: ${state.currentDraft.pillar || "(not set)"}
+
+### Your Role
+- You are a collaborative writing partner, not a task assistant
+- Help Derek craft the newsletter section by section
+- Write in Derek's voice: conversational, warm, educational, no AI filler, no em dashes
+- Bold key terms when teaching concepts
+- When drafting sections, post them for Derek's feedback
+- When Derek says "looks good" or "send to GHL", use the [PV_NEWSLETTER_PUSH] tag
+- When Derek says "start over", use [PV_NEWSLETTER_RESET] tag
+- When Derek says "skip this week", use [PV_NEWSLETTER_SKIP] tag
+
+### Draft Commands (emit these tags in your response)
+- [PV_NEWSLETTER_TOPIC: topic text | pillar=Pillar Name] — set this week's topic
+- [PV_NEWSLETTER_SECTION: section_name | content goes here] — save a drafted section (section_name: intro, education, patientStory, announcements)
+- [PV_NEWSLETTER_SUBJECT: subject line text] — set the email subject line
+- [PV_NEWSLETTER_PUSH] — push assembled draft to GHL as draft campaign
+- [PV_NEWSLETTER_RESET] — clear current draft and start over
+- [PV_NEWSLETTER_SKIP] — skip this week's newsletter
+- [PV_NEWSLETTER_PREVIEW] — show the full assembled draft in chat
+
+### Newsletter Structure
+1. Personal Intro (greeting + personal hook + bridge to topic)
+2. Educational Deep-Dive (teaching with bold key terms, data/studies)
+3. Patient Story + Takeaway (anonymized example, encouraging close)
+4. Announcements (optional — clinic news, community updates)
+
+${preview ? `### Current Draft Preview\n${preview}` : ""}
+`.trim();
+}
+
+async function processNewsletterIntents(response: string, chatId: string, threadId: number | null): Promise<string> {
+  // [PV_NEWSLETTER_TOPIC: topic | pillar=Pillar Name]
+  const topicMatch = response.match(/\[PV_NEWSLETTER_TOPIC:\s*(.+?)(?:\s*\|\s*pillar=(.+?))?\s*\]/i);
+  if (topicMatch) {
+    setDraftTopic(topicMatch[1].trim(), topicMatch[2]?.trim() as any);
+    info("pv-newsletter", `Topic set: "${topicMatch[1].trim()}"`);
+    response = response.replace(topicMatch[0], "").trim();
+  }
+
+  // [PV_NEWSLETTER_SECTION: section_name | content]
+  const sectionRegex = /\[PV_NEWSLETTER_SECTION:\s*(\w+)\s*\|\s*([\s\S]*?)\]/gi;
+  let sectionMatch;
+  while ((sectionMatch = sectionRegex.exec(response)) !== null) {
+    const section = sectionMatch[1].trim() as keyof DraftSections;
+    const content = sectionMatch[2].trim();
+    updateDraftSection(section, content);
+    info("pv-newsletter", `Section "${section}" saved (${content.length} chars)`);
+    response = response.replace(sectionMatch[0], "").trim();
+  }
+
+  // [PV_NEWSLETTER_SUBJECT: subject line]
+  const subjectMatch = response.match(/\[PV_NEWSLETTER_SUBJECT:\s*(.+?)\s*\]/i);
+  if (subjectMatch) {
+    setDraftSubjectLine(subjectMatch[1].trim());
+    response = response.replace(subjectMatch[0], "").trim();
+  }
+
+  // [PV_NEWSLETTER_PUSH]
+  if (/\[PV_NEWSLETTER_PUSH\]/i.test(response)) {
+    const result = await pushDraftToGHL();
+    const msg = result.ok
+      ? `Draft pushed to GHL. Campaign ID: ${result.campaignId}\nReady for your visual check and Thursday send.`
+      : `Failed to push to GHL: ${result.error}`;
+    info("pv-newsletter", msg);
+    response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
+    response += `\n\n${msg}`;
+  }
+
+  // [PV_NEWSLETTER_RESET]
+  if (/\[PV_NEWSLETTER_RESET\]/i.test(response)) {
+    resetDraft();
+    response = response.replace(/\[PV_NEWSLETTER_RESET\]/i, "").trim();
+  }
+
+  // [PV_NEWSLETTER_SKIP]
+  if (/\[PV_NEWSLETTER_SKIP\]/i.test(response)) {
+    skipWeek();
+    response = response.replace(/\[PV_NEWSLETTER_SKIP\]/i, "").trim();
+  }
+
+  // [PV_NEWSLETTER_PREVIEW]
+  if (/\[PV_NEWSLETTER_PREVIEW\]/i.test(response)) {
+    const preview = getAssembledPreview();
+    response = response.replace(/\[PV_NEWSLETTER_PREVIEW\]/i, "").trim();
+    response += `\n\n${preview}`;
+  }
+
+  return response;
+}
+
+// ============================================================
 // UNIFIED MESSAGE HANDLER
 // ============================================================
 
@@ -2831,6 +2955,8 @@ async function handleUserMessage(
 ): Promise<string> {
   const traceId = randomUUID().slice(0, 8); // short trace ID for log correlation
   const chatId = String(ctx.chat?.id || "");
+  const messageThreadId = (ctx.message as any)?.message_thread_id ?? null;
+  const isNewsletterThread = PV_NEWSLETTER_TOPIC_ID != null && messageThreadId === PV_NEWSLETTER_TOPIC_ID;
   const agent = resolveAgent(userId, chatId, botIdFromCtx(ctx));
   const agentId = agent?.config.id || "atlas";
   const agentModel = agent?.config.model || DEFAULT_MODEL;
@@ -3172,6 +3298,9 @@ async function handleUserMessage(
               : /\b(content waterfall|social post|create a post|posting calendar|write hooks)\b/i.test(combinedText)
                 ? getFrameworkPrompt("social")
                 : "",
+        newsletterContext: isNewsletterThread && isPVNewsletterReady()
+          ? buildNewsletterModeContext()
+          : "",
         dashboardContext,
         ghlContext,
         financialContext,
@@ -3422,6 +3551,12 @@ async function handleUserMessage(
       if (isWebsiteReady()) {
         try { response = await processWebsiteIntents(response); }
         catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+      }
+
+      // PV Newsletter tags
+      if (isNewsletterThread) {
+        try { response = await processNewsletterIntents(response, chatId, messageThreadId); }
+        catch (e) { warn("intents", `processNewsletterIntents failed: ${e}`); }
       }
 
       // Browser automation tags (agent-browser CLI)
@@ -4338,6 +4473,7 @@ function buildPrompt(
     googleContext?: string;
     conversationContext?: string;
     modePrompt?: string;
+    newsletterContext?: string;
     dashboardContext?: string;
     ghlContext?: string;
     financialContext?: string;
@@ -4456,6 +4592,12 @@ function buildPrompt(
     // Mode prompts are 5-8K chars. Trim if budget is tight.
     const maxMode = Math.min(charCount(contexts.modePrompt), budgetRemaining() > 15000 ? 8000 : 4000);
     parts.push(addSection("mode", `\n${trimToFit(contexts.modePrompt, maxMode)}`));
+  }
+
+  // ── P2b: Newsletter mode context ───────────────────────
+  if (contexts.newsletterContext) {
+    const maxNewsletter = Math.min(charCount(contexts.newsletterContext), 6000);
+    parts.push(addSection("newsletter", `\n${trimToFit(contexts.newsletterContext, maxNewsletter)}`));
   }
 
   // ── P3: Core memory context ─────────────────────────────
