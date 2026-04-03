@@ -55,6 +55,7 @@ import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDige
 import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
 import { isMAABlogReady, publishMAABlog } from "./maa-blog.ts";
 import { isNewsletterReady, draftFreeNewsletter, draftPaidNewsletter, sendFreeNewsletter, sendPaidNewsletter, isPaidWeek } from "./maa-newsletter.ts";
+import { isPVNewsletterReady, buildKickoffMessage, loadState as loadPVNewsletterState } from "./pv-newsletter.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -67,6 +68,7 @@ const TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
 const HEARTBEAT_CRON = process.env.HEARTBEAT_CRON || "*/30 7-22 * * *";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
+const PV_NEWSLETTER_TOPIC_ID = process.env.PV_NEWSLETTER_TOPIC_ID || "";
 const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BACKUP_DIR = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
@@ -2038,11 +2040,12 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
                   ctr: ad.ctr,
                   frequency: ad.reach > 0 ? ad.impressions / ad.reach : 0,
                   reach: ad.reach,
+                  lpViews: ad.landingPageViews || 0,
                 }));
                 recordAdSnapshots(snapshots);
                 const dates = [...new Set(dailyAds.map(a => a.date))].sort();
-                const totalConv = snapshots.reduce((s, snap) => s + snap.conversions, 0);
-                log("ad-tracker", `Refreshed ${snapshots.length} snapshots across ${dates.length} days (${dates[0]} - ${dates[dates.length - 1]}), ${totalConv} total conversions`);
+                const totalLPV = snapshots.reduce((s, snap) => s + (snap.lpViews || 0), 0);
+                log("ad-tracker", `Refreshed ${snapshots.length} snapshots across ${dates.length} days (${dates[0]} - ${dates[dates.length - 1]}), ${totalLPV} landing page views`);
               }
 
               // Update Midas learner: ad registry + decay curves
@@ -2101,18 +2104,9 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
             log("midas-funnel", `${alerts.length} funnel alert(s) sent to Derek`);
           }
 
-          // Check form submit divergence (Meta conversions vs GHL leads)
-          try {
-            const { isMetaReady, getAccountSummary } = await import("./meta.ts");
-            if (isMetaReady()) {
-              const metaSummary = await getAccountSummary("yesterday");
-              const divergenceAlert = checkFormSubmitDivergence(metaSummary.conversions, snapshot.leadsCreated);
-              if (divergenceAlert) {
-                await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Alert:** ${divergenceAlert}`);
-                warn("midas-funnel", divergenceAlert);
-              }
-            }
-          } catch { /* Meta API unavailable, skip divergence check */ }
+          // Form submit divergence check disabled: Meta blocks conversion tracking
+          // for health/wellness advertisers, so metaSummary.conversions is always 0.
+          // GHL pipeline leads are the source of truth for conversions.
         } catch (err) {
           logError("cron", `Midas funnel monitor failed: ${err}`);
         }
@@ -2498,157 +2492,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   // TOX TRAY BUSINESS OPERATOR JOBS
   // ============================================================
 
-  const TOX_THREAD_ID = process.env.TOX_TRAY_THREAD_ID ? parseInt(process.env.TOX_TRAY_THREAD_ID, 10) : undefined;
-
-  // Tox tray: post approved content (every 30 min, 8 AM - 8 PM)
-  if (supabase) {
-    const { getReadyToPost, markPosted, markFailed, sendPostConfirmation } = await import("./approval.ts");
-    const { publishPost } = await import("./social.ts");
-
-    jobs.push(
-      CronJob.from({
-        cronTime: "*/30 8-20 * * *",
-        onTick: safeTick("tox-post", async () => {
-          const items = await getReadyToPost();
-          if (items.length === 0) return;
-
-          log("tox-post", `${items.length} item(s) ready to post`);
-          for (const item of items) {
-            try {
-              const result = await publishPost({
-                platform: item.platform as "pinterest" | "instagram" | "facebook" | "tiktok",
-                content: item.body,
-                title: item.title || undefined,
-                imageUrl: item.image_url || undefined,
-                link: item.link_url || undefined,
-                hashtags: item.hashtags || [],
-              });
-              await markPosted(item.id, result.externalId);
-              await sendPostConfirmation(item.id, item.platform, result.url);
-              log("tox-post", `Posted #${item.id} to ${item.platform}: ${result.externalId}`);
-            } catch (err) {
-              await markFailed(item.id, String(err).substring(0, 500));
-              logError("tox-post", `Failed to post #${item.id}: ${err}`);
-            }
-          }
-        }),
-        timeZone: TIMEZONE,
-      })
-    );
-
-    // Tox tray: collect social analytics (11 PM daily)
-    jobs.push(
-      CronJob.from({
-        cronTime: "0 23 * * *",
-        onTick: safeTick("tox-analytics", async () => {
-          const { getPostAnalytics } = await import("./social.ts");
-          log("tox-analytics", "Collecting social analytics...");
-
-          // Get all posted items from content_queue
-          const { data: posted } = await supabase
-            .from("content_queue")
-            .select("id, platform, external_id")
-            .eq("business", "tox_tray")
-            .eq("status", "posted")
-            .not("external_id", "is", null)
-            .order("posted_at", { ascending: false })
-            .limit(50);
-
-          if (!posted || posted.length === 0) {
-            log("tox-analytics", "No posted items to collect analytics for");
-            return;
-          }
-
-          let collected = 0;
-          for (const item of posted) {
-            try {
-              const analytics = await getPostAnalytics(item.platform, item.external_id);
-              await supabase.from("social_analytics").insert({
-                business: "tox_tray",
-                platform: item.platform,
-                post_external_id: item.external_id,
-                content_queue_id: item.id,
-                impressions: analytics.impressions,
-                reach: analytics.reach,
-                engagement: analytics.engagement,
-                clicks: analytics.clicks,
-                saves: analytics.saves,
-              });
-              collected++;
-            } catch (err) {
-              warn("tox-analytics", `Failed for ${item.platform}/${item.external_id}: ${err}`);
-            }
-          }
-
-          log("tox-analytics", `Collected analytics for ${collected}/${posted.length} posts`);
-        }),
-        timeZone: TIMEZONE,
-      })
-    );
-
-    // Tox tray: weekly digest (Sunday 5 PM)
-    jobs.push(
-      CronJob.from({
-        cronTime: "0 17 * * 0",
-        onTick: safeTick("tox-weekly", async () => {
-          log("tox-weekly", "Generating weekly tox tray digest...");
-
-          // Get this week's stats
-          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-          const { data: weekPosts } = await supabase
-            .from("content_queue")
-            .select("platform, status")
-            .eq("business", "tox_tray")
-            .gte("created_at", weekAgo);
-
-          const { data: weekAnalytics } = await supabase
-            .from("social_analytics")
-            .select("impressions, reach, engagement, clicks, saves")
-            .eq("business", "tox_tray")
-            .gte("snapshot_at", weekAgo);
-
-          const posted = (weekPosts || []).filter((p) => p.status === "posted").length;
-          const pending = (weekPosts || []).filter((p) => p.status === "pending_approval").length;
-
-          const totalImpressions = (weekAnalytics || []).reduce((s, a) => s + (a.impressions || 0), 0);
-          const totalEngagement = (weekAnalytics || []).reduce((s, a) => s + (a.engagement || 0), 0);
-          const totalClicks = (weekAnalytics || []).reduce((s, a) => s + (a.clicks || 0), 0);
-
-          const digest = [
-            "Tox Tray Weekly Digest",
-            "",
-            `Posts: ${posted} published, ${pending} pending`,
-            `Impressions: ${totalImpressions.toLocaleString()}`,
-            `Engagement: ${totalEngagement.toLocaleString()}`,
-            `Clicks: ${totalClicks.toLocaleString()}`,
-          ].join("\n");
-
-          await sendTelegramMessage(DEREK_CHAT_ID, digest, TOX_THREAD_ID);
-          log("tox-weekly", "Weekly digest sent");
-        }),
-        timeZone: TIMEZONE,
-      })
-    );
-  }
-
-  // Tox tray: Etsy listing sync (6 AM daily, only if Etsy is configured)
-  {
-    const { isEtsyReady, syncListingsToCache } = await import("./etsy.ts");
-    if (isEtsyReady()) {
-      jobs.push(
-        CronJob.from({
-          cronTime: "0 6 * * *",
-          onTick: safeTick("etsy-sync", async () => {
-            log("etsy-sync", "Syncing Etsy listings...");
-            const count = await syncListingsToCache();
-            log("etsy-sync", `Synced ${count} listings`);
-          }),
-          timeZone: TIMEZONE,
-        })
-      );
-    }
-  }
+  // Tox Tray crons removed 2026-04-03 (project inactive)
 
   // ============================================================
   // NIGHT SHIFT: Autonomous overnight work (planner + worker)
@@ -2875,6 +2719,53 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
+  // ── PV Newsletter Kickoff (Tuesday 7 AM) ─────────────────────────
+  if (isPVNewsletterReady() && PV_NEWSLETTER_TOPIC_ID) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 7 * * 2",  // Tuesday 7:00 AM
+        onTick: safeTick("pv-newsletter-kickoff", async () => {
+          log("pv-newsletter", "Tuesday kickoff: building topic suggestion...");
+          try {
+            const message = await buildKickoffMessage();
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              message,
+              Number(PV_NEWSLETTER_TOPIC_ID)
+            );
+            log("pv-newsletter", "Kickoff message sent to Newsletter thread");
+          } catch (err) {
+            warn("pv-newsletter", `Kickoff failed: ${err}`);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+    log("cron", "Registered: pv-newsletter-kickoff (Tue 7:00 AM)");
+  }
+
+  // ── PV Newsletter Wednesday Nudge (Wed 9 AM) ─────────────────────
+  if (isPVNewsletterReady() && PV_NEWSLETTER_TOPIC_ID) {
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 9 * * 3",  // Wednesday 9:00 AM
+        onTick: safeTick("pv-newsletter-nudge", async () => {
+          const state = loadPVNewsletterState();
+          if (state.currentDraft.status === "kickoff") {
+            log("pv-newsletter", "Wednesday nudge: no response to kickoff yet");
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              "Still working on the newsletter? Let me know your angle or I can draft one based on the blog post.",
+              Number(PV_NEWSLETTER_TOPIC_ID)
+            );
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+    log("cron", "Registered: pv-newsletter-nudge (Wed 9:00 AM)");
+  }
+
   // 3:35 AM — Ingest yesterday's journal into Supabase for semantic search.
   // Journals exist as markdown files in memory/ but are invisible to Atlas
   // unless explicitly read via tool calls. Ingesting makes them searchable
@@ -2959,10 +2850,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 3:30 AM      Metric snapshot cleanup (>90 day retention)");
   console.log("  - Every 30min  Observation reflector (business hours)");
   console.log("  - 6:00 AM      Pharmacy invoice processing (daily, 2-day lookback)");
-  console.log("  - */30 8-20    Tox tray: post approved content");
-  console.log("  - 11:00 PM     Tox tray: collect social analytics");
-  console.log("  - Sunday 5 PM  Tox tray: weekly digest");
-  console.log("  - 6:00 AM      Tox tray: Etsy listing sync (if configured)");
+  // Tox Tray crons removed 2026-04-03
   console.log("  - 11:30 PM     Overnight content draft (sonnet + content critic)");
   console.log("  - 10:00 PM     Night Shift planner (haiku, generates overnight work queue)");
   console.log("  - 10:15 PM     Night Shift worker (processes queue, budget-capped)");
