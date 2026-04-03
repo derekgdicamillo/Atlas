@@ -69,6 +69,7 @@ const HEARTBEAT_CRON = process.env.HEARTBEAT_CRON || "*/30 7-22 * * *";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
 const PV_NEWSLETTER_TOPIC_ID = process.env.PV_NEWSLETTER_TOPIC_ID || "";
+const PV_NEWSLETTER_CHAT_ID = process.env.PV_NEWSLETTER_GROUP_CHAT_ID || "";
 const MEMORY_DIR = join(PROJECT_DIR, "memory");
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BACKUP_DIR = "C:\\Users\\Derek DiCamillo\\OneDrive - PV MEDISPA LLC\\Backups\\atlas";
@@ -2729,7 +2730,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           try {
             const message = await buildKickoffMessage();
             await sendTelegramMessage(
-              DEREK_CHAT_ID,
+              PV_NEWSLETTER_CHAT_ID,
               message,
               Number(PV_NEWSLETTER_TOPIC_ID)
             );
@@ -2754,7 +2755,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           if (state.currentDraft.status === "kickoff") {
             log("pv-newsletter", "Wednesday nudge: no response to kickoff yet");
             await sendTelegramMessage(
-              DEREK_CHAT_ID,
+              PV_NEWSLETTER_CHAT_ID,
               "Still working on the newsletter? Let me know your angle or I can draft one based on the blog post.",
               Number(PV_NEWSLETTER_TOPIC_ID)
             );
