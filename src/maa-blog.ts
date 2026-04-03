@@ -513,14 +513,13 @@ export async function publishMAABlog(
 
   // Try SAGE-driven topic first
   let sageContext: { theme: string; concerns: string[] } | undefined;
-  let topicSource: "sage" | "pillar" = "pillar";
 
+  let sageSelection: SageTopicSelection | null = null;
   const sageData = await fetchSageData();
   if (sageData?.available) {
-    const sageSelection = selectSageTopic(sageData, state);
+    sageSelection = selectSageTopic(sageData, state);
     if (sageSelection) {
       sageContext = { theme: sageSelection.theme, concerns: sageSelection.memberConcerns };
-      topicSource = "sage";
     }
   }
 
@@ -557,17 +556,41 @@ export async function publishMAABlog(
     return { success: false, error: "Missing title or content in generated response" };
   }
 
-  // Add TMAA branding footer
+  // Build FAQ HTML section if present
+  let faqHtml = "";
+  if (parsed.faq && parsed.faq.length > 0) {
+    faqHtml =
+      `\n\n<h2>Frequently Asked Questions</h2>\n` +
+      parsed.faq
+        .map((f) => `<h3>${f.question}</h3>\n<p>${f.answer}</p>`)
+        .join("\n");
+  }
+
+  // Assemble final content: post body + FAQ + branding footer
   const brandedContent =
     parsed.content +
+    faqHtml +
     `\n\n<hr />\n<p><em>The Medical Aesthetics Association provides tools, resources, and community for aesthetic practitioners building their own practices. <a href="/join">Become a member</a> or try <a href="/advisor/">S.A.G.E., our AI practice advisor</a>.</em></p>`;
+
+  // Resolve tags
+  const tagIds = parsed.tags && parsed.tags.length > 0
+    ? await resolveTagIds(parsed.tags)
+    : [];
 
   // Publish
   const categories = [CATEGORIES.blog];
-  const post = await publishPost(parsed.title, brandedContent, parsed.excerpt, categories);
+  const post = await publishPost(
+    parsed.title,
+    brandedContent,
+    parsed.excerpt,
+    categories,
+    parsed.slug,
+    tagIds,
+    parsed.focusKeyphrase,
+    parsed.metaDescription
+  );
 
   if (!post) {
-    // Save draft locally
     if (!existsSync(BLOG_DRAFTS_DIR)) mkdirSync(BLOG_DRAFTS_DIR, { recursive: true });
     const draftFile = join(BLOG_DRAFTS_DIR, `draft-${Date.now()}.json`);
     writeFileSync(draftFile, JSON.stringify(parsed, null, 2));
@@ -575,17 +598,20 @@ export async function publishMAABlog(
   }
 
   // Update state
-  advanceTopic(state);
+  if (sageSelection) {
+    // Record SAGE cooldown
+    state.sageCooldown[sageSelection.theme] = new Date().toISOString();
+    state.lastSageSource = "sage";
+  } else {
+    // Advance pillar rotation
+    advanceTopic(state);
+    state.lastSageSource = "pillar";
+  }
   state.postsPublished++;
   state.lastPublished = new Date().toISOString();
-  state.lastSageSource = topicSource;
   state.recentTitles.push(parsed.title);
   if (state.recentTitles.length > 10) {
     state.recentTitles = state.recentTitles.slice(-10);
-  }
-  // Update SAGE cooldown if topic came from SAGE
-  if (sageContext && topicSource === "sage") {
-    state.sageCooldown[sageContext.theme] = new Date().toISOString();
   }
   saveState(state);
 
