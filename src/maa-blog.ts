@@ -511,22 +511,37 @@ export async function publishMAABlog(
 
   const state = loadState();
 
-  // Try SAGE-driven topic first
-  let sageContext: { theme: string; concerns: string[] } | undefined;
-
+  // Try SAGE-driven topic selection first
   let sageSelection: SageTopicSelection | null = null;
+  let topic: string;
+  let pillar: string;
+
   const sageData = await fetchSageData();
   if (sageData?.available) {
     sageSelection = selectSageTopic(sageData, state);
-    if (sageSelection) {
-      sageContext = { theme: sageSelection.theme, concerns: sageSelection.memberConcerns };
-    }
   }
 
-  const { pillar, topic } = getNextTopic(state);
-  const prompt = buildBlogPrompt(topic, pillar, state.recentTitles, sageContext);
+  if (sageSelection) {
+    // SAGE-driven: use the trending theme as the topic
+    topic = sageSelection.theme;
+    pillar = sageSelection.theme;
+    info("maa-blog", `SAGE-driven topic: "${topic}" (demand-based)`);
+  } else {
+    // Fall back to pillar rotation
+    const next = getNextTopic(state);
+    topic = next.topic;
+    pillar = next.pillar;
+    info("maa-blog", `Pillar topic: "${topic}" (${pillar})`);
+  }
 
-  info("maa-blog", `Generating post: "${topic}" (${pillar})${sageContext ? ` [SAGE: ${sageContext.theme}]` : ""}`);
+  const prompt = buildBlogPrompt(
+    topic,
+    pillar,
+    state.recentTitles,
+    sageSelection
+      ? { theme: sageSelection.theme, concerns: sageSelection.memberConcerns }
+      : undefined
+  );
 
   let response: string;
   try {
