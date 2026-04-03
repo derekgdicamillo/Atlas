@@ -3906,12 +3906,12 @@ async function handleUserMessage(
       }
     } else {
       try {
-        await sendResponse(ctx, response);
+        await sendResponse(ctx, response, messageThreadId);
       } catch (sendErr) {
         warn("delivery", `sendResponse failed, retrying once: ${sendErr}`);
         try {
           await new Promise(r => setTimeout(r, 1000));
-          await sendResponse(ctx, response);
+          await sendResponse(ctx, response, messageThreadId);
         } catch (retryErr) {
           logError("delivery", `sendResponse retry failed, response lost: ${retryErr}`);
         }
@@ -4812,14 +4812,17 @@ function buildPrompt(
   return parts.join("\n");
 }
 
-async function sendResponse(ctx: Context, response: string): Promise<void> {
+async function sendResponse(ctx: Context, response: string, threadId?: number | null): Promise<void> {
+  // Thread-aware reply helper: ensures responses go to the correct forum topic
+  const replyOpts = threadId ? { message_thread_id: threadId } : {};
+  const ctxReply = (text: string) => ctx.reply(text, replyOpts as any);
   // Sentinel suppression: strip ALL internal tags + verbose gating before delivery
   response = stripSentinels(response);
 
   // Guard against empty responses (Telegram rejects empty message text)
   if (!response || !response.trim()) {
     warn("send", "Skipping empty response (would cause Telegram 400 error)");
-    await ctx.reply("(No response generated. Try again or check /status.)");
+    await ctxReply("(No response generated. Try again or check /status.)");
     return;
   }
 
@@ -4833,7 +4836,7 @@ async function sendResponse(ctx: Context, response: string): Promise<void> {
   const MAX_LENGTH = 4000;
 
   if (response.length <= MAX_LENGTH) {
-    await ctx.reply(response);
+    await ctxReply(response);
   } else {
     const chunks = [];
     let remaining = response;
@@ -4854,7 +4857,7 @@ async function sendResponse(ctx: Context, response: string): Promise<void> {
     }
 
     for (const chunk of chunks) {
-      await ctx.reply(chunk);
+      await ctxReply(chunk);
     }
   }
 
