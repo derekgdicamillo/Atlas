@@ -27,7 +27,8 @@ const API_TIMEOUT = 30_000;
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
 const BREVO_API_URL = "https://api.brevo.com/v3";
-const BREVO_FREE_LIST_ID = parseInt(process.env.BREVO_FREE_LIST_ID || "0", 10);
+const BREVO_FREE_LIST_IDS = (process.env.BREVO_FREE_LIST_IDS || process.env.BREVO_FREE_LIST_ID || "0")
+  .split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => n > 0);
 const BREVO_PAID_LIST_ID = parseInt(process.env.BREVO_PAID_LIST_ID || "0", 10);
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "The Medical Aesthetics Association";
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "theoffice@medicalaestheticsassociation.com";
@@ -301,7 +302,7 @@ async function brevoRequest<T>(
 async function createCampaign(
   subject: string,
   htmlContent: string,
-  listId: number,
+  listIds: number[],
   _templateId: number
 ): Promise<{ ok: boolean; campaignId?: number; error?: string }> {
   const result = await brevoRequest<BrevoCreateCampaignResponse>("POST", "/emailCampaigns", {
@@ -309,7 +310,7 @@ async function createCampaign(
     subject,
     sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
     htmlContent,
-    recipients: { listIds: [listId] },
+    recipients: { listIds },
   });
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, campaignId: result.data?.id };
@@ -463,7 +464,7 @@ export async function draftFreeNewsletter(
 
   const subject = `This Week at TMAA — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
-  const campaign = await createCampaign(subject, htmlContent, BREVO_FREE_LIST_ID, BREVO_FREE_TEMPLATE_ID);
+  const campaign = await createCampaign(subject, htmlContent, BREVO_FREE_LIST_IDS, BREVO_FREE_TEMPLATE_ID);
   if (!campaign.ok || !campaign.campaignId) {
     return { success: false, error: `Failed to create campaign: ${campaign.error}` };
   }
@@ -518,7 +519,7 @@ export async function draftPaidNewsletter(
 
   const subject = `TMAA Insider — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
-  const campaign = await createCampaign(subject, htmlContent, BREVO_PAID_LIST_ID, BREVO_PAID_TEMPLATE_ID);
+  const campaign = await createCampaign(subject, htmlContent, [BREVO_PAID_LIST_ID], BREVO_PAID_TEMPLATE_ID);
   if (!campaign.ok || !campaign.campaignId) {
     return { success: false, error: `Failed to create campaign: ${campaign.error}` };
   }
