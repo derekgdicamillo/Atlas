@@ -636,6 +636,39 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     state: "data/maa-newsletter-state.json (approval flags, campaign IDs, rotation indexes)",
     module: "src/maa-newsletter.ts",
   },
+  {
+    section: "PV Newsletter Co-Pilot",
+    description: "Collaborative weekly newsletter creation via Telegram topic thread with GHL V2 draft push",
+    can: [
+      "Tuesday 7 AM smart topic suggestion (blog + pillar rotation + trending news)",
+      "collaborative section-by-section drafting in Newsletter topic thread",
+      "voice-matched content generation (Derek's teaching style)",
+      "content critic quality gate on all draft sections",
+      "HTML assembly matching GHL template structure",
+      "push assembled draft to GHL as draft campaign via V2 Email Campaign API",
+      "tag-based recipient targeting (newsletter tag)",
+      "pillar rotation tracking across weeks",
+      "topic dedup (6-week lookback)",
+      "Wednesday morning nudge if no response to kickoff",
+      "start over, skip week, subject line override commands",
+    ],
+    cannot: [
+      "send newsletters directly (draft only, Derek sends from GHL)",
+      "include images/diagrams (text content only, images added in GHL)",
+      "modify GHL email template design (content only)",
+    ],
+    notes: "Operates in dedicated Telegram topic thread. Env: PV_NEWSLETTER_TOPIC_ID",
+    module: "src/pv-newsletter.ts",
+    tags: [
+      "[PV_NEWSLETTER_TOPIC: topic | pillar=Name]",
+      "[PV_NEWSLETTER_SECTION: name | content]",
+      "[PV_NEWSLETTER_SUBJECT: subject]",
+      "[PV_NEWSLETTER_PUSH]",
+      "[PV_NEWSLETTER_RESET]",
+      "[PV_NEWSLETTER_SKIP]",
+      "[PV_NEWSLETTER_PREVIEW]",
+    ],
+  },
 ];
 
 /**
