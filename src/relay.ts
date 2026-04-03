@@ -3338,10 +3338,11 @@ async function handleUserMessage(
     const capturedCodeTasks: Array<{ cwd: string; prompt: string; timeoutMs?: number }> = [];
 
     // Streaming: create session for progressive Telegram delivery
+    const threadOpts = messageThreadId ? { message_thread_id: messageThreadId } : {};
     const streaming: StreamingSession | null = STREAMING_ENABLED && chatId
       ? createStreamingSession({
           api: {
-            sendMessage: (cid, text) => ctx.api.sendMessage(Number(cid), text),
+            sendMessage: (cid, text) => ctx.api.sendMessage(Number(cid), text, threadOpts as any),
             editMessageText: (cid, mid, text) => ctx.api.editMessageText(Number(cid), mid, text).then(() => {}),
           },
           chatId,
@@ -3358,8 +3359,8 @@ async function handleUserMessage(
       imageMimeType: imageMsg?.imageMimeType,
       mcpIntentFlags: intent as Record<string, boolean>,
       workspaceDir: agent?.resolvedWorkspaceDir || undefined,
-      onTyping: () => ctx.replyWithChatAction("typing").catch(() => {}),
-      onStatus: (msg) => ctx.reply(msg).catch(() => {}),
+      onTyping: () => ctx.replyWithChatAction("typing", threadOpts as any).catch(() => {}),
+      onStatus: (msg) => ctx.reply(msg, threadOpts as any).catch(() => {}),
       onTextDelta: streaming ? (text) => streaming.onDelta(text) : undefined,
       onCodeTaskCaptured: (tasks) => { capturedCodeTasks.push(...tasks); },
     });
