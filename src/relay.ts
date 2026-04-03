@@ -35,7 +35,8 @@ import {
   getHealthStatus,
   getTodayClaudeCosts,
 } from "./logger.ts";
-import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, TIERED_CONTEXT_ENABLED, type ModelTier, type AutomationCategory } from "./constants.ts";
+import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VERBOSE_MODE_DEFAULT, STREAMING_ENABLED, TIERED_CONTEXT_ENABLED, CMA_ENABLED, CMA_DEEP_UPDATE_INTERVAL, type ModelTier, type AutomationCategory } from "./constants.ts";
+import { loadOrCreate, writeAheadUpdate, updateTaskFromTurn, deepUpdate, saveWorkingMemory, archiveWorkingMemory, formatForPrompt as formatWMForPrompt } from "./working-memory.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
 import { processPool } from "./persistent-pool.ts";
@@ -58,6 +59,12 @@ import {
   listTodayEvents,
   getDerekAuth,
 } from "./google.ts";
+import {
+  initTMAA,
+  isTMAAEnabled,
+  getTMAAContext,
+  processTMAAIntents,
+} from "./tmaa.ts";
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
 import { createStreamingSession, type StreamingSession } from "./streaming.ts";
 import { detectFeedback, saveFeedback, getLessonsLearned, inferTaskType } from "./feedback.ts";
@@ -98,6 +105,7 @@ import { rotateLogs, cleanupOldArchives, handleLogsCommand } from "./log-manager
 import { queryRuns, listJobNames, formatRuns, getRecentFailures, formatFailureSummary } from "./run-log.ts";
 import { fireHooks, loadHooksConfig, listHooks, formatHooksList } from "./hooks.ts";
 import { getQueueContext, expireStaleTasks } from "./queue.ts";
+import { approveNewsletter } from "./maa-newsletter.ts";
 import { processAutomationPauseTags, shouldSuppressAnnouncement, recordSuppressedTask, pauseAutomation, resumeAutomation, getPauseStatus } from "./automation-pause.ts";
 import { addToLearningQueue } from "./night-shift.ts";
 import { PDFParse } from "pdf-parse";
@@ -439,6 +447,13 @@ if (initGoogle()) {
   info("startup", "Google integration not configured (missing env vars)");
 }
 
+// Initialize TMAA Google Suite integration (optional)
+if (initTMAA()) {
+  info("startup", "TMAA Google Suite initialized (theoffice@MAA)");
+} else {
+  info("startup", "TMAA Google Suite not configured (missing env vars)");
+}
+
 // Initialize Meta Marketing API (optional)
 initMeta().then((ready) => {
   if (ready) {
@@ -690,6 +705,8 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
       clearInterval(pollingWatchdogTimer);
       pollingWatchdogTimer = null;
     }
+    // Persist working memory registers to disk (sync, <5ms, must happen before process pool dies)
+    try { (await import("./working-memory.ts")).persistAllSync(); } catch {}
     // Shut down persistent processes first (they hold Claude CLI subprocesses)
     await processPool.shutdownAll().catch(() => {});
     stopCronJobs();
@@ -1293,6 +1310,17 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const uptimeMs = Date.now() - BOT_START_TIME;
       const uptimeM = Math.floor(uptimeMs / 60_000);
       await ctx.reply(`Pong. Up ${uptimeM}m.`);
+      return true;
+    }
+
+    case "/approve": {
+      const tier = args[0]?.toLowerCase();
+      if (tier !== "free" && tier !== "paid") {
+        await ctx.reply("Usage: /approve free  or  /approve paid");
+        return true;
+      }
+      const result = approveNewsletter(tier);
+      await ctx.reply(result.message);
       return true;
     }
 
@@ -2524,6 +2552,8 @@ interface MessageIntent {
   ingest: boolean;
   /** User wants to browse a webpage, scrape content, interact with a site */
   browser: boolean;
+  /** User is asking about TMAA / Medical Aesthetics Association email, calendar, drive, sheets */
+  tmaa: boolean;
   /** Simple casual conversation (greetings, chit-chat, opinions) */
   casual: boolean;
 }
@@ -2543,6 +2573,7 @@ const INTENT_PATTERNS = {
   m365: /\b(sharepoint|teams|m365|microsoft 365|onedrive|document librar|site collection|channel|team chat|office 365|o365)\b/i,
   ingest: /\b(analy[zs]e|review|audit|check|read through|look (?:at|through)|what'?s in|summarize|digest|find (?:content|info|stuff))\b.{0,60}\b(pdfs?|documents?|files?|folder|directory|onedrive|drive)\b/i,
   browser: /\b(browse|scrape|screenshot (?:of |the )?(?:url|page|site|website)|headless|agent.?browser|check (?:the |this )?(?:page|site|website) (?:looks?|display|render)|fill (?:out |in )?(?:the )?(?:form|field)|click (?:on |the )?(?:button|link|element))\b/i,
+  tmaa: /\b(tmaa|medical aesthetics association|theoffice@|maa (?:email|calendar|drive|sheet|contact|inbox|meeting|schedule)|association (?:email|calendar|drive|sheet)|tmaa.?draft|tmaa.?send|tmaa.?cal)\b/i,
 };
 
 /** Casual message heuristic: short + no strong intent signals */
@@ -2565,6 +2596,7 @@ function classifyIntent(messages: PendingMessage[], activeMode: string | null): 
     m365: INTENT_PATTERNS.m365.test(combined),
     ingest: INTENT_PATTERNS.ingest.test(combined),
     browser: INTENT_PATTERNS.browser.test(combined),
+    tmaa: INTENT_PATTERNS.tmaa.test(combined),
     casual: false,
   };
 
@@ -2613,6 +2645,7 @@ interface ContextPlan {
   graph: boolean;
   entitySearch: boolean;
   m365: boolean;
+  tmaa: boolean;
   website: boolean;
   /** Intelligence systems */
   feedback: boolean;
@@ -2634,13 +2667,14 @@ function planContextSources(
     gbp: boolean;
     ga4: boolean;
     m365: boolean;
+    tmaa: boolean;
   }
 ): ContextPlan {
   // Gate search behind meaningful intent. Short follow-ups ("yes", "ok", "do it")
   // don't benefit from vector search and waste an embedding call.
   const hasSubstantiveIntent = intent.financial || intent.pipeline || intent.google ||
     intent.reputation || intent.analytics || intent.marketing ||
-    intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy || intent.m365;
+    intent.coding || intent.taskDelegation || intent.todos || intent.graphWorthy || intent.m365 || intent.tmaa;
 
   return {
     // Memory facts/goals: always include when available (cached, cheap, prevents amnesia)
@@ -2660,6 +2694,7 @@ function planContextSources(
     graph: features.graph && !intent.casual,
     entitySearch: features.graph && (intent.graphWorthy || intent.pipeline || intent.google),
     m365: features.m365 && intent.m365,
+    tmaa: features.tmaa && intent.tmaa,
     website: isWebsiteReady() && (intent.marketing || intent.coding),
     // Intelligence systems: feedback + episodes + observations gated behind memory + substantive intent
     feedback: features.memory && hasSubstantiveIntent,
@@ -2838,6 +2873,10 @@ async function handleUserMessage(
     // Phase 2: Session was auto-reset — clear tiered context state
     try { processPool.get(agentId).resetTurnCount(); } catch {}
     previousIntentMap.delete(key);
+    // CMA: Archive stale working memory on idle reset
+    if (CMA_ENABLED) {
+      archiveWorkingMemory(agentId, userId, supabase).catch(() => {});
+    }
   }
 
   // 3c. Queue interrupt mode: kill running process so new message gets immediate attention
@@ -2902,6 +2941,7 @@ async function handleUserMessage(
       social: isSocialReady(),
       etsy: isEtsyReady(),
       approval: isApprovalReady(),
+      tmaa: (agent?.config.features.tmaa ?? false) && isTMAAEnabled(),
     };
     const contextPlan = planContextSources(intent, featureFlags);
 
@@ -2977,7 +3017,7 @@ async function handleUserMessage(
     // Fetch only planned sources (unplanned sources resolve as empty string immediately)
     // Circuit breaker skips SLOW tier (external APIs) but still fetches FAST/MEDIUM (local + Supabase)
     // Memory (5min) + graph (15min) are cached since they change infrequently.
-    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext, m365Context, websiteContext, feedbackContext, episodesContext, observationsContext, proactiveContext] = await Promise.all([
+    const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext, m365Context, tmaaContext, websiteContext, feedbackContext, episodesContext, observationsContext, proactiveContext] = await Promise.all([
       contextPlan.search   ? withTimeout(getRelevantContext(supabase, searchQuery, hasSearch), "", "search", MEDIUM_MS)  : Promise.resolve(""),
       contextPlan.memory   ? withTimeout(cachedContext("memory", () => getMemoryContext(supabase), 300_000), "", "memory", MEDIUM_MS) : Promise.resolve(""),
       contextPlan.todos    ? withTimeout(getTodoContext(), "", "todos", FAST_MS)                                         : Promise.resolve(""),
@@ -2990,6 +3030,7 @@ async function handleUserMessage(
       contextPlan.graph    ? withTimeout(cachedContext("graph", () => getGraphContext(supabase), 900_000), "", "graph", MEDIUM_MS) : Promise.resolve(""),
       contextPlan.entitySearch ? withTimeout(getEntityContextSpreading(supabase!, searchQuery), "", "entity-search", MEDIUM_MS) : Promise.resolve(""),
       contextPlan.m365 && !skipExternal ? withTimeout(cachedContext("m365", getM365Context, 300_000), "", "m365", SLOW_MS) : Promise.resolve(contextCache.get("m365")?.value || ""),
+      contextPlan.tmaa && !skipExternal ? withTimeout(cachedContext("tmaa", getTMAAContext), "", "tmaa", SLOW_MS) : Promise.resolve(contextCache.get("tmaa")?.value || ""),
       contextPlan.website && !skipExternal ? withTimeout(cachedContext("website", getWebsiteContext, 300_000), "", "website", SLOW_MS) : Promise.resolve(contextCache.get("website")?.value || ""),
       // Intelligence systems
       contextPlan.feedback  ? withTimeout(getLessonsLearned(supabase, searchQuery, inferTaskType(intent)), "", "feedback", MEDIUM_MS)  : Promise.resolve(""),
@@ -3051,6 +3092,18 @@ async function handleUserMessage(
       info("trace", `[${traceId}] Skipping session resume for casual message(s): "${pending.map(m => m.text).join(" | ").substring(0, 80)}"`);
     }
 
+    // 7a-CMA. Working memory: load, write-ahead, format for prompt injection
+    let wmContext = "";
+    let currentWM = CMA_ENABLED
+      ? await loadOrCreate(agentId, userId, session.sessionId, supabase)
+      : null;
+    if (currentWM && CMA_ENABLED) {
+      // Write-ahead: persist user message BEFORE calling Claude
+      currentWM = writeAheadUpdate(currentWM, combinedText);
+      await saveWorkingMemory(currentWM, supabase);
+      wmContext = formatWMForPrompt(currentWM);
+    }
+
     // 7b. Get conversation history from ring buffer.
     //     When resuming, inject a condensed version (last 4 entries) as a safety net.
     //     The CLI session carries full history, but if it's incomplete or stale,
@@ -3106,6 +3159,7 @@ async function handleUserMessage(
         todoContext,
         googleContext,
         conversationContext,
+        wmContext,
         // Intent-based framework injection: pull in specialized knowledge
         // when the intent matches, no sticky mode state needed.
         // Agent-bound modes (tox-tray, fitness) always get their framework.
@@ -3126,6 +3180,7 @@ async function handleUserMessage(
         graphContext,
         entityContext,
         m365Context,
+        tmaaContext,
         websiteContext,
         feedbackContext,
         episodesContext,
@@ -3222,6 +3277,26 @@ async function handleUserMessage(
             warn("auto-persist", `Fact extraction failed: ${e}`);
           }
         })();
+      }
+    }
+
+    // 10a-CMA. Write-behind: update working memory with response, trigger deep update periodically
+    if (currentWM && CMA_ENABLED && rawResponse) {
+      currentWM = updateTaskFromTurn(currentWM, combinedText, rawResponse);
+      saveWorkingMemory(currentWM, supabase).catch(() => {});
+
+      // Deep update every N turns (fire-and-forget Haiku call)
+      if (currentWM.totalTurns % CMA_DEEP_UPDATE_INTERVAL === 0) {
+        const recentForDeep = (await getEntries(key)).slice(-8)
+          .map(e => `${e.role === "user" ? "User" : "Atlas"}: ${e.content}`)
+          .join("\n");
+        deepUpdate(currentWM, recentForDeep, (p) => runPrompt(p, MODELS.haiku))
+          .then(updated => {
+            currentWM = updated;
+            saveWorkingMemory(updated, supabase).catch(() => {});
+            info("cma", `Deep update completed (turn ${updated.totalTurns})`);
+          })
+          .catch(err => warn("cma", `Deep update failed: ${err}`));
       }
     }
 
@@ -3327,6 +3402,11 @@ async function handleUserMessage(
       if (hasGoogle) {
         try { response = await processGoogleIntents(response); }
         catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
+      }
+
+      if (featureFlags.tmaa) {
+        try { response = await processTMAAIntents(response); }
+        catch (e) { warn("intents", `processTMAAIntents failed: ${e}`); }
       }
 
       if (featureFlags.ghl) {
@@ -4266,12 +4346,14 @@ function buildPrompt(
     graphContext?: string;
     entityContext?: string;
     m365Context?: string;
+    tmaaContext?: string;
     websiteContext?: string;
     feedbackContext?: string;
     episodesContext?: string;
     observationsContext?: string;
     proactiveContext?: string;
     toxTrayContext?: string;
+    wmContext?: string;
   },
   turnContext?: TurnContext,
 ): string {
@@ -4350,6 +4432,11 @@ function buildPrompt(
   const userSectionText = `\nCurrent time: ${timeStr}\n\n${userSection}`;
   addSection("user_message", userSectionText);
   // (appended to parts[] at the very end so it's last in the prompt)
+
+  // ── P0.5: Working Memory (CMA — always injected, structured session state) ──
+  if (contexts.wmContext && budgetRemaining() > 1000) {
+    parts.push(addSection("working_memory", `\n${contexts.wmContext}`));
+  }
 
   // ── P1: Observation blocks (stable, cache-friendly prefix) ──
   if (injectTier1 && contexts.observationsContext && budgetRemaining() > 3000) {
@@ -4506,6 +4593,10 @@ function buildPrompt(
   // Google context: only when email/calendar/contacts relevant
   if (hasGoogle && contexts.googleContext && intent.google && budgetRemaining() > 2000) {
     parts.push(addSection("google", `\n${wrapContextBoundary(trimToFit(contexts.googleContext, 2500), "GOOGLE")}`));
+  }
+
+  if (contexts.tmaaContext && intent.tmaa && budgetRemaining() > 2000) {
+    parts.push(addSection("tmaa", `\n${wrapContextBoundary(trimToFit(contexts.tmaaContext, 2500), "TMAA")}`));
   }
 
   // Google/GHL tag syntax now in CLAUDE.md (loaded by Claude Code automatically)
