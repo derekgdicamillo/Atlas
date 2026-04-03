@@ -50,9 +50,11 @@ import { cleanupOldNotes } from "./progress-notes.ts";
 import { decayStaleEntries } from "./codex.ts";
 import { cleanupOldEvents } from "./agent-events.ts";
 import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./ad-tracker.ts";
+import { recordRecommendations, checkFollowThrough, measureOutcomes, computeAdaptiveThresholds, updateAdRegistry, buildDecayCurves, extractUTMFromOpportunities, auditPlaybook, generateLessonsSection, generateThresholdFeedback, checkFormSubmitDivergence, getLearnerDigest, getAllFatigueAlerts } from "./midas-learner.ts";
 import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
 import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
 import { isMAABlogReady, publishMAABlog } from "./maa-blog.ts";
+import { isNewsletterReady, draftFreeNewsletter, draftPaidNewsletter, sendFreeNewsletter, sendPaidNewsletter, isPaidWeek } from "./maa-newsletter.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -206,6 +208,9 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "monitor-slow":   10 * 60 * 1000, // 10 min (slow tier: financials, traffic, conversions)
   "monitor-daily":   5 * 60 * 1000, //  5 min (daily tier: morning calendar pre-load)
   "observation-reflector": 8 * 60 * 1000, // 8 min (semantic analysis over recent messages)
+  "maa-newsletter-draft": 10 * 60 * 1000,     // 10 min (LLM generation)
+  "maa-newsletter-free-send": 2 * 60 * 1000,  // 2 min (API call)
+  "maa-newsletter-paid-send": 2 * 60 * 1000,  // 2 min
   "supervisor-worker": 30 * 1000,   // 30 sec (quick agent status check)
   "tox-post":        3 * 60 * 1000, //  3 min (posts to multiple platforms)
   "tox-analytics":   3 * 60 * 1000, //  3 min (fetches from multiple APIs)
@@ -1812,7 +1817,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
             fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
             const staleLeads = allOpen.filter((o: GHLOpportunity) => {
-              const lastActivity = o.lastStageChangeAt || o.dateUpdated || o.dateAdded;
+              const lastActivity = o.lastStageChangeAt || o.updatedAt || o.dateUpdated || o.createdAt || o.dateAdded;
               if (!lastActivity) return false;
               const activityDate = new Date(lastActivity);
               // Stale: inactive 7-14 days (beyond 14 days, they need manual attention)
@@ -1829,7 +1834,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
               const name = lead.contact?.name || lead.name || "Unknown";
               if (name === "Unknown") continue;
 
-              const lastActivity = lead.lastStageChangeAt || lead.dateUpdated || lead.dateAdded;
+              const lastActivity = lead.lastStageChangeAt || lead.updatedAt || lead.dateUpdated || lead.createdAt || lead.dateAdded;
               const daysStale = lastActivity
                 ? Math.round((Date.now() - new Date(lastActivity).getTime()) / 86400_000)
                 : 7;
@@ -1897,8 +1902,23 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
             };
 
             // Attribution: count leads by source
+            // GHL opportunity objects often lack the `source` field — the real source
+            // is stored as a `source:*` tag on the contact (set during webhook processing).
+            // Fall back to contact tag lookup when opportunity.source is empty.
             for (const lead of todayLeads) {
-              const src = lead.source || "Unknown";
+              let src = lead.source || "";
+              if (!src && lead.contact?.id) {
+                try {
+                  const contact = await getContact(lead.contact.id);
+                  const sourceTag = contact?.tags?.find((t: string) => t.startsWith("source:"));
+                  if (sourceTag) {
+                    src = sourceTag.replace("source:", "").replace(/-/g, " ");
+                    // Title case: "facebook ads" -> "Facebook Ads"
+                    src = src.replace(/\b\w/g, (c) => c.toUpperCase());
+                  }
+                } catch { /* contact lookup failed, fall through */ }
+              }
+              src = src || "Unknown";
               volumeEntry.sources[src] = (volumeEntry.sources[src] || 0) + 1;
             }
 
@@ -1981,7 +2001,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   // Pulls per-ad insights from Meta, records snapshots, runs analysis.
   // Only runs if Meta API is configured.
   {
-    const { isMetaReady, getTopAds } = await import("./meta.ts");
+    const { isMetaReady, getTopAds, getDailyAdInsights } = await import("./meta.ts");
     if (isMetaReady()) {
       jobs.push(
         CronJob.from({
@@ -1989,19 +2009,54 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           onTick: safeTick("ad-tracker", async () => {
             try {
               const todayStr = today();
-              const ads = await getTopAds("today", 100);
-              if (ads.length === 0) {
-                log("ad-tracker", "No ad data for today, skipping snapshot");
-                return;
+              // Use 7-day rolling window with daily breakdown to capture
+              // Meta's retroactive attribution (conversions backfilled to click date).
+              // Each night refreshes the last 7 days of snapshots via upsert.
+              const dailyAds = await getDailyAdInsights("7d");
+              if (dailyAds.length === 0) {
+                // Fallback to today-only query for backward compat
+                const ads = await getTopAds("today", 100);
+                if (ads.length === 0) {
+                  log("ad-tracker", "No ad data for today, skipping snapshot");
+                  return;
+                }
+                const snapshots = insightsToSnapshots(ads, todayStr);
+                recordAdSnapshots(snapshots);
+                log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr} (fallback)`);
+              } else {
+                // Convert daily insights to snapshots (each has its own date)
+                const snapshots = dailyAds.map(ad => ({
+                  date: ad.date,
+                  campaignName: ad.campaignName,
+                  adId: ad.adId,
+                  adName: ad.adName,
+                  spend: ad.spend,
+                  impressions: ad.impressions,
+                  clicks: ad.clicks,
+                  conversions: ad.conversions,
+                  cpl: ad.cpl,
+                  ctr: ad.ctr,
+                  frequency: ad.reach > 0 ? ad.impressions / ad.reach : 0,
+                  reach: ad.reach,
+                }));
+                recordAdSnapshots(snapshots);
+                const dates = [...new Set(dailyAds.map(a => a.date))].sort();
+                const totalConv = snapshots.reduce((s, snap) => s + snap.conversions, 0);
+                log("ad-tracker", `Refreshed ${snapshots.length} snapshots across ${dates.length} days (${dates[0]} - ${dates[dates.length - 1]}), ${totalConv} total conversions`);
               }
 
-              const snapshots = insightsToSnapshots(ads, todayStr);
-              recordAdSnapshots(snapshots);
-              log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr}`);
+              // Update Midas learner: ad registry + decay curves
+              updateAdRegistry(snapshots);
 
               // Run 7-day analysis
               const recommendations = analyzeAdPerformance(7);
+
+              // Record recommendations in learner for outcome tracking
               if (recommendations.length > 0) {
+                const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString().split("T")[0];
+                const recentSnaps = snapshots.filter(s => s.date >= cutoff7d);
+                recordRecommendations(recommendations, recentSnaps.length > 0 ? recentSnaps : snapshots);
+
                 const summary = recommendations
                   .slice(0, 5)
                   .map(r => `[${r.type.toUpperCase()}] ${r.adName}: ${r.reason}`)
@@ -2045,6 +2100,19 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
             await sendTelegramMessage(DEREK_CHAT_ID, msg);
             log("midas-funnel", `${alerts.length} funnel alert(s) sent to Derek`);
           }
+
+          // Check form submit divergence (Meta conversions vs GHL leads)
+          try {
+            const { isMetaReady, getAccountSummary } = await import("./meta.ts");
+            if (isMetaReady()) {
+              const metaSummary = await getAccountSummary("yesterday");
+              const divergenceAlert = checkFormSubmitDivergence(metaSummary.conversions, snapshot.leadsCreated);
+              if (divergenceAlert) {
+                await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Alert:** ${divergenceAlert}`);
+                warn("midas-funnel", divergenceAlert);
+              }
+            }
+          } catch { /* Meta API unavailable, skip divergence check */ }
         } catch (err) {
           logError("cron", `Midas funnel monitor failed: ${err}`);
         }
@@ -2068,11 +2136,16 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
 
           log("midas-digest", `Built digest: ${entries.length} ads analyzed`);
 
+          // Append learner insights to digest
+          const learnerDigest = getLearnerDigest();
+          const fullSummary = learnerDigest ? summary + "\n\n" + learnerDigest : summary;
+
           // Only alert Derek if there are actionable items
           const adsWithAlerts = entries.filter(e => e.alerts.length > 0);
           const declining = entries.filter(e => e.trend === "declining");
-          if (adsWithAlerts.length > 0 || declining.length > 0) {
-            await sendTelegramMessage(DEREK_CHAT_ID, summary);
+          const fatigueAlerts = getAllFatigueAlerts();
+          if (adsWithAlerts.length > 0 || declining.length > 0 || fatigueAlerts.length > 0) {
+            await sendTelegramMessage(DEREK_CHAT_ID, fullSummary);
           }
         } catch (err) {
           logError("cron", `Midas ad digest failed: ${err}`);
@@ -2098,6 +2171,15 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           const telegramMsg = formatAttributionTelegram(rows, totalSpend, totalLeads);
           await sendTelegramMessage(DEREK_CHAT_ID, telegramMsg);
           log("midas-attribution", `Attribution report sent: $${totalSpend.toFixed(0)} spend, ${totalLeads} leads, ${rows.length} sources`);
+
+          // Recalculate adaptive thresholds weekly
+          const newThresholds = computeAdaptiveThresholds();
+          if (newThresholds) {
+            log("midas-attribution", `Adaptive thresholds updated: PAUSE $${newThresholds.pause.cpl.toFixed(0)}, SCALE $${newThresholds.scale.cpl.toFixed(0)}`);
+          }
+
+          // Rebuild decay curves weekly
+          buildDecayCurves();
         } catch (err) {
           logError("cron", `Midas attribution failed: ${err}`);
         }
@@ -2202,12 +2284,41 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       onTick: safeTick("midas-monthly", async () => {
         try {
           log("midas-monthly", "Building monthly marketing strategic brief...");
+
+          // Run playbook audit before the brief so it has fresh data
+          const playbookAudit = auditPlaybook();
+          if (playbookAudit.claims.length > 0) {
+            log("midas-monthly", `Playbook audit: ${playbookAudit.verified} verified, ${playbookAudit.stale} stale, ${playbookAudit.contradicted} contradicted`);
+          }
+
           const result = await buildMonthlyBrief();
           if (result) {
+            // Append learner lessons to playbook if enough data
+            const lessons = generateLessonsSection();
+            const thresholdFeedback = generateThresholdFeedback();
+            if (lessons || thresholdFeedback) {
+              try {
+                const playbookPath = join(process.env.PROJECT_DIR || process.cwd(), "memory", "marketing", "playbook.md");
+                if (existsSync(playbookPath)) {
+                  let playbook = readFileSync(playbookPath, "utf-8");
+                  // Remove old auto-generated section if present
+                  playbook = playbook.replace(/## Data-Driven Lessons \(auto-generated\)[\s\S]*$/, "").trimEnd();
+                  if (lessons) playbook += "\n\n" + lessons;
+                  if (thresholdFeedback) playbook += "\n\n### Threshold Feedback\n" + thresholdFeedback;
+                  writeFileSync(playbookPath, playbook);
+                  log("midas-monthly", "Playbook updated with data-driven lessons");
+                }
+              } catch (err) {
+                warn("midas-monthly", `Failed to update playbook with lessons: ${err}`);
+              }
+            }
+
             // Send condensed version to Telegram
             const execSummary = result.match(/### 1\. Executive Summary[\s\S]*?(?=### 2\.)/);
             const summary = execSummary ? execSummary[0].slice(0, 600) : result.slice(0, 400);
-            await sendTelegramMessage(DEREK_CHAT_ID, `**Midas Monthly Brief** ready.\n\n${summary}\n\n_Full brief: memory/marketing/attribution/_`);
+            const learnerSummary = getLearnerDigest();
+            const fullMsg = `**Midas Monthly Brief** ready.\n\n${summary}\n\n${learnerSummary}\n\n_Full brief: memory/marketing/attribution/_`;
+            await sendTelegramMessage(DEREK_CHAT_ID, fullMsg);
             log("midas-monthly", "Monthly brief complete");
           }
         } catch (err) {
@@ -2217,6 +2328,55 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       timeZone: TIMEZONE,
     })
   );
+
+  // Midas Outcome Check: 9:15 PM daily (after ad-tracker at 9 PM)
+  // Detects follow-through on recommendations and measures 7-day outcomes.
+  {
+    const { isMetaReady, getAdCreativeInsights } = await import("./meta.ts");
+    if (isMetaReady()) {
+      jobs.push(
+        CronJob.from({
+          cronTime: "15 21 * * *",
+          onTick: safeTick("midas-outcome-check", async () => {
+            try {
+              // 1. Check follow-through on pending recommendations
+              const getAdStatus = async (adId: string) => {
+                try {
+                  const detail = await getAdCreativeInsights(adId);
+                  return { status: detail.status };
+                } catch { return null; }
+              };
+              const followMessages = await checkFollowThrough(getAdStatus);
+              if (followMessages.length > 0) {
+                log("midas-outcome-check", `Follow-through: ${followMessages.join("; ")}`);
+              }
+
+              // 2. Measure outcomes on mature recommendations (7+ days old)
+              const outcomeMessages = measureOutcomes();
+              if (outcomeMessages.length > 0) {
+                log("midas-outcome-check", `Outcomes: ${outcomeMessages.join("; ")}`);
+              }
+
+              // 3. Extract UTM data from recent GHL opportunities
+              if (isGHLReady()) {
+                try {
+                  const { leads } = await getNewLeadsSince(
+                    new Date(Date.now() - 7 * 86_400_000).toISOString()
+                  );
+                  if (leads.length > 0) extractUTMFromOpportunities(leads);
+                } catch { /* GHL unavailable */ }
+              }
+
+              log("midas-outcome-check", `Complete: ${followMessages.length} follow-through, ${outcomeMessages.length} outcomes measured`);
+            } catch (err) {
+              logError("cron", `Midas outcome check failed: ${err}`);
+            }
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+    }
+  }
 
   // Anomaly scan: check for anomalies every 15 minutes during business hours
   // NOTE: Being absorbed by proactive monitoring system (monitor.ts) over time.
@@ -2622,6 +2782,93 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
               `MAA blog publish failed: ${result.error}`
             );
           }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+  }
+
+  // ============================================================
+  // TMAA NEWSLETTER AUTOMATION
+  // ============================================================
+  if (isNewsletterReady() && supabase) {
+    // Wednesday 8 AM: Draft newsletters and send test emails
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 8 * * 3",
+        onTick: safeTick("maa-newsletter-draft", async () => {
+          log("maa-newsletter", "Drafting newsletters...");
+
+          // Always draft free newsletter
+          const freeResult = await draftFreeNewsletter(
+            (prompt) => runPrompt(prompt, MODELS.sonnet),
+            supabase!
+          );
+
+          let msg = "";
+          if (freeResult.success) {
+            msg += `**TMAA Free Newsletter** draft ready.\nSubject: "${freeResult.subject}"\nTest email sent to you and Esther.\nReply \`/approve free\` when ready or send edits.`;
+          } else {
+            msg += `Free newsletter draft failed: ${freeResult.error}`;
+          }
+
+          // Draft paid newsletter if it's a paid week
+          if (isPaidWeek()) {
+            const paidResult = await draftPaidNewsletter(
+              (prompt) => runPrompt(prompt, MODELS.sonnet),
+              supabase!
+            );
+            if (paidResult.success) {
+              msg += `\n\n**TMAA Paid Newsletter** draft ready.\nSubject: "${paidResult.subject}"\nTest email sent.\nReply \`/approve paid\` when ready.`;
+            } else {
+              msg += `\n\nPaid newsletter draft failed: ${paidResult.error}`;
+            }
+          } else {
+            msg += "\n\n(Not a paid newsletter week.)";
+          }
+
+          await sendTelegramMessage(DEREK_CHAT_ID, msg);
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+
+    // Saturday 9 AM: Send free newsletter (if approved)
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 9 * * 6",
+        onTick: safeTick("maa-newsletter-free-send", async () => {
+          const result = await sendFreeNewsletter();
+          if (result.success) {
+            await sendTelegramMessage(DEREK_CHAT_ID, "TMAA free newsletter sent to FB Group Leads list.");
+          } else if (result.error?.includes("not approved")) {
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              "TMAA free newsletter NOT sent — still awaiting approval. Reply `/approve free` to approve, or it will be skipped this week."
+            );
+          } else {
+            await sendTelegramMessage(DEREK_CHAT_ID, `TMAA free newsletter send failed: ${result.error}`);
+          }
+        }),
+        timeZone: TIMEZONE,
+      })
+    );
+
+    // Sunday 9 AM: Send paid newsletter (if approved + paid week)
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 9 * * 0",
+        onTick: safeTick("maa-newsletter-paid-send", async () => {
+          const result = await sendPaidNewsletter();
+          if (result.success) {
+            await sendTelegramMessage(DEREK_CHAT_ID, "TMAA Insider (paid newsletter) sent to TMAA Members list.");
+          } else if (result.error?.includes("not approved")) {
+            await sendTelegramMessage(
+              DEREK_CHAT_ID,
+              "TMAA Insider NOT sent — still awaiting approval. Reply `/approve paid` to approve."
+            );
+          }
+          // Silently skip if not a paid week or no campaign — that's expected
         }),
         timeZone: TIMEZONE,
       })
