@@ -301,7 +301,7 @@ async function brevoRequest<T>(
 async function createCampaign(
   subject: string,
   htmlContent: string,
-  _listId: number,
+  listId: number,
   _templateId: number
 ): Promise<{ ok: boolean; campaignId?: number; error?: string }> {
   const result = await brevoRequest<BrevoCreateCampaignResponse>("POST", "/emailCampaigns", {
@@ -309,7 +309,7 @@ async function createCampaign(
     subject,
     sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
     htmlContent,
-    recipients: { listIds: [_listId] },
+    recipients: { listIds: [listId] },
   });
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, campaignId: result.data?.id };
