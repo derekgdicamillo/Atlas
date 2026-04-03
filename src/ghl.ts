@@ -53,9 +53,18 @@ export interface GHLOpportunity {
   source?: string;
   assignedTo?: string;
   contact?: { id: string; name?: string };
-  dateAdded?: string;
-  dateUpdated?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dateAdded?: string;   // legacy — GHL now returns createdAt
+  dateUpdated?: string; // legacy — GHL now returns updatedAt
   lastStageChangeAt?: string;
+  attributions?: Array<{
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmContent?: string;
+    utmTerm?: string;
+  }>;
 }
 
 export interface GHLPipelineStage {
@@ -68,6 +77,29 @@ export interface GHLPipeline {
   id: string;
   name: string;
   stages: GHLPipelineStage[];
+}
+
+// ── GHL V2 Email Campaign Types ──────────────────────────────────────
+export interface GHLEmailCampaign {
+  id: string;
+  name: string;
+  status: string;
+  subject?: string;
+}
+
+export interface GHLCreateCampaignParams {
+  name: string;
+  subject: string;
+  htmlContent: string;
+  senderEmail: string;
+  senderName: string;
+  contactTag?: string;
+  contactListId?: string;
+}
+
+export interface GHLCreateCampaignResponse {
+  campaign?: { id: string };
+  id?: string;
 }
 
 export interface GHLAppointment {
@@ -248,6 +280,28 @@ async function ghlFetchRaw<T>(endpoint: string, options: RequestInit = {}): Prom
 /** GHL fetch with circuit breaker protection */
 async function ghlFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   return ghlBreaker.exec(() => ghlFetchRaw<T>(endpoint, options));
+}
+
+/** GHL V2 fetch — same pattern as ghlFetchRaw but for V2 endpoints */
+async function ghlFetchV2<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  if (!GHL_TOKEN) throw new Error("GHL_API_TOKEN not configured");
+  enforceGHLSafety(endpoint, options);
+  const url = `${GHL_BASE_URL}${endpoint}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${GHL_TOKEN}`,
+      Version: GHL_VERSION,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    signal: AbortSignal.timeout(ghlBreaker.getTimeoutMs()),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`GHL V2 ${endpoint} returned ${res.status}: ${body.substring(0, 300)}`);
+  }
+  return res.json() as Promise<T>;
 }
 
 // ============================================================
@@ -851,7 +905,7 @@ export async function getOpsSnapshot(): Promise<OpsSnapshot> {
 
   const staleCount = openRes.opportunities.filter((o) => {
     if (!earlyStageIds.includes(o.pipelineStageId)) return false;
-    const lastChange = o.lastStageChangeAt || o.dateAdded;
+    const lastChange = o.lastStageChangeAt || o.createdAt || o.dateAdded;
     return lastChange ? new Date(lastChange) < sevenDaysAgo : false;
   }).length;
 
@@ -1010,10 +1064,12 @@ export async function getNewLeadsSince(
   });
 
   // Filter to only truly new ones (after `since`)
+  // GHL changed from dateAdded to createdAt around March 2026
   const sinceMs = new Date(since).getTime();
   const newLeads = res.opportunities.filter((o) => {
-    const added = o.dateAdded ? new Date(o.dateAdded).getTime() : 0;
-    return added > sinceMs;
+    const added = o.createdAt || o.dateAdded;
+    const addedMs = added ? new Date(added).getTime() : 0;
+    return addedMs > sinceMs;
   });
 
   lastLeadCheckTime = checkTime;
@@ -1457,5 +1513,56 @@ export async function getGHLContext(): Promise<string> {
   } catch (err) {
     warn("ghl", `Context fetch failed: ${err}`);
     return "";
+  }
+}
+
+// ============================================================
+// EMAIL CAMPAIGNS (V2)
+// ============================================================
+
+export async function createEmailCampaign(
+  locationId: string,
+  params: GHLCreateCampaignParams
+): Promise<{ ok: boolean; campaignId?: string; error?: string }> {
+  try {
+    const body: Record<string, unknown> = {
+      name: params.name,
+      subject: params.subject,
+      htmlContent: params.htmlContent,
+      sender: {
+        fromName: params.senderName,
+        fromEmail: params.senderEmail,
+      },
+      status: "draft",
+    };
+    if (params.contactTag) body.contactTag = params.contactTag;
+    if (params.contactListId) body.contactListId = params.contactListId;
+
+    const result = await ghlFetchV2<GHLCreateCampaignResponse>(
+      `/emails/public/v2/locations/${locationId}/campaigns/email-campaign`,
+      { method: "POST", body: JSON.stringify(body) }
+    );
+
+    const campaignId = result.campaign?.id || result.id;
+    if (!campaignId) {
+      return { ok: false, error: "Campaign created but no ID returned" };
+    }
+    return { ok: true, campaignId };
+  } catch (err) {
+    return { ok: false, error: `createEmailCampaign failed: ${err}` };
+  }
+}
+
+export async function listEmailCampaigns(
+  locationId: string,
+  status?: string
+): Promise<{ ok: boolean; campaigns?: GHLEmailCampaign[]; error?: string }> {
+  try {
+    let endpoint = `/emails/public/v2/locations/${locationId}/campaigns/email-campaign`;
+    if (status) endpoint += `?status=${status}`;
+    const result = await ghlFetchV2<{ campaigns?: GHLEmailCampaign[] }>(endpoint);
+    return { ok: true, campaigns: result.campaigns || [] };
+  } catch (err) {
+    return { ok: false, error: `listEmailCampaigns failed: ${err}` };
   }
 }
