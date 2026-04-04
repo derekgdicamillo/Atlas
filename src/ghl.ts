@@ -98,8 +98,10 @@ export interface GHLCreateCampaignParams {
 }
 
 export interface GHLCreateCampaignResponse {
-  campaign?: { id: string };
   id?: string;
+  campaign?: { id: string };
+  name?: string;
+  status?: string;
 }
 
 export interface GHLAppointment {
@@ -1525,10 +1527,14 @@ export async function createEmailCampaign(
   params: GHLCreateCampaignParams
 ): Promise<{ ok: boolean; campaignId?: string; error?: string }> {
   try {
+    const ghlUserId = process.env.GHL_USER_ID || "";
     const body: Record<string, unknown> = {
       name: params.name,
       subject: params.subject,
-      htmlContent: params.htmlContent,
+      editorType: "html",
+      editorContent: params.htmlContent,
+      timeZone: process.env.USER_TIMEZONE || "America/Phoenix",
+      userId: ghlUserId,
       sender: {
         fromName: params.senderName,
         fromEmail: params.senderEmail,
