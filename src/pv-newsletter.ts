@@ -289,8 +289,15 @@ export function assembleNewsletterHtml(sections: DraftSections, subjectLine: str
   const ctaButton = (label: string, url: string, color: string) =>
     `<a href="${url}" style="display:inline-block;background-color:${color};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;font-family:${bodyFont};font-size:15px;font-weight:bold;margin:8px 4px 8px 0;">${label}</a>`;
 
+  // Strip duplicate sign-offs that Claude may include in section drafts
+  const stripSignoff = (text: string): string =>
+    text
+      .replace(/\n*(To )?Liv(e|ing) Life Unchained,?\s*\n*Derek\s*(DiCamillo,?\s*)?(FNP)?/gi, "")
+      .replace(/\n*PV MediSpa\s*&?\s*Weight Loss\s*$/gi, "")
+      .trim();
+
   const sectionHtml = (content: string | null) =>
-    content ? `\n${md(content)}\n` : "";
+    content ? `\n${md(stripSignoff(content))}\n` : "";
 
   const refsHtml =
     sections.references && sections.references.length > 0
