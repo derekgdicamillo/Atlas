@@ -317,8 +317,7 @@ ${sections.references.map((r) => `  <li style="margin-bottom:6px;">${r}</li>`).j
           <!-- HEADER -->
           <tr>
             <td style="background-color:${dark};padding:28px 32px;text-align:center;">
-              <h1 style="margin:0;font-family:${bodyFont};font-size:22px;color:${teal};letter-spacing:0.5px;">Derek's Vitality Unchained Newsletter</h1>
-              <p style="margin:6px 0 0 0;font-family:${bodyFont};font-size:13px;color:#aaaaaa;">${subjectLine}</p>
+              <img src="https://assets.cdn.filesafe.space/PCdXIc8QjGmy4JmuiMrs/media/678315363ae8fd3532eecdcf.png" alt="Derek's Vitality Unchained Newsletter" width="500" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
             </td>
           </tr>
 
@@ -359,15 +358,15 @@ ${sections.references.map((r) => `  <li style="margin-bottom:6px;">${r}</li>`).j
                   <td>
                     <p style="margin:0 0 12px 0;font-size:15px;font-weight:bold;color:${dark};">Ready to take the next step?</p>
 
-                    <p style="margin:0 0 8px 0;font-size:14px;color:#555555;">Book a Weight Loss Consultation:</p>
-                    ${ctaButton("Book My Consultation", "https://landing.pvmedispa.com/weightloss", blue)}
+                    <p style="margin:0 0 8px 0;font-size:14px;color:#555555;">Book a Free Weight Loss Consultation:</p>
+                    ${ctaButton("Get My Free Weight Loss Consultation", "https://pvmedispa.com/weightloss", blue)}
 
-                    <p style="margin:16px 0 8px 0;font-size:14px;color:#555555;">Hormone Replacement Therapy:</p>
-                    ${ctaButton("Men's HRT", "https://pvmedispa.com/mens-health", blue)}
-                    ${ctaButton("Women's HRT", "https://pvmedispa.com/womens-health", blue)}
+                    <p style="margin:16px 0 8px 0;font-size:14px;color:#555555;">Interested in Hormone Replacement?</p>
+                    ${ctaButton("Men's Hormone Replacement", "https://booking.pvmedispa.com/", blue)}
+                    ${ctaButton("Women's Hormone Replacement", "https://booking.pvmedispa.com/", blue)}
 
-                    <p style="margin:16px 0 8px 0;font-size:14px;color:#555555;">Know someone who could use this?</p>
-                    ${ctaButton("Share with a Friend", "{{email.share_link}}", teal)}
+                    <p style="margin:16px 0 8px 0;font-size:14px;color:#555555;">Know someone who would like to join our newsletter?</p>
+                    ${ctaButton("Join Derek's Vitality Unchained Newsletter", "https://pvmedispa.com/newsletter", teal)}
                   </td>
                 </tr>
               </table>
