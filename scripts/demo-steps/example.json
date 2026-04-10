@@ -1,0 +1,25 @@
+{
+  "name": "Example Demo — All Step Types",
+  "url": "https://example.com",
+  "viewport": { "width": 1920, "height": 1080 },
+  "obs": {
+    "scene": "Demo Scene",
+    "recordOnStart": true
+  },
+  "steps": [
+    { "action": "wait", "ms": 2000, "label": "Let page settle" },
+    { "action": "scroll", "y": 500, "smooth": true, "label": "Smooth scroll down" },
+    { "action": "wait", "ms": 1000 },
+    { "action": "click", "selector": "a[href]", "label": "Click first link" },
+    { "action": "wait", "ms": 2000, "label": "Wait for navigation" },
+    { "action": "hover", "selector": "h1", "label": "Hover over heading" },
+    { "action": "highlight", "selector": "h1", "color": "#ff6600", "duration": 2000, "label": "Highlight heading" },
+    { "action": "scroll-to", "selector": "footer", "label": "Scroll to footer" },
+    { "action": "wait", "ms": 1500 },
+    { "action": "type", "selector": "input[type='text']", "text": "Hello world", "delay": 100, "label": "Type in search" },
+    { "action": "screenshot", "name": "example-final", "label": "Capture screenshot" },
+    { "action": "scene", "sceneName": "Outro", "label": "Switch OBS to outro" },
+    { "action": "navigate", "url": "https://example.com", "label": "Navigate back home" },
+    { "action": "scroll", "y": -500, "smooth": true, "label": "Scroll back up" }
+  ]
+}

@@ -5,7 +5,7 @@ const child = spawn(
   "C:\\Users\\Derek DiCamillo\\.bun\\bin\\bun.exe",
   ["run", "src/relay.ts"],
   {
-    cwd: "C:\\Users\\Derek DiCamillo\\atlas",
+    cwd: "C:\\Users\\Derek DiCamillo\\Projects\\atlas",
     stdio: "inherit",
     env: process.env,
   }

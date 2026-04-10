@@ -1,11 +1,11 @@
 # Find Obsidian vault location
 # Check common locations
 $locations = @(
-    "C:\Users\derek\Obsidian",
-    "C:\Users\derek\Documents\Obsidian",
-    "C:\Users\derek\OneDrive\Obsidian",
-    "C:\Users\derek\Notes",
-    "C:\Users\derek\Documents\Notes"
+    "C:\Users\Derek DiCamillo\Obsidian",
+    "C:\Users\Derek DiCamillo\Documents\Obsidian",
+    "C:\Users\Derek DiCamillo\OneDrive\Obsidian",
+    "C:\Users\Derek DiCamillo\Notes",
+    "C:\Users\Derek DiCamillo\Documents\Notes"
 )
 
 foreach ($loc in $locations) {

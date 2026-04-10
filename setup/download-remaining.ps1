@@ -1,4 +1,4 @@
-$audioDir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa\audio"
+$audioDir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa\audio"
 $urls = @(
     @(4, "https://coursecast.herokuapp.com/download/32cc0cadefd3b21f0b787affba267f8b/aa758be71dc0a9b51560afb566f24c08"),
     @(5, "https://coursecast.herokuapp.com/download/32cc0cadefd3b21f0b787affba267f8b/3cf159073dcfe4525a00906caf860f33"),

@@ -2,7 +2,7 @@
 # Append copyright footer to all 12 patient handout markdown files
 # Re-run safe: skips files that already have the footer
 
-$inputDir = 'C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts'
+$inputDir = 'C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts'
 
 # Use actual Unicode characters
 $copyright = [char]0x00A9   # ©

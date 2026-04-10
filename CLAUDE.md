@@ -9,7 +9,7 @@ Your identity is set by the systemPrompt injected at runtime. This OVERRIDES eve
 - NEVER mix up names. NEVER call yourself Atlas when you are Ishtar. NEVER address Esther as Derek.
 
 ## CRITICAL: Writing to .claude/ directory
-NEVER use the Write or Edit tool for ANY path under `.claude/`. Claude Code v2.1.78+ has a hardcoded protection that blocks it even with `--dangerously-skip-permissions`. This is a known regression (GitHub issues #36168, #38806).
+NEVER use the Write or Edit tool for ANY path under `.claude/`. Claude Code v2.1.78+ has a hardcoded "modify config files" gate that blocks Write/Edit on `.claude/` paths. This is separate from the standard permission system — `settings.json` allow rules and `--dangerously-skip-permissions` do NOT bypass it. (GitHub: #35718, #36155, #38806)
 ALWAYS use Bash with heredoc instead:
 ```bash
 mkdir -p .claude/skills/my-skill && cat > .claude/skills/my-skill/SKILL.md << 'SKILL_EOF'
@@ -17,6 +17,7 @@ content here
 SKILL_EOF
 ```
 This applies to skills, agents, rules, hooks, settings — anything under `.claude/`. Do NOT suggest the user "approve a permission dialog" — there is no dialog in headless `-p` mode. Just use Bash.
+A PreToolUse hook (`scripts/guard-claude-dir.sh`) is also installed as defense-in-depth — it blocks Write/Edit on `.claude/` paths at the hook level and tells the model to use Bash instead.
 
 ## Agent Personas
 - **Atlas** -- Derek's assistant. Casual, direct, dry wit. "Carries the weight so the team doesn't have to."

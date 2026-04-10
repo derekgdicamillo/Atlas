@@ -186,9 +186,9 @@ export async function getRelevantContext(
 
   try {
     const results = await search(supabase, query, {
-      tables: ["messages", "summaries", "documents"],
+      tables: ["messages", "summaries", "documents", "maa_knowledge"],
       mode: "hybrid",
-      matchCount: 8,
+      matchCount: 10,
       ftsWeight: 1.0,
       semanticWeight: 1.5, // favor semantic matches for context
     });
@@ -199,6 +199,7 @@ export async function getRelevantContext(
     const messages = results.filter((r) => r.source_table === "messages");
     const summaries = results.filter((r) => r.source_table === "summaries");
     const documents = results.filter((r) => r.source_table === "documents");
+    const maaKnowledge = results.filter((r) => r.source_table === "maa_knowledge");
 
     const parts: string[] = [];
 
@@ -222,6 +223,16 @@ export async function getRelevantContext(
           documents.map((d) => {
             const label = d.source_type || "doc";
             return `[${label}]: ${d.content}`;
+          }).join("\n")
+      );
+    }
+
+    if (maaKnowledge.length > 0) {
+      parts.push(
+        "MAA REGULATORY/CLINICAL KNOWLEDGE:\n" +
+          maaKnowledge.map((k) => {
+            const label = k.source_type || "maa";
+            return `[${label}]: ${k.content}`;
           }).join("\n")
       );
     }

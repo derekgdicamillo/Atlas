@@ -1,4 +1,4 @@
-$lines = Get-Content 'C:\Users\derek\Projects\atlas\.env'
+$lines = Get-Content 'C:\Users\Derek DiCamillo\Projects\atlas\.env'
 $tok = ""
 $acct = ""
 foreach ($l in $lines) {

@@ -1,7 +1,7 @@
 ## OFA Expert Challenge Transcription Script
 ## Downloads audio from CoursesCast podcast feed and transcribes with Whisper
 
-$outDir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa"
+$outDir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa"
 $audioDir = "$outDir\audio"
 
 New-Item -ItemType Directory -Force $audioDir | Out-Null

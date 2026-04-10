@@ -1,5 +1,5 @@
-$vault = "C:\Users\derek\OneDrive - PV MEDISPA LLC\PV Vault"
-$srcDir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa"
+$vault = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\PV Vault"
+$srcDir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa"
 $destDir = "$vault\02 - PV MediSpa\Training\Russell Brunson - OFA Expert"
 
 # Create destination

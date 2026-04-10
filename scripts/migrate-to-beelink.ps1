@@ -23,8 +23,8 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"  # Speed up downloads
 
 # --- Configuration ---
-$ATLAS_DIR = "C:\Users\derek\Projects\atlas"
-$PROJECTS_DIR = "C:\Users\derek\Projects"
+$ATLAS_DIR = "C:\Users\Derek DiCamillo\Projects\atlas"
+$PROJECTS_DIR = "C:\Users\Derek DiCamillo\Projects"
 $ENV_SOURCE = "YOULL_COPY_THIS_MANUALLY"  # Never automate secrets transfer
 
 function Write-Step {
@@ -227,7 +227,7 @@ if (-not (Test-Path "$ATLAS_DIR\.env")) {
     ============================================
 
     Option A (Tailscale): From your current PC, run:
-      scp C:\Users\derek\Projects\atlas\.env derek@<beelink-tailscale-ip>:$ATLAS_DIR\.env
+      scp C:\Users\Derek DiCamillo\Projects\atlas\.env derek@<beelink-tailscale-ip>:$ATLAS_DIR\.env
 
     Option B (USB): Copy .env to USB drive, plug into Beelink, copy to $ATLAS_DIR
 
@@ -265,9 +265,9 @@ Write-Host @"
     ============================================
 
     1. Sign in to OneDrive with derek@pvmedispa.com
-    2. Let it sync C:\Users\derek\OneDrive - PV MEDISPA LLC\
+    2. Let it sync C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\
     3. Wait for initial sync to complete
-    4. Verify: Test-Path "C:\Users\derek\OneDrive - PV MEDISPA LLC\"
+    4. Verify: Test-Path "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\"
 
     Atlas uses OneDrive for file sharing via email.
     ============================================
@@ -306,7 +306,7 @@ $checks = @(
     @{ Name = "Tailscale"; Test = { Test-Command "tailscale" } },
     @{ Name = "Atlas repo"; Test = { Test-Path "$ATLAS_DIR\package.json" } },
     @{ Name = ".env file"; Test = { Test-Path "$ATLAS_DIR\.env" } },
-    @{ Name = "OneDrive synced"; Test = { Test-Path "C:\Users\derek\OneDrive - PV MEDISPA LLC\" } }
+    @{ Name = "OneDrive synced"; Test = { Test-Path "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\" } }
 )
 
 Write-Host ""
@@ -344,7 +344,7 @@ POST-MIGRATION: Connect from your desktop
 5. VS Code Remote SSH:
    - Install "Remote - SSH" extension
    - Connect to derek@<beelink-hostname>
-   - Open C:\Users\derek\Projects\atlas
+   - Open C:\Users\Derek DiCamillo\Projects\atlas
 
 6. (Optional) Set up SSH key auth:
    ssh-keygen -t ed25519

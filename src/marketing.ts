@@ -14,6 +14,7 @@ import { info, warn, error as logError } from "./logger.ts";
 import { runPrompt } from "./prompt-runner.ts";
 import { MODELS } from "./constants.ts";
 import { isGHLReady, getPipelineAttribution } from "./ghl.ts";
+import { detectFatigue, getAdAge, getAllFatigueAlerts, buildUTMAttribution } from "./midas-learner.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -67,13 +68,35 @@ export interface AdDigestEntry {
   adName: string;
   campaignName: string;
   spend7d: number;
-  cpl7d: number;
+  cpl7d: number;          // kept for backward compat, -1 when Meta blocks conversions
+  costPerLPV7d: number;   // cost per landing page view (per-ad proxy metric)
+  lpViews7d: number;      // landing page views (7d total)
   ctr7d: number;
   frequency7d: number;
   trend: "improving" | "stable" | "declining";
   alerts: string[];
   hookType?: string;
   simGroup?: string;
+}
+
+/**
+ * Check if a GHL source string indicates a Facebook/Meta ad lead.
+ * Used to match GHL leads back to Meta ad spend for blended CPL.
+ * Exported for reuse in metrics-engine.ts.
+ */
+export function isFacebookSource(source: string): boolean {
+  if (!source) return false;
+  const s = source.toLowerCase();
+  return (
+    s.includes("facebook") ||
+    s.includes("fb ") ||
+    s.includes("meta ad") ||
+    s.includes("weight loss free consult") ||
+    s.includes("weight loss eligibility quiz") ||
+    s.includes("quiz-curiosity") ||
+    s === "facebook ads" ||
+    s === "meta"
+  );
 }
 
 interface MarketingState {
@@ -164,9 +187,26 @@ export function buildFunnelSnapshot(dateStr: string): FunnelStageMetrics | null 
     warn("marketing", `Failed to read lead-volume for funnel: ${err}`);
   }
 
-  // LP views estimated from clicks (not all clicks reach LP due to bounce)
-  // Using 85% pass-through as industry standard estimate
-  snapshot.lpViews = Math.round(snapshot.clicks * 0.85);
+  // LP views: use real data from ad-tracker if available, fall back to 85% estimate
+  try {
+    const trackerPath = join(DATA_DIR, "ad-tracker.json");
+    if (existsSync(trackerPath)) {
+      const tracker = JSON.parse(readFileSync(trackerPath, "utf-8"));
+      const daySnaps = (tracker.snapshots || []).filter(
+        (s: { date: string }) => s.date === dateStr
+      );
+      const realLpViews = daySnaps.reduce((sum: number, s: any) => sum + (s.lpViews || 0), 0);
+      if (realLpViews > 0) {
+        snapshot.lpViews = realLpViews;
+      } else {
+        snapshot.lpViews = Math.round(snapshot.clicks * 0.85);
+      }
+    } else {
+      snapshot.lpViews = Math.round(snapshot.clicks * 0.85);
+    }
+  } catch {
+    snapshot.lpViews = Math.round(snapshot.clicks * 0.85);
+  }
 
   // Show rate data from show-rate-state.json
   try {
@@ -302,11 +342,12 @@ export function formatFunnelAlerts(alerts: FunnelAlert[]): string {
 export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
   const entries: AdDigestEntry[] = [];
 
-  // Load ad-tracker data
+  // Load ad-tracker data (lpViews added for hybrid attribution; older entries may lack it)
   let snapshots: Array<{
     date: string; adId: string; adName: string; campaignName: string;
     spend: number; impressions: number; clicks: number; conversions: number;
     cpl: number; ctr: number; frequency: number; reach: number;
+    lpViews?: number;
   }> = [];
 
   try {
@@ -359,8 +400,10 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
   }
 
   // Load thresholds
+  // Note: CPL thresholds kept for blended account-level CPL. Per-ad uses cost-per-LPV.
   let cplWarning = 65, cplCritical = 100;
   let ctrWarning = 1.5, freqWarning = 3.0, freqCritical = 4.0;
+  const cplpvWarning = 5, cplpvCritical = 8; // cost-per-landing-page-view thresholds
   try {
     const threshPath = join(MARKETING_DIR, "thresholds.md");
     if (existsSync(threshPath)) {
@@ -374,6 +417,27 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
     // Use defaults
   }
 
+  // Load lead-volume.json for blended CPL (account-level: Meta spend / GHL Facebook leads)
+  let blendedCPL = -1;
+  let totalFbLeads7d = 0;
+  try {
+    const lvPath = join(DATA_DIR, "lead-volume.json");
+    if (existsSync(lvPath)) {
+      const lvData: Array<{ date: string; count: number; sources?: Record<string, number> }> =
+        JSON.parse(readFileSync(lvPath, "utf-8"));
+      const recentLV = lvData.filter(d => d.date >= cutoff7d);
+      for (const day of recentLV) {
+        if (day.sources) {
+          for (const [src, count] of Object.entries(day.sources)) {
+            if (isFacebookSource(src)) totalFbLeads7d += count;
+          }
+        }
+      }
+    }
+  } catch {
+    // lead-volume not available
+  }
+
   for (const [adId, adSnapshots] of Object.entries(byAd)) {
     const recent7d = adSnapshots.filter(s => s.date >= cutoff7d);
     const prev7d = adSnapshots.filter(s => s.date >= cutoff14d && s.date < cutoff7d);
@@ -382,28 +446,39 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
 
     const latest = recent7d[recent7d.length - 1];
     const spend7d = recent7d.reduce((s, snap) => s + snap.spend, 0);
-    const conversions7d = recent7d.reduce((s, snap) => s + snap.conversions, 0);
-    const cpl7d = conversions7d > 0 ? spend7d / conversions7d : Infinity;
+    const lpViews7d = recent7d.reduce((s, snap) => s + (snap.lpViews || 0), 0);
+    const costPerLPV7d = lpViews7d > 0 ? spend7d / lpViews7d : Infinity;
     const avgCtr7d = recent7d.reduce((s, snap) => s + snap.ctr, 0) / recent7d.length;
     const avgFreq7d = recent7d.reduce((s, snap) => s + snap.frequency, 0) / recent7d.length;
 
-    // Trend: compare 7d CPL to previous 7d CPL
+    // Trend: compare 7d cost-per-LPV to previous 7d (Meta blocks per-ad conversions for health/wellness)
     let trend: "improving" | "stable" | "declining" = "stable";
     if (prev7d.length >= 2) {
       const prevSpend = prev7d.reduce((s, snap) => s + snap.spend, 0);
-      const prevConv = prev7d.reduce((s, snap) => s + snap.conversions, 0);
-      const prevCPL = prevConv > 0 ? prevSpend / prevConv : Infinity;
-      if (cpl7d < prevCPL * 0.85) trend = "improving";
-      else if (cpl7d > prevCPL * 1.15) trend = "declining";
+      const prevLPV = prev7d.reduce((s, snap) => s + (snap.lpViews || 0), 0);
+      const prevCPLPV = prevLPV > 0 ? prevSpend / prevLPV : Infinity;
+      if (costPerLPV7d < prevCPLPV * 0.85) trend = "improving";
+      else if (costPerLPV7d > prevCPLPV * 1.15) trend = "declining";
     }
 
-    // Alerts
+    // Alerts: use cost-per-LPV as per-ad proxy (Meta blocks conversion tracking for health/wellness)
     const alerts: string[] = [];
-    if (cpl7d > cplCritical && spend7d > 50) alerts.push(`CPL ${cpl7d === Infinity ? "N/A - no conversions" : "$" + cpl7d.toFixed(0)} (critical >${cplCritical})`);
-    else if (cpl7d > cplWarning && spend7d > 30) alerts.push(`CPL ${cpl7d === Infinity ? "N/A - no conversions" : "$" + cpl7d.toFixed(0)} (warning >${cplWarning})`);
+    if (costPerLPV7d > cplpvCritical && spend7d > 50) {
+      alerts.push(`Cost/LPV ${costPerLPV7d === Infinity ? "N/A - no LP views" : "$" + costPerLPV7d.toFixed(2)} (critical >$${cplpvCritical})`);
+    } else if (costPerLPV7d > cplpvWarning && spend7d > 30) {
+      alerts.push(`Cost/LPV $${costPerLPV7d.toFixed(2)} (warning >$${cplpvWarning})`);
+    }
     if (avgFreq7d > freqCritical) alerts.push(`Frequency ${avgFreq7d.toFixed(1)} (critical >${freqCritical})`);
     else if (avgFreq7d > freqWarning) alerts.push(`Frequency ${avgFreq7d.toFixed(1)} (warning >${freqWarning})`);
     if (avgCtr7d < ctrWarning && spend7d > 20) alerts.push(`CTR ${avgCtr7d.toFixed(2)}% (warning <${ctrWarning}%)`);
+
+    // Creative lifecycle: fatigue detection
+    const fatigue = detectFatigue(adId);
+    if (fatigue?.fatiguing) {
+      alerts.push(`FATIGUING: peaked at $${fatigue.peakCpl} Cost/LPV, now $${fatigue.currentCpl} (day ${fatigue.ageDays})`);
+    } else if (fatigue && fatigue.predictedDaysToThreshold !== null && fatigue.predictedDaysToThreshold <= 5) {
+      alerts.push(`Approaching fatigue in ~${fatigue.predictedDaysToThreshold}d`);
+    }
 
     // Match hook type from taxonomy
     const adPrefix = latest.adName.split(" ")[0];
@@ -414,7 +489,9 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
       adName: latest.adName,
       campaignName: latest.campaignName,
       spend7d: Math.round(spend7d * 100) / 100,
-      cpl7d: cpl7d === Infinity ? -1 : Math.round(cpl7d * 100) / 100,
+      cpl7d: -1, // Meta blocks per-ad conversion tracking for health/wellness
+      costPerLPV7d: costPerLPV7d === Infinity ? -1 : Math.round(costPerLPV7d * 100) / 100,
+      lpViews7d,
       ctr7d: Math.round(avgCtr7d * 100) / 100,
       frequency7d: Math.round(avgFreq7d * 100) / 100,
       trend,
@@ -424,11 +501,18 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
     });
   }
 
+  // Calculate blended CPL after we know total spend
+  const totalSpendAll = entries.reduce((s, e) => s + e.spend7d, 0);
+  if (totalFbLeads7d > 0 && totalSpendAll > 0) {
+    blendedCPL = Math.round((totalSpendAll / totalFbLeads7d) * 100) / 100;
+  }
+
   // Sort by spend descending
   entries.sort((a, b) => b.spend7d - a.spend7d);
 
   // Build summary
   const totalSpend = entries.reduce((s, e) => s + e.spend7d, 0);
+  const totalLPViews = entries.reduce((s, e) => s + e.lpViews7d, 0);
   const adsWithAlerts = entries.filter(e => e.alerts.length > 0);
   const declining = entries.filter(e => e.trend === "declining");
   const improving = entries.filter(e => e.trend === "improving");
@@ -439,6 +523,8 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
   const summaryLines = [
     `**Midas Ad Digest** (7-day)`,
     `Spend: $${totalSpend.toFixed(0)} across ${entries.length} ads`,
+    `Blended CPL: ${blendedCPL > 0 ? "$" + blendedCPL.toFixed(0) : "N/A"} (Meta spend / ${totalFbLeads7d} GHL leads)`,
+    `LP Views: ${totalLPViews} | Avg Cost/LPV: $${totalLPViews > 0 ? (totalSpend / totalLPViews).toFixed(2) : "N/A"}`,
     `Entity diversity: ${activeSims.size} distinct SIM groups`,
   ];
 
@@ -448,6 +534,15 @@ export function buildAdDigest(): { entries: AdDigestEntry[]; summary: string } {
   if (declining.length > 0) {
     summaryLines.push(`Declining: ${declining.map(e => e.adName.split(" |")[0]).join(", ")}`);
   }
+  // Fatigue summary
+  const fatigueAlerts = getAllFatigueAlerts();
+  if (fatigueAlerts.length > 0) {
+    const fatiguing = fatigueAlerts.filter(a => a.fatigue.fatiguing);
+    const approaching = fatigueAlerts.filter(a => !a.fatigue.fatiguing && a.fatigue.predictedDaysToThreshold !== null);
+    if (fatiguing.length > 0) summaryLines.push(`Fatiguing (${fatiguing.length}): ${fatiguing.map(a => a.adName.split(" |")[0]).join(", ")}`);
+    if (approaching.length > 0) summaryLines.push(`Approaching fatigue: ${approaching.map(a => `${a.adName.split(" |")[0]} (~${a.fatigue.predictedDaysToThreshold}d)`).join(", ")}`);
+  }
+
   if (adsWithAlerts.length > 0) {
     summaryLines.push("");
     summaryLines.push(`Alerts (${adsWithAlerts.length} ads):`);
@@ -945,9 +1040,26 @@ export async function buildMonthlyBrief(): Promise<string> {
       const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().split("T")[0];
       const recent = (tracker.snapshots || []).filter((s: { date: string }) => s.date >= cutoff);
       const totalSpend = recent.reduce((s: number, snap: any) => s + (snap.spend || 0), 0);
-      const totalConversions = recent.reduce((s: number, snap: any) => s + (snap.conversions || 0), 0);
-      const avgCPL = totalConversions > 0 ? totalSpend / totalConversions : 0;
-      adData = `Total spend: $${totalSpend.toFixed(0)}, Conversions: ${totalConversions}, Avg CPL: $${avgCPL.toFixed(0)}, Active ads: ${new Set(recent.map((s: any) => s.adId)).size}`;
+      const totalLPViews = recent.reduce((s: number, snap: any) => s + (snap.lpViews || 0), 0);
+      const avgCostPerLPV = totalLPViews > 0 ? totalSpend / totalLPViews : 0;
+      // Get blended CPL from lead-volume.json (GHL pipeline leads)
+      let fbLeads30d = 0;
+      try {
+        const lvPath = join(DATA_DIR, "lead-volume.json");
+        if (existsSync(lvPath)) {
+          const lvData = JSON.parse(readFileSync(lvPath, "utf-8"));
+          const cutoff30d = new Date(Date.now() - 30 * 86_400_000).toISOString().split("T")[0];
+          for (const day of lvData.filter((d: any) => d.date >= cutoff30d)) {
+            if (day.sources) {
+              for (const [src, count] of Object.entries(day.sources)) {
+                if (isFacebookSource(src)) fbLeads30d += count as number;
+              }
+            }
+          }
+        }
+      } catch {}
+      const blendedCPL30d = fbLeads30d > 0 ? totalSpend / fbLeads30d : 0;
+      adData = `Total spend: $${totalSpend.toFixed(0)}, GHL pipeline leads: ${fbLeads30d}, Blended CPL: $${blendedCPL30d > 0 ? blendedCPL30d.toFixed(0) : "N/A"}, LP Views: ${totalLPViews}, Avg Cost/LPV: $${avgCostPerLPV > 0 ? avgCostPerLPV.toFixed(2) : "N/A"}, Active ads: ${new Set(recent.map((s: any) => s.adId)).size}`;
     }
   } catch {}
 

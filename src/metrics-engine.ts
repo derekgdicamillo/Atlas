@@ -15,10 +15,13 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import { info, warn, error as logError } from "./logger.ts";
 import { getAccountSummary } from "./meta.ts";
 import { getOpsSnapshot } from "./ghl.ts";
 import { getFinancials } from "./dashboard.ts";
+import { isFacebookSource } from "./marketing.ts";
 
 // ============================================================
 // TYPES
@@ -338,11 +341,32 @@ export async function captureDaily(supabase: SupabaseClient): Promise<DailyMetri
     warn("metrics-engine", `GHL ops pull failed: ${(e as Error).message}`);
   }
 
+  // Get leads from GHL (lead-volume.json) instead of Meta conversions
+  // Meta blocks conversion tracking for health/wellness advertisers
+  let ghlLeads = 0;
+  try {
+    const lvPath = join(process.env.PROJECT_DIR || process.cwd(), "data", "lead-volume.json");
+    if (existsSync(lvPath)) {
+      const lvData: Array<{ date: string; count: number; sources?: Record<string, number> }> =
+        JSON.parse(readFileSync(lvPath, "utf-8"));
+      const todayEntry = lvData.find(d => d.date === today);
+      if (todayEntry?.sources) {
+        for (const [src, count] of Object.entries(todayEntry.sources)) {
+          if (isFacebookSource(src)) ghlLeads += count;
+        }
+      }
+    }
+  } catch (e) {
+    warn("metrics-engine", `Failed to read lead-volume.json for GHL leads: ${(e as Error).message}`);
+  }
+
+  const blendedCPL = ghlLeads > 0 ? adMetrics.spend / ghlLeads : 0;
+
   const daily: DailyMetrics = {
     date: today,
-    leads: adMetrics.conversions,
+    leads: ghlLeads,
     ad_spend: round2(adMetrics.spend),
-    cpl: round2(adMetrics.cpl),
+    cpl: round2(blendedCPL),
     impressions: adMetrics.impressions,
     clicks: adMetrics.clicks,
     ctr: round2(adMetrics.ctr),

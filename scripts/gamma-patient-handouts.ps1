@@ -8,9 +8,9 @@ param(
     [switch]$DryRun
 )
 
-$inputDir = "C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts"
-$outputDir = "C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\GLP1-CEU\Module-11 - Patient Education Resource Pack"
-$resultsLog = "C:\Users\derek\Projects\atlas\scripts\gamma-handout-results.jsonl"
+$inputDir = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts"
+$outputDir = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\GLP1-CEU\Module-11 - Patient Education Resource Pack"
+$resultsLog = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-handout-results.jsonl"
 
 $apiKey = [System.Environment]::GetEnvironmentVariable('GAMMA_API_KEY', 'User')
 if (-not $apiKey) {

@@ -307,6 +307,8 @@ export function enhanceIntent(
       if (/\b(traffic|analytics|conversion)/i.test(contextText)) enhanced.analytics = true;
       if (/\b(ad|campaign|content|marketing)/i.test(contextText)) enhanced.marketing = true;
       if (/\b(build|fix|code|implement|debug)/i.test(contextText)) enhanced.coding = true;
+      if (/\b(tmaa|medical aesthetics association|theoffice@|TMAA_DRAFT|TMAA_SEND|TMAA_CAL)/i.test(contextText)) enhanced.tmaa = true;
+      if (/\b(m365|sharepoint|teams|microsoft|planner)/i.test(contextText)) enhanced.m365 = true;
     }
   }
 

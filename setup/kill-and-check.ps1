@@ -15,7 +15,7 @@ if (Test-Path $modelPath) {
 
 # Check what transcripts we have
 Write-Host "`nExisting transcripts:"
-$dir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa"
+$dir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa"
 Get-ChildItem "$dir\*.txt" -ErrorAction SilentlyContinue | ForEach-Object {
     $kb = [math]::Round($_.Length / 1KB, 1)
     Write-Host "  $($_.Name) - $kb KB"

@@ -1,0 +1,30 @@
+{
+  "name": "PV MediSpa Website Walkthrough",
+  "url": "https://pvmedispa.com",
+  "viewport": { "width": 1920, "height": 1080 },
+  "obs": {
+    "recordOnStart": true
+  },
+  "steps": [
+    { "action": "wait", "ms": 3000, "label": "Hero section — let page load fully" },
+    { "action": "scroll", "y": 600, "smooth": true, "label": "Scroll to services section" },
+    { "action": "wait", "ms": 2500 },
+    { "action": "scroll", "y": 600, "smooth": true, "label": "Continue scrolling" },
+    { "action": "wait", "ms": 2000 },
+    { "action": "scroll", "y": 600, "smooth": true, "label": "More content" },
+    { "action": "wait", "ms": 2000 },
+    { "action": "scroll", "y": -1800, "smooth": true, "label": "Back to top" },
+    { "action": "wait", "ms": 1500 },
+
+    { "action": "navigate", "url": "https://landing.pvmedispa.com/weightloss", "label": "Navigate to weight loss landing page" },
+    { "action": "wait", "ms": 3000, "label": "Landing page hero" },
+    { "action": "scroll", "y": 500, "smooth": true, "label": "Scroll past hero" },
+    { "action": "wait", "ms": 2000 },
+    { "action": "scroll", "y": 500, "smooth": true, "label": "Benefits section" },
+    { "action": "wait", "ms": 2000 },
+    { "action": "scroll", "y": 500, "smooth": true, "label": "Testimonials / CTA" },
+    { "action": "wait", "ms": 2500 },
+    { "action": "scroll", "y": -1500, "smooth": true, "label": "Back to top of landing page" },
+    { "action": "wait", "ms": 2000 }
+  ]
+}

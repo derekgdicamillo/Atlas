@@ -54,6 +54,7 @@ const compressions: Map<string, CompressedConversation> = new Map();
 export async function compressOldEntries(
   key: string,
   summarizeFn: (prompt: string) => Promise<string>,
+  wmHints?: { activeIntent?: string; keyEntities?: string[]; workInProgress?: string },
 ): Promise<void> {
   const entries = await loadBuffer(key);
   if (entries.length <= COMPRESS_THRESHOLD) return;
@@ -72,10 +73,20 @@ export async function compressOldEntries(
     return `${prefix}: ${e.content}`;
   }).join("\n");
 
+  // CMA: If working memory provides hints about what's important, include them
+  const wmGuidance = wmHints?.activeIntent
+    ? "\nIMPORTANT: Preserve information related to these active items:" +
+      `\n- Active intent: ${wmHints.activeIntent}` +
+      (wmHints.keyEntities?.length ? `\n- Key entities: ${wmHints.keyEntities.join(", ")}` : "") +
+      (wmHints.workInProgress ? `\n- Work in progress: ${wmHints.workInProgress}` : "") +
+      "\n\n"
+    : "";
+
   const prompt =
     "Compress this conversation into 2-3 dense sentences. " +
     "Preserve entity names, dates, decisions, action items, and emotional tone. " +
-    "Do not add any preamble or explanation, just the compressed summary.\n\n" +
+    "Do not add any preamble or explanation, just the compressed summary." +
+    wmGuidance + "\n\n" +
     text;
 
   const summary = await summarizeFn(prompt);

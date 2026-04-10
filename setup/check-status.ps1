@@ -1,11 +1,11 @@
 Write-Host "=== AUDIO FILES ==="
-Get-ChildItem "C:\Users\derek\Projects\atlas\data\training\brunson-ofa\audio\*.mp3" | ForEach-Object {
+Get-ChildItem "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa\audio\*.mp3" | ForEach-Object {
     $mb = [math]::Round($_.Length / 1MB, 1)
     Write-Host "  $($_.Name) - $mb MB"
 }
 
 Write-Host "`n=== TRANSCRIPTS ==="
-$txts = Get-ChildItem "C:\Users\derek\Projects\atlas\data\training\brunson-ofa\*.txt" -ErrorAction SilentlyContinue
+$txts = Get-ChildItem "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa\*.txt" -ErrorAction SilentlyContinue
 if ($txts) {
     $txts | ForEach-Object {
         $kb = [math]::Round($_.Length / 1KB, 1)
@@ -22,8 +22,8 @@ Get-Process python -ErrorAction SilentlyContinue | ForEach-Object {
 }
 
 Write-Host "`n=== LOG TAIL ==="
-if (Test-Path "C:\Users\derek\Projects\atlas\data\training\brunson-ofa\transcribe.log") {
-    Get-Content "C:\Users\derek\Projects\atlas\data\training\brunson-ofa\transcribe.log" -Tail 30
+if (Test-Path "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa\transcribe.log") {
+    Get-Content "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa\transcribe.log" -Tail 30
 } else {
     Write-Host "  (no log file)"
 }

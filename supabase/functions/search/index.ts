@@ -146,6 +146,7 @@ Deno.serve(async (req) => {
           documents: "match_documents",
           summaries: "match_summaries",
           memory_entities: "search_entities",
+          maa_knowledge: "match_maa_knowledge",
         };
 
         const rpcName = rpcMap[searchTables[0]];

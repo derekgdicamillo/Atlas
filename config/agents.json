@@ -22,7 +22,8 @@
         "graph": true,
         "careplan": true,
         "m365": true,
-        "browser": true
+        "browser": true,
+        "tmaa": true
       }
     },
     {
@@ -46,7 +47,8 @@
         "graph": true,
         "careplan": true,
         "m365": true,
-        "browser": true
+        "browser": true,
+        "tmaa": true
       }
     },
     {

@@ -1,5 +1,5 @@
-$scriptPath = "C:\Users\derek\Projects\atlas\scripts\gamma-generate.ps1"
-$inputDir = "C:\Users\derek\Projects\atlas\scripts\gamma-inputs"
+$scriptPath = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-generate.ps1"
+$inputDir = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-inputs"
 
 $documents = @(
     @{ Title = "Module 01: Foundations - Obesity Medicine and Incretin Physiology"; File = "module-01.md" },

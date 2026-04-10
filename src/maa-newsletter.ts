@@ -60,6 +60,7 @@ interface NewsletterState {
   paidWeekToggle: boolean;
   lastPartnerIndex: number;
   lastCtaIndex: number;
+  recentSageTopics?: string[]; // last 6 weeks of featured SAGE topics for dedup
 }
 
 interface WPPost {
@@ -68,6 +69,7 @@ interface WPPost {
   excerpt: { rendered: string };
   link: string;
   date: string;
+  categories?: number[];
 }
 
 interface SageTopic {
@@ -191,9 +193,12 @@ function wpAuthHeader(): string {
 async function fetchRecentPosts(count: number): Promise<WPPost[]> {
   try {
     const res = await fetch(
-      `${WP_API_BASE}/posts?per_page=${count}&orderby=date&order=desc&_fields=id,title,excerpt,link,date`,
+      `${WP_API_BASE}/posts?per_page=${count}&orderby=date&order=desc&_fields=id,title,excerpt,link,date,categories`,
       {
-        headers: { Authorization: wpAuthHeader() },
+        headers: {
+          Authorization: wpAuthHeader(),
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        },
         signal: AbortSignal.timeout(API_TIMEOUT),
       }
     );
@@ -208,6 +213,80 @@ async function fetchRecentPosts(count: number): Promise<WPPost[]> {
   }
 }
 
+/**
+ * Fetch more posts than needed and pick a diverse set.
+ * Uses keyword overlap, WP category diversity, and SAGE topic relevance
+ * to avoid near-duplicate topics and prioritize trending content.
+ */
+async function fetchDiversePosts(targetCount: number, sageTopics?: string[]): Promise<WPPost[]> {
+  const pool = await fetchRecentPosts(Math.max(targetCount * 3, 10));
+  if (pool.length <= targetCount) return pool;
+
+  const stopWords = new Set(["the", "a", "an", "to", "for", "of", "in", "and", "or", "your", "how", "what", "why", "is", "are", "with", "can", "this", "that"]);
+
+  function titleKeywords(title: string): Set<string> {
+    return new Set(
+      stripHtml(title).toLowerCase().split(/\W+/).filter((w) => w.length > 2 && !stopWords.has(w))
+    );
+  }
+
+  function similarity(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 || b.size === 0) return 0;
+    let overlap = 0;
+    for (const w of a) if (b.has(w)) overlap++;
+    return overlap / Math.min(a.size, b.size);
+  }
+
+  // Score posts by SAGE relevance (boost posts matching trending topics)
+  function sageRelevance(post: WPPost): number {
+    if (!sageTopics || sageTopics.length === 0) return 0;
+    const title = stripHtml(post.title.rendered).toLowerCase();
+    const excerpt = stripHtml(post.excerpt.rendered).toLowerCase();
+    const text = `${title} ${excerpt}`;
+    return sageTopics.filter((t) => {
+      const words = t.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+      return words.some((w) => text.includes(w));
+    }).length;
+  }
+
+  // Sort pool: SAGE-relevant posts first, then by date
+  const scored = pool.map((p) => ({ post: p, sage: sageRelevance(p) }));
+  scored.sort((a, b) => b.sage - a.sage || 0); // stable sort preserves date order within ties
+
+  const selected: WPPost[] = [scored[0].post]; // best match or newest
+  const selectedKw = [titleKeywords(scored[0].post.title.rendered)];
+  const usedCategories = new Set(scored[0].post.categories || []);
+
+  for (const { post } of scored.slice(1)) {
+    if (selected.length >= targetCount) break;
+    const kw = titleKeywords(post.title.rendered);
+    const maxSim = Math.max(...selectedKw.map((s) => similarity(s, kw)));
+
+    // Require low keyword overlap AND prefer different categories
+    const postCats = new Set(post.categories || []);
+    const categoryOverlap = [...postCats].some((c) => usedCategories.has(c));
+    const threshold = categoryOverlap ? 0.35 : 0.5; // stricter if same category
+
+    if (maxSim < threshold) {
+      selected.push(post);
+      selectedKw.push(kw);
+      for (const c of postCats) usedCategories.add(c);
+    }
+  }
+
+  // Backfill if needed
+  if (selected.length < targetCount) {
+    for (const { post } of scored) {
+      if (selected.length >= targetCount) break;
+      if (!selected.some((s) => s.id === post.id)) {
+        selected.push(post);
+      }
+    }
+  }
+
+  return selected;
+}
+
 // ============================================================
 // SAGE Dashboard — Trending Themes
 // ============================================================
@@ -219,7 +298,10 @@ async function fetchSageData(): Promise<SageDashboardResponse | null> {
   }
   try {
     const res = await fetch(`${SAGE_API_URL}?period=30d`, {
-      headers: { Authorization: `Bearer ${MAA_DASHBOARD_TOKEN}` },
+      headers: {
+        Authorization: `Bearer ${MAA_DASHBOARD_TOKEN}`,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      },
       signal: AbortSignal.timeout(API_TIMEOUT),
     });
     if (!res.ok) {
@@ -342,44 +424,128 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+function pickSageTopics(
+  sageData: SageDashboardResponse | null,
+  posts: WPPost[],
+  recentTopics: string[]
+): { lessonTopic: SageTopic | null; winTopic: SageTopic | null; peerQuestions: SageQuestion[] } {
+  if (!sageData?.available || sageData.top_topics.length === 0) {
+    return { lessonTopic: null, winTopic: null, peerQuestions: [] };
+  }
+
+  const postTitles = posts.map((p) => stripHtml(p.title.rendered).toLowerCase()).join(" ");
+  const recentLower = recentTopics.map((t) => t.toLowerCase());
+
+  // Filter out topics covered by blog posts AND recently featured
+  const fresh = sageData.top_topics.filter((t) => {
+    const tLow = t.topic.toLowerCase();
+    const coveredByPost = postTitles.includes(tLow.split(" ")[0]);
+    const recentlyFeatured = recentLower.some((r) => r === tLow);
+    return !coveredByPost && !recentlyFeatured;
+  });
+
+  const pool = fresh.length >= 2 ? fresh : sageData.top_topics;
+  const lessonTopic = pool[0] || null;
+  const winTopic = pool.find((t) => t !== lessonTopic) || pool[1] || null;
+
+  // Gather real peer questions (prefer ones related to lesson topic)
+  const genericPatterns = /^(hello|hi |hey |i'm ready|help me with|what can you)/i;
+  const allQs = (sageData.top_questions || []).filter(
+    (q) => q.question.length > 30 && q.question.length < 300 && !genericPatterns.test(q.question.trim())
+  );
+  const lessonWords = lessonTopic ? lessonTopic.topic.toLowerCase().split(/\W+/).filter((w) => w.length > 3) : [];
+  const related = allQs.filter((q) => lessonWords.some((w) => q.question.toLowerCase().includes(w)));
+  const peerQuestions = related.length >= 2 ? related.slice(0, 3) : allQs.slice(0, 3);
+
+  return { lessonTopic, winTopic, peerQuestions };
+}
+
 function buildFreePrompt(
   posts: WPPost[],
   sageData: SageDashboardResponse | null,
-  cta: { label: string; url: string }
+  cta: { label: string; url: string },
+  recentSageTopics: string[]
 ): string {
   const postList = posts
     .map((p) => `- "${stripHtml(p.title.rendered)}" — ${stripHtml(p.excerpt.rendered)} (${p.link})`)
     .join("\n");
 
-  const trendingHint =
-    sageData?.available && sageData.top_topics.length > 0
-      ? `Trending practitioner topics this week: ${sageData.top_topics
-          .slice(0, 3)
-          .map((t) => t.topic)
-          .join(", ")}`
-      : "No trending data available — use a general practice insight.";
+  const { lessonTopic, winTopic, peerQuestions } = pickSageTopics(sageData, posts, recentSageTopics);
+
+  // Build educational blocks
+  let lessonBlock: string;
+  let peerQuestionsBlock: string;
+  let quickWinBlock: string;
+
+  if (lessonTopic) {
+    const questionContext = peerQuestions.length > 0
+      ? `Real questions practitioners are asking about this:\n${peerQuestions.map((q) => `- "${q.question}"`).join("\n")}\nAddress the core concern behind these questions.`
+      : `"${lessonTopic.topic}" has ${lessonTopic.count} conversations this month. Write about the most common misconception or mistake practitioners make here.`;
+
+    lessonBlock = `TOPIC: "${lessonTopic.topic}" (${lessonTopic.count} community conversations this month)
+${questionContext}
+Write as a standalone mini-article: problem → insight → takeaway. Use a real-world example or benchmark number. 250-300 words.`;
+
+    peerQuestionsBlock = peerQuestions.length >= 2
+      ? `Use these real practitioner questions (reworded naturally) as section headers or callout boxes:\n${peerQuestions.map((q) => `- "${q.question}"`).join("\n")}`
+      : "";
+
+    const winQs = winTopic ? (sageData?.top_questions || [])
+      .filter((q) => winTopic.topic.toLowerCase().split(/\W+/).some((w) => w.length > 3 && q.question.toLowerCase().includes(w)))
+      .slice(0, 1) : [];
+    quickWinBlock = winQs.length > 0
+      ? `A practitioner recently asked: "${winQs[0].question}" — build your quick win around answering this with a specific, implementable action step (include exact steps, not vague advice).`
+      : winTopic
+        ? `Topic: "${winTopic.topic}" — give one specific, implementable 15-minute action step with exact steps.`
+        : "Give one specific 15-minute action step to audit service pricing against local competitors. Include the exact steps.";
+  } else {
+    lessonBlock = "TOPIC: Write about a common mistake new aesthetic practitioners make with treatment pricing — undercharging relative to market, not accounting for consumable costs, or discounting too aggressively. Use a specific dollar example. 250-300 words.";
+    peerQuestionsBlock = "";
+    quickWinBlock = "Give one specific 15-minute action step a practitioner can take this week to audit their service pricing against local competitors. Include exact steps.";
+  }
 
   return `You are writing the weekly free newsletter for The Medical Aesthetics Association (TMAA).
 Newsletter name: "This Week at TMAA"
-Audience: Aesthetic practitioners who are NOT yet TMAA members (FB group leads).
-Tone: Warm, professional, genuinely helpful. No hype, no hard sell.
+Audience: Aesthetic practitioners (NPs, RNs, PAs, estheticians) who are NOT yet TMAA members.
+Tone: Warm, knowledgeable, genuinely helpful. Like a trusted colleague sharing what they've learned. No hype, no hard sell.
+
+THIS IS AN EDUCATION-FIRST NEWSLETTER. The primary value is teaching, not linking. Blog posts support the education — they are not the centerpiece.
 
 STRUCTURE (follow this exactly):
 
-1. **Opening** (2-3 sentences): Friendly greeting acknowledging the week. Keep it human.
+1. **Opening Hook** (2-3 sentences): Lead with a specific, surprising insight or counterintuitive truth related to this week's main topic. Make readers think "wait, really?" Avoid generic greetings.
 
-2. **Blog Recap**: Summarize each post in 1-2 engaging sentences with a "Read more →" link.
+2. **The Practitioner's Edge** (THIS IS THE CENTERPIECE — 250-300 words): A standalone educational mini-article that teaches something practitioners can use immediately. Structure:
+   - **Bold claim or question as headline** (pull from the peer questions below if available)
+   - **The problem/misconception** (2-3 sentences): What most practitioners get wrong and why it costs them
+   - **The insight** (3-4 sentences): What the data/experience actually shows. Include a specific number, benchmark, or case example. Reference one of the blog posts below if it supports the point (with link).
+   - **The takeaway** (2-3 sentences): What to do differently starting this week — specific enough to act on
+${lessonBlock}
+${peerQuestionsBlock}
+Do NOT mention SAGE, AI, dashboards, or data sources. Frame insights as community wisdom, peer patterns, or your own expertise.
+
+3. **What Your Peers Are Asking** (2-3 real questions): Present these as a callout/highlight box. Each question gets a 1-2 sentence answer that's genuinely useful (not a teaser). This shows the value of community — peers are solving real problems together.
+${peerQuestions.length > 0
+    ? peerQuestions.map((q) => `- "${q.question}"`).join("\n")
+    : "Use 2-3 common aesthetic practice questions (pricing strategy, patient retention, treatment protocols)."}
+
+4. **Further Reading** (3 posts, compact): Each post gets ONE sentence that names the specific problem it solves + "Read more →" link. These support the education above, not replace it.
 ${postList}
 
-3. **Trending Topic Teaser**: Frame this as "What practitioners are asking about this week."
-Write 2-3 sentences of genuinely useful insight that leaves them wanting more depth.
-${trendingHint}
-Do NOT mention SAGE, AI, dashboards, or data sources. Frame it as community conversation.
+5. **Quick Win of the Week** (4-5 sentences): One concrete action step with enough detail to execute in under 15 minutes. Include the EXACT steps — not "review your pricing" but "pull up your top 3 services, compare your price to the top Google result in your zip code, and adjust any service where you're more than 20% below market."
+${quickWinBlock}
 
-4. **CTA**: End with a warm invitation to "${cta.label}" — link: ${cta.url}
-Keep it one sentence, not pushy.
+6. **CTA**: One warm sentence inviting them to "${cta.label}" — link: ${cta.url}. Frame it as what they'll GET, not what they should DO.
 
-OUTPUT: Return ONLY the HTML email body content (no <html>, <head>, or <body> tags — just the inner content that goes inside the Brevo template). Use inline styles. Keep total length under 600 words.`;
+QUALITY RULES:
+- Every section must teach or inform. Zero filler.
+- Use "you" language, not "practitioners should."
+- Include at least 3 specific numbers, percentages, or benchmarks.
+- The Practitioner's Edge section is 40% of the newsletter's value — invest the most effort here.
+- No sign-off signature block (the Brevo template handles that).
+- Do NOT end with "Live Life Unchained" or any sign-off — the template adds that.
+
+OUTPUT: Return ONLY the HTML email body content (no <html>, <head>, or <body> tags — just the inner content that goes inside the Brevo template). Use inline styles. Keep total length under 1000 words.`;
 }
 
 function buildPaidPrompt(
@@ -452,14 +618,20 @@ export async function draftFreeNewsletter(
   }
 
   const state = loadState();
-  const posts = await fetchRecentPosts(2);
+  const sageData = await fetchSageData();
+
+  // Pass SAGE topics so post selection prioritizes trending content
+  const sageTopicNames = sageData?.available
+    ? sageData.top_topics.slice(0, 5).map((t) => t.topic)
+    : undefined;
+  const posts = await fetchDiversePosts(3, sageTopicNames);
   if (posts.length === 0) {
     return { success: false, error: "No recent blog posts found" };
   }
 
-  const sageData = await fetchSageData();
   const cta = getNextCta(state);
-  const prompt = buildFreePrompt(posts, sageData, cta);
+  const recentSageTopics = state.recentSageTopics || [];
+  const prompt = buildFreePrompt(posts, sageData, cta, recentSageTopics);
   const htmlContent = await generateFn(prompt);
 
   const subject = `This Week at TMAA — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
@@ -477,6 +649,16 @@ export async function draftFreeNewsletter(
   state.freeCampaignId = campaign.campaignId;
   state.freeApproved = false;
   state.lastCtaIndex = (state.lastCtaIndex + 1) % CTA_OPTIONS.length;
+
+  // Track featured SAGE topics for 6-week dedup
+  if (sageData?.available && sageData.top_topics.length > 0) {
+    const { lessonTopic } = pickSageTopics(sageData, posts, recentSageTopics);
+    if (lessonTopic) {
+      const recent = state.recentSageTopics || [];
+      recent.push(lessonTopic.topic);
+      state.recentSageTopics = recent.slice(-6); // keep last 6 weeks
+    }
+  }
   saveState(state);
 
   info("maa-newsletter", `Free newsletter draft created: campaign ${campaign.campaignId}`);

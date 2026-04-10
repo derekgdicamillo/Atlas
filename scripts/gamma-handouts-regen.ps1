@@ -2,8 +2,8 @@
 # Regenerate 12 patient handout DOCUMENTS via Gamma API (no PDF download)
 # Returns Gamma URLs for manual download
 
-$inputDir = "C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts"
-$resultsLog = "C:\Users\derek\Projects\atlas\scripts\gamma-handout-regen-results.jsonl"
+$inputDir = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts"
+$resultsLog = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-handout-regen-results.jsonl"
 
 $apiKey = [System.Environment]::GetEnvironmentVariable('GAMMA_API_KEY', 'User')
 if (-not $apiKey) {

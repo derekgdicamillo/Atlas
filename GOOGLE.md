@@ -45,3 +45,37 @@ Send Esther an email about the new schedule:
 
 Resend a calendar invite (just emit a new CAL_ADD with invite= field):
 `[CAL_ADD: title=Team Sync | date=2026-02-24 | time=14:00 | duration=30 | invite=Derekgdicamillo@gmail.com,esther.dicamillo@gmail.com]`
+
+---
+
+## TMAA Google Suite (The Medical Aesthetics Association)
+
+Separate Google Cloud project (iconic-smoke-491800-d6) for TMAA operations.
+Account: theoffice@medicalaestheticsassociation.com
+8 APIs: Gmail, Calendar, Drive, Sheets, Contacts, GA4, YouTube, Google Ads
+
+### TMAA Email Tags
+- Draft (theoffice): `[TMAA_DRAFT: to=addr | subject=Subject | body=Body text]`
+- Send (theoffice): `[TMAA_SEND: to=addr | subject=Subject | body=Body text]`
+
+### TMAA Calendar Tags
+- Create event: `[TMAA_CAL_ADD: title=Title | date=YYYY-MM-DD | time=HH:MM | duration=60 | invite=email1,email2 | location=Place | description=Details]`
+- Delete event: `[TMAA_CAL_REMOVE: search text]`
+
+### TMAA Workflow Rules
+Same rules as regular Google tags above, but use TMAA_ prefix.
+- "TMAA calendar" or "association calendar" = theoffice@MAA calendar
+- "TMAA email" or "send from the association" = theoffice@MAA Gmail
+- TMAA contact: theoffice@medicalaestheticsassociation.com (NOT hello@)
+
+### TMAA Drive & Sheets
+No tags — use programmatic functions from src/tmaa.ts:
+- Drive: search, list folders, download files
+- Sheets: read, write, append, list tabs
+
+### TMAA Examples
+Send a welcome email from TMAA:
+`[TMAA_SEND: to=newmember@clinic.com | subject=Welcome to TMAA | body=Welcome to The Medical Aesthetics Association! Your membership is now active.]`
+
+Schedule a TMAA board meeting:
+`[TMAA_CAL_ADD: title=TMAA Board Meeting | date=2026-04-15 | time=14:00 | duration=90 | invite=derek@pvmedispa.com | description=Quarterly review]`

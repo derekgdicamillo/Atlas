@@ -49,7 +49,7 @@ import { runStrategicMemo } from "./strategic-memo.ts";
 import { cleanupOldNotes } from "./progress-notes.ts";
 import { decayStaleEntries } from "./codex.ts";
 import { cleanupOldEvents } from "./agent-events.ts";
-import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance } from "./ad-tracker.ts";
+import { recordAdSnapshots, insightsToSnapshots, analyzeAdPerformance, type AdSnapshot } from "./ad-tracker.ts";
 import { recordRecommendations, checkFollowThrough, measureOutcomes, computeAdaptiveThresholds, updateAdRegistry, buildDecayCurves, extractUTMFromOpportunities, auditPlaybook, generateLessonsSection, generateThresholdFeedback, checkFormSubmitDivergence, getLearnerDigest, getAllFatigueAlerts } from "./midas-learner.ts";
 import { buildFunnelSnapshot, checkFunnelHealth, formatFunnelAlerts, buildAdDigest, buildWeeklyAttribution, formatAttributionTelegram, buildContentHooksMemo, runCompetitorRecon, buildMonthlyBrief, draftGBPPost } from "./marketing.ts";
 import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
@@ -2016,6 +2016,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
               // Meta's retroactive attribution (conversions backfilled to click date).
               // Each night refreshes the last 7 days of snapshots via upsert.
               const dailyAds = await getDailyAdInsights("7d");
+              let snapshots: AdSnapshot[] = [];
               if (dailyAds.length === 0) {
                 // Fallback to today-only query for backward compat
                 const ads = await getTopAds("today", 100);
@@ -2023,12 +2024,12 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
                   log("ad-tracker", "No ad data for today, skipping snapshot");
                   return;
                 }
-                const snapshots = insightsToSnapshots(ads, todayStr);
+                snapshots = insightsToSnapshots(ads, todayStr);
                 recordAdSnapshots(snapshots);
                 log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr} (fallback)`);
               } else {
                 // Convert daily insights to snapshots (each has its own date)
-                const snapshots = dailyAds.map(ad => ({
+                snapshots = dailyAds.map(ad => ({
                   date: ad.date,
                   campaignName: ad.campaignName,
                   adId: ad.adId,

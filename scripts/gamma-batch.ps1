@@ -1,6 +1,6 @@
-$vaultRoot = "C:\Users\derek\OneDrive - PV MEDISPA LLC\PV Vault\02 - PV MediSpa\Programs + Course\GLP1 CME"
-$tempDir = "C:\Users\derek\Projects\atlas\scripts\gamma-inputs"
-$scriptDir = "C:\Users\derek\Projects\atlas\scripts"
+$vaultRoot = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\PV Vault\02 - PV MediSpa\Programs + Course\GLP1 CME"
+$tempDir = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-inputs"
+$scriptDir = "C:\Users\Derek DiCamillo\Projects\atlas\scripts"
 
 # Create temp dir
 if (-not (Test-Path $tempDir)) { New-Item -ItemType Directory -Path $tempDir | Out-Null }

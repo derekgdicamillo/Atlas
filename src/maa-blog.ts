@@ -23,11 +23,68 @@ const MAA_WP_APP_PASSWORD = process.env.MAA_WP_APP_PASSWORD || "";
 
 const API_BASE = `${MAA_SITE_URL}/wp-json/wp/v2`;
 const API_TIMEOUT = 30_000;
+const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
 const BLOG_STATE_FILE = join(DATA_DIR, "maa-blog-state.json");
 const BLOG_DRAFTS_DIR = join(DATA_DIR, "maa-blog-drafts");
+
+/**
+ * Repair malformed JSON from LLM output.
+ * Handles: literal newlines/tabs inside string values, unescaped double quotes
+ * in HTML attributes (e.g. href="/path"), and other control characters.
+ * Uses a state machine to track whether we're inside a JSON string or not.
+ */
+function repairLlmJson(raw: string): string {
+  let result = "";
+  let inString = false;
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (inString) {
+      if (ch === "\\") {
+        // Escape sequence — copy both chars verbatim
+        result += ch + (raw[i + 1] || "");
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        // Is this the end of the string, or an unescaped quote inside content?
+        // Look ahead: skip ALL whitespace (incl newlines), check for valid JSON structure
+        const rest = raw.substring(i + 1);
+        const trimmed = rest.replace(/^\s*/, "");
+        const next = trimmed[0];
+        if (
+          next === "," || next === "}" || next === "]" || next === ":" ||
+          next === undefined
+        ) {
+          // Genuine end of string
+          inString = false;
+          result += ch;
+        } else if (/^\s*"/.test(rest)) {
+          // Next non-whitespace is another quote — could be next key. End string.
+          inString = false;
+          result += ch;
+        } else {
+          // Unescaped quote inside string content (e.g. HTML href="...")
+          result += '\\"';
+        }
+        i++;
+        continue;
+      }
+      if (ch === "\n") { result += "\\n"; i++; continue; }
+      if (ch === "\r") { result += "\\r"; i++; continue; }
+      if (ch === "\t") { result += "\\t"; i++; continue; }
+      result += ch;
+    } else {
+      if (ch === '"') inString = true;
+      result += ch;
+    }
+    i++;
+  }
+  return result;
+}
 
 const MAA_DASHBOARD_TOKEN = process.env.MAA_DASHBOARD_TOKEN || "";
 const SAGE_API_URL = `${MAA_SITE_URL}/wp-json/maa/v1/dashboard/sage`;
@@ -215,7 +272,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
       const searchRes = await fetch(
         `${API_BASE}/tags?search=${encodeURIComponent(name)}&per_page=5`,
         {
-          headers: { Authorization: authHeader() },
+          headers: { Authorization: authHeader(), "User-Agent": CHROME_UA },
           signal: AbortSignal.timeout(API_TIMEOUT),
         }
       );
@@ -237,6 +294,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
         headers: {
           Authorization: authHeader(),
           "Content-Type": "application/json",
+          "User-Agent": CHROME_UA,
         },
         body: JSON.stringify({ name }),
         signal: AbortSignal.timeout(API_TIMEOUT),
@@ -285,6 +343,7 @@ async function publishPost(
       headers: {
         Authorization: authHeader(),
         "Content-Type": "application/json",
+        "User-Agent": CHROME_UA,
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(API_TIMEOUT),
@@ -554,11 +613,17 @@ export async function publishMAABlog(
   let parsed: { title: string; excerpt: string; content: string; category?: string; slug?: string; focusKeyphrase?: string; metaDescription?: string; tags?: string[]; faq?: Array<{ question: string; answer: string }> };
   try {
     // Strip markdown code fences if present
-    const cleaned = response
+    let cleaned = response
       .replace(/^```json?\s*/i, "")
       .replace(/\s*```\s*$/, "")
       .trim();
-    parsed = JSON.parse(cleaned);
+    // Try direct parse first, fall back to repair
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      cleaned = repairLlmJson(cleaned);
+      parsed = JSON.parse(cleaned);
+    }
   } catch (err) {
     // Save raw output for debugging
     if (!existsSync(BLOG_DRAFTS_DIR)) mkdirSync(BLOG_DRAFTS_DIR, { recursive: true });

@@ -314,7 +314,7 @@ export function buildSignalsFromGHL(data: {
     if (opp.status === "open") {
       const stageName = data.stageNames?.[opp.pipelineStageId]?.toLowerCase() || "";
       const isEarlyStage = stageName.includes("new") || stageName.includes("lead") || stageName.includes("undecided");
-      const lastChange = opp.lastStageChangeAt || opp.dateAdded;
+      const lastChange = opp.lastStageChangeAt || opp.createdAt || opp.dateAdded;
 
       if (isEarlyStage && lastChange) {
         const daysSinceChange = (Date.now() - new Date(lastChange).getTime()) / 86_400_000;

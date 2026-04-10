@@ -21,6 +21,11 @@ Posts default to draft status. Use [GHL_SOCIAL: text | platforms=facebook,instag
 CAN: list unread emails (up to 10), read full email body by ID, create drafts (Derek), send email (Atlas account), list today's calendar events, create calendar events with invites/location/description, delete calendar events by search, search contacts by name (max 5), list recent contacts (max 20)
 CANNOT: send from Derek's email (only draft), search email by custom query (only unread inbox), read attachments, modify existing calendar events (only create/delete), modify contacts, access Atlas inbox
 
+## TMAA Google Suite - OAuth2 for The Medical Aesthetics Association (theoffice@medicalaestheticsassociation.com + derekgdicamillo@gmail.com)
+CAN: list unread TMAA emails (up to 10), read full TMAA email body by ID, create drafts in theoffice@MAA inbox, send email from theoffice@MAA, send calendar invites with .ics from theoffice@MAA, list today's TMAA calendar events, create TMAA calendar events with invites/location/description, delete TMAA calendar events by search, search TMAA contacts by name (max 5), list recent TMAA contacts (max 20), search TMAA Google Drive files, list TMAA Drive folder contents, download TMAA Drive file content (text, docs, sheets), read Google Sheets data (any TMAA spreadsheet), write/update Google Sheets data, append rows to Google Sheets, list sheet tabs in a spreadsheet
+CANNOT: send from Derek's Gmail via TMAA (only theoffice), modify existing calendar events (only create/delete), upload files to Drive (read-only), GA4 Analytics (needs TMAA_GA4_PROPERTY_ID env var), YouTube management (needs TMAA_YOUTUBE_CHANNEL_ID env var), Google Ads (needs TMAA_GOOGLE_ADS_CUSTOMER_ID env var)
+TAGS: [TMAA_DRAFT: to=addr | subject=Subj | body=Body],[TMAA_SEND: to=addr | subject=Subj | body=Body],[TMAA_CAL_ADD: title=Title | date=YYYY-MM-DD | time=HH:MM | duration=60 | invite=email],[TMAA_CAL_REMOVE: search text]
+
 ## Dashboard - Supabase business_scorecard (primary) + GHL direct (pipeline) + legacy API (fallback)
 CAN: financials (revenue, COGS, expenses, P&L, balance sheet, monthly trend, unit economics) via Supabase + QuickBooks API, QuickBooks read-only API: P&L, balance sheet, revenue trends, class-based filtering, cash on hand (OAuth2, Supabase token storage), pipeline stats (stages, close rate, show rate, stale leads) via GHL direct, overview (leads, ad spend, CTR, CPL) via Supabase daily aggregates + GHL, deep financials (category breakdown, anomaly detection) via Supabase + QB, financial anomaly detection
 CANNOT: write to QuickBooks (read-only API access), modify any records, speed-to-lead (removed from dashboard, not in scorecard), attribution by source (removed from dashboard, not in scorecard)
@@ -72,6 +77,11 @@ WORKFLOWS: new-lead-enrich (2-step: research + draft), stale-lead-reactivate (1-
 ## Subagents - Claude Code CLI sub-processes
 CAN: spawn research tasks (sonnet, fire-and-forget), spawn code agents (opus, 200 tools, 90 min default, per-task timeout override, $5 budget cap), max 8 concurrent, task persistence across restarts
 CANNOT: run tasks with credentials subagents don't have access to
+
+## Persistent Process Pool - Long-lived Claude CLI subprocesses for interactive messages
+CAN: persistent Claude CLI process per agent (Atlas, Ishtar) — eliminates cold starts, prompt cache reuse across turns (--resume on restart), streaming responses via NDJSON pipe, auto-restart with exponential backoff on crash (max 5 attempts), 30-min idle auto-shutdown to save resources, feature flag: PERSISTENT_PROCESS_ENABLED (env var, default true)
+CANNOT: 
+COMMANDS: /procstatus (show process state)
 
 ## Night Shift - Autonomous overnight work
 CAN: generate prioritized overnight task queue (Haiku planner at 10 PM), execute tasks with budget caps (worker at 10:15 PM), research, analysis, content drafts, learning queue items, self-improvement tasks
@@ -185,3 +195,16 @@ CANNOT: collect raw data (uses existing ad-tracker, lead-volume, show-rate crons
 RUNS: midas-funnel 9 AM daily, midas-digest 9:30 PM daily, midas-attribution Sun 9 AM, midas-hooks Tue/Fri 7 AM, midas-recon Wed 8 AM, midas-gbp Mon/Thu 7:30 AM, midas-monthly 1st 10 AM
 STATE: data/marketing-state.json (funnel history, 90-day retention). Outputs: memory/marketing/content-hooks/, memory/marketing/competitors/recon-*.md, memory/marketing/attribution/monthly-brief-*.md, data/content-drafts/gbp-*.md
 Agent file: .claude/agents/marketing.md (Opus). Knowledge base: memory/marketing/. Frameworks: Hormozi Value Equation, Brunson Hook-Story-Offer, Meta Andromeda Entity IDs.
+
+## TMAA Newsletter Automation - Two-tier newsletter system (free weekly + paid biweekly) via Brevo with Telegram approval gate
+CAN: draft free newsletter ('This Week at TMAA') from recent blog posts + SAGE trending data + rotating CTA, draft paid newsletter ('TMAA Insider') with blog recap, SAGE insights, partner spotlight, resource highlights, create Brevo campaign drafts and send test emails to Derek + Esther, send approved newsletters via Brevo campaign API, rotate partner spotlights from tmaa_partners Supabase table, rotate CTAs (Join TMAA, Try SAGE, Browse Resources) across free editions, handle /approve free and /approve paid commands
+CANNOT: send newsletters without explicit Telegram approval from Derek or Esther, modify Brevo templates (managed in Brevo UI), manage Brevo contact lists (managed ad hoc)
+COMMANDS: /approve free,/approve paid
+RUNS: maa-newsletter-draft Wed 8AM, maa-newsletter-free-send Sat 9AM, maa-newsletter-paid-send Sun 9AM
+STATE: data/maa-newsletter-state.json (approval flags, campaign IDs, rotation indexes)
+
+## PV Newsletter Co-Pilot - Collaborative weekly newsletter creation via Telegram topic thread with GHL V2 draft push
+CAN: Tuesday 7 AM smart topic suggestion (blog + pillar rotation + trending news), collaborative section-by-section drafting in Newsletter topic thread, voice-matched content generation (Derek's teaching style), content critic quality gate on all draft sections, HTML assembly matching GHL template structure, push assembled draft to GHL as draft campaign via V2 Email Campaign API, tag-based recipient targeting (newsletter tag), pillar rotation tracking across weeks, topic dedup (6-week lookback), Wednesday morning nudge if no response to kickoff, start over, skip week, subject line override commands
+CANNOT: send newsletters directly (draft only, Derek sends from GHL), include images/diagrams (text content only, images added in GHL), modify GHL email template design (content only)
+TAGS: [PV_NEWSLETTER_TOPIC: topic | pillar=Name],[PV_NEWSLETTER_SECTION: name | content],[PV_NEWSLETTER_SUBJECT: subject],[PV_NEWSLETTER_PUSH],[PV_NEWSLETTER_RESET],[PV_NEWSLETTER_SKIP],[PV_NEWSLETTER_PREVIEW]
+Operates in dedicated Telegram topic thread. Env: PV_NEWSLETTER_TOPIC_ID

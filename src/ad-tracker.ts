@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { info, warn } from "./logger.ts";
+import { getActiveThresholds } from "./midas-learner.ts";
 
 const DATA_DIR = join(process.env.PROJECT_DIR || process.cwd(), "data");
 const TRACKER_FILE = join(DATA_DIR, "ad-tracker.json");
@@ -35,10 +36,11 @@ export interface AdSnapshot {
   impressions: number;
   clicks: number;
   conversions: number;
-  cpl: number;       // cost per lead
+  cpl: number;       // cost per lead (Meta-reported, usually 0 for health/wellness)
   ctr: number;       // click-through rate
   frequency: number; // estimated: impressions / reach (0 if no reach data)
   reach: number;
+  lpViews: number;   // landing page views (primary per-ad efficiency proxy)
 }
 
 interface AdTrackerState {
@@ -51,7 +53,7 @@ export interface AdRecommendation {
   date: string;
   adId: string;
   adName: string;
-  type: "pause" | "scale" | "refresh" | "watch";
+  type: "pause" | "scale" | "refresh" | "watch" | "fatigue";
   reason: string;
   metric: string;
   value: number;
@@ -133,6 +135,7 @@ export function insightsToSnapshots(
     conversions: number;
     cpl: number;
     reach: number;
+    landingPageViews?: number;
   }>,
   date: string
 ): AdSnapshot[] {
@@ -149,6 +152,7 @@ export function insightsToSnapshots(
     ctr: ad.ctr,
     frequency: ad.reach > 0 ? ad.impressions / ad.reach : 0,
     reach: ad.reach,
+    lpViews: ad.landingPageViews || 0,
   }));
 }
 
@@ -174,51 +178,59 @@ export function analyzeAdPerformance(days: number = 7): AdRecommendation[] {
   const recommendations: AdRecommendation[] = [];
   const today = new Date().toISOString().split("T")[0];
 
+  // Use adaptive thresholds from Midas learner (falls back to defaults if no data)
+  const t = getActiveThresholds();
+
+  // Cost-per-landing-page-view thresholds (per-ad proxy since Meta blocks conversions for health/wellness)
+  const cplpvWarning = 5;
+  const cplpvCritical = 8;
+
   for (const [adId, snapshots] of Object.entries(byAd)) {
     const latest = snapshots[snapshots.length - 1];
     const totalSpend = snapshots.reduce((s, snap) => s + snap.spend, 0);
-    const totalConversions = snapshots.reduce((s, snap) => s + snap.conversions, 0);
-    const avgCPL = totalConversions > 0 ? totalSpend / totalConversions : Infinity;
+    const totalLpViews = snapshots.reduce((s, snap) => s + (snap.lpViews || 0), 0);
+    const costPerLPV = totalLpViews > 0 ? totalSpend / totalLpViews : Infinity;
     const avgFrequency = snapshots.reduce((s, snap) => s + snap.frequency, 0) / snapshots.length;
     const avgCTR = snapshots.reduce((s, snap) => s + snap.ctr, 0) / snapshots.length;
 
-    // PAUSE: CPL > $80 over the window with meaningful spend
-    if (avgCPL > 80 && totalSpend > 50) {
+    // PAUSE: Cost-per-LPV above critical threshold with meaningful spend
+    // (Meta blocks per-ad conversion tracking for health/wellness, so CPLPV is the best proxy)
+    if (costPerLPV > cplpvCritical && totalSpend > 50) {
       recommendations.push({
         date: today, adId, adName: latest.adName,
         type: "pause",
-        reason: `CPL ${avgCPL === Infinity ? "N/A (no conversions)" : "$" + avgCPL.toFixed(0)} over ${days}d (threshold: $80). Spent $${totalSpend.toFixed(0)} with ${totalConversions} conversion${totalConversions !== 1 ? "s" : ""}.`,
-        metric: "cpl", value: avgCPL, threshold: 80,
+        reason: `Cost/LPV ${costPerLPV === Infinity ? "N/A (no LP views)" : "$" + costPerLPV.toFixed(2)} over ${days}d (threshold: $${cplpvCritical}). Spent $${totalSpend.toFixed(0)} with ${totalLpViews} landing page view${totalLpViews !== 1 ? "s" : ""}.`,
+        metric: "cplpv", value: costPerLPV, threshold: cplpvCritical,
       });
     }
 
-    // REFRESH: frequency > 3.5 (audience fatigue)
-    if (avgFrequency > 3.5) {
+    // REFRESH: frequency above adaptive threshold (audience fatigue)
+    if (avgFrequency > t.refresh) {
       recommendations.push({
         date: today, adId, adName: latest.adName,
         type: "refresh",
-        reason: `Frequency ${avgFrequency.toFixed(1)} (threshold: 3.5). Audience fatigue likely.`,
-        metric: "frequency", value: avgFrequency, threshold: 3.5,
+        reason: `Frequency ${avgFrequency.toFixed(1)} (threshold: ${t.refresh.toFixed(1)}). Audience fatigue likely.`,
+        metric: "frequency", value: avgFrequency, threshold: t.refresh,
       });
     }
 
-    // SCALE: CPL < $40 and CTR > 2% with meaningful spend
-    if (avgCPL < 40 && avgCPL > 0 && avgCTR > 2 && totalSpend > 30) {
+    // SCALE: Low cost-per-LPV + strong CTR + meaningful spend
+    if (costPerLPV < cplpvWarning && costPerLPV > 0 && avgCTR > t.scaleCtr && totalSpend > 30) {
       recommendations.push({
         date: today, adId, adName: latest.adName,
         type: "scale",
-        reason: `Strong performer: CPL $${avgCPL.toFixed(0)}, CTR ${avgCTR.toFixed(1)}%. Consider increasing budget.`,
-        metric: "cpl", value: avgCPL, threshold: 40,
+        reason: `Strong performer: Cost/LPV $${costPerLPV.toFixed(2)}, CTR ${avgCTR.toFixed(1)}%. Consider increasing budget.`,
+        metric: "cplpv", value: costPerLPV, threshold: cplpvWarning,
       });
     }
 
-    // WATCH: CTR < 1% with meaningful spend
-    if (avgCTR < 1 && totalSpend > 20) {
+    // WATCH: CTR below adaptive threshold with meaningful spend
+    if (avgCTR < t.watch && totalSpend > 20) {
       recommendations.push({
         date: today, adId, adName: latest.adName,
         type: "watch",
-        reason: `Low CTR ${avgCTR.toFixed(2)}% (threshold: 1%). Creative may not resonate.`,
-        metric: "ctr", value: avgCTR, threshold: 1,
+        reason: `Low CTR ${avgCTR.toFixed(2)}% (threshold: ${t.watch.toFixed(1)}%). Creative may not resonate.`,
+        metric: "ctr", value: avgCTR, threshold: t.watch,
       });
     }
   }

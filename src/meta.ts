@@ -86,6 +86,7 @@ export interface AdInsight {
   conversions: number;
   cpl: number;
   reach: number;
+  landingPageViews: number;
 }
 
 export interface AdCreativeDetail {
@@ -270,10 +271,12 @@ function extractConversions(actions?: Array<{ action_type: string; value: string
   if (!actions || actions.length === 0) return 0;
 
   // Priority order for conversion actions
+  // Includes onsite_web_lead which Meta returns for GHL/on-platform form submissions
   const conversionTypes = [
     "offsite_conversion.custom.weight_loss_form_submit",
     "offsite_conversion.fb_pixel_custom",
     "lead",
+    "onsite_web_lead",
     "offsite_conversion.fb_pixel_lead",
     "complete_registration",
   ];
@@ -476,6 +479,7 @@ export async function getTopAds(dateRange?: DateRange | string, limit = 5): Prom
   const ads: AdInsight[] = data.data.map((row) => {
     const spend = parseFloat(row.spend || "0");
     const conversions = extractConversions(row.actions);
+    const landingPageViews = extractLandingPageViews(row.actions);
     return {
       adId: row.ad_id,
       adName: row.ad_name,
@@ -489,6 +493,7 @@ export async function getTopAds(dateRange?: DateRange | string, limit = 5): Prom
       conversions,
       cpl: conversions > 0 ? spend / conversions : 0,
       reach: parseInt(row.reach || "0", 10),
+      landingPageViews,
     };
   });
 
@@ -501,6 +506,58 @@ export async function getTopAds(dateRange?: DateRange | string, limit = 5): Prom
   });
 
   return ads.slice(0, limit);
+}
+
+/**
+ * Get per-day per-ad insights for a date range.
+ * Uses time_increment=1 to return daily breakdowns, capturing Meta's
+ * retroactive attribution that backfills conversions to earlier dates.
+ * Used by the ad-tracker cron to refresh the last 7 days of snapshots nightly.
+ */
+export async function getDailyAdInsights(dateRange?: DateRange | string): Promise<Array<AdInsight & { date: string }>> {
+  if (!metaReady) throw new Error("Meta API not configured");
+
+  const range = typeof dateRange === "string" ? parseDateRange(dateRange) : (dateRange || parseDateRange("7d"));
+
+  const fields = [
+    "ad_id", "ad_name", "adset_name", "campaign_name",
+    "spend", "impressions", "clicks", "ctr", "cpc", "reach", "actions",
+  ].join(",");
+
+  const data = await graphGet<{ data: Array<Record<string, any>> }>(
+    `/${adAccountId}/insights`,
+    {
+      fields,
+      time_range: JSON.stringify({ since: range.since, until: range.until }),
+      time_increment: "1",
+      level: "ad",
+      limit: "500",
+    }
+  );
+
+  if (!data.data) return [];
+
+  return data.data.map((row) => {
+    const spend = parseFloat(row.spend || "0");
+    const conversions = extractConversions(row.actions);
+    const landingPageViews = extractLandingPageViews(row.actions);
+    return {
+      date: row.date_start,
+      adId: row.ad_id,
+      adName: row.ad_name,
+      adsetName: row.adset_name,
+      campaignName: row.campaign_name,
+      spend,
+      impressions: parseInt(row.impressions || "0", 10),
+      clicks: parseInt(row.clicks || "0", 10),
+      ctr: parseFloat(row.ctr || "0"),
+      cpc: parseFloat(row.cpc || "0"),
+      conversions,
+      cpl: conversions > 0 ? spend / conversions : 0,
+      reach: parseInt(row.reach || "0", 10),
+      landingPageViews,
+    };
+  });
 }
 
 /**

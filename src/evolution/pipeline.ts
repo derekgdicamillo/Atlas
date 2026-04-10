@@ -79,7 +79,7 @@ export interface PipelineResult {
  */
 async function runPrompt(prompt: string, model?: string): Promise<string> {
   try {
-    const args = [CLAUDE_PATH, "-p", "--output-format", "json"];
+    const args = [CLAUDE_PATH, "-p", "--output-format", "json", "--dangerously-skip-permissions"];
     if (model) args.push("--model", model);
 
     // OpenClaw: Validate spawn args (reject CR/LF injection on Windows)

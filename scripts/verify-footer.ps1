@@ -1,5 +1,5 @@
 # Check how many times footer appears
-$path = 'C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts\Patient Handout - Eating for Success on GLP-1 Therapy.md'
+$path = 'C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\MOD11_Patient_Handouts\Patient Handout - Eating for Success on GLP-1 Therapy.md'
 $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
 
 $count = ([regex]::Matches($text, 'All rights reserved')).Count

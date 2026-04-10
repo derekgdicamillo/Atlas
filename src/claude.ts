@@ -1449,6 +1449,12 @@ export async function cleanupSession(
   // 1. Archive transcript
   await archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
 
+  // 1b. Archive working memory (CMA)
+  try {
+    const { archiveWorkingMemory } = await import("./working-memory.ts");
+    await archiveWorkingMemory(agentId, userId).catch(() => {});
+  } catch { /* CMA not available */ }
+
   // 2. Clear session state
   session.sessionId = null;
   session.lastActivity = new Date().toISOString();

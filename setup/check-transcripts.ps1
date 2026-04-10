@@ -1,4 +1,4 @@
-$dir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa"
+$dir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa"
 Write-Host "=== All txt files ==="
 Get-ChildItem "$dir\*.txt" | Sort-Object Name | ForEach-Object {
     $kb = [math]::Round($_.Length / 1KB, 1)

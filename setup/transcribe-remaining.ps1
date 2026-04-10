@@ -1,7 +1,7 @@
 ## Transcribe remaining OFA days (1, 3, 4, 5, 6, 7, 8)
 ## Runs ONE AT A TIME to avoid CPU contention
 
-$outDir = "C:\Users\derek\Projects\atlas\data\training\brunson-ofa"
+$outDir = "C:\Users\Derek DiCamillo\Projects\atlas\data\training\brunson-ofa"
 $audioDir = "$outDir\audio"
 
 # Ordered by audio length (shortest first for quick wins)

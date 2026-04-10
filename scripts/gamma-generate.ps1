@@ -1,7 +1,7 @@
 param(
     [string]$Title,
     [string]$InputFile,
-    [string]$OutputLog = "C:\Users\derek\OneDrive - PV MEDISPA LLC\PV Vault\02 - PV MediSpa\Programs + Course\GLP1 CME\05_Content\gamma-results.jsonl"
+    [string]$OutputLog = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\PV Vault\02 - PV MediSpa\Programs + Course\GLP1 CME\05_Content\gamma-results.jsonl"
 )
 
 $apiKey = [System.Environment]::GetEnvironmentVariable('GAMMA_API_KEY', 'User')

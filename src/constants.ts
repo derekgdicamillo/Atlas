@@ -491,6 +491,51 @@ export const PERSISTENT_PROCESS_ENABLED = process.env.PERSISTENT_PROCESS_ENABLED
  *  and topic changes. Set TIERED_CONTEXT_ENABLED=true in .env to enable. */
 export const TIERED_CONTEXT_ENABLED = process.env.TIERED_CONTEXT_ENABLED === "true";
 
+// ============================================================
+// COGNITIVE MEMORY ARCHITECTURE (CMA)
+// ============================================================
+
+/** Feature flag: enable Cognitive Memory Architecture.
+ *  Set CMA_ENABLED=false in .env to disable without code change. */
+export const CMA_ENABLED = process.env.CMA_ENABLED !== "false";
+
+/** How often to run a deep LLM-powered working memory update (in turns). */
+export const CMA_DEEP_UPDATE_INTERVAL = 5;
+
+/** Working memory older than this is considered stale and gets archived on next load. */
+export const CMA_STALE_MS = 8 * 60 * 60 * 1000; // 8 hours (matches SESSION_IDLE_RESET_MS)
+
+/** Max items per register field (prevents unbounded growth). */
+export const CMA_MAX_DECISIONS = 5;
+export const CMA_MAX_FILES = 10;
+export const CMA_MAX_ENTITIES = 10;
+export const CMA_MAX_OPEN_QUESTIONS = 3;
+export const CMA_MAX_DELEGATED_TASKS = 5;
+export const CMA_MAX_PLAN_STEPS = 5;
+
+/** Max chars for working memory when formatted for prompt injection. */
+export const CMA_MAX_PROMPT_CHARS = 3000;
+
+/** Truncation length for lastUserMessage / lastAssistantAction fields. */
+export const CMA_TRUNCATE_LENGTH = 200;
+
+/** Consolidated fact types and their decay half-lives (days). */
+export const CMA_FACT_DECAY: Record<string, number> = {
+  decision:   90,
+  artifact:   30,
+  config:     14,
+  wip:        1,   // expires after ~1 session
+  blocker:    7,
+  insight:    180,
+  correction: 36500, // ~100 years = effectively never
+};
+
+/** Minimum retention score before a fact is marked historical. */
+export const CMA_DECAY_THRESHOLD = 0.1;
+
+/** Hard delete threshold (below this AND no references = delete). */
+export const CMA_DELETE_THRESHOLD = 0.01;
+
 // Queue mode: how to handle messages arriving while Claude is busy
 export type QueueMode = "collect" | "interrupt";
 export const DEFAULT_QUEUE_MODE: QueueMode = "collect";

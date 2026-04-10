@@ -2,8 +2,8 @@
 # Re-download PDFs from previously completed Gamma generations
 # Uses generationIds from the results log to fetch exportUrl and download
 
-$resultsLog = "C:\Users\derek\Projects\atlas\scripts\gamma-handout-results.jsonl"
-$outputDir = "C:\Users\derek\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\GLP1-CEU\Module-11 - Patient Education Resource Pack"
+$resultsLog = "C:\Users\Derek DiCamillo\Projects\atlas\scripts\gamma-handout-results.jsonl"
+$outputDir = "C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\03_VitalityUnchained\Course_PDFs\GLP1-CEU\Module-11 - Patient Education Resource Pack"
 
 $apiKey = [System.Environment]::GetEnvironmentVariable('GAMMA_API_KEY', 'User')
 if (-not $apiKey) {
