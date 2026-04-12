@@ -190,32 +190,77 @@ export async function runStrategicMemo(): Promise<string> {
   const outputs = getWeekOutputs();
   const systemHealth = await getLiveSystemHealth();
 
-  // Load canonical business metrics from Supabase business_scorecard
-  let businessContext = "(business_scorecard not available)";
+  // Load business metrics: ad spend + leads from local JSON (nightly crons), financials from Supabase
+  let businessContext = "(business metrics not available)";
   try {
+    const lines: string[] = [];
+
+    // Ad spend/CPL from ad-tracker.json (populated nightly by Midas ad-tracker cron)
+    const trackerPath = join(DATA_DIR, "ad-tracker.json");
+    if (existsSync(trackerPath)) {
+      const tracker = JSON.parse(readFileSync(trackerPath, "utf-8"));
+      const snaps = tracker.snapshots || [];
+      if (snaps.length > 0) {
+        // Last 7 days of ad data
+        const weekDates = new Set(getWeekDates());
+        const weekSnaps = snaps.filter((s: any) => weekDates.has(s.date));
+        const totalSpend = weekSnaps.reduce((sum: number, s: any) => sum + (s.spend || 0), 0);
+        const totalConversions = weekSnaps.reduce((sum: number, s: any) => sum + (s.conversions || 0), 0);
+        const weekCPL = totalConversions > 0 ? totalSpend / totalConversions : 0;
+
+        // Yesterday's snapshot
+        const dates = getWeekDates();
+        const yesterday = dates[dates.length - 2];
+        const yesterdaySnaps = snaps.filter((s: any) => s.date === yesterday);
+        const yesterdaySpend = yesterdaySnaps.reduce((sum: number, s: any) => sum + (s.spend || 0), 0);
+        const yesterdayConversions = yesterdaySnaps.reduce((sum: number, s: any) => sum + (s.conversions || 0), 0);
+
+        lines.push(`- Ad spend (7d): $${totalSpend.toFixed(2)} | Conversions: ${totalConversions} | CPL: ${weekCPL > 0 ? "$" + weekCPL.toFixed(2) : "no conversions"}`);
+        lines.push(`- Yesterday (${yesterday}): $${yesterdaySpend.toFixed(2)} spent, ${yesterdayConversions} conversions`);
+      }
+    }
+
+    // Lead volume from lead-volume.json (populated nightly by lead-volume cron)
+    const leadPath = join(DATA_DIR, "lead-volume.json");
+    if (existsSync(leadPath)) {
+      const leadData = JSON.parse(readFileSync(leadPath, "utf-8"));
+      const days = leadData.days || leadData || [];
+      if (days.length > 0) {
+        const weekDates = new Set(getWeekDates());
+        const weekDays = days.filter((d: any) => weekDates.has(d.date));
+        const totalLeads = weekDays.reduce((sum: number, d: any) => sum + (d.total || d.count || 0), 0);
+        const avgLeads = weekDays.length > 0 ? totalLeads / weekDays.length : 0;
+        const lastDay = days[days.length - 1];
+        const sources = lastDay.sources ? Object.entries(lastDay.sources).map(([k, v]) => `${k}: ${v}`).join(", ") : "N/A";
+        lines.push(`- GHL leads (7d): ${totalLeads} total, ${avgLeads.toFixed(1)}/day avg`);
+        lines.push(`- Last lead day (${lastDay.date}): ${lastDay.total || lastDay.count || 0} leads [${sources}]`);
+      }
+    }
+
+    // Financials from Supabase (revenue, margin, patients, churn - these ARE monthly)
     if (isDashboardReady()) {
       const fin = await getFinancials("month");
       if (fin?.currentMonth) {
         const cm = fin.currentMonth;
         const ue = fin.unitEconomics;
-        businessContext = [
-          `- Revenue: $${Math.round((cm.revenue || 0) / 1000)}K this month`,
-          `- Net margin: ${cm.profitMargin ? (cm.profitMargin * 100).toFixed(1) : "N/A"}%`,
-          `- Active patients: ${cm.totalPatients || "N/A"}`,
-          `- Monthly churn: ${ue?.churnRate ? (ue.churnRate * 100).toFixed(1) : "N/A"}%`,
-          `- Close rate: ${cm.closeRate ? (cm.closeRate * 100).toFixed(1) : "N/A"}%`,
-          `- Ad spend: $${Math.round(cm.adSpend || 0)} | CPL: $${Math.round(cm.costPerLead || 0)}`,
-          `- CAC: $${Math.round(ue?.cac || 0)} | LTV:CAC: ${ue?.ltvCacRatio?.toFixed(1) || "N/A"}x`,
-          "- Core services: GLP-1 weight loss, functional medicine, aesthetics",
-          "- Peptide therapy launching July 2026",
-          "- Marketing: Facebook ads, Google, YouTube/content creation focus",
-          "- Community: Vitality Unchained (Skool group, currently inactive)",
-          "- Midas marketing agent: 7 cron jobs live (funnel monitor, ad digest, attribution, content hooks, competitor recon, GBP drafts, monthly brief)",
-        ].join("\n");
+        lines.push(`- Revenue: $${Math.round((cm.revenue || 0) / 1000)}K this month`);
+        lines.push(`- Net margin: ${cm.profitMargin ? (cm.profitMargin * 100).toFixed(1) : "N/A"}%`);
+        lines.push(`- Active patients: ${cm.totalPatients || "N/A"}`);
+        lines.push(`- Monthly churn: ${ue?.churnRate ? (ue.churnRate * 100).toFixed(1) : "N/A"}%`);
+        lines.push(`- Close rate: ${cm.closeRate ? (cm.closeRate * 100).toFixed(1) : "N/A"}%`);
+        lines.push(`- CAC: $${Math.round(ue?.cac || 0)} | LTV:CAC: ${ue?.ltvCacRatio?.toFixed(1) || "N/A"}x`);
       }
     }
+
+    lines.push("- Core services: GLP-1 weight loss, functional medicine, aesthetics");
+    lines.push("- Peptide therapy launching July 2026");
+    lines.push("- Marketing: Facebook ads, Google, YouTube/content creation focus");
+    lines.push("- Community: Vitality Unchained (Skool group, currently inactive)");
+    lines.push("- Midas marketing agent: 7 cron jobs live (funnel monitor, ad digest, attribution, content hooks, competitor recon, GBP drafts, monthly brief)");
+
+    businessContext = lines.join("\n");
   } catch {
-    businessContext = "- (Could not load business metrics from Supabase. Check dashboard.ts init.)";
+    businessContext = "- (Could not load business metrics. Check ad-tracker.json, lead-volume.json, and dashboard.ts init.)";
   }
 
   const prompt = `You are Atlas, strategic advisor to Derek DiCamillo (FNP, owner of PV MediSpa & Weight Loss in Prescott Valley, AZ).
@@ -236,7 +281,7 @@ ${systemHealth}
 
 IMPORTANT: The system health section above reflects the CURRENT state of integrations, checked live seconds ago. If journals mention API errors or broken systems but the live health check shows HEALTHY, trust the live check. Do NOT recommend fixing something that is already working.
 
-## Business Context (from Supabase business_scorecard)
+## Business Context (ad spend + leads from live trackers, financials from Supabase)
 ${businessContext}
 
 ## Memo Rules
