@@ -259,6 +259,13 @@ export function sanitizedEnv(): Record<string, string | undefined> {
     }
   }
 
+  // Atlas Prime: opt into 1h prompt cache TTL (default on, overridable).
+  // Cache reads are ~10% of input-token cost; for cron-spaced calls
+  // this is the difference between paying nothing and paying full price.
+  if (env.ENABLE_PROMPT_CACHING_1H === undefined) {
+    env.ENABLE_PROMPT_CACHING_1H = "1";
+  }
+
   return env;
 }
 
