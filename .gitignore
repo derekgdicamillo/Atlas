@@ -14,6 +14,11 @@ data/
 memory/
 logs/
 
+# Atlas Prime ledger signing keys (never commit)
+data/atlas-ledger.key
+data/atlas-ledger.pub
+data/atlas-ledger-test/
+
 # Daemon
 *.pid
 *.lock
