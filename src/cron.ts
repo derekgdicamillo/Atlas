@@ -28,6 +28,7 @@ import { checkScheduledMessages } from "./scheduled.ts";
 import { runConsolidation, checkTimeTriggers } from "./cognitive.ts";
 import { callClaude, sessionKey, sanitizedEnv } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
+import { publishRoot } from "./ledger.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
 import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot, getRecentWebhookEvents, markEventsProcessed, getAllOpportunities, addTagToContact, createContactTask, getContact, PIPELINES, registerShowRateDigest, type GHLOpportunity } from "./ghl.ts";
 import { instantiateWorkflow } from "./workflows.ts";
@@ -1222,6 +1223,18 @@ jobs.push(
         logError("meeting-check", `Failed: ${err}`);
       }
       markJobRan("meeting-check");
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 17. Atlas Prime ledger root publish — hourly
+jobs.push(
+  CronJob.from({
+    cronTime: "0 * * * *",
+    onTick: safeTick("atlas-ledger-root", async () => {
+      const rec = await publishRoot();
+      log("atlas-ledger-root", `ts=${rec.ts} root=${rec.root.slice(0, 12)}… entries=${rec.entries}`);
     }),
     timeZone: TIMEZONE,
   })

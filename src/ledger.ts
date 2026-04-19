@@ -205,3 +205,20 @@ export async function computeRoot(): Promise<{ root: string; entries: number }> 
   const last = await lastEntry();
   return { root: last?.entryHash ?? "GENESIS", entries: last?.seq ?? 0 };
 }
+
+// ============================================================
+// PUBLISH ROOT (for hourly cron + transparency beacon)
+// ============================================================
+
+/**
+ * Writes the current Merkle root + timestamp + entry count to
+ * data/atlas-ledger-roots.jsonl. Meant to be called hourly from cron.
+ * A future step can push this file to a public repo for transparency.
+ */
+export async function publishRoot(): Promise<{ ts: string; root: string; entries: number }> {
+  const { root, entries } = await computeRoot();
+  const record = { ts: new Date().toISOString(), root, entries };
+  const path = join(process.cwd(), "data", "atlas-ledger-roots.jsonl");
+  await appendFile(path, JSON.stringify(record) + "\n");
+  return record;
+}

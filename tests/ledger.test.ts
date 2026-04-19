@@ -72,6 +72,14 @@ describe("ledger", () => {
       })
     ).rejects.toThrow(/BigInt/);
   });
+
+  test("publishRoot appends a timestamped record", async () => {
+    const { publishRoot } = await import("../src/ledger.ts");
+    const rec = await publishRoot();
+    expect(rec.root).toMatch(/^[a-f0-9]{64}$|^GENESIS$/);
+    expect(typeof rec.entries).toBe("number");
+    expect(rec.ts).toMatch(/T/);
+  });
 });
 
 async function findLatestLedgerFile(dir: string): Promise<string> {
