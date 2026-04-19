@@ -7,8 +7,10 @@
  *
  * Storage: data/atlas-ledger/YYYY-MM-DD.jsonl (one file per UTC day).
  * Each entry chains to the previous via SHA-256 and is signed with ed25519.
+ * Security boundary (Sprint 1): key reads + signing happen in the same process
+ * as Atlas-Prime. Sprint 7's Shield process moves signing to an isolated helper.
  */
-import { appendFile, readFile, readdir, mkdir, stat } from "fs/promises";
+import { appendFile, readFile, readdir, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import {
@@ -84,11 +86,25 @@ function dayFile(date: Date = new Date()): string {
 }
 
 function canonicalJson(o: unknown): string {
-  // Stable key ordering for deterministic hashing
-  if (o === null || typeof o !== "object") return JSON.stringify(o);
-  if (Array.isArray(o)) return "[" + o.map(canonicalJson).join(",") + "]";
-  const keys = Object.keys(o as Record<string, unknown>).sort();
-  return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonicalJson((o as Record<string, unknown>)[k])).join(",") + "}";
+  if (o === null) return "null";
+  if (typeof o === "undefined") return "null"; // defensive; callers should not pass undefined at top-level
+  if (typeof o === "bigint") {
+    throw new Error("canonicalJson: BigInt values are not supported in ledger entries");
+  }
+  if (typeof o === "number") {
+    if (!Number.isFinite(o)) {
+      throw new Error(`canonicalJson: non-finite number (${o}) not supported in ledger entries`);
+    }
+    return String(o);
+  }
+  if (typeof o === "boolean" || typeof o === "string") return JSON.stringify(o);
+  if (Array.isArray(o)) return "[" + o.map((v) => canonicalJson(v === undefined ? null : v)).join(",") + "]";
+  if (typeof o === "object") {
+    const obj = o as Record<string, unknown>;
+    const keys = Object.keys(obj).sort().filter((k) => obj[k] !== undefined);
+    return "{" + keys.map((k) => JSON.stringify(k) + ":" + canonicalJson(obj[k])).join(",") + "}";
+  }
+  return JSON.stringify(o);
 }
 
 function computeEntryHash(e: Omit<LedgerEntry, "entryHash" | "signature">): string {

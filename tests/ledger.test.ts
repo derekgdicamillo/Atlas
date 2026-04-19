@@ -51,6 +51,26 @@ describe("ledger", () => {
 
     const ok = await verifyChain();
     expect(ok.valid).toBe(false);
+    expect(ok.brokenAt).toBe(1);
+    expect(ok.reason).toContain("entryHash mismatch");
+  });
+
+  test("rejects non-finite numbers and BigInt in action args", async () => {
+    const { appendEntry } = await import("../src/ledger.ts");
+    await expect(
+      appendEntry({
+        actor: "atlas",
+        action: { tool: "TEST", args: { value: Number.POSITIVE_INFINITY } },
+        sourceClaims: [],
+      })
+    ).rejects.toThrow(/non-finite/);
+    await expect(
+      appendEntry({
+        actor: "atlas",
+        action: { tool: "TEST", args: { value: 10n as unknown as number } },
+        sourceClaims: [],
+      })
+    ).rejects.toThrow(/BigInt/);
   });
 });
 
