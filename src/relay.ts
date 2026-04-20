@@ -39,6 +39,8 @@ import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VE
 import { loadOrCreate, writeAheadUpdate, updateTaskFromTurn, deepUpdate, saveWorkingMemory, archiveWorkingMemory, formatForPrompt as formatWMForPrompt } from "./working-memory.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
+import { classify as classifyStaleness } from "./staleness-sentinel.ts";
+import { readFresh } from "./freshness-feed.ts";
 import { processPool } from "./persistent-pool.ts";
 import {
   loadAgents,
@@ -3031,6 +3033,36 @@ async function handleUserMessage(
     // 6. Prepare combined text and classify intent
     const combinedText = pending.map((m) => m.text).join(" ");
 
+    // Atlas Prime: Staleness Sentinel — classify + fetch fresh docs for hot-domain questions
+    let freshnessContext = "";
+    try {
+      const stale = await classifyStaleness(combinedText);
+      if (stale.mustFetch && stale.matchedDomain) {
+        const fresh = await readFresh(stale.matchedDomain);
+        if (fresh) {
+          const ageHours = Math.round((Date.now() - new Date(fresh.pulled_at).getTime()) / 3600000);
+          freshnessContext =
+            `\n\n[ATLAS_PRIME_FRESHNESS_CONTEXT]\n` +
+            `Domain: ${stale.matchedDomain}\n` +
+            `Pulled: ${fresh.pulled_at} (${ageHours}h ago)\n` +
+            `Source: ${fresh.url}\n` +
+            `--- BEGIN SOURCE ---\n${fresh.text.slice(0, 60000)}\n--- END SOURCE ---\n` +
+            `You MUST answer from this source and cite it as:\n` +
+            `(verified: ${stale.matchedDomain} docs, ${fresh.pulled_at.slice(0, 10)})\n`;
+        } else {
+          freshnessContext =
+            `\n\n[ATLAS_PRIME_FRESHNESS_MISSING]\n` +
+            `Domain: ${stale.matchedDomain} — no cached docs available.\n` +
+            `You MUST say: "My knowledge on ${stale.matchedDomain} is stale; let me fetch fresh docs." ` +
+            `and then use WebFetch to pull from one of its authoritative sources.\n` +
+            `Do NOT answer from training data alone.\n`;
+        }
+      }
+    } catch (err) {
+      // Non-blocking: if the classifier itself fails, just skip
+      warn("staleness-sentinel", `classify failed: ${err}`);
+    }
+
     // Agent-bound modes (tox-tray, fitness): always-on for dedicated agents.
     // These are real modes because they're distinct personas, not just context.
     const agentDefaultMode = agent?.config.defaultMode;
@@ -3326,6 +3358,7 @@ async function handleUserMessage(
               getTrustSummary("tox_tray").catch(() => ""),
             ]).then((parts) => parts.filter(Boolean).join("\n\n"))
           : "",
+        freshnessContext,
       },
       turnContext,
     );
@@ -4491,6 +4524,7 @@ function buildPrompt(
     proactiveContext?: string;
     toxTrayContext?: string;
     wmContext?: string;
+    freshnessContext?: string;
   },
   turnContext?: TurnContext,
 ): string {
@@ -4568,6 +4602,12 @@ function buildPrompt(
   const userSection = formatAccumulated(pendingMessages);
   const userSectionText = `\nCurrent time: ${timeStr}\n\n${userSection}`;
   addSection("user_message", userSectionText);
+
+  // Atlas Prime: freshness context — force fresh vendor docs for hot-domain questions
+  if (contexts.freshnessContext) {
+    parts.push(addSection("freshness", contexts.freshnessContext));
+  }
+
   // (appended to parts[] at the very end so it's last in the prompt)
 
   // ── P0.5: Working Memory (CMA — always injected, structured session state) ──
