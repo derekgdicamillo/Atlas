@@ -22,7 +22,11 @@ import {
   createPublicKey,
 } from "crypto";
 
-const LEDGER_DIR = process.env.LEDGER_DIR || join(process.cwd(), "data", "atlas-ledger");
+// Read at call-time so tests can set process.env.LEDGER_DIR in beforeAll/afterAll
+// without hitting the module-level-constant-is-cached-once bun test pitfall.
+function getLedgerDir(): string {
+  return process.env.LEDGER_DIR || join(process.cwd(), "data", "atlas-ledger");
+}
 const KEY_FILE = join(process.cwd(), "data", "atlas-ledger.key");
 const PUBKEY_FILE = join(process.cwd(), "data", "atlas-ledger.pub");
 
@@ -82,7 +86,7 @@ async function ensureKeys(): Promise<void> {
 
 function dayFile(date: Date = new Date()): string {
   const d = date.toISOString().slice(0, 10); // YYYY-MM-DD
-  return join(LEDGER_DIR, `${d}.jsonl`);
+  return join(getLedgerDir(), `${d}.jsonl`);
 }
 
 function canonicalJson(o: unknown): string {
@@ -112,10 +116,10 @@ function computeEntryHash(e: Omit<LedgerEntry, "entryHash" | "signature">): stri
 }
 
 async function lastEntry(): Promise<LedgerEntry | null> {
-  if (!existsSync(LEDGER_DIR)) return null;
-  const files = (await readdir(LEDGER_DIR)).filter((f) => f.endsWith(".jsonl")).sort();
+  if (!existsSync(getLedgerDir())) return null;
+  const files = (await readdir(getLedgerDir())).filter((f) => f.endsWith(".jsonl")).sort();
   for (let i = files.length - 1; i >= 0; i--) {
-    const content = await readFile(join(LEDGER_DIR, files[i]), "utf-8");
+    const content = await readFile(join(getLedgerDir(), files[i]), "utf-8");
     const lines = content.split("\n").filter(Boolean);
     if (lines.length > 0) return JSON.parse(lines[lines.length - 1]);
   }
@@ -124,7 +128,7 @@ async function lastEntry(): Promise<LedgerEntry | null> {
 
 export async function appendEntry(input: LedgerInput): Promise<LedgerEntry> {
   await ensureKeys();
-  await mkdir(LEDGER_DIR, { recursive: true });
+  await mkdir(getLedgerDir(), { recursive: true });
 
   const prev = await lastEntry();
   const seq = (prev?.seq ?? 0) + 1;
@@ -160,8 +164,8 @@ export interface VerifyResult {
 }
 
 export async function verifyChain(): Promise<VerifyResult> {
-  if (!existsSync(LEDGER_DIR)) return { valid: true, entries: 0 };
-  const files = (await readdir(LEDGER_DIR)).filter((f) => f.endsWith(".jsonl")).sort();
+  if (!existsSync(getLedgerDir())) return { valid: true, entries: 0 };
+  const files = (await readdir(getLedgerDir())).filter((f) => f.endsWith(".jsonl")).sort();
   const pubPem = (await readFile(PUBKEY_FILE, "utf-8")).trim();
   const pubKey = createPublicKey(pubPem);
 
@@ -170,7 +174,7 @@ export async function verifyChain(): Promise<VerifyResult> {
   let count = 0;
 
   for (const f of files) {
-    const content = await readFile(join(LEDGER_DIR, f), "utf-8");
+    const content = await readFile(join(getLedgerDir(), f), "utf-8");
     const lines = content.split("\n").filter(Boolean);
     for (const line of lines) {
       const e: LedgerEntry = JSON.parse(line);

@@ -669,6 +669,61 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
       "[PV_NEWSLETTER_PREVIEW]",
     ],
   },
+  {
+    section: "Atlas Prime - Ledger",
+    description: "Tamper-evident action log (ed25519-signed, SHA-256 chained)",
+    can: [
+      "append tamper-evident actions to data/atlas-ledger/ (ed25519-signed, SHA-256 chained)",
+      "verify full chain integrity",
+      "publish hourly Merkle root to data/atlas-ledger-roots.jsonl",
+    ],
+    cannot: [
+      "delete or mutate committed entries",
+    ],
+    depends: "crypto (built-in), ed25519 keys in data/atlas-ledger.{key,pub}",
+    module: "src/ledger.ts",
+  },
+  {
+    section: "Atlas Prime - Tool Gate",
+    description: "Pre-dispatch invariant enforcement for externally-visible tool calls",
+    can: [
+      "enforce atlas.spec invariants on every externally-visible tool call before dispatch",
+      "return { allowed, reason, matchedInvariant }",
+    ],
+    cannot: [
+      "modify atlas.spec at runtime (read-only; cached after first load)",
+    ],
+    depends: "js-yaml, atlas.spec (project root)",
+    module: "src/tool-gate.ts",
+  },
+  {
+    section: "Atlas Prime - Staleness Sentinel",
+    description: "Staleness-axis classifier for user messages",
+    can: [
+      "classify user messages on the staleness axis (timeless/slow/medium/fast/real_time)",
+      "identify matched hot-domain + half-life",
+      "force freshness-cache lookup for 'fast' and 'real_time' questions",
+    ],
+    cannot: [
+      "modify hot-domains.json at runtime (updated by freshness-feed cron only)",
+    ],
+    depends: "haiku-client.ts, data/hot-domains.json",
+    module: "src/staleness-sentinel.ts",
+  },
+  {
+    section: "Atlas Prime - Freshness Feed",
+    description: "Nightly refresh of llms.txt / changelog for hot domains",
+    can: [
+      "nightly (3 AM) refresh of llms.txt / changelog for hot domains",
+      "cache to data/fresh-knowledge/<domain>.json",
+      "expose readFresh(domain) for relay-side access",
+    ],
+    cannot: [
+      "trigger on-demand refresh during a user turn (relay does WebFetch for that)",
+    ],
+    depends: "data/hot-domains.json",
+    module: "src/freshness-feed.ts",
+  },
 ];
 
 /**
