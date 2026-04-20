@@ -83,3 +83,20 @@ export async function loadEvents(path = DEFAULT_SNAPSHOT_PATH): Promise<TrustEve
     .filter((l) => l.trim().length)
     .map((l) => JSON.parse(l) as TrustEvent);
 }
+
+export function formatTrustReport(
+  agg: TrustAggregate,
+  opts?: { threshold?: number }
+): string {
+  const threshold = opts?.threshold ?? Number(process.env.TRUST_MIN_SCORE ?? 0.65);
+  const lines: string[] = [];
+  lines.push(`**Trust Report** (${agg.eventCount} events)`);
+  lines.push(`Overall: ${agg.overall.toFixed(2)}`);
+  lines.push("");
+  const entries = Object.entries(agg.byDomain).sort((a, b) => a[1] - b[1]);
+  for (const [domain, score] of entries) {
+    const mark = score < threshold ? "!" : " ";
+    lines.push(`${mark} ${domain.padEnd(20, " ")} ${score.toFixed(2)}`);
+  }
+  return lines.join("\n");
+}
