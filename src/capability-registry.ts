@@ -724,6 +724,67 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     depends: "data/hot-domains.json",
     module: "src/freshness-feed.ts",
   },
+  {
+    section: "Atlas Prime - Replay Harness",
+    description: "Claude-as-judge scorer over labeled past conversations. Produces groundedness, tool-correctness, and refusal-calibration scores. The fitness function every later sprint depends on.",
+    can: [
+      "load labeled dataset from data/replay-dataset.jsonl",
+      "score entries with Haiku (3 axes: groundedness, tool-correctness, refusal-calibration)",
+      "emit per-run JSON to data/replay-results/",
+      "grow dataset in-conversation via [LABEL_GOOD] / [LABEL_BAD: reason] tags",
+      "run nightly at 3:30 AM via cron 'replay-nightly'",
+    ],
+    cannot: [
+      "modify dataset without explicit LABEL tag or script run",
+      "score entries whose content exceeds 4000 chars (truncation applied)",
+    ],
+    depends: "haiku-client.ts, supabase",
+    module: "src/replay-harness.ts",
+  },
+  {
+    section: "Atlas Prime - Trust Budget",
+    description: "Per-domain trust score with 30-day half-life decay. Visible to Derek via /trust. Below-threshold domains auto-escalate.",
+    can: [
+      "compute per-domain trust from replay + ledger events",
+      "render /trust report for Telegram",
+      "flag below-threshold domains for auto-escalation via shouldEscalate()",
+    ],
+    cannot: [
+      "modify historical trust events (append-only log at data/trust-snapshots.jsonl)",
+    ],
+    commands: ["/trust"],
+    depends: "replay-harness.ts, ledger.ts",
+    module: "src/trust-engine.ts",
+  },
+  {
+    section: "Atlas Prime - Reader (CaMeL)",
+    description: "Tool-less Haiku extractor for untrusted content. Any ingested doc / webfetch / inbox body is extracted to a typed schema before the Planner sees it — raw bytes never reach a SEND tool.",
+    can: [
+      "extract typed fields from untrusted content (PDF, email, web page, CRM message)",
+      "gate search.ts getRelevantContext() documents through renderForPlanner()",
+      "fail closed on extraction error",
+    ],
+    cannot: [
+      "call tools (no tool access by design)",
+      "echo raw untrusted content into Planner prompt",
+      "exceed READER_MAX_CHARS per chunk (default 40k)",
+    ],
+    depends: "haiku-client.ts",
+    module: "src/reader.ts",
+  },
+  {
+    section: "Atlas Prime - Post-Compact Hook",
+    description: "Formal hooks fired on PreCompact (snapshot writer) and SessionStart (re-orient reminder). Permanently fixes the re-orient failure class.",
+    can: [
+      "write memory/compact-snapshot.md on PreCompact",
+      "emit re-orient instructions on SessionStart",
+    ],
+    cannot: [
+      "block Claude from responding (exit 0 advisory; behavior gate is prompt content)",
+    ],
+    depends: "scripts/pre-compact-snapshot.sh, scripts/post-compact-verify.sh",
+    module: "scripts/pre-compact-snapshot.sh, scripts/post-compact-verify.sh",
+  },
 ];
 
 /**

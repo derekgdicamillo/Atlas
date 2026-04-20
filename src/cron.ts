@@ -1268,6 +1268,27 @@ jobs.push(
   })
 );
 
+// 20. Atlas Prime: daily trust snapshot at 11:55 PM.
+jobs.push(
+  CronJob.from({
+    cronTime: "55 23 * * *",
+    onTick: safeTick("trust-daily", async () => {
+      const { loadEvents, aggregateTrust } = await import("./trust-engine.ts");
+      const { appendFile, mkdir } = await import("node:fs/promises");
+      const events = await loadEvents();
+      const agg = aggregateTrust(events);
+      await mkdir("data", { recursive: true });
+      await appendFile(
+        "data/trust-snapshots.jsonl",
+        JSON.stringify({ ts: new Date().toISOString(), kind: "daily-snapshot", ...agg }) + "\n",
+        "utf8"
+      );
+      log("trust-daily", `snapshot written: overall=${agg.overall.toFixed(2)}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================
