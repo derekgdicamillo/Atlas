@@ -112,6 +112,26 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/pre-compact-snapshot.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/post-compact-verify.sh"
+          }
+        ]
+      }
     ]
   }
 }
