@@ -29,6 +29,7 @@ import { runConsolidation, checkTimeTriggers } from "./cognitive.ts";
 import { callClaude, sessionKey, sanitizedEnv } from "./claude.ts";
 import { addEntry } from "./conversation.ts";
 import { publishRoot } from "./ledger.ts";
+import { refreshAll as refreshFreshness } from "./freshness-feed.ts";
 import { isDashboardReady, getFinancialPulse, getPipelinePulse } from "./dashboard.ts";
 import { isGHLReady, getNewLeadsSince, getOpsSnapshot, formatOpsSnapshot, getRecentWebhookEvents, markEventsProcessed, getAllOpportunities, addTagToContact, createContactTask, getContact, PIPELINES, registerShowRateDigest, type GHLOpportunity } from "./ghl.ts";
 import { instantiateWorkflow } from "./workflows.ts";
@@ -1235,6 +1236,20 @@ jobs.push(
     onTick: safeTick("atlas-ledger-root", async () => {
       const rec = await publishRoot();
       log("atlas-ledger-root", `ts=${rec.ts} root=${rec.root.slice(0, 12)}… entries=${rec.entries}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 18. Atlas Prime freshness feed — 3 AM daily
+jobs.push(
+  CronJob.from({
+    cronTime: "0 3 * * *",
+    onTick: safeTick("freshness-feed", async () => {
+      const reports = await refreshFreshness();
+      const ok = reports.filter(r => r.refreshed).length;
+      const fail = reports.length - ok;
+      log("freshness-feed", `refreshed=${ok} failed=${fail}`);
     }),
     timeZone: TIMEZONE,
   })
