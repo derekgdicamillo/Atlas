@@ -15,6 +15,8 @@
 import { google, type gmail_v1, type calendar_v3, type people_v1, type drive_v3 } from "googleapis";
 import { randomUUID } from "crypto";
 import { info, warn, error as logError } from "./logger.ts";
+import { checkAction } from "./tool-gate.ts";
+import { appendEntry } from "./ledger.ts";
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
@@ -824,8 +826,28 @@ export async function processGoogleIntents(response: string): Promise<string> {
   for (const match of response.matchAll(/\[DRAFT:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
+      // Atlas Prime: gate check
+      const gate = checkAction({ tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } });
+      if (!gate.allowed) {
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "deny" },
+        });
+        warn("google", `DRAFT blocked by atlas.spec: ${gate.reason}`);
+        clean = clean.replace(match[0], "");
+        continue;
+      }
       try {
         const draftId = await createDraft(params.to, params.subject, params.body);
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: !!draftId },
+        });
         if (draftId) {
           info("google", `Intent: Draft created (${draftId})`);
         }
@@ -842,8 +864,28 @@ export async function processGoogleIntents(response: string): Promise<string> {
   for (const match of response.matchAll(/\[SEND:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
+      // Atlas Prime: gate check
+      const gate = checkAction({ tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } });
+      if (!gate.allowed) {
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "deny" },
+        });
+        warn("google", `SEND blocked by atlas.spec: ${gate.reason}`);
+        clean = clean.replace(match[0], "");
+        continue;
+      }
       try {
         const msgId = await sendEmail(params.to, params.subject, params.body);
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: !!msgId },
+        });
         if (msgId) {
           info("google", `Intent: Email sent (${msgId})`);
         }
@@ -860,6 +902,19 @@ export async function processGoogleIntents(response: string): Promise<string> {
   for (const match of response.matchAll(/\[CAL_ADD:\s*([\s\S]+?)\]/gi)) {
     const params = parseTagParams(match[1]);
     if (params.title) {
+      // Atlas Prime: gate check
+      const gate = checkAction({ tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } });
+      if (!gate.allowed) {
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "deny" },
+        });
+        warn("google", `CAL_ADD blocked by atlas.spec: ${gate.reason}`);
+        clean = clean.replace(match[0], "");
+        continue;
+      }
       try {
         const eventParams: CreateEventParams = {
           title: params.title,
@@ -871,6 +926,13 @@ export async function processGoogleIntents(response: string): Promise<string> {
           description: params.description,
         };
         const event = await createEvent(eventParams);
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: !!event },
+        });
         if (event) {
           info("google", `Intent: Calendar event created (${event.title})`);
         }
@@ -891,8 +953,28 @@ export async function processGoogleIntents(response: string): Promise<string> {
       clean = clean.replace(match[0], "");
       continue;
     }
+    // Atlas Prime: gate check
+    const gate = checkAction({ tool: "CAL_REMOVE", args: { search: searchText } });
+    if (!gate.allowed) {
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "CAL_REMOVE", args: { search: searchText } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "deny" },
+      });
+      warn("google", `CAL_REMOVE blocked by atlas.spec: ${gate.reason}`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
     try {
       const deleted = await deleteEvent(searchText);
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "CAL_REMOVE", args: { search: searchText } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "allow" },
+        outcome: { success: !!deleted },
+      });
       if (deleted) {
         info("google", `Intent: Calendar event deleted (${searchText})`);
       }

@@ -12,6 +12,8 @@
 import { info, warn, error as logError } from "./logger.ts";
 import { ghlBreaker } from "./circuit-breaker.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { checkAction } from "./tool-gate.ts";
+import { appendEntry } from "./ledger.ts";
 
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 const GHL_VERSION = "2021-07-28";
@@ -1230,10 +1232,30 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime: gate check
+    const gateNote = checkAction({ tool: "GHL_NOTE", args: { contact: nameQuery, body } });
+    if (!gateNote.allowed) {
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "GHL_NOTE", args: { contact: nameQuery, body } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "deny" },
+      });
+      warn("ghl", `GHL_NOTE blocked by atlas.spec: ${gateNote.reason}`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
     try {
       const { contact } = await resolveContact(nameQuery);
       if (contact) {
         await addContactNote(contact.id, body);
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "GHL_NOTE", args: { contact: nameQuery, body } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: true },
+        });
       } else {
         warn("ghl", `GHL_NOTE: could not resolve contact "${nameQuery}"`);
       }
@@ -1279,10 +1301,30 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime: gate check
+    const gateTask = checkAction({ tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } });
+    if (!gateTask.allowed) {
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "deny" },
+      });
+      warn("ghl", `GHL_TASK blocked by atlas.spec: ${gateTask.reason}`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
     try {
       const { contact } = await resolveContact(nameQuery);
       if (contact) {
         await createContactTask(contact.id, title, { dueDate });
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: true },
+        });
       } else {
         warn("ghl", `GHL_TASK: could not resolve contact "${nameQuery}"`);
       }
@@ -1328,6 +1370,19 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime: gate check
+    const gateTag = checkAction({ tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } });
+    if (!gateTag.allowed) {
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "deny" },
+      });
+      warn("ghl", `GHL_TAG blocked by atlas.spec: ${gateTag.reason}`);
+      clean = clean.replace(match[0], "");
+      continue;
+    }
     try {
       const { contact } = await resolveContact(nameQuery);
       if (contact) {
@@ -1336,6 +1391,13 @@ export async function processGHLIntents(response: string): Promise<string> {
         } else {
           await addTagToContact(contact.id, tagName);
         }
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: true },
+        });
       }
     } catch (err) {
       warn("ghl", `GHL_TAG failed: ${err}`);
@@ -1343,13 +1405,13 @@ export async function processGHLIntents(response: string): Promise<string> {
     clean = clean.replace(match[0], "");
   }
 
-  // [GHL_WORKFLOW: contactName | workflowId | action=add|remove]
-  // Split on | only when followed by action=
+  // [GHL_WORKFLOW: contactName | workflowId | action=add|remove | approved_by_user=true]
+  // Split on | only when followed by action= or approved_by_user=
   for (const match of response.matchAll(
     /\[GHL_WORKFLOW:\s*([\s\S]+?)\]/gi
   )) {
     const inner = match[1];
-    const parts = inner.split(/\s*\|\s*(?=action\s*=)/i);
+    const parts = inner.split(/\s*\|\s*(?=(?:action|approved_by_user)\s*=)/i);
     // First part has "contactName | workflowId" (split on first pipe)
     const firstPart = parts[0];
     const pipeIdx = firstPart.indexOf("|");
@@ -1367,13 +1429,18 @@ export async function processGHLIntents(response: string): Promise<string> {
     nameQuery = firstPart.slice(0, pipeIdx).trim();
     workflowId = firstPart.slice(pipeIdx + 1).trim();
 
-    // Parse action (required for workflow)
+    // Parse action and approved_by_user from remaining parts
     let foundAction = false;
+    let approvedByUser = false;
     for (let i = 1; i < parts.length; i++) {
       const actionMatch = parts[i].match(/^action\s*=\s*([\s\S]*)/i);
       if (actionMatch) {
         action = actionMatch[1].trim().toLowerCase();
         foundAction = true;
+      }
+      const approvedMatch = parts[i].match(/^approved_by_user\s*=\s*(true|false)/i);
+      if (approvedMatch) {
+        approvedByUser = approvedMatch[1].toLowerCase() === "true";
       }
     }
 
@@ -1389,6 +1456,27 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime: gate check (passes approved_by_user so spec can enforce it)
+    const gateWorkflow = checkAction({
+      tool: "GHL_WORKFLOW",
+      args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser },
+    });
+    if (!gateWorkflow.allowed) {
+      await appendEntry({
+        actor: "atlas",
+        action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser } },
+        sourceClaims: [],
+        policyDecision: { spec_result: "deny" },
+      });
+      if (action! === "add" && !approvedByUser) {
+        warn("ghl", `GHL_WORKFLOW blocked: atlas.spec requires explicit user approval — set approved_by_user=true in the tag or confirm interactively`);
+      } else {
+        warn("ghl", `GHL_WORKFLOW blocked by atlas.spec: ${gateWorkflow.reason}`);
+      }
+      clean = clean.replace(match[0], "");
+      continue;
+    }
+
     try {
       const { contact } = await resolveContact(nameQuery);
       if (contact) {
@@ -1397,6 +1485,13 @@ export async function processGHLIntents(response: string): Promise<string> {
         } else {
           await addContactToWorkflow(contact.id, workflowId);
         }
+        await appendEntry({
+          actor: "atlas",
+          action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser } },
+          sourceClaims: [],
+          policyDecision: { spec_result: "allow" },
+          outcome: { success: true },
+        });
       }
     } catch (err) {
       warn("ghl", `GHL_WORKFLOW failed: ${err}`);
