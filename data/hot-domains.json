@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-19T00:00:00Z",
+  "domains": {
+    "gohighlevel": {
+      "half_life_days": 30,
+      "authoritative_sources": [
+        "https://highlevel.stoplight.io/docs/integrations",
+        "https://help.gohighlevel.com"
+      ],
+      "llms_txt": null,
+      "changelog_url": "https://help.gohighlevel.com/support/solutions/articles/155000001341",
+      "last_refresh": null,
+      "tier": "fast",
+      "triggers": ["ghl", "gohighlevel", "workflow", "pipeline"]
+    },
+    "meta_ads": {
+      "half_life_days": 45,
+      "authoritative_sources": ["https://developers.facebook.com/docs/marketing-apis"],
+      "llms_txt": null,
+      "changelog_url": "https://developers.facebook.com/docs/graph-api/changelog",
+      "last_refresh": null,
+      "tier": "fast",
+      "triggers": ["meta ads", "facebook ads", "meta", "fb ads"]
+    },
+    "wordpress": {
+      "half_life_days": 90,
+      "authoritative_sources": ["https://developer.wordpress.org/rest-api/"],
+      "llms_txt": null,
+      "changelog_url": null,
+      "last_refresh": null,
+      "tier": "medium",
+      "triggers": ["wordpress", "wp rest", "wp-cli", "pvmedispa.com"]
+    },
+    "brevo": {
+      "half_life_days": 60,
+      "authoritative_sources": ["https://developers.brevo.com/"],
+      "llms_txt": null,
+      "changelog_url": "https://developers.brevo.com/changelog",
+      "last_refresh": null,
+      "tier": "fast",
+      "triggers": ["brevo", "sendinblue"]
+    },
+    "claude_code": {
+      "half_life_days": 14,
+      "authoritative_sources": [
+        "https://code.claude.com/docs/en",
+        "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md"
+      ],
+      "llms_txt": "https://code.claude.com/llms.txt",
+      "changelog_url": "https://code.claude.com/docs/en/changelog",
+      "last_refresh": null,
+      "tier": "fast",
+      "triggers": ["claude code", "claude cli", "hooks", "skills", "mcp"]
+    },
+    "anthropic_api": {
+      "half_life_days": 21,
+      "authoritative_sources": ["https://platform.claude.com/docs"],
+      "llms_txt": "https://platform.claude.com/llms.txt",
+      "changelog_url": null,
+      "last_refresh": null,
+      "tier": "fast",
+      "triggers": ["anthropic api", "claude api", "prompt caching", "cache_control"]
+    }
+  }
+}
