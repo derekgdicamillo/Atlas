@@ -17,6 +17,7 @@ import { randomUUID } from "crypto";
 import { info, warn, error as logError } from "./logger.ts";
 import { checkAction } from "./tool-gate.ts";
 import { appendEntry } from "./ledger.ts";
+import { findCodeRanges, isInCodeBlock } from "./tag-utils.ts";
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
@@ -821,9 +822,12 @@ export async function getGoogleContext(): Promise<string> {
  */
 export async function processGoogleIntents(response: string): Promise<string> {
   let clean = response;
+  // Atlas Prime: skip tags inside code fences or inline code (illustrative syntax, not live commands)
+  const codeRanges = findCodeRanges(response);
 
   // [DRAFT: to=addr | subject=Subj | body=Body text]
   for (const match of response.matchAll(/\[DRAFT:\s*([\s\S]+?)\]/gi)) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
       // Atlas Prime: gate check
@@ -862,6 +866,7 @@ export async function processGoogleIntents(response: string): Promise<string> {
 
   // [SEND: to=addr | subject=Subj | body=Body text]
   for (const match of response.matchAll(/\[SEND:\s*([\s\S]+?)\]/gi)) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
       // Atlas Prime: gate check
@@ -900,6 +905,7 @@ export async function processGoogleIntents(response: string): Promise<string> {
 
   // [CAL_ADD: title=Title | date=YYYY-MM-DD | time=HH:MM | duration=60 | invite=email]
   for (const match of response.matchAll(/\[CAL_ADD:\s*([\s\S]+?)\]/gi)) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.title) {
       // Atlas Prime: gate check
@@ -947,6 +953,7 @@ export async function processGoogleIntents(response: string): Promise<string> {
 
   // [CAL_REMOVE: search text]
   for (const match of response.matchAll(/\[CAL_REMOVE:\s*([\s\S]+?)\]/gi)) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const searchText = match[1].trim();
     if (!searchText) {
       warn("google", `Empty CAL_REMOVE tag`);

@@ -14,6 +14,7 @@ import { ghlBreaker } from "./circuit-breaker.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkAction } from "./tool-gate.ts";
 import { appendEntry } from "./ledger.ts";
+import { findCodeRanges, isInCodeBlock } from "./tag-utils.ts";
 
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 const GHL_VERSION = "2021-07-28";
@@ -1209,12 +1210,15 @@ export function formatWorkflows(workflows: GHLWorkflow[]): string {
  */
 export async function processGHLIntents(response: string): Promise<string> {
   let clean = response;
+  // Atlas Prime: skip tags inside code fences or inline code (illustrative syntax, not live commands)
+  const codeRanges = findCodeRanges(response);
 
   // [GHL_NOTE: contactName | body text]
   // Split on | only when NOT followed by a known field key (body is the last positional field)
   for (const match of response.matchAll(
     /\[GHL_NOTE:\s*([\s\S]+?)\]/gi
   )) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const inner = match[1];
     // Split on first pipe to get contactName and body
     const pipeIdx = inner.indexOf("|");
@@ -1270,6 +1274,7 @@ export async function processGHLIntents(response: string): Promise<string> {
   for (const match of response.matchAll(
     /\[GHL_TASK:\s*([\s\S]+?)\]/gi
   )) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const inner = match[1];
     const parts = inner.split(/\s*\|\s*(?=due\s*=)/i);
     // First part has "contactName | title" (split on first pipe)
@@ -1339,6 +1344,7 @@ export async function processGHLIntents(response: string): Promise<string> {
   for (const match of response.matchAll(
     /\[GHL_TAG:\s*([\s\S]+?)\]/gi
   )) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const inner = match[1];
     const parts = inner.split(/\s*\|\s*(?=action\s*=)/i);
     // First part has "contactName | tagName" (split on first pipe)
@@ -1410,6 +1416,7 @@ export async function processGHLIntents(response: string): Promise<string> {
   for (const match of response.matchAll(
     /\[GHL_WORKFLOW:\s*([\s\S]+?)\]/gi
   )) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const inner = match[1];
     const parts = inner.split(/\s*\|\s*(?=(?:action|approved_by_user)\s*=)/i);
     // First part has "contactName | workflowId" (split on first pipe)
@@ -1504,6 +1511,7 @@ export async function processGHLIntents(response: string): Promise<string> {
   for (const match of response.matchAll(
     /\[GHL_SOCIAL:\s*([\s\S]+?)\]/gi
   )) {
+    if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const inner = match[1];
     // Split on | when followed by known field keys
     const segments = inner.split(/\s*\|\s*(?=(?:platforms|media|schedule|status|gbp_cta)\s*=)/i);

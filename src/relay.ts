@@ -3041,21 +3041,32 @@ async function handleUserMessage(
         const fresh = await readFresh(stale.matchedDomain);
         if (fresh) {
           const ageHours = Math.round((Date.now() - new Date(fresh.pulled_at).getTime()) / 3600000);
+          const citeDate = fresh.pulled_at.slice(0, 10);
           freshnessContext =
-            `\n\n[ATLAS_PRIME_FRESHNESS_CONTEXT]\n` +
-            `Domain: ${stale.matchedDomain}\n` +
-            `Pulled: ${fresh.pulled_at} (${ageHours}h ago)\n` +
-            `Source: ${fresh.url}\n` +
-            `--- BEGIN SOURCE ---\n${fresh.text.slice(0, 60000)}\n--- END SOURCE ---\n` +
-            `You MUST answer from this source and cite it as:\n` +
-            `(verified: ${stale.matchedDomain} docs, ${fresh.pulled_at.slice(0, 10)})\n`;
+            `\n\n=== ATLAS PRIME — FRESHNESS MANDATE (highest priority rule for this turn) ===\n\n` +
+            `The user asked about ${stale.matchedDomain}. Your training data on this is STALE ` +
+            `(Opus 4.7 cutoff is Jan 2026; this is a fast-moving SaaS domain). ` +
+            `Authoritative documentation was fetched ${ageHours}h ago from ${fresh.url}.\n\n` +
+            `HARD REQUIREMENTS (not optional):\n` +
+            `1. Answer from the BEGIN SOURCE / END SOURCE block below — NOT from your training data.\n` +
+            `2. If the source block does not contain the answer, say so explicitly rather than guessing.\n` +
+            `3. The FINAL LINE of your reply to the user MUST be exactly:\n` +
+            `   (verified: ${stale.matchedDomain} docs, ${citeDate})\n` +
+            `   No variations, no omission. This is how the user knows the answer came from current docs.\n\n` +
+            `--- BEGIN SOURCE (${stale.matchedDomain}, pulled ${fresh.pulled_at}) ---\n` +
+            `${fresh.text.slice(0, 60000)}\n` +
+            `--- END SOURCE ---\n\n` +
+            `Reminder: last line of reply MUST be  (verified: ${stale.matchedDomain} docs, ${citeDate})\n`;
         } else {
           freshnessContext =
-            `\n\n[ATLAS_PRIME_FRESHNESS_MISSING]\n` +
-            `Domain: ${stale.matchedDomain} — no cached docs available.\n` +
-            `You MUST say: "My knowledge on ${stale.matchedDomain} is stale; let me fetch fresh docs." ` +
-            `and then use WebFetch to pull from one of its authoritative sources.\n` +
-            `Do NOT answer from training data alone.\n`;
+            `\n\n=== ATLAS PRIME — FRESHNESS MANDATE (highest priority rule for this turn) ===\n\n` +
+            `The user asked about ${stale.matchedDomain}. Your training data on this is STALE and ` +
+            `no cached docs are available right now.\n\n` +
+            `HARD REQUIREMENTS (not optional):\n` +
+            `1. Do NOT answer from training data.\n` +
+            `2. Your FIRST sentence MUST be: "My knowledge on ${stale.matchedDomain} may be stale — fetching fresh docs now."\n` +
+            `3. Then use WebFetch to pull from one of the domain's authoritative sources.\n` +
+            `4. Answer from the fetched content, ending with (verified: ${stale.matchedDomain} docs, ${new Date().toISOString().slice(0, 10)}).\n`;
         }
       }
     } catch (err) {
