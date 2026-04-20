@@ -1255,6 +1255,19 @@ jobs.push(
   })
 );
 
+// 19. Atlas Prime: nightly replay harness at 3:30 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 3 * * *",
+    onTick: safeTick("replay-nightly", async () => {
+      const { runHarness } = await import("./replay-harness.ts");
+      const report = await runHarness();
+      log("replay-nightly", `rollup: ${JSON.stringify(report.rollup)}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================

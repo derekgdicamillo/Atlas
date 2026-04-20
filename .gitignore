@@ -108,3 +108,6 @@ atlas-err.log
 # SOUL.md
 # IDENTITY.md
 # USER.md
+
+# Atlas Prime — replay per-run reports
+data/replay-results/
