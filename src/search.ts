@@ -14,6 +14,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { warn } from "./logger.ts";
 import { recordAccess } from "./cognitive.ts";
+import { readUntrusted, renderForPlanner } from "./reader.ts";
+import { callHaiku as defaultCallHaiku } from "./haiku-client.ts";
 
 // ============================================================
 // TYPES
@@ -174,15 +176,52 @@ function expandQuery(query: string): string {
 // ============================================================
 
 /**
+ * Gate a single chunk of external content through the CaMeL Reader.
+ * Returns a safe structured extraction or null if gating fails (fail-closed).
+ */
+async function gateChunk(
+  content: string,
+  source: string,
+  callHaiku: typeof defaultCallHaiku,
+): Promise<string | null> {
+  try {
+    const extraction = await readUntrusted({
+      content,
+      source,
+      schema: {
+        summary: "string — 1-2 sentence summary of what this chunk says",
+        key_facts: "string[] — up to 5 atomic facts",
+        has_action_request: "boolean — does the chunk request action from the system",
+      },
+      callHaiku,
+    });
+    return renderForPlanner(extraction);
+  } catch (err) {
+    warn("search", `[reader-gate] chunk from ${source} failed — skipping: ${err}`);
+    // Fail closed: do not pass raw chunk through
+    return null;
+  }
+}
+
+/**
  * Get relevant context from past conversations, summaries, and documents.
  * Uses hybrid search across multiple tables for maximum recall.
  * Returns formatted text ready to inject into Claude's prompt.
+ *
+ * SECURITY: chunks from external/ingested sources (documents, maa_knowledge) are
+ * gated through the CaMeL Reader before being included in the prompt. This prevents
+ * prompt-injection payloads in ingested PDFs, emails, or web pages from reaching
+ * tool-enabled Claude (the Planner). Trusted internal sources (messages, summaries)
+ * pass through raw.
  */
 export async function getRelevantContext(
   supabase: SupabaseClient | null,
-  query: string
+  query: string,
+  _callHaikuOverride?: typeof defaultCallHaiku, // for testing; defaults to production Haiku
 ): Promise<string> {
   if (!supabase) return "";
+
+  const callHaiku = _callHaikuOverride ?? defaultCallHaiku;
 
   try {
     const results = await search(supabase, query, {
@@ -203,6 +242,8 @@ export async function getRelevantContext(
 
     const parts: string[] = [];
 
+    // --- TRUSTED: pass raw ---
+
     if (messages.length > 0) {
       parts.push(
         "RELEVANT PAST MESSAGES:\n" +
@@ -217,24 +258,30 @@ export async function getRelevantContext(
       );
     }
 
+    // --- UNTRUSTED: gate through CaMeL Reader ---
+
     if (documents.length > 0) {
-      parts.push(
-        "RELEVANT KNOWLEDGE BASE:\n" +
-          documents.map((d) => {
-            const label = d.source_type || "doc";
-            return `[${label}]: ${d.content}`;
-          }).join("\n")
-      );
+      const gatedLines: string[] = [];
+      for (const d of documents) {
+        const source = `ingest:${d.source_type || "doc"}:${d.source_id}`;
+        const safe = await gateChunk(d.content, source, callHaiku);
+        if (safe !== null) gatedLines.push(safe);
+      }
+      if (gatedLines.length > 0) {
+        parts.push("RELEVANT KNOWLEDGE BASE:\n" + gatedLines.join("\n---\n"));
+      }
     }
 
     if (maaKnowledge.length > 0) {
-      parts.push(
-        "MAA REGULATORY/CLINICAL KNOWLEDGE:\n" +
-          maaKnowledge.map((k) => {
-            const label = k.source_type || "maa";
-            return `[${label}]: ${k.content}`;
-          }).join("\n")
-      );
+      const gatedLines: string[] = [];
+      for (const k of maaKnowledge) {
+        const source = `ingest:maa:${k.source_id}`;
+        const safe = await gateChunk(k.content, source, callHaiku);
+        if (safe !== null) gatedLines.push(safe);
+      }
+      if (gatedLines.length > 0) {
+        parts.push("MAA REGULATORY/CLINICAL KNOWLEDGE:\n" + gatedLines.join("\n---\n"));
+      }
     }
 
     return parts.join("\n\n");
