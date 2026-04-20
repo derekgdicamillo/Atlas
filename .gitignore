@@ -111,3 +111,6 @@ atlas-err.log
 
 # Atlas Prime — replay per-run reports
 data/replay-results/
+
+# Atlas Prime — trust snapshot rotations
+data/trust-snapshots-*.bak
