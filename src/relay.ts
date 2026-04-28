@@ -1331,6 +1331,14 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/trust": {
+      const { loadEvents, aggregateTrust, formatTrustReport } = await import("./trust-engine.ts");
+      const events = await loadEvents();
+      const agg = aggregateTrust(events);
+      await ctx.reply(formatTrustReport(agg), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
