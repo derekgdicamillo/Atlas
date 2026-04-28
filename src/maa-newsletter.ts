@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { info, warn, error as logError } from "./logger.ts";
+import { getChromeUA } from "./chrome-ua.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================
@@ -197,7 +198,7 @@ async function fetchRecentPosts(count: number): Promise<WPPost[]> {
       {
         headers: {
           Authorization: wpAuthHeader(),
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "User-Agent": await getChromeUA(),
         },
         signal: AbortSignal.timeout(API_TIMEOUT),
       }
@@ -300,7 +301,7 @@ async function fetchSageData(): Promise<SageDashboardResponse | null> {
     const res = await fetch(`${SAGE_API_URL}?period=30d`, {
       headers: {
         Authorization: `Bearer ${MAA_DASHBOARD_TOKEN}`,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "User-Agent": await getChromeUA(),
       },
       signal: AbortSignal.timeout(API_TIMEOUT),
     });
@@ -308,11 +309,41 @@ async function fetchSageData(): Promise<SageDashboardResponse | null> {
       warn("maa-newsletter", `SAGE API ${res.status}`);
       return null;
     }
-    return (await res.json()) as SageDashboardResponse;
+    const raw = (await res.json()) as any;
+    return normalizeSageResponse(raw);
   } catch (err) {
     warn("maa-newsletter", `SAGE API failed: ${err}`);
     return null;
   }
+}
+
+function normalizeSageResponse(raw: any): SageDashboardResponse {
+  if (Array.isArray(raw?.top_questions)) {
+    return raw as SageDashboardResponse;
+  }
+  const flat: SageQuestion[] = [];
+  if (Array.isArray(raw?.question_insights)) {
+    for (const topic of raw.question_insights) {
+      const intents = Array.isArray(topic?.intents) ? topic.intents : [];
+      for (const intent of intents) {
+        const questions = Array.isArray(intent?.questions) ? intent.questions : [];
+        for (const q of questions) {
+          if (typeof q?.text === "string" && q.text.trim().length > 0) {
+            flat.push({
+              question: q.text,
+              count: typeof intent?.count === "number" ? intent.count : 1,
+              date: typeof q?.date === "string" ? q.date : "",
+            });
+          }
+        }
+      }
+    }
+  }
+  return {
+    available: raw?.available !== false,
+    top_topics: Array.isArray(raw?.top_topics) ? raw.top_topics : [],
+    top_questions: flat,
+  };
 }
 
 // ============================================================

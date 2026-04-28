@@ -101,17 +101,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Analyze this conversation for behavioral signals. Look for: (1) corrections — user said 'no', 'wrong', redirected you; (2) preferences — 'I prefer', 'always', 'don't'; (3) frustration — 'never mind', 'forget it', very short replies after long ones; (4) praise — 'perfect', 'exactly', 'great'; (5) tone mismatch — you were verbose when user was terse, or vice versa. Return JSON: {\"signals\": [{\"type\": \"correction|preference|frustration|praise|tone\", \"detail\": \"brief description\"}]} or {\"signals\": []} if nothing notable. Be selective — only flag clear signals, not ambiguous ones.",
-            "async": true
-          }
-        ]
-      }
     ]
   }
 }

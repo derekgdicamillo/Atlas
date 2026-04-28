@@ -2879,8 +2879,8 @@ async function processNewsletterIntents(response: string, chatId: string, thread
     response = response.replace(topicMatch[0], "").trim();
   }
 
-  // [PV_NEWSLETTER_SECTION: section_name | content]
-  const sectionRegex = /\[PV_NEWSLETTER_SECTION:\s*(\w+)\s*\|\s*([\s\S]*?)\]/gi;
+  // [PV_NEWSLETTER_SECTION: section_name | content] — ](?!\() avoids truncation on markdown ![alt](url)
+  const sectionRegex = /\[PV_NEWSLETTER_SECTION:\s*(\w+)\s*\|\s*([\s\S]*?)\](?!\()/gi;
   let sectionMatch;
   while ((sectionMatch = sectionRegex.exec(response)) !== null) {
     const section = sectionMatch[1].trim() as keyof DraftSections;

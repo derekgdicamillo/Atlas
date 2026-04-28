@@ -1008,9 +1008,10 @@ jobs.push(
 //   })
 // );
 
-// 11b. Appointment reminder engine — every 15 minutes during business hours
-// Scans upcoming appointments and sends 72h/24h/2h reminders via GHL tags.
-// Also handles no-show recovery outreach for missed appointments.
+// 11b. Appointment reminder engine — DISABLED 2026-04-28
+// Derek removed for marketing/engagement redo. Code preserved.
+// eslint-disable-next-line no-constant-condition
+if (false as boolean) {
 jobs.push(
   CronJob.from({
     cronTime: "*/15 7-20 * * 1-6",
@@ -1038,6 +1039,7 @@ jobs.push(
     timeZone: TIMEZONE,
   })
 );
+} // end appointment-reminders DISABLED
 
 // 11c. Scheduled messages — check every minute for due one-off messages
 jobs.push(
@@ -1904,10 +1906,10 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
-  // Lead volume monitoring: track daily lead counts and alert on drops.
-  // Runs at 8 PM daily, compares today's leads vs 7-day average.
-  // Early warning system for ad/funnel issues.
-  if (supabase && isGHLReady()) {
+  // Lead volume monitoring — DISABLED 2026-04-28
+  // Derek removed for marketing redo. Code preserved.
+  // eslint-disable-next-line no-constant-condition
+  if (false as boolean && supabase && isGHLReady()) {
     jobs.push(
       CronJob.from({
         cronTime: "0 20 * * *",
@@ -2028,10 +2030,10 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
-  // Ad creative performance tracker: 9 PM daily
-  // Pulls per-ad insights from Meta, records snapshots, runs analysis.
-  // Only runs if Meta API is configured.
-  {
+  // Ad creative performance tracker — DISABLED 2026-04-28
+  // Derek removed for marketing redo. Code preserved.
+  // eslint-disable-next-line no-constant-condition
+  if (false as boolean) {
     const { isMetaReady, getTopAds, getDailyAdInsights } = await import("./meta.ts");
     if (isMetaReady()) {
       jobs.push(
@@ -2107,11 +2109,11 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   }
 
   // ============================================================
-  // MIDAS MARKETING INTELLIGENCE: Daily + Weekly jobs
+  // MIDAS MARKETING INTELLIGENCE — DISABLED 2026-04-20
+  // Derek removed all Midas crons for redo. Code preserved for re-enable.
   // ============================================================
-
-  // Midas Funnel Monitor: 9 AM daily
-  // Builds yesterday's funnel snapshot, compares against 7-day avg, alerts on drops.
+  // eslint-disable-next-line no-constant-condition
+  if (false as boolean) {
   jobs.push(
     CronJob.from({
       cronTime: "0 9 * * *",
@@ -2401,6 +2403,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       );
     }
   }
+  } // end MIDAS_DISABLED
 
   // Anomaly scan: check for anomalies every 15 minutes during business hours
   // NOTE: Being absorbed by proactive monitoring system (monitor.ts) over time.
@@ -2866,12 +2869,14 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - Every 1min   Scheduled message delivery");
   console.log("  - Every 1min   Prospective memory time triggers");
   console.log("  - 7:05 AM      GHL webhook health check");
-  console.log("  - Every 15min  Appointment reminders (72h/24h/2h + no-show recovery)");
+  // Appointment reminders DISABLED 2026-04-28
+
   console.log("  - Every 1min   Alert delivery pipeline");
   console.log("  - Every 10min  Lead auto-enrichment (business hours)");
   console.log("  - 10AM/3PM     Stale lead reactivation (weekdays)");
-  console.log("  - 8:00 PM      Lead volume monitoring + attribution");
-  console.log("  - 9:00 PM      Ad creative performance tracker (daily snapshots + analysis)");
+  // Lead volume monitoring DISABLED 2026-04-28
+  // Ad creative performance tracker DISABLED 2026-04-28
+
   console.log("  - Every 15min  Anomaly scan (business hours)");
   console.log("  - Every 5min   Monitor: fast tier (leads, reviews, urgent email)");
   console.log("  - Every 15min  Monitor: medium tier (ads, pipeline, speed-to-lead)");

@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { info, warn, error as logError } from "./logger.ts";
+import { getChromeUA } from "./chrome-ua.ts";
 
 // ============================================================
 // CONFIG
@@ -20,10 +21,9 @@ import { info, warn, error as logError } from "./logger.ts";
 const MAA_SITE_URL = process.env.MAA_WP_SITE_URL || "https://medicalaestheticsassociation.com";
 const MAA_WP_USER = process.env.MAA_WP_USER || "";
 const MAA_WP_APP_PASSWORD = process.env.MAA_WP_APP_PASSWORD || "";
-
 const API_BASE = `${MAA_SITE_URL}/wp-json/wp/v2`;
+
 const API_TIMEOUT = 30_000;
-const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const DATA_DIR = join(PROJECT_DIR, "data");
@@ -126,11 +126,47 @@ async function fetchSageData(): Promise<SageDashboardResponse | null> {
       return null;
     }
 
-    return (await res.json()) as SageDashboardResponse;
+    const raw = (await res.json()) as any;
+    return normalizeSageResponse(raw);
   } catch (err) {
     warn("maa-blog", `SAGE API failed: ${err}, falling back to pillars`);
     return null;
   }
+}
+
+/**
+ * The SAGE dashboard endpoint dropped `top_questions` in favor of the nested
+ * `question_insights: [{ topic, count, intents: [{ questions: [{ text, date }] }] }]`
+ * shape. Flatten it back into the legacy `top_questions` array so downstream
+ * topic-selection and prompt-building code keeps working.
+ */
+function normalizeSageResponse(raw: any): SageDashboardResponse {
+  if (Array.isArray(raw?.top_questions)) {
+    return raw as SageDashboardResponse;
+  }
+  const flat: SageQuestion[] = [];
+  if (Array.isArray(raw?.question_insights)) {
+    for (const topic of raw.question_insights) {
+      const intents = Array.isArray(topic?.intents) ? topic.intents : [];
+      for (const intent of intents) {
+        const questions = Array.isArray(intent?.questions) ? intent.questions : [];
+        for (const q of questions) {
+          if (typeof q?.text === "string" && q.text.trim().length > 0) {
+            flat.push({
+              question: q.text,
+              count: typeof intent?.count === "number" ? intent.count : 1,
+              date: typeof q?.date === "string" ? q.date : "",
+            });
+          }
+        }
+      }
+    }
+  }
+  return {
+    available: raw?.available !== false,
+    top_topics: Array.isArray(raw?.top_topics) ? raw.top_topics : [],
+    top_questions: flat,
+  };
 }
 
 // Blog category IDs on MAA site
@@ -272,7 +308,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
       const searchRes = await fetch(
         `${API_BASE}/tags?search=${encodeURIComponent(name)}&per_page=5`,
         {
-          headers: { Authorization: authHeader(), "User-Agent": CHROME_UA },
+          headers: { Authorization: authHeader(), "User-Agent": await getChromeUA() },
           signal: AbortSignal.timeout(API_TIMEOUT),
         }
       );
@@ -294,7 +330,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
         headers: {
           Authorization: authHeader(),
           "Content-Type": "application/json",
-          "User-Agent": CHROME_UA,
+          "User-Agent": await getChromeUA(),
         },
         body: JSON.stringify({ name }),
         signal: AbortSignal.timeout(API_TIMEOUT),
@@ -343,7 +379,7 @@ async function publishPost(
       headers: {
         Authorization: authHeader(),
         "Content-Type": "application/json",
-        "User-Agent": CHROME_UA,
+        "User-Agent": await getChromeUA(),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(API_TIMEOUT),
@@ -633,7 +669,10 @@ export async function publishMAABlog(
   }
 
   if (!parsed.title || !parsed.content) {
-    return { success: false, error: "Missing title or content in generated response" };
+    if (!existsSync(BLOG_DRAFTS_DIR)) mkdirSync(BLOG_DRAFTS_DIR, { recursive: true });
+    const debugFile = join(BLOG_DRAFTS_DIR, `missing-fields-${Date.now()}.json`);
+    writeFileSync(debugFile, JSON.stringify({ rawResponse: response, parsed }, null, 2));
+    return { success: false, error: `Missing title or content in generated response (saved to ${debugFile})` };
   }
 
   // Build FAQ HTML section if present
