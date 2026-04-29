@@ -81,6 +81,7 @@ import {
 } from "./observations.ts";
 import { getProactiveInsights, getAnticipatoryContext, initMonitor } from "./monitor.ts";
 import { scheduleMessage, processScheduleIntents } from "./scheduled.ts";
+import { processLabelTag, parseLabelTag } from "./label-tag.ts";
 import {
   addEntry,
   accumulate,
@@ -915,6 +916,9 @@ setCacheRef(contextCache);
 
 /** Track previous intent flags per session for topic change detection (Phase 2) */
 const previousIntentMap = new Map<string, Record<string, boolean>>();
+
+/** Atlas Prime Sprint 3: Track the most recent turn_id per userId for LABEL tag attribution */
+const lastTurnIdByUser = new Map<string, string>();
 
 // Pending forget confirmations: maps userId -> { matches, expiresAt }
 const pendingForgets: Map<string, {
@@ -3057,6 +3061,7 @@ async function handleUserMessage(
   }
 ): Promise<string> {
   const traceId = randomUUID().slice(0, 8); // short trace ID for log correlation
+  const turn_id = randomUUID(); // full UUID for attribution log — one per user turn
   const chatId = String(ctx.chat?.id || "");
   const messageThreadId = (ctx.message as any)?.message_thread_id ?? null;
   const isNewsletterThread = PV_NEWSLETTER_TOPIC_ID != null && messageThreadId === PV_NEWSLETTER_TOPIC_ID;
@@ -3073,10 +3078,33 @@ async function handleUserMessage(
   const isGroupAgent = !!agent?.config.groupChatEnv; // dedicated group agent (e.g. toxtray)
   const key = sessionKey(agentId, userId);
 
+  // Atlas Prime Sprint 3: track previous turn_id for LABEL tag attribution.
+  const previousTurnId = lastTurnIdByUser.get(userId);
+  lastTurnIdByUser.set(userId, turn_id);
+
+  // Atlas Prime Sprint 3: if user message contains a LABEL_BAD tag, fire cortex failure signal.
+  if (parseLabelTag(message.text) !== null && supabase) {
+    try {
+      const allEntries = await getEntries(key);
+      const prevUserEntry = allEntries.slice().reverse().find((e) => e.role === "user");
+      const prevAssistantEntry = allEntries.slice().reverse().find((e) => e.role === "assistant");
+      processLabelTag({
+        tagText: message.text,
+        prevUserTurn: prevUserEntry?.content ?? null,
+        prevAtlasResponse: prevAssistantEntry?.content ?? null,
+        agent: agentId === "ishtar" ? "ishtar" : "atlas",
+        turn_id: previousTurnId,
+        supabase,
+      }).catch((err: unknown) => warn("label-tag", `processLabelTag failed: ${err}`));
+    } catch (err) {
+      warn("label-tag", `label-tag pre-check failed: ${err}`);
+    }
+  }
+
   info("trace", `[${traceId}] START ${message.type} from ${userId} (${agentId}/${agentModel}): ${message.text.substring(0, 80)}`);
 
   // 1. Save to Supabase immediately (keeps semantic search as fresh as possible)
-  await saveMessage("user", message.text, { agentId, traceId });
+  await saveMessage("user", message.text, { agentId, traceId, turn_id });
 
   // 2. Add to conversation ring buffer immediately (survives restarts)
   await addEntry(key, {
@@ -3288,7 +3316,7 @@ async function handleUserMessage(
     // Circuit breaker skips SLOW tier (external APIs) but still fetches FAST/MEDIUM (local + Supabase)
     // Memory (5min) + graph (15min) are cached since they change infrequently.
     const [relevantContext, memoryContext, todoContext, googleContext, dashboardContext, ghlContext, financialContext, gbpContext, ga4Context, graphContext, entityContext, m365Context, tmaaContext, websiteContext, feedbackContext, episodesContext, observationsContext, proactiveContext] = await Promise.all([
-      contextPlan.search   ? withTimeout(getRelevantContext(supabase, searchQuery, hasSearch), "", "search", MEDIUM_MS)  : Promise.resolve(""),
+      contextPlan.search   ? withTimeout(getRelevantContext(supabase, searchQuery, hasSearch, { turn_id, user_id: String(userId), agent: (agentId === "ishtar" ? "ishtar" : "atlas") }), "", "search", MEDIUM_MS)  : Promise.resolve(""),
       contextPlan.memory   ? withTimeout(cachedContext("memory", () => getMemoryContext(supabase), 300_000), "", "memory", MEDIUM_MS) : Promise.resolve(""),
       contextPlan.todos    ? withTimeout(getTodoContext(), "", "todos", FAST_MS)                                         : Promise.resolve(""),
       contextPlan.google && !skipExternal   ? withTimeout(cachedContext("google", getGoogleContext), "", "google", SLOW_MS)               : Promise.resolve(contextCache.get("google")?.value || ""),

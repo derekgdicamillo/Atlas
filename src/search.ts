@@ -16,6 +16,8 @@ import { warn } from "./logger.ts";
 import { recordAccess } from "./cognitive.ts";
 import { readUntrusted, renderForPlanner } from "./reader.ts";
 import { callHaiku as defaultCallHaiku } from "./haiku-client.ts";
+import { recordAttribution } from "./cortex.ts";
+import { rerank } from "./reranker.ts";
 
 // ============================================================
 // TYPES
@@ -42,6 +44,7 @@ export interface SearchResult {
   created_at: string;
   similarity: number;
   combined_score?: number;
+  rerank_score?: number;
 }
 
 // ============================================================
@@ -214,23 +217,57 @@ async function gateChunk(
  * tool-enabled Claude (the Planner). Trusted internal sources (messages, summaries)
  * pass through raw.
  */
+export interface RelevantContextOpts {
+  callHaikuOverride?: typeof defaultCallHaiku; // for testing; defaults to production Haiku
+  turn_id?: string;
+  user_id?: string;
+  agent?: "atlas" | "ishtar";
+}
+
 export async function getRelevantContext(
   supabase: SupabaseClient | null,
   query: string,
-  _callHaikuOverride?: typeof defaultCallHaiku, // for testing; defaults to production Haiku
+  opts?: RelevantContextOpts,
 ): Promise<string> {
   if (!supabase) return "";
 
-  const callHaiku = _callHaikuOverride ?? defaultCallHaiku;
+  const callHaiku = opts?.callHaikuOverride ?? defaultCallHaiku;
+
+  // Atlas Prime Sprint 3: fetch a wider candidate pool, then rerank to top-8.
+  const FETCH_LIMIT = 50;
+  const FINAL_TOPK = 8;
 
   try {
-    const results = await search(supabase, query, {
+    const rawCandidates = await search(supabase, query, {
       tables: ["messages", "summaries", "documents", "maa_knowledge"],
       mode: "hybrid",
-      matchCount: 10,
+      matchCount: FETCH_LIMIT,
       ftsWeight: 1.0,
       semanticWeight: 1.5, // favor semantic matches for context
     });
+
+    if (!rawCandidates.length) return "";
+
+    // Rerank: cross-encoder scores the full candidate pool; fall back to embedding rank on error.
+    let results: SearchResult[];
+    try {
+      const rerankedRefs = await rerank(
+        query,
+        rawCandidates.map((r) => ({ id: r.source_id, text: r.content })),
+        FINAL_TOPK,
+      );
+      const byId = new Map(rawCandidates.map((r) => [r.source_id, r]));
+      results = rerankedRefs
+        .map((ref) => {
+          const original = byId.get(ref.id);
+          if (!original) return null;
+          return { ...original, rerank_score: ref.rerank_score };
+        })
+        .filter((r): r is SearchResult => r !== null);
+    } catch (rerankErr) {
+      console.error("[search] rerank failed, falling back to embedding rank:", rerankErr);
+      results = rawCandidates.slice(0, FINAL_TOPK);
+    }
 
     if (!results.length) return "";
 
@@ -281,6 +318,37 @@ export async function getRelevantContext(
       }
       if (gatedLines.length > 0) {
         parts.push("MAA REGULATORY/CLINICAL KNOWLEDGE:\n" + gatedLines.join("\n---\n"));
+      }
+    }
+
+    // --- ATTRIBUTION LOG (fire-and-forget; must not block retrieval) ---
+    if (opts?.turn_id && opts?.user_id) {
+      try {
+        const memoriesForAttribution = results
+          .filter((r) => typeof r.source_id === "string" && r.source_id.length > 0)
+          .map((r, i) => ({
+            id: r.source_id,
+            rank: i,
+            rerank_score: r.rerank_score ?? r.combined_score ?? null,
+          }));
+        if (memoriesForAttribution.length > 0) {
+          recordAttribution(supabase, {
+            turn_id: opts.turn_id,
+            user_id: opts.user_id,
+            agent: opts.agent ?? "atlas",
+            memories: memoriesForAttribution,
+          }).catch((err) => console.error("[search] recordAttribution failed:", err));
+
+          // Atlas Prime Sprint 3: increment access counter on the retrieved memory rows.
+          const ids = memoriesForAttribution.map((m) => m.id);
+          supabase
+            .rpc("memory_increment_access", { p_ids: ids })
+            .then(({ error }) => {
+              if (error) console.error("[search] access increment failed:", error);
+            });
+        }
+      } catch (err) {
+        console.error("[search] attribution wiring error (non-fatal):", err);
       }
     }
 

@@ -1,12 +1,14 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface TrustEvent {
   ts: string;
   domain: string;
   delta: number;
   source?: string;
+  turn_id?: string;
 }
 
 const HALF_LIFE_DAYS = 30;
@@ -68,11 +70,25 @@ export function shouldEscalate(
 
 export async function recordEvent(
   event: TrustEvent,
-  opts?: { snapshotPath?: string }
+  opts?: { snapshotPath?: string; supabase?: SupabaseClient }
 ): Promise<void> {
   const path = opts?.snapshotPath ?? DEFAULT_SNAPSHOT_PATH;
   await mkdir(dirname(path), { recursive: true });
   await appendFile(path, JSON.stringify(event) + "\n", "utf8");
+
+  // Atlas Prime Sprint 3: fire cortex failure on negative trust deltas.
+  if (event.delta === -1 && event.turn_id && opts?.supabase) {
+    try {
+      const { recordFailure } = await import("./cortex.ts");
+      await recordFailure(opts.supabase, {
+        turn_id: event.turn_id,
+        source: "trust-event",
+        reason: `domain=${event.domain}`,
+      });
+    } catch (err) {
+      console.error("[trust-engine] cortex.recordFailure failed:", err);
+    }
+  }
 }
 
 export async function loadEvents(path = DEFAULT_SNAPSHOT_PATH): Promise<TrustEvent[]> {

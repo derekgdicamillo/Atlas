@@ -14,6 +14,7 @@ import { join, relative, extname, basename } from "path";
 import { PDFParse } from "pdf-parse";
 import { info, warn, error as logError } from "./logger.ts";
 import { ingestDocument, getRelevantContext, type IngestResult } from "./search.ts";
+import { callHaiku } from "./haiku-client.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================
@@ -55,6 +56,112 @@ export interface IngestFolderResult {
   totalChunks: number;
   durationMs: number;
   errors: string[];
+}
+
+// ============================================================
+// CONTEXTUAL CHUNKING
+// ============================================================
+
+export interface ContextualChunk {
+  chunk_text: string;
+  context_preamble: string;
+  embed_text: string; // preamble + "\n\n" + chunk_text
+}
+
+export interface DocumentMetadata {
+  title: string;
+  date?: string;
+  source: string;
+  nearestHeading?: string;
+}
+
+const PREAMBLE_SYSTEM = `You write a single ≤80-token preamble situating a passage in its document. Format: "From [doc title] ([date if known]), [section if known]: this passage discusses [1-sentence topical summary]." Output the preamble only — no quotes, no markdown.`;
+
+/**
+ * Generate a Haiku-powered context preamble for each chunk and return
+ * enriched ContextualChunk objects whose embed_text combines preamble + chunk.
+ *
+ * Pass a custom baseChunker to override the default 800-char overlap chunker.
+ */
+export async function chunkContextually(
+  documentText: string,
+  metadata: DocumentMetadata,
+  baseChunker?: (text: string) => string[],
+): Promise<ContextualChunk[]> {
+  const chunkRaw = baseChunker ?? defaultChunker;
+  const baseChunks = chunkRaw(documentText);
+  const out: ContextualChunk[] = [];
+
+  for (const chunk of baseChunks) {
+    const userMessage = [
+      `Document title: ${metadata.title}`,
+      metadata.date ? `Date: ${metadata.date}` : "",
+      metadata.nearestHeading ? `Section: ${metadata.nearestHeading}` : "",
+      ``,
+      `Passage:`,
+      chunk,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    let preamble = "";
+    try {
+      const result = await callHaiku({
+        system: PREAMBLE_SYSTEM,
+        userMessage,
+        maxTokens: 100,
+        cacheSystem: true,
+      });
+      preamble = result.text.trim().slice(0, 400);
+    } catch (err) {
+      logError("ingest-worker", `preamble generation failed: ${err}`);
+      preamble = `From ${metadata.title}.`;
+    }
+
+    out.push({
+      chunk_text: chunk,
+      context_preamble: preamble,
+      embed_text: preamble + "\n\n" + chunk,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Default chunker: 800-char target with 100-char overlap.
+ * Used when no baseChunker is supplied to chunkContextually().
+ */
+function defaultChunker(text: string): string[] {
+  const CHUNK_SIZE = 800;
+  const OVERLAP = 100;
+  const out: string[] = [];
+  if (text.length === 0) return out;
+  for (let i = 0; i < text.length; i += CHUNK_SIZE - OVERLAP) {
+    out.push(text.slice(i, i + CHUNK_SIZE));
+  }
+  return out;
+}
+
+/**
+ * Generate an OpenAI text-embedding-3-small embedding for the given text.
+ * Used client-side so we can embed preamble+chunk before insert.
+ */
+async function embedText(text: string): Promise<number[]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("embedText: OPENAI_API_KEY not set");
+
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ input: text, model: "text-embedding-3-small" }),
+  });
+  if (!res.ok) throw new Error(`embedding ${res.status}: ${await res.text()}`);
+  const j = (await res.json()) as { data: Array<{ embedding: number[] }> };
+  return j.data[0].embedding;
 }
 
 // ============================================================
@@ -264,24 +371,58 @@ export async function ingestFolder(opts: IngestFolderOptions): Promise<IngestFol
       const titleMatch = textContent.match(/^#\s+(.+)/m);
       const title = titleMatch ? titleMatch[1] : basename(filePath).replace(/\.[^/.]+$/, "");
 
-      // Ingest via Supabase edge function
-      const result = await ingestDocument(opts.supabase, textContent, {
-        source: opts.source,
-        sourcePath: relPath,
-        title,
-        metadata: { rootDir: opts.path, originalPath: filePath },
-      });
+      // Contextual chunking: generate per-chunk preambles via Haiku, embed client-side
+      let chunksInserted = 0;
+      let chunkError: string | undefined;
+      try {
+        const contextualChunks = await chunkContextually(textContent, {
+          title,
+          source: opts.source,
+        });
 
-      if (result.error) {
+        const rows = await Promise.all(
+          contextualChunks.map(async (c, index) => {
+            const embedding = await embedText(c.embed_text);
+            return {
+              source: opts.source,
+              source_path: relPath,
+              title,
+              content: c.chunk_text,
+              context_preamble: c.context_preamble,
+              chunked_strategy: "contextual-v1" as const,
+              chunk_index: index,
+              chunk_count: contextualChunks.length,
+              content_hash: hash,
+              token_count: Math.ceil(c.chunk_text.length / 4),
+              metadata: { rootDir: opts.path, originalPath: filePath },
+              embedding,
+            };
+          }),
+        );
+
+        // Insert in batches of 10 to avoid payload limits
+        const BATCH = 10;
+        for (let b = 0; b < rows.length; b += BATCH) {
+          const { error: insertErr } = await opts.supabase
+            .from("documents")
+            .insert(rows.slice(b, b + BATCH));
+          if (insertErr) throw new Error(insertErr.message);
+        }
+        chunksInserted = rows.length;
+      } catch (err) {
+        chunkError = String(err);
+      }
+
+      if (chunkError) {
         errored++;
-        const msg = `${relPath}: ingest error: ${result.error}`;
+        const msg = `${relPath}: ingest error: ${chunkError}`;
         errors.push(msg);
         warn("ingest-worker", msg);
       } else {
         processed++;
-        totalChunks += result.chunks_created;
+        totalChunks += chunksInserted;
         existingHashes.add(hash); // prevent re-processing within same batch
-        info("ingest-worker", `Ingested: ${relPath} (${result.chunks_created} chunks)`);
+        info("ingest-worker", `Ingested: ${relPath} (${chunksInserted} chunks, contextual-v1)`);
       }
     } catch (err) {
       errored++;

@@ -18,6 +18,7 @@ import { addTodo, completeTodo } from "./todo.ts";
 import {
   getRelevantContext as searchRelevantContext,
   semanticMemorySearch,
+  type RelevantContextOpts,
 } from "./search.ts";
 import {
   invalidateCache,
@@ -492,13 +493,14 @@ export async function getMemoryContext(
 export async function getRelevantContext(
   supabase: SupabaseClient | null,
   query: string,
-  useEnterpriseSearch = false
+  useEnterpriseSearch = false,
+  attributionOpts?: RelevantContextOpts,
 ): Promise<string> {
   if (!supabase) return "";
 
   // Enterprise search: hybrid multi-table via search.ts
   if (useEnterpriseSearch) {
-    return searchRelevantContext(supabase, query);
+    return searchRelevantContext(supabase, query, attributionOpts);
   }
 
   // Legacy: basic vector-only search on messages table

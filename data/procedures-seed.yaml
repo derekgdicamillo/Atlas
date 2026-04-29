@@ -1,0 +1,135 @@
+- id: pv-newsletter-weekly-draft
+  goal: Create and push the weekly PV newsletter draft to GHL.
+  preconditions:
+    - "topic from PV_NEWSLETTER_TOPIC tag or autosuggested"
+    - "5 pillars rotation index loaded"
+  action_sequence:
+    - kind: tag
+      tag: "[PV_NEWSLETTER_TOPIC: {topic} | pillar={pillar}]"
+    - kind: tag
+      tag: "[PV_NEWSLETTER_SECTION: hook | content={hook_content}]"
+    - kind: tag
+      tag: "[PV_NEWSLETTER_SECTION: body | content={body_content}]"
+    - kind: tag
+      tag: "[PV_NEWSLETTER_PUSH]"
+  postconditions:
+    - "GHL draft campaign visible to Derek"
+  tags: [newsletter, pv, weekly]
+
+- id: ghl-task-followup
+  goal: Create a follow-up task for a GHL contact.
+  preconditions:
+    - "contact name resolved"
+    - "due date inferred or asked"
+  action_sequence:
+    - kind: tag
+      tag: "[GHL_TASK: contact={contact_name} | task={task} | due={due_date}]"
+    - kind: say
+      template: "Task scheduled for {contact_name} on {due_date}."
+  postconditions:
+    - "Telegram confirmation sent"
+  tags: [ghl, task, followup]
+
+- id: cal-add-clinic-appt
+  goal: Create a Google Calendar event for a clinic appointment.
+  preconditions:
+    - "title, date, time known"
+  action_sequence:
+    - kind: tag
+      tag: "[CAL_ADD: title={title} | date={date} | time={time} | duration={duration} | invite={invitees} | location={location}]"
+    - kind: say
+      template: "Calendar event created: {title} on {date} at {time}."
+  postconditions:
+    - "Google Calendar entry created"
+    - "invitees received .ics"
+  tags: [calendar, clinic]
+
+- id: stale-lead-reactivate
+  goal: Reactivate a lead idle 7-14 days via GHL workflow.
+  preconditions:
+    - "contact name resolved"
+    - "workflow id stale-lead-reactivate available"
+  action_sequence:
+    - kind: tag
+      tag: "[GHL_TAG: contact={contact_name} | tag={reactivation_tag} | action=add]"
+    - kind: tag
+      tag: "[GHL_WORKFLOW: contact={contact_name} | workflowId={workflow_id} | action=add]"
+    - kind: say
+      template: "Reactivation queued for {contact_name}."
+  postconditions:
+    - "GHL workflow enrolled"
+  tags: [ghl, reactivation, leads]
+
+- id: tmaa-blog-publish-with-cache-purge
+  goal: Publish a TMAA blog post and purge the CDN cache.
+  preconditions:
+    - "title, body, category known"
+    - "MAA_WP_APP_PASSWORD env var set"
+  action_sequence:
+    - kind: tag
+      tag: "[TMAA_BLOG_PUBLISH: title={title} | body={body} | category={category}]"
+    - kind: wait
+      for: "post id confirmation"
+    - kind: tag
+      tag: "[TMAA_CACHE_PURGE]"
+  postconditions:
+    - "blog post live on medicalaestheticsassociation.com"
+  tags: [maa, blog, wordpress]
+
+- id: weekly-content-waterfall
+  goal: Generate the weekly Skool to Facebook to newsletter to YouTube waterfall.
+  preconditions:
+    - "this week's pillar rotation index loaded"
+  action_sequence:
+    - kind: tag
+      tag: "[WORKFLOW: weekly-content | pillar={pillar}]"
+  postconditions:
+    - "all four artifacts drafted"
+  tags: [content, weekly, pv]
+
+- id: morning-brief-trigger
+  goal: Trigger the daily morning brief for Derek.
+  preconditions:
+    - "before 7am Phoenix time"
+  action_sequence:
+    - kind: tag
+      tag: "[WORKFLOW: pv-morning-brief]"
+  postconditions:
+    - "Telegram message delivered"
+  tags: [morning-brief, daily]
+
+- id: gbp-review-reply-draft
+  goal: Draft a Google Business Profile review reply for Derek's approval.
+  preconditions:
+    - "review id known"
+    - "review text and rating loaded"
+  action_sequence:
+    - kind: say
+      template: "Drafting reply for {rating}-star review from {reviewer}."
+    - kind: tag
+      tag: "[REMEMBER: GBP review {review_id} response drafted on {date}]"
+  postconditions:
+    - "reply text emitted for Derek to approve"
+  tags: [gbp, review, draft]
+
+- id: ad-creative-brief
+  goal: Generate ad creative variants for a Meta campaign.
+  preconditions:
+    - "campaign goal, target audience defined"
+  action_sequence:
+    - kind: tag
+      tag: "[WORKFLOW: ad-creative | goal={campaign_goal} | audience={audience}]"
+  postconditions:
+    - "3-5 variant briefs delivered"
+  tags: [meta, ads, creative]
+
+- id: monthly-metrics-digest
+  goal: Pull and summarize the monthly business scorecard for Derek.
+  preconditions:
+    - "supabase business_scorecard table populated for the month"
+  action_sequence:
+    - kind: tag
+      tag: "[WORKFLOW: monthly-metrics-digest | month={month}]"
+  postconditions:
+    - "narrative summary + key deltas delivered"
+  tags: [metrics, monthly, business]
