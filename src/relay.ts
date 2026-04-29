@@ -1443,6 +1443,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/twin": {
+      const { handleTwinCommand } = await import("./derek-twin.ts");
+      const username = ctx.from?.username ?? userId;
+      const user = String(username).toLowerCase().includes("esther") ? "esther" : "derek";
+      const reply = await handleTwinCommand(supabase as any, args, user);
+      await ctx.reply(reply, { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {

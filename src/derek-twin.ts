@@ -421,3 +421,137 @@ export async function rollingCalibration(
   const mean = allScores.length ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
   return { mean, n: allScores.length, per_day };
 }
+
+// ---------------------------------------------------------------------------
+// handleTwinCommand
+// ---------------------------------------------------------------------------
+
+export async function handleTwinCommand(
+  supabase: SupabaseClient,
+  args: string[],
+  user_id: "derek" | "esther"
+): Promise<string> {
+  const sub = (args[0] ?? "").toLowerCase();
+  const today = new Date().toISOString().slice(0, 10);
+  switch (sub) {
+    case "predictions":
+    case "predict": {
+      const { data } = await supabase
+        .from("twin_predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("predicted_for", today);
+      const preds = (data ?? []) as TwinPrediction[];
+      if (!preds.length) return "No predictions for today yet.";
+      return ["**Today's predictions**", ...preds.map(formatPredLine)].join("\n");
+    }
+    case "divergence":
+    case "divergences": {
+      const { data } = await supabase
+        .from("twin_divergence")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("computed_at", { ascending: false })
+        .limit(50);
+      const rows = (data ?? []) as DivergenceRow[];
+      if (!rows.length) return "No divergence data yet.";
+      // Dedupe per preference (latest only)
+      const seen = new Set<string>();
+      const dedup = rows.filter((r) => {
+        if (seen.has(r.preference_id)) return false;
+        seen.add(r.preference_id);
+        return true;
+      });
+      const sorted = dedup.sort((a, b) => b.gap - a.gap).slice(0, 10);
+      return ["**Top divergences**", ...sorted.map((d) =>
+        `- ${d.preference_text}${d.domain ? ` [${d.domain}]` : ""}: gap ${d.gap.toFixed(2)} (n=${d.sample_size})`
+      )].join("\n");
+    }
+    case "calibration": {
+      const cal = await rollingCalibration(supabase, user_id, 30);
+      const lines = [`**Calibration 30d**: ${cal.mean.toFixed(2)} (n=${cal.n})`];
+      if (cal.per_day.length) {
+        lines.push("");
+        lines.push("**Per-day**");
+        for (const d of cal.per_day) {
+          lines.push(`- ${d.date}: ${d.calibration.toFixed(2)}`);
+        }
+      }
+      return lines.join("\n");
+    }
+    case "reconcile": {
+      const id = args[1];
+      if (!id) return "Usage: `/twin reconcile <preference_id>`";
+      const { data: pref } = await supabase
+        .from("twin_stated_preferences")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (!pref) return `Preference \`${id}\` not found.`;
+      const { data: divergence } = await supabase
+        .from("twin_divergence")
+        .select("*")
+        .eq("preference_id", id)
+        .order("computed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!divergence) return `No divergence data for \`${id}\` yet.`;
+      const d = divergence as any;
+      return [
+        `**Reconcile** \`${id}\``,
+        `Stated: "${(pref as any).preference}"`,
+        `Revealed score: ${Number(d.revealed_score).toFixed(2)} (gap ${Number(d.gap).toFixed(2)}, n=${d.sample_size})`,
+        ``,
+        `Reply with one of:`,
+        `\`/twin update ${id} <new preference text>\` — update stated to match observed behavior`,
+        `\`/twin hold ${id}\` — keep stated, accept the divergence`,
+      ].join("\n");
+    }
+    case "update": {
+      const id = args[1];
+      const newText = args.slice(2).join(" ");
+      if (!id || !newText) return "Usage: `/twin update <id> <new text>`";
+      await supabase
+        .from("twin_stated_preferences")
+        .update({ preference: newText, stated_at: new Date().toISOString() })
+        .eq("id", id);
+      return `Preference \`${id}\` updated.`;
+    }
+    case "hold": {
+      const id = args[1];
+      if (!id) return "Usage: `/twin hold <id>`";
+      return `Holding stated preference \`${id}\`. Atlas will continue tuning predictions to revealed behavior but won't alert again on this gap for 14 days.`;
+    }
+    default: {
+      // Snapshot
+      const cal = await rollingCalibration(supabase, user_id, 30);
+      const { data: divs } = await supabase
+        .from("twin_divergence")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("computed_at", { ascending: false })
+        .limit(50);
+      const seen = new Set<string>();
+      const dedupedDiv = (divs ?? []).filter((d: any) => {
+        if (seen.has(d.preference_id)) return false;
+        seen.add(d.preference_id);
+        return true;
+      }) as DivergenceRow[];
+      const { data: preds } = await supabase
+        .from("twin_predictions")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("predicted_for", today);
+      return formatTwinReport({
+        divergences: dedupedDiv,
+        todays_predictions: (preds ?? []) as TwinPrediction[],
+        calibration_30d: cal.mean,
+      });
+    }
+  }
+}
+
+function formatPredLine(p: TwinPrediction): string {
+  const status = p.match_score == null ? "" : p.matched_turn_id ? ` ✓ ${p.match_score.toFixed(2)}` : " ✗";
+  return `- ${p.prediction} (${p.confidence.toFixed(2)}, ${p.basis})${status}`;
+}
