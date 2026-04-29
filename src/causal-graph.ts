@@ -213,3 +213,83 @@ export async function ensureNode(
     .single();
   return data as CausalNode;
 }
+
+export async function handleDagCommand(
+  supabase: SupabaseClient,
+  args: string[],
+  caller: string
+): Promise<string> {
+  const sub = (args[0] ?? "").toLowerCase();
+  switch (sub) {
+    case "pending": {
+      const pending = await pendingApprovals(supabase, 20);
+      if (!pending.length) return "**DAG pending**: 0 edges.";
+      const lines = ["**DAG pending edges**", ""];
+      for (const e of pending) {
+        const conf = e.evidence?.[0]?.confidence ?? e.evidence?.[0]?.stability ?? "—";
+        lines.push(
+          `\`${e.id.slice(0, 8)}\` ${e.from_node.slice(0, 8)}→${e.to_node.slice(0, 8)} (${e.proposed_by}, conf=${conf})`
+        );
+      }
+      lines.push(``, `Approve via: \`/dag approve <id>\` or \`/dag falsify <id> <reason>\``);
+      return lines.join("\n");
+    }
+    case "approve": {
+      const id = args[1];
+      if (!id) return "Usage: `/dag approve <edge_id>`";
+      const approver = caller.toLowerCase().includes("esther") ? "esther" : "derek";
+      await approveEdge(supabase, id, approver);
+      return `Edge \`${id.slice(0, 8)}\` approved by ${approver}.`;
+    }
+    case "falsify": {
+      const id = args[1];
+      const reason = args.slice(2).join(" ") || "no reason given";
+      if (!id) return "Usage: `/dag falsify <edge_id> <reason>`";
+      await falsifyEdge(supabase, id, reason);
+      return `Edge \`${id.slice(0, 8)}\` falsified.`;
+    }
+    case "walk": {
+      const fromName = args[1];
+      if (!fromName) return "Usage: `/dag walk <node_name>`";
+      const downstream = await findEffects(supabase, fromName);
+      if (!downstream.length) return `No downstream effects from \`${fromName}\`.`;
+      const lines = [`**${fromName} → effects**`, ""];
+      for (const e of downstream) {
+        lines.push(
+          `→ ${e.to_node.slice(0, 8)} (effect=${e.effect_size ?? "?"}, ${e.proposed_by})`
+        );
+      }
+      return lines.join("\n");
+    }
+    case "stats": {
+      const { count: nodeCount } = await supabase
+        .from("causal_nodes")
+        .select("*", { count: "exact", head: true });
+      const { count: pendingCount } = await supabase
+        .from("causal_edges")
+        .select("*", { count: "exact", head: true })
+        .eq("approved", false);
+      const { count: observedCount } = await supabase
+        .from("causal_edges")
+        .select("*", { count: "exact", head: true })
+        .eq("approved", true)
+        .eq("status", "observed");
+      return [
+        `**DAG stats**`,
+        ``,
+        `Nodes: ${nodeCount ?? 0}`,
+        `Observed (approved) edges: ${observedCount ?? 0}`,
+        `Pending: ${pendingCount ?? 0}`,
+      ].join("\n");
+    }
+    default:
+      return [
+        `**DAG commands**`,
+        `\`/dag pending\` — list edges awaiting approval`,
+        `\`/dag approve <id>\` — approve a hypothesized edge`,
+        `\`/dag falsify <id> <reason>\` — mark falsified`,
+        `\`/dag walk <node_name>\` — show downstream effects`,
+        `\`/dag stats\` — counts`,
+      ].join("\n");
+  }
+}

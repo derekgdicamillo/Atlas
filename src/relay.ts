@@ -1436,6 +1436,13 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/dag": {
+      const { handleDagCommand } = await import("./causal-graph.ts");
+      const reply = await handleDagCommand(supabase as any, args, ctx.from?.username ?? userId);
+      await ctx.reply(reply, { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
