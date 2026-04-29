@@ -1291,6 +1291,65 @@ jobs.push(
   })
 );
 
+// 21. Atlas Prime Sprint 3: cortex demotion processor at 0:30 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 0 * * *",
+    onTick: safeTick("cortex-demote-nightly", async () => {
+      const { processDemotions } = await import("./cortex.ts");
+      const count = await processDemotions(supabase);
+      log("cortex-demote-nightly", `demoted ${count} memories`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 22. Atlas Prime Sprint 3: lazy-on-stale memory summary rewrites at 1:00 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 1 * * *",
+    onTick: safeTick("memory-rewrite-nightly", async () => {
+      const { processNightlyRewrites } = await import("./memory-rewrite.ts");
+      const count = await processNightlyRewrites(supabase);
+      log("memory-rewrite-nightly", `rewrote ${count} summaries`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 23. Atlas Prime Sprint 3: episodic clustering nightly at 2:30 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 2 * * *",
+    onTick: safeTick("episodic-cluster-nightly", async () => {
+      const { processEpisodicClustering } = await import("./cortex.ts");
+      const promoted = await processEpisodicClustering(supabase);
+      log("episodic-cluster-nightly", `promoted ${promoted} clusters to semantic`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 24. Atlas Prime Sprint 3: attribution log purge >90d nightly at 4:00 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 4 * * *",
+    onTick: safeTick("attribution-purge-nightly", async () => {
+      const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString();
+      const { error, count } = await supabase
+        .from("attribution_log")
+        .delete({ count: "exact" })
+        .lt("created_at", cutoff);
+      if (error) {
+        log("attribution-purge-nightly", `failed: ${error.message}`);
+        return;
+      }
+      log("attribution-purge-nightly", `deleted ${count ?? 0} rows`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================

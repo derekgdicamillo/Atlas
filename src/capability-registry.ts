@@ -785,6 +785,74 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     depends: "scripts/pre-compact-snapshot.sh, scripts/post-compact-verify.sh",
     module: "scripts/pre-compact-snapshot.sh, scripts/post-compact-verify.sh",
   },
+  {
+    section: "Atlas Prime - Cortex (7-tier stack + demotion)",
+    description: "Tier definitions over existing memory surfaces; attribution log; multi-signal weighted demotion (judge 0.5 + correction 1.0 + trust 0.7, threshold 3.0); inversion at depth ≤2.",
+    can: [
+      "record (turn_id, memory_id) pairs to attribution_log on retrieval",
+      "increment demotion_pressure on failure signals",
+      "demote memories at threshold and write inverted hypotheses",
+      "promote 3+ episodic clusters into semantic rules nightly",
+    ],
+    cannot: [
+      "modify identity tier (SOUL.md / IDENTITY.md / USER.md) — human-edited only",
+      "exceed inversion depth 2 (alert fires for manual review)",
+    ],
+    module: "src/cortex.ts",
+    depends: "memory, attribution_log, haiku-client.ts",
+    runs: "episodic-cluster-nightly 2:30 AM, attribution-purge-nightly 4:00 AM, cortex-demote-nightly 0:30 AM",
+  },
+  {
+    section: "Atlas Prime - Procedural Memory",
+    description: "Hand-curated procedures with Beta(α,β) Bayesian posteriors. Retrieve by intent embedding + Thompson sampling. Slot-filled at use time.",
+    can: [
+      "find top-k procedures for a given goal via Thompson sampling",
+      "record success/failure outcomes that update Beta posteriors",
+      "fill {slot} placeholders from a values map",
+      "seed/reseed from data/procedures-seed.yaml idempotently",
+    ],
+    cannot: [
+      "auto-generate new procedures from conversations (Sprint 6)",
+      "execute action_sequence steps directly — slot-filler returns tag strings that go through tool-gate",
+    ],
+    module: "src/procedures.ts",
+    depends: "procedures table, procedure_outcomes table, OpenAI embeddings",
+    state: "data/procedures-seed.yaml (10 starter procedures)",
+  },
+  {
+    section: "Atlas Prime - Memory Rewriting (lazy-on-stale)",
+    description: "Living summaries. Rewrites trigger when a memory is stale (>7 days since last rewrite) AND frequently accessed (≥5 reads since last rewrite). Originals immutable.",
+    can: [
+      "increment access_count_since_rewrite on every retrieval",
+      "rewrite summary via Haiku with hindsight (AT THE TIME / AS OF format)",
+      "reject rewrites failing content-critic (score <0.7 or hallucination flag)",
+      "cap 50 rewrites per nightly window",
+    ],
+    cannot: [
+      "modify original_content (frozen on backfill)",
+      "rewrite memories with class='demoted'",
+    ],
+    module: "src/memory-rewrite.ts",
+    depends: "memory.original_content, memory.summary, content-critic.ts, haiku-client.ts",
+    runs: "memory-rewrite-nightly at 1:00 AM",
+  },
+  {
+    section: "Atlas Prime - Reranker + Contextual Chunking",
+    description: "Retrieval pipeline: embedding top-50 → reranker top-8. Local Transformers.js (zerank-1-small if accessible, else bge-reranker-base fallback). New ingestions get contextual preambles.",
+    can: [
+      "rerank up to 50 candidates with cross-encoder relevance scores",
+      "log rerank_score to attribution_log for debugging",
+      "generate ≤80-token Haiku preamble per chunk during ingestion",
+      "backfill existing documents to chunked_strategy='contextual-v1'",
+      "pre-warm model 30s after boot",
+    ],
+    cannot: [
+      "load zerank-1-small without HF_TOKEN + access (gated; fallback to bge automatic)",
+      "retry inference on per-pair failure (returns score 0)",
+    ],
+    module: "src/reranker.ts, src/ingest-worker.ts",
+    depends: "@xenova/transformers, OpenAI embeddings",
+  },
 ];
 
 /**

@@ -214,3 +214,48 @@ export async function processDemotions(supabase: SupabaseClient): Promise<number
   }
   return count;
 }
+
+export async function processEpisodicClustering(supabase: SupabaseClient): Promise<number> {
+  const { callHaiku } = await import("./haiku-client.ts");
+  const { data: clusters, error } = await supabase.rpc("episodic_clusters_for_promotion");
+  if (error) {
+    console.error("[cortex] cluster query failed:", error);
+    return 0;
+  }
+  if (!clusters?.length) return 0;
+  let promoted = 0;
+  for (const c of clusters as Array<{ tag: string; member_ids: string[]; member_summaries: string[] }>) {
+    if (c.member_ids.length < 3) continue;
+    let rule = "";
+    try {
+      const r = await callHaiku({
+        system: `You read a cluster of episodic memories sharing tag "${c.tag}" and write ONE generalized rule (≤80 words) capturing the pattern. Output the rule, no preamble.`,
+        userMessage: c.member_summaries.map((s, i) => `${i + 1}. ${s}`).join("\n"),
+        maxTokens: 200,
+      });
+      rule = r.text.trim();
+    } catch (err) {
+      console.error("[cortex] cluster Haiku failed:", err);
+      continue;
+    }
+    const { error: insErr } = await supabase.from("memory").insert([
+      {
+        content: rule,
+        original_content: rule,
+        summary: rule,
+        class: "semantic",
+        tags: [c.tag, "episodic-promoted"],
+      },
+    ]);
+    if (insErr) {
+      console.error("[cortex] cluster insert failed:", insErr);
+      continue;
+    }
+    await supabase
+      .from("memory")
+      .update({ class: "archived-source" })
+      .in("id", c.member_ids);
+    promoted++;
+  }
+  return promoted;
+}
