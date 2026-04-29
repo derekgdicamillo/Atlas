@@ -1497,6 +1497,14 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     }
   }
 
+  // Atlas Prime Sprint 3: pre-warm the reranker 30s after boot to amortize cold-start.
+  setTimeout(() => {
+    import("./reranker.ts")
+      .then((m) => m.preWarm())
+      .then(() => console.log("[startup] reranker pre-warmed"))
+      .catch((err) => console.error("[startup] reranker pre-warm failed:", err));
+  }, 30_000);
+
   // Register show-rate digest callback so /ops includes reminder stats
   registerShowRateDigest(getShowRateDigest);
   // Create consolidation job (needs supabase for message access)

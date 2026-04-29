@@ -17,6 +17,7 @@ import { recordAccess } from "./cognitive.ts";
 import { readUntrusted, renderForPlanner } from "./reader.ts";
 import { callHaiku as defaultCallHaiku } from "./haiku-client.ts";
 import { recordAttribution } from "./cortex.ts";
+import { rerank } from "./reranker.ts";
 
 // ============================================================
 // TYPES
@@ -43,6 +44,7 @@ export interface SearchResult {
   created_at: string;
   similarity: number;
   combined_score?: number;
+  rerank_score?: number;
 }
 
 // ============================================================
@@ -231,14 +233,41 @@ export async function getRelevantContext(
 
   const callHaiku = opts?.callHaikuOverride ?? defaultCallHaiku;
 
+  // Atlas Prime Sprint 3: fetch a wider candidate pool, then rerank to top-8.
+  const FETCH_LIMIT = 50;
+  const FINAL_TOPK = 8;
+
   try {
-    const results = await search(supabase, query, {
+    const rawCandidates = await search(supabase, query, {
       tables: ["messages", "summaries", "documents", "maa_knowledge"],
       mode: "hybrid",
-      matchCount: 10,
+      matchCount: FETCH_LIMIT,
       ftsWeight: 1.0,
       semanticWeight: 1.5, // favor semantic matches for context
     });
+
+    if (!rawCandidates.length) return "";
+
+    // Rerank: cross-encoder scores the full candidate pool; fall back to embedding rank on error.
+    let results: SearchResult[];
+    try {
+      const rerankedRefs = await rerank(
+        query,
+        rawCandidates.map((r) => ({ id: r.source_id, text: r.content })),
+        FINAL_TOPK,
+      );
+      const byId = new Map(rawCandidates.map((r) => [r.source_id, r]));
+      results = rerankedRefs
+        .map((ref) => {
+          const original = byId.get(ref.id);
+          if (!original) return null;
+          return { ...original, rerank_score: ref.rerank_score };
+        })
+        .filter((r): r is SearchResult => r !== null);
+    } catch (rerankErr) {
+      console.error("[search] rerank failed, falling back to embedding rank:", rerankErr);
+      results = rawCandidates.slice(0, FINAL_TOPK);
+    }
 
     if (!results.length) return "";
 
@@ -300,7 +329,7 @@ export async function getRelevantContext(
           .map((r, i) => ({
             id: r.source_id,
             rank: i,
-            rerank_score: r.combined_score ?? null,
+            rerank_score: r.rerank_score ?? r.combined_score ?? null,
           }));
         if (memoriesForAttribution.length > 0) {
           recordAttribution(supabase, {
