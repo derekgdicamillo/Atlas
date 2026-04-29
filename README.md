@@ -359,3 +359,13 @@ This project uses [Semantic Versioning](https://semver.org/). See [CHANGELOG.md]
 ## License
 
 Private repository. Not licensed for redistribution.
+
+## Sprint 4 Python dependencies
+
+Sprint 4 introduces Python subprocesses for PC algorithm and Chronos-Bolt forecasting.
+
+```bash
+pip install causaldag numpy chronos-forecasting torch
+```
+
+Both are soft dependencies -- if absent, the relevant cron logs a warning and skips. Other discovery paths and Atlas runtime continue normally.

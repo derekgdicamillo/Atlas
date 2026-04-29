@@ -1350,6 +1350,135 @@ jobs.push(
   })
 );
 
+// 25. Atlas Prime Sprint 4: natural-experiment detection at 0:30 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 0 * * *",
+    onTick: safeTick("causal-natural-experiments", async () => {
+      const { detectNaturalExperiments } = await import("./causal-discovery.ts");
+      const r = await detectNaturalExperiments(supabase);
+      log("causal-natural-experiments", `inserted ${r.inserted} edges`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 26. Atlas Prime Sprint 4: PC algorithm discovery (every 7 days at 1:30 AM).
+jobs.push(
+  CronJob.from({
+    cronTime: "30 1 */7 * *",
+    onTick: safeTick("causal-pc-discovery", async () => {
+      const { runPCDiscovery } = await import("./causal-discovery.ts");
+      const r = await runPCDiscovery(supabase);
+      log("causal-pc-discovery", r.error ? `error: ${r.error}` : `inserted ${r.inserted}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 27. Atlas Prime Sprint 4: LLM-proposed edges Sundays at 2:00 AM.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 2 * * 0",
+    onTick: safeTick("causal-llm-propose", async () => {
+      const { proposeLLMEdges } = await import("./causal-discovery.ts");
+      const r = await proposeLLMEdges(supabase);
+      log("causal-llm-propose", `inserted ${r.inserted}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 28. Atlas Prime Sprint 4: Dream Engine SWS at 23:00.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 23 * * *",
+    onTick: safeTick("dream-sws-nightly", async () => {
+      const { runSWS } = await import("./dream-engine.ts");
+      const r = await runSWS(supabase);
+      log(
+        "dream-sws-nightly",
+        `dream=${r.dreamId ?? "none"}, rules=${r.rulesEmitted}, doubts=${r.doubts.length}`
+      );
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 29. Atlas Prime Sprint 4: Dream Engine REM at 03:00.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 3 * * *",
+    onTick: safeTick("dream-rem-nightly", async () => {
+      const { runREM } = await import("./dream-engine.ts");
+      const r = await runREM(supabase);
+      log(
+        "dream-rem-nightly",
+        `dreams=${r.dreamIds.length}, top_unprep=${r.topUnprep.toFixed(2)}`
+      );
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 30. Atlas Prime Sprint 4: Derek Twin nightly update at 22:30.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 22 * * *",
+    onTick: safeTick("twin-update-nightly", async () => {
+      const { data: prefs } = await supabase
+        .from("twin_stated_preferences")
+        .select("id, domain")
+        .eq("active", true);
+      const { recomputeDivergence } = await import("./derek-twin.ts");
+      let count = 0;
+      for (const p of (prefs ?? []) as any[]) {
+        try {
+          await recomputeDivergence(supabase, p.id, p.domain);
+          count++;
+        } catch {
+          /* skip */
+        }
+      }
+      log("twin-update-nightly", `recomputed ${count} divergences`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 31. Atlas Prime Sprint 4: Derek Twin morning predictions at 05:30.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 5 * * *",
+    onTick: safeTick("twin-predict-morning", async () => {
+      const { generateMorningPredictions } = await import("./derek-twin.ts");
+      const today = new Date().toISOString().slice(0, 10);
+      const d = await generateMorningPredictions(supabase, "derek", today);
+      const e = await generateMorningPredictions(supabase, "esther", today);
+      log("twin-predict-morning", `derek=${d.length}, esther=${e.length}`);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 32. Atlas Prime Sprint 4: Derek Twin evening score at 21:00.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 21 * * *",
+    onTick: safeTick("twin-score-evening", async () => {
+      const { scoreEveningPredictions } = await import("./derek-twin.ts");
+      const today = new Date().toISOString().slice(0, 10);
+      const d = await scoreEveningPredictions(supabase, "derek", today);
+      const e = await scoreEveningPredictions(supabase, "esther", today);
+      log(
+        "twin-score-evening",
+        `derek cal=${d.calibration.toFixed(2)} (n=${d.scored}), esther cal=${e.calibration.toFixed(2)} (n=${e.scored})`
+      );
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
 // ============================================================
 // START ALL JOBS
 // ============================================================
@@ -1563,6 +1692,14 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       .then(() => console.log("[startup] reranker pre-warmed"))
       .catch((err) => console.error("[startup] reranker pre-warm failed:", err));
   }, 30_000);
+
+  // Atlas Prime Sprint 4: pre-warm the world model 60s after boot.
+  setTimeout(() => {
+    import("./world-model.ts")
+      .then((m) => m.preWarm())
+      .then(() => console.log("[startup] world-model pre-warmed"))
+      .catch((err) => console.error("[startup] world-model pre-warm failed:", err));
+  }, 60_000);
 
   // Register show-rate digest callback so /ops includes reminder stats
   registerShowRateDigest(getShowRateDigest);
