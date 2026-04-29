@@ -16,6 +16,7 @@
     "setup:canva": "bun run setup/canva-oauth.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
     "@azure/msal-node": "^5.0.4",
     "@google/genai": "^1.0.0",
     "@grammyjs/auto-retry": "^2.0.2",
