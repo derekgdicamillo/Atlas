@@ -266,6 +266,20 @@ export function sanitizedEnv(): Record<string, string | undefined> {
     env.ENABLE_PROMPT_CACHING_1H = "1";
   }
 
+  // Drop empty ANTHROPIC_API_KEY so the CLI falls back to OAuth. When pm2
+  // forwards an empty value, the CLI prefers it over OAuth and 401s.
+  if (env.ANTHROPIC_API_KEY === "") {
+    delete env.ANTHROPIC_API_KEY;
+  }
+
+  // Always drop CLAUDE_CODE_OAUTH_TOKEN. pm2 captures env at process launch
+  // and never refreshes; access tokens rotate every ~24h. If we forward the
+  // env var, the CLI uses the stale token and 401s. Without it, the CLI
+  // reads ~/.claude/.credentials.json on every spawn and auto-refreshes via
+  // the long-lived refreshToken. This is what makes Atlas survive token
+  // rotation without manual `pm2 restart --update-env`.
+  delete env.CLAUDE_CODE_OAUTH_TOKEN;
+
   return env;
 }
 
