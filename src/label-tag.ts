@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { ReplayEntry } from "./replay-dataset.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const TAG_RE = /\[LABEL_(GOOD|BAD)(?::\s*([^\]]+))?\]/i;
 
@@ -20,6 +21,8 @@ export interface LabelTagInput {
   agent: "atlas" | "ishtar";
   contextSummary?: string;
   datasetPath?: string;
+  turn_id?: string;
+  supabase?: SupabaseClient;
 }
 
 export async function processLabelTag(
@@ -45,5 +48,20 @@ export async function processLabelTag(
   };
   await mkdir(dirname(path), { recursive: true });
   await appendFile(path, JSON.stringify(entry) + "\n", "utf8");
+
+  // Atlas Prime Sprint 3: fire cortex failure signal for BAD labels.
+  if (parsed.label === "bad" && input.turn_id && input.supabase) {
+    try {
+      const { recordFailure } = await import("./cortex.ts");
+      await recordFailure(input.supabase, {
+        turn_id: input.turn_id,
+        source: "derek-correction",
+        reason: parsed.reason ?? "label_bad",
+      });
+    } catch (err) {
+      console.error("[label-tag] cortex.recordFailure failed:", err);
+    }
+  }
+
   return { written: true };
 }

@@ -80,6 +80,7 @@ import {
 } from "./observations.ts";
 import { getProactiveInsights, getAnticipatoryContext, initMonitor } from "./monitor.ts";
 import { scheduleMessage, processScheduleIntents } from "./scheduled.ts";
+import { processLabelTag, parseLabelTag } from "./label-tag.ts";
 import {
   addEntry,
   accumulate,
@@ -833,6 +834,9 @@ setCacheRef(contextCache);
 
 /** Track previous intent flags per session for topic change detection (Phase 2) */
 const previousIntentMap = new Map<string, Record<string, boolean>>();
+
+/** Atlas Prime Sprint 3: Track the most recent turn_id per userId for LABEL tag attribution */
+const lastTurnIdByUser = new Map<string, string>();
 
 // Pending forget confirmations: maps userId -> { matches, expiresAt }
 const pendingForgets: Map<string, {
@@ -2980,6 +2984,29 @@ async function handleUserMessage(
   const hasGHL = (agent?.config.features.ghl ?? false) && isGHLReady();
   const isGroupAgent = !!agent?.config.groupChatEnv; // dedicated group agent (e.g. toxtray)
   const key = sessionKey(agentId, userId);
+
+  // Atlas Prime Sprint 3: track previous turn_id for LABEL tag attribution.
+  const previousTurnId = lastTurnIdByUser.get(userId);
+  lastTurnIdByUser.set(userId, turn_id);
+
+  // Atlas Prime Sprint 3: if user message contains a LABEL_BAD tag, fire cortex failure signal.
+  if (parseLabelTag(message.text) !== null && supabase) {
+    try {
+      const allEntries = await getEntries(key);
+      const prevUserEntry = allEntries.slice().reverse().find((e) => e.role === "user");
+      const prevAssistantEntry = allEntries.slice().reverse().find((e) => e.role === "assistant");
+      processLabelTag({
+        tagText: message.text,
+        prevUserTurn: prevUserEntry?.content ?? null,
+        prevAtlasResponse: prevAssistantEntry?.content ?? null,
+        agent: agentId === "ishtar" ? "ishtar" : "atlas",
+        turn_id: previousTurnId,
+        supabase,
+      }).catch((err: unknown) => warn("label-tag", `processLabelTag failed: ${err}`));
+    } catch (err) {
+      warn("label-tag", `label-tag pre-check failed: ${err}`);
+    }
+  }
 
   info("trace", `[${traceId}] START ${message.type} from ${userId} (${agentId}/${agentModel}): ${message.text.substring(0, 80)}`);
 

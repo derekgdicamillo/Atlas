@@ -2,6 +2,16 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { loadDataset, type ReplayEntry } from "./replay-dataset.ts";
 import { scoreEntry, type JudgeScore } from "./replay-judge.ts";
 
+async function getSupabase() {
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) return null;
+    return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  } catch {
+    return null;
+  }
+}
+
 const DATASET_PATH = process.env.REPLAY_DATASET_PATH ?? "data/replay-dataset.jsonl";
 const RESULTS_DIR = "data/replay-results";
 
@@ -78,6 +88,36 @@ export async function runHarness(opts?: {
       JSON.stringify(report, null, 2),
       "utf8"
     );
+  }
+
+  // Atlas Prime Sprint 3: fire cortex failure for low-scoring entries.
+  const supabaseLazy = await getSupabase();
+  if (supabaseLazy) {
+    const { recordFailure } = await import("./cortex.ts");
+    for (const score of perEntry) {
+      if (score.aggregate > 0.4) continue;
+      const entry = working.find((e) => e.id === score.entryId);
+      if (!entry) continue;
+      try {
+        // Match by capturedAt → messages.created_at; pull turn_id from metadata.
+        const { data } = await supabaseLazy
+          .from("messages")
+          .select("metadata")
+          .eq("created_at", entry.capturedAt)
+          .eq("role", "user")
+          .limit(1)
+          .single();
+        const turn_id = (data?.metadata as any)?.turn_id;
+        if (!turn_id) continue;
+        await recordFailure(supabaseLazy, {
+          turn_id,
+          source: "replay-judge",
+          reason: `aggregate=${score.aggregate.toFixed(2)}`,
+        });
+      } catch (err) {
+        console.error(`[replay-harness] cortex.recordFailure failed for ${score.entryId}:`, err);
+      }
+    }
   }
 
   return report;
