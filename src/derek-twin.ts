@@ -222,3 +222,202 @@ export function formatTwinReport(opts: {
 
   return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// generateMorningPredictions / scoreEveningPredictions / rollingCalibration
+// ---------------------------------------------------------------------------
+
+import { Anthropic } from "@anthropic-ai/sdk";
+
+interface MorningPredictOpts {
+  client?: Anthropic;
+}
+
+const PREDICT_SYSTEM = `You predict 3-5 things the user is likely to ask Atlas about today, given context.
+
+Output a JSON array. Each item:
+{
+  "prediction": "<short noun phrase, like 'ad performance from yesterday'>",
+  "confidence": <0..1>,
+  "basis": "calendar" | "day-of-week-pattern" | "open-thread" | "recent-topic" | "revealed-preference",
+  "basis_refs": { ... }
+}
+
+Output only the JSON array. No preamble.`;
+
+export async function generateMorningPredictions(
+  supabase: SupabaseClient,
+  user_id: "derek" | "esther",
+  date: string,
+  opts: MorningPredictOpts = {}
+): Promise<TwinPrediction[]> {
+  const client = opts.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+  const context: any = {
+    today: date,
+    weekday: new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long" }),
+  };
+
+  const { data: recent } = await supabase
+    .from("twin_revealed_observations")
+    .select("preference_text, signal, observed_at")
+    .eq("user_id", user_id)
+    .order("observed_at", { ascending: false })
+    .limit(20);
+  context.recent_revealed = recent ?? [];
+
+  const userMessage = `Build 3-5 predictions for what ${user_id} will ask about today.\n\nCONTEXT:\n${JSON.stringify(context, null, 2)}`;
+
+  const resp = await client.messages.create({
+    model: "claude-opus-4-6",
+    max_tokens: 1500,
+    system: PREDICT_SYSTEM,
+    messages: [{ role: "user", content: userMessage }],
+  });
+  const text = (resp.content[0] as any)?.text ?? "[]";
+  let arr: any[];
+  try {
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    arr = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+
+  const inserted: TwinPrediction[] = [];
+  for (const p of arr.slice(0, 5)) {
+    const row = {
+      user_id,
+      predicted_for: date,
+      prediction: String(p.prediction ?? "").slice(0, 500),
+      confidence: Number(p.confidence ?? 0.5),
+      basis: String(p.basis ?? "recent-topic"),
+      basis_refs: p.basis_refs ?? null,
+    };
+    const { data } = await supabase.from("twin_predictions").insert(row).select().single();
+    if (data) {
+      inserted.push({
+        id: (data as any).id,
+        prediction: row.prediction,
+        confidence: row.confidence,
+        basis: row.basis,
+        basis_refs: row.basis_refs,
+        matched_turn_id: null,
+        match_score: null,
+      });
+    }
+  }
+  return inserted;
+}
+
+const JUDGE_SYSTEM = `You decide whether a list of user-turn messages contains an approximate match to a prediction.
+
+Output a strict JSON object: {"matched": true|false, "match_score": 0..1, "turn_id": "<uuid or empty>"}.
+
+Approximate paraphrase counts. The prediction is a noun phrase; a question or statement that addresses that noun phrase is a match.
+
+Output only the JSON object. No preamble.`;
+
+interface ScoreEveningOpts {
+  callHaiku?: typeof defaultCallHaiku;
+}
+
+export async function scoreEveningPredictions(
+  supabase: SupabaseClient,
+  user_id: "derek" | "esther",
+  date: string,
+  opts: ScoreEveningOpts = {}
+): Promise<{ scored: number; calibration: number }> {
+  const callHaiku = opts.callHaiku ?? defaultCallHaiku;
+
+  const { data: predictions } = await supabase
+    .from("twin_predictions")
+    .select("id, prediction, matched_turn_id")
+    .eq("user_id", user_id)
+    .eq("predicted_for", date)
+    .is("matched_turn_id", null);
+
+  const preds = (predictions ?? []) as Array<{ id: string; prediction: string; matched_turn_id: string | null }>;
+  if (!preds.length) return { scored: 0, calibration: 0 };
+
+  const dayStart = `${date}T00:00:00Z`;
+  const dayEnd = `${date}T23:59:59Z`;
+  const { data: turns } = await supabase
+    .from("messages")
+    .select("id, content")
+    .eq("role", "user")
+    .gte("created_at", dayStart)
+    .lte("created_at", dayEnd);
+  const userTurns = (turns ?? []) as Array<{ id: string; content: string }>;
+
+  let scoredSum = 0;
+  let scoredCount = 0;
+  for (const p of preds) {
+    const userMsg = JSON.stringify({
+      prediction: p.prediction,
+      user_turns: userTurns.slice(0, 30).map((t) => ({ id: t.id, content: String(t.content).slice(0, 500) })),
+    });
+    const r = await callHaiku({
+      system: JUDGE_SYSTEM,
+      userMessage: userMsg,
+      maxTokens: 200,
+      cacheSystem: true,
+    });
+    let judged: any;
+    try {
+      judged = JSON.parse(r.text);
+    } catch {
+      continue;
+    }
+    const matchScore = Number(judged.match_score ?? 0);
+    const turnId = judged.matched && judged.turn_id ? String(judged.turn_id) : null;
+    await supabase
+      .from("twin_predictions")
+      .update({
+        match_score: matchScore,
+        matched_turn_id: turnId,
+        matched_at: new Date().toISOString(),
+      })
+      .eq("id", p.id);
+    scoredSum += matchScore;
+    scoredCount++;
+  }
+
+  const calibration = scoredCount ? scoredSum / scoredCount : 0;
+
+  const { appendFile, mkdir } = await import("node:fs/promises");
+  await mkdir("data", { recursive: true });
+  await appendFile(
+    "data/twin-calibration.jsonl",
+    JSON.stringify({ user_id, date, calibration, scored_count: scoredCount }) + "\n",
+    "utf8"
+  );
+
+  return { scored: scoredCount, calibration };
+}
+
+export async function rollingCalibration(
+  supabase: SupabaseClient,
+  user_id: string,
+  days = 30
+): Promise<{ mean: number; n: number; per_day: Array<{ date: string; calibration: number }> }> {
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("twin_predictions")
+    .select("predicted_for, match_score")
+    .eq("user_id", user_id)
+    .gte("predicted_for", cutoff)
+    .not("match_score", "is", null);
+  const rows = (data ?? []) as Array<{ predicted_for: string; match_score: number }>;
+  const byDay = new Map<string, number[]>();
+  for (const r of rows) {
+    if (!byDay.has(r.predicted_for)) byDay.set(r.predicted_for, []);
+    byDay.get(r.predicted_for)!.push(r.match_score);
+  }
+  const per_day = Array.from(byDay.entries())
+    .map(([date, scores]) => ({ date, calibration: scores.reduce((a, b) => a + b, 0) / scores.length }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const allScores = rows.map((r) => r.match_score);
+  const mean = allScores.length ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
+  return { mean, n: allScores.length, per_day };
+}
