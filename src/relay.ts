@@ -1452,6 +1452,13 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/forecast": {
+      const { handleForecastCommand } = await import("./world-model.ts");
+      const reply = await handleForecastCommand(supabase as any, args);
+      await ctx.reply(reply, { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
