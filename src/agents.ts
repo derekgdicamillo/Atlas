@@ -30,6 +30,8 @@ export interface AgentConfig {
   capabilities?: string[];
   /** Env var name that resolves to a Telegram chat/group ID. Routes messages from this chat to this agent. */
   groupChatEnv?: string;
+  /** Env var name that resolves to a Telegram thread/topic ID within a group. Routes messages from this thread to this agent. */
+  groupThreadEnv?: string;
   /** Default mode to auto-activate for this agent (e.g. "tox-tray"). Skips mode detection. */
   defaultMode?: string;
   /** Optional workspace directory (relative to project root). Gives the agent its own CLAUDE.md and .claude/ settings. */
@@ -63,6 +65,7 @@ export interface AgentRuntime {
 const agentsByUser: Map<string, AgentRuntime> = new Map();
 const agentsById: Map<string, AgentRuntime> = new Map();
 const agentsByChat: Map<string, AgentRuntime> = new Map();
+const agentsByThread: Map<string, AgentRuntime> = new Map();
 /** Maps bot ID (e.g. "atlas", "ishtar", "coach") to the agent that owns that bot */
 const agentsByBotId: Map<string, AgentRuntime> = new Map();
 let defaultAgent: AgentRuntime | null = null;
@@ -102,6 +105,15 @@ export function loadAgents(projectRoot: string): void {
         console.log(`[agents] Chat ${agent.groupChatEnv}=${chatId} -> ${agent.id}`);
       }
     }
+
+    // Resolve thread-based routing from env var
+    if (agent.groupThreadEnv) {
+      const threadId = process.env[agent.groupThreadEnv];
+      if (threadId) {
+        agentsByThread.set(threadId, runtime);
+        console.log(`[agents] Thread ${agent.groupThreadEnv}=${threadId} -> ${agent.id}`);
+      }
+    }
   }
 
   // Register primary agents by their bot ID (agent ID = bot ID for primary bots)
@@ -139,6 +151,14 @@ export function getAgentForBot(botId: string): AgentRuntime | null {
  */
 export function getAgentForChat(chatId: string): AgentRuntime | null {
   return agentsByChat.get(chatId) || null;
+}
+
+/**
+ * Route by Telegram thread/topic ID. Returns the dedicated agent for this thread,
+ * or null if no agent is mapped to this thread.
+ */
+export function getAgentForThread(threadId: string): AgentRuntime | null {
+  return agentsByThread.get(threadId) || null;
 }
 
 export function isUserAllowed(userId: string): boolean {

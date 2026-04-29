@@ -46,6 +46,7 @@ import {
   loadAgents,
   getAgentForUser,
   getAgentForChat,
+  getAgentForThread,
   getAgentForBot,
   isUserAllowed,
   formatAgentsList,
@@ -284,6 +285,7 @@ const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ISHTAR_BOT_TOKEN = process.env.ISHTAR_BOT_TOKEN || "";
 const COACH_BOT_TOKEN = process.env.COACH_BOT_TOKEN || "";
+const MEDICINE_BOT_TOKEN = process.env.MEDICINE_BOT_TOKEN || "";
 const ALLOWED_USER_ID = process.env.TELEGRAM_USER_ID || "";
 const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || process.env.USERPROFILE || require("os").homedir(), ".claude-relay");
 
@@ -297,6 +299,7 @@ function botIdFromCtx(ctx: Context): string {
   const token = (ctx as any).api?.token;
   if (token === COACH_BOT_TOKEN) return "coach";
   if (token === ISHTAR_BOT_TOKEN) return "ishtar";
+  if (token === MEDICINE_BOT_TOKEN) return "medicine";
   return "atlas";
 }
 
@@ -615,9 +618,10 @@ if (!(await acquireLock())) {
 const bot = new Bot(BOT_TOKEN);
 const ishtarBot = ISHTAR_BOT_TOKEN ? new Bot(ISHTAR_BOT_TOKEN) : null;
 const coachBot = COACH_BOT_TOKEN ? new Bot(COACH_BOT_TOKEN) : null;
+const medicineBot = MEDICINE_BOT_TOKEN ? new Bot(MEDICINE_BOT_TOKEN) : null;
 
 /** All active bots for shutdown and startup */
-const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : [])];
+const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : []), ...(medicineBot ? [medicineBot] : [])];
 
 // ============================================================
 // GRAMMY PLUGINS (production resilience)
@@ -778,6 +782,84 @@ handlers.use(async (ctx, next) => {
 });
 
 // ============================================================
+// GROUP CHAT DECONFLICTION
+// When multiple bots share a group, only one should respond per message.
+// Rules: @mention -> that bot only. Reply to bot -> that bot only.
+// No mention/reply -> only the bot that "owns" the group (via groupChatEnv),
+// or Atlas (primary) if no agent owns it.
+// ============================================================
+
+// Map of bot username (lowercase, no @) -> botId. Populated at startup.
+const botUsernameToId: Map<string, string> = new Map();
+
+// Populate bot usernames after bots start (see startup section).
+// Called once per bot after getMe().
+function registerBotUsername(username: string, botId: string): void {
+  botUsernameToId.set(username.toLowerCase(), botId);
+}
+
+handlers.use(async (ctx, next) => {
+  const chatType = ctx.chat?.type;
+  if (chatType !== "group" && chatType !== "supergroup") {
+    return next(); // DMs: no conflict possible
+  }
+
+  const myBotId = botIdFromCtx(ctx);
+  const msg = ctx.message || (ctx as any).edited_message;
+  if (!msg) return next();
+
+  // Thread-based routing: if message is in a topic thread, check if an agent owns it
+  const threadId = (msg as any).message_thread_id;
+  if (threadId != null) {
+    info("group-filter", `${myBotId} received msg in thread ${threadId} of chat ${ctx.chat?.id}`);
+    const threadAgent = getAgentForThread(String(threadId));
+    if (threadAgent) {
+      if (myBotId === threadAgent.config.id) return next();
+      return; // different bot owns this thread, skip
+    }
+  }
+
+  // Check for @mention of a specific bot in message entities
+  const entities = msg.entities || msg.caption_entities || [];
+  const text = msg.text || msg.caption || "";
+  for (const ent of entities) {
+    if (ent.type === "mention") {
+      const mentioned = text.slice(ent.offset + 1, ent.offset + ent.length).toLowerCase(); // strip @
+      const targetBotId = botUsernameToId.get(mentioned);
+      if (targetBotId) {
+        // Message mentions a known bot — only that bot should handle it
+        if (myBotId === targetBotId) return next();
+        return; // not for this bot, skip silently
+      }
+    }
+  }
+
+  // Check if replying to a message from one of our bots
+  const replyTo = msg.reply_to_message;
+  if (replyTo?.from?.is_bot && replyTo.from.username) {
+    const replyBotId = botUsernameToId.get(replyTo.from.username.toLowerCase());
+    if (replyBotId) {
+      if (myBotId === replyBotId) return next();
+      return; // reply targets a different bot, skip
+    }
+  }
+
+  // No mention, no reply to a bot — check if this bot "owns" the group
+  const chatId = ctx.chat?.id?.toString() || "";
+  const chatAgent = getAgentForChat(chatId);
+  if (chatAgent) {
+    if (myBotId === chatAgent.config.id) return next();
+    info("group-filter", `${myBotId} skipped group ${chatId} (owned by ${chatAgent.config.id})`);
+    return;
+  }
+
+  // No agent owns this group — only Atlas (primary) responds to unaddressed messages
+  if (myBotId === "atlas") return next();
+  info("group-filter", `${myBotId} skipped unaddressed group message in ${chatId}`);
+  return;
+});
+
+// ============================================================
 // AGENT RESOLUTION HELPER
 // ============================================================
 
@@ -922,11 +1004,12 @@ function maybeSaveDedupCache(): void {
 const OFFSET_FILE = join(PROJECT_ROOT, ".last_update_id");
 const OFFSET_FILE_ISHTAR = join(PROJECT_ROOT, ".last_update_id_ishtar");
 const OFFSET_FILE_COACH = join(PROJECT_ROOT, ".last_update_id_coach");
+const OFFSET_FILE_MEDICINE = join(PROJECT_ROOT, ".last_update_id_medicine");
 
 // Per-bot update ID tracking. Each bot has its own Telegram update ID namespace,
 // so a single global counter causes cross-bot stale detection (bug: Ishtar's
 // 726M IDs made Atlas's 579M IDs look "stale").
-const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0, coach: 0 };
+const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0, coach: 0, medicine: 0 };
 
 async function loadLastUpdateId(): Promise<number> {
   try {
@@ -955,11 +1038,21 @@ async function loadLastUpdateIdCoach(): Promise<number> {
   }
 }
 
+async function loadLastUpdateIdMedicine(): Promise<number> {
+  try {
+    const data = await readFile(OFFSET_FILE_MEDICINE, "utf-8");
+    return parseInt(data.trim(), 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function saveLastUpdateId(updateId: number, botId: string = "atlas"): Promise<void> {
   try {
     let file = OFFSET_FILE;
     if (botId === "ishtar") file = OFFSET_FILE_ISHTAR;
     else if (botId === "coach") file = OFFSET_FILE_COACH;
+    else if (botId === "medicine") file = OFFSET_FILE_MEDICINE;
     await writeFile(file, String(updateId), "utf-8");
     lastProcessedUpdateIds[botId] = updateId;
   } catch (e) {
@@ -5149,14 +5242,19 @@ if (coachBot) {
   coachBot.use(handlers);
   info("startup", "Coach bot initialized (multi-bot mode)");
 }
+if (medicineBot) {
+  medicineBot.use(handlers);
+  info("startup", "Medicine bot initialized (multi-bot mode)");
+}
 
 // Load persisted update offsets (per-bot) to skip already-processed messages after restart
-Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach()]).then(async ([atlasId, ishtarId, coachId]) => {
+Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach(), loadLastUpdateIdMedicine()]).then(async ([atlasId, ishtarId, coachId, medicineId]) => {
   lastProcessedUpdateIds.atlas = atlasId;
   lastProcessedUpdateIds.ishtar = ishtarId;
   lastProcessedUpdateIds.coach = coachId;
+  lastProcessedUpdateIds.medicine = medicineId;
   const id = atlasId; // backward compat for dropPending logic below
-  info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}, coach=${coachId}`);
+  info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}, coach=${coachId}, medicine=${medicineId}`);
 
   // Use drop_pending_updates when we have no saved offset (crash recovery).
   // This prevents re-processing stale messages (including /restart) that
@@ -5185,6 +5283,43 @@ Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach
       warn("startup", `Failed to clear Ishtar webhook state: ${e}`);
     }
   }
+  if (medicineBot) {
+    try {
+      await medicineBot.api.deleteWebhook({ drop_pending_updates: false });
+      info("startup", "Cleared webhook state for Medicine bot");
+    } catch (e) {
+      warn("startup", `Failed to clear Medicine webhook state: ${e}`);
+    }
+  }
+
+  // Register bot usernames for group chat deconfliction
+  try {
+    const atlasMe = await bot.api.getMe();
+    if (atlasMe.username) registerBotUsername(atlasMe.username, "atlas");
+    console.log(`[startup] Registered bot username: @${atlasMe.username} -> atlas`);
+  } catch (e) { console.log(`[startup] Failed to get Atlas bot info: ${e}`); }
+  if (ishtarBot) {
+    try {
+      const ishtarMe = await ishtarBot.api.getMe();
+      if (ishtarMe.username) registerBotUsername(ishtarMe.username, "ishtar");
+      console.log(`[startup] Registered bot username: @${ishtarMe.username} -> ishtar`);
+    } catch (e) { console.log(`[startup] Failed to get Ishtar bot info: ${e}`); }
+  }
+  if (coachBot) {
+    try {
+      const coachMe = await coachBot.api.getMe();
+      if (coachMe.username) registerBotUsername(coachMe.username, "coach");
+      console.log(`[startup] Registered bot username: @${coachMe.username} -> coach`);
+    } catch (e) { console.log(`[startup] Failed to get Coach bot info: ${e}`); }
+  }
+  if (medicineBot) {
+    try {
+      const medicineMe = await medicineBot.api.getMe();
+      if (medicineMe.username) registerBotUsername(medicineMe.username, "medicine");
+      console.log(`[startup] Registered bot username: @${medicineMe.username} -> medicine`);
+    } catch (e) { console.log(`[startup] Failed to get Medicine bot info: ${e}`); }
+  }
+  console.log(`[startup] Bot username map: ${JSON.stringify(Object.fromEntries(botUsernameToId))}`);
 
   // Start bot with 409-resilient retry loop.
   // Grammy throws unhandled GrammyError(409) when another instance is polling,
@@ -5435,5 +5570,66 @@ Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach
     }
 
     startCoach();
+  }
+
+  // Start Medicine bot with same 409-resilient retry loop
+  if (medicineBot) {
+    let medicineAttempt = 0;
+    let medicinePollingStartedAt = 0;
+    let medicineConsecutiveQuickExits = 0;
+
+    async function startMedicine(): Promise<void> {
+      try {
+        medicinePollingStartedAt = Date.now();
+        await medicineBot!.start({
+          drop_pending_updates: dropPending,
+          onStart: () => {
+            info("startup", "Medicine bot is running!");
+            medicineAttempt = 0;
+            medicineConsecutiveQuickExits = 0;
+          },
+        });
+        if (!isShuttingDown) {
+          const aliveMs = Date.now() - medicinePollingStartedAt;
+          const isQuickExit = aliveMs < QUICK_EXIT_THRESHOLD_MS;
+
+          if (isQuickExit) {
+            medicineConsecutiveQuickExits++;
+            if (medicineConsecutiveQuickExits >= MAX_QUICK_EXITS) {
+              warn("startup", `Medicine polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${medicineConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Backing off for 5 minutes.`);
+              await new Promise((r) => setTimeout(r, 5 * 60_000));
+              medicineConsecutiveQuickExits = 0;
+            } else {
+              const backoffMs = Math.min(35_000 * Math.pow(2, medicineConsecutiveQuickExits - 1), 5 * 60_000);
+              warn("startup", `Medicine polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${medicineConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Waiting ${Math.round(backoffMs / 1000)}s.`);
+              await new Promise((r) => setTimeout(r, backoffMs));
+            }
+          } else {
+            medicineConsecutiveQuickExits = 0;
+            warn("startup", `Medicine polling loop exited after ${Math.round(aliveMs / 1000)}s. Restarting in 35s.`);
+            await new Promise((r) => setTimeout(r, 35_000));
+          }
+
+          return startMedicine();
+        }
+      } catch (err) {
+        const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
+        if (is409 && medicineAttempt < MAX_START_RETRIES) {
+          medicineAttempt++;
+          const backoffMs = Math.min(5000 * Math.pow(2, medicineAttempt - 1), 60_000);
+          warn("startup", `Medicine 409 conflict on start (attempt ${medicineAttempt}/${MAX_START_RETRIES}). Retrying in ${backoffMs / 1000}s...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          return startMedicine();
+        }
+        logError("startup", `Medicine bot start failed after ${medicineAttempt} attempts: ${err}`);
+        warn("startup", "Medicine exhausted retries. Will try again in 5 minutes.");
+        await new Promise((r) => setTimeout(r, 5 * 60_000));
+        medicineAttempt = 0;
+        medicineConsecutiveQuickExits = 0;
+        return startMedicine();
+      }
+    }
+
+    startMedicine();
   }
 });
