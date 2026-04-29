@@ -309,6 +309,14 @@ export async function getRelevantContext(
             agent: opts.agent ?? "atlas",
             memories: memoriesForAttribution,
           }).catch((err) => console.error("[search] recordAttribution failed:", err));
+
+          // Atlas Prime Sprint 3: increment access counter on the retrieved memory rows.
+          const ids = memoriesForAttribution.map((m) => m.id);
+          supabase
+            .rpc("memory_increment_access", { p_ids: ids })
+            .then(({ error }) => {
+              if (error) console.error("[search] access increment failed:", error);
+            });
         }
       } catch (err) {
         console.error("[search] attribution wiring error (non-fatal):", err);
