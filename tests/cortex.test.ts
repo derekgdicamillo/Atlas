@@ -130,3 +130,108 @@ describe("cortex foundation", () => {
     expect(rpcCalled).toBe(false);
   });
 });
+
+import { executeDemotion, composeInversion, type MemoryRow } from "../src/cortex.ts";
+
+describe("cortex demotion", () => {
+  const baseRow: MemoryRow = {
+    id: "m1",
+    content: "Tirzepatide costs $400/month",
+    summary: "Tirzepatide costs $400/month",
+    original_content: "Tirzepatide costs $400/month",
+    class: "semantic",
+    demotion_pressure: 3.2,
+    demotion_events: [
+      { source: "derek-correction", ts: "2026-04-01T00:00:00Z", reason: "outdated pricing" },
+      { source: "derek-correction", ts: "2026-04-05T00:00:00Z", reason: "ignored Hallandale switch" },
+      { source: "derek-correction", ts: "2026-04-10T00:00:00Z", reason: "wrong pharmacy listed" },
+    ],
+    inverted_from: null,
+    inversion_depth: 0,
+    tags: ["pricing", "tirzepatide"],
+    created_at: "2026-03-01T00:00:00Z",
+  };
+
+  test("composeInversion produces a hindsight-formatted entry", () => {
+    const inv = composeInversion(baseRow, "2026-04-15");
+    expect(inv.content).toContain("AS OF 2026-04-15");
+    expect(inv.content).toContain("Tirzepatide costs $400/month");
+    expect(inv.content).toContain("3 times");
+    expect(inv.class).toBe("episodic");
+    expect(inv.inverted_from).toBe("m1");
+    expect(inv.inversion_depth).toBe(1);
+  });
+
+  test("composeInversion includes reasons when present", () => {
+    const inv = composeInversion(baseRow, "2026-04-15");
+    expect(inv.content).toContain("outdated pricing");
+  });
+
+  test("composeInversion at depth 1 produces depth 2", () => {
+    const inv = composeInversion({ ...baseRow, inversion_depth: 1 }, "2026-04-15");
+    expect(inv.inversion_depth).toBe(2);
+  });
+
+  test("executeDemotion below threshold is no-op", async () => {
+    const updates: any[] = [];
+    const inserts: any[] = [];
+    const fakeSupabase = {
+      from: () => ({
+        update: (u: any) => {
+          updates.push(u);
+          return { eq: () => Promise.resolve({ error: null }) };
+        },
+        insert: (rows: any[]) => {
+          inserts.push(...rows);
+          return Promise.resolve({ error: null });
+        },
+      }),
+    } as any;
+    const result = await executeDemotion(fakeSupabase, { ...baseRow, demotion_pressure: 2.5 });
+    expect(result.demoted).toBe(false);
+    expect(updates).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  test("executeDemotion at threshold demotes + writes inversion", async () => {
+    const updates: any[] = [];
+    const inserts: any[] = [];
+    const fakeSupabase = {
+      from: () => ({
+        update: (u: any) => {
+          updates.push(u);
+          return { eq: () => Promise.resolve({ error: null }) };
+        },
+        insert: (rows: any[]) => {
+          inserts.push(...rows);
+          return Promise.resolve({ error: null });
+        },
+      }),
+    } as any;
+    const result = await executeDemotion(fakeSupabase, baseRow);
+    expect(result.demoted).toBe(true);
+    expect(result.inverted).toBe(true);
+    expect(updates[0].class).toBe("demoted");
+    expect(inserts[0].inverted_from).toBe("m1");
+    expect(inserts[0].inversion_depth).toBe(1);
+  });
+
+  test("executeDemotion at max depth refuses further inversion", async () => {
+    const inserts: any[] = [];
+    const fakeSupabase = {
+      from: () => ({
+        update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        insert: (rows: any[]) => {
+          inserts.push(...rows);
+          return Promise.resolve({ error: null });
+        },
+      }),
+    } as any;
+    const deep = { ...baseRow, inversion_depth: 2 };
+    const result = await executeDemotion(fakeSupabase, deep);
+    expect(result.demoted).toBe(true);
+    expect(result.inverted).toBe(false);
+    expect(result.alertReason).toContain("max inversion depth");
+    expect(inserts).toHaveLength(0);
+  });
+});
