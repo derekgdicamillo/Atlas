@@ -185,6 +185,7 @@ export async function detectNaturalExperiments(
 }
 
 import { spawn } from "node:child_process";
+import { Anthropic } from "@anthropic-ai/sdk";
 
 export interface PCEdgeCandidate {
   from: string;
@@ -286,4 +287,148 @@ export async function runPCDiscovery(
     inserted++;
   }
   return { inserted, edges };
+}
+
+export interface LLMEdgeProposal {
+  from_node: string;
+  to_node: string;
+  hypothesized_effect_size?: number;
+  direction: "positive" | "negative" | "unknown";
+  confidence: number;
+  evidence_pointers: string[];
+  rationale: string;
+}
+
+export async function proposeLLMEdges(
+  supabase: SupabaseClient,
+  opts?: { weeksBack?: number; client?: Anthropic }
+): Promise<{ inserted: number; proposals: LLMEdgeProposal[] }> {
+  const client = opts?.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const weeksBack = opts?.weeksBack ?? 1;
+
+  const { readdir, readFile } = await import("node:fs/promises");
+  const journals: string[] = [];
+  try {
+    const files = (await readdir("memory")).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f));
+    const recent = files.sort().slice(-7 * weeksBack);
+    for (const f of recent) {
+      const text = await readFile(`memory/${f}`, "utf8");
+      journals.push(`=== ${f} ===\n${text.slice(0, 4000)}`);
+    }
+  } catch {
+    /* no journals */
+  }
+
+  const { data: scorecard } = await supabase
+    .from("business_scorecard")
+    .select("*")
+    .eq("period_type", "daily")
+    .order("period_start", { ascending: false })
+    .limit(7 * weeksBack);
+  const scorecardSummary = JSON.stringify(scorecard ?? [], null, 2).slice(0, 6000);
+
+  const { data: nodes } = await supabase.from("causal_nodes").select("name, kind");
+  const knownNodeNames = (nodes ?? []).map((n: any) => `${n.kind}:${n.name}`).join(", ");
+
+  const { data: approved } = await supabase
+    .from("causal_edges")
+    .select("from_node, to_node, effect_size, proposed_by")
+    .eq("approved", true)
+    .eq("status", "observed")
+    .limit(50);
+  const approvedSummary = JSON.stringify(approved ?? []).slice(0, 4000);
+
+  const SYSTEM = `You propose causal edges for a personal AI's causal graph based on journals, business scorecard, and known nodes.
+
+Output a strict JSON array of edge proposals. Each edge:
+{
+  "from_node": "<existing node name OR descriptive new node name>",
+  "to_node":   "<existing node name OR descriptive new node name>",
+  "hypothesized_effect_size": <number, in to_node's natural unit, optional>,
+  "direction": "positive" | "negative" | "unknown",
+  "confidence": <0..1>,
+  "evidence_pointers": ["<journal line, scorecard date, ledger event ID, etc.>", ...],
+  "rationale": "<one sentence>"
+}
+
+Rules:
+- Do NOT propose edges already in the approved list.
+- Prefer using existing node names when they fit; only invent new node names when truly novel.
+- evidence_pointers must reference real artifacts in the provided context. Empty pointers = auto-reject.
+- Return at most 5 proposals per call.
+- Output only the JSON array. No preamble.`;
+
+  const userMessage = [
+    `KNOWN NODES: ${knownNodeNames}`,
+    ``,
+    `APPROVED EDGES (do not duplicate):`,
+    approvedSummary,
+    ``,
+    `JOURNAL ENTRIES (last ${weeksBack} weeks):`,
+    journals.join("\n\n").slice(0, 12000),
+    ``,
+    `SCORECARD (last ${7 * weeksBack} days):`,
+    scorecardSummary,
+  ].join("\n");
+
+  const resp = await client.messages.create({
+    model: "claude-opus-4-6",
+    max_tokens: 2000,
+    system: SYSTEM,
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const text = (resp.content[0] as any)?.text ?? "";
+  let proposals: LLMEdgeProposal[];
+  try {
+    const jsonStart = text.indexOf("[");
+    const jsonEnd = text.lastIndexOf("]");
+    proposals = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+  } catch {
+    return { inserted: 0, proposals: [] };
+  }
+
+  let inserted = 0;
+  for (const p of proposals) {
+    if (!p.evidence_pointers?.length) continue;
+
+    const fromKind: "metric" | "action" | "event" =
+      /pause|launch|cut|change|enroll|publish|post|send/i.test(p.from_node) ? "action" : "metric";
+    const fromNode = await ensureNode(supabase, { kind: fromKind, name: p.from_node });
+    const toNode = await ensureNode(supabase, { kind: "metric", name: p.to_node });
+
+    const { data: existing } = await supabase
+      .from("causal_edges")
+      .select("id")
+      .eq("from_node", fromNode.id)
+      .eq("to_node", toNode.id)
+      .eq("proposed_by", "llm")
+      .maybeSingle();
+    if (existing) continue;
+
+    const effectSize =
+      typeof p.hypothesized_effect_size === "number"
+        ? p.direction === "negative"
+          ? -Math.abs(p.hypothesized_effect_size)
+          : Math.abs(p.hypothesized_effect_size)
+        : null;
+    await supabase.from("causal_edges").insert({
+      from_node: fromNode.id,
+      to_node: toNode.id,
+      effect_size: effectSize,
+      evidence: [{
+        kind: "llm",
+        confidence: p.confidence,
+        evidence_pointers: p.evidence_pointers,
+        rationale: p.rationale,
+        direction: p.direction,
+      }],
+      status: "hypothesized",
+      proposed_by: "llm",
+      approved: false,
+    });
+    inserted++;
+  }
+
+  return { inserted, proposals };
 }
