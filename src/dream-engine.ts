@@ -523,3 +523,137 @@ export async function runREM(
     topUnprep: top3[0]?.unprep_score ?? 0,
   };
 }
+
+export async function handleDreamsCommand(
+  supabase: SupabaseClient,
+  args: string[]
+): Promise<string> {
+  const sub = (args[0] ?? "").toLowerCase();
+  switch (sub) {
+    case "sws": {
+      const { data } = await supabase
+        .from("dreams")
+        .select("id, occurred_at, rules_emitted, doubts, content")
+        .eq("phase", "SWS")
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      const row = (data ?? [])[0];
+      if (!row) return "No SWS dreams yet.";
+      const r = row as any;
+      return [
+        `**Last SWS Dream — ${String(r.occurred_at).slice(0, 10)}**`,
+        ``,
+        `Rules emitted: ${r.rules_emitted?.length ?? 0}`,
+        `DOUBTs: ${r.doubts?.length ? r.doubts.map((d: string) => `[DOUBT: ${d}]`).join(", ") : "none"}`,
+      ].join("\n");
+    }
+    case "search": {
+      const query = args.slice(1).join(" ");
+      if (!query) return "Usage: `/dreams search <topic>`";
+      const { data } = await supabase
+        .from("dreams")
+        .select("id, phase, occurred_at, content")
+        .ilike("content", `%${query}%`)
+        .order("occurred_at", { ascending: false })
+        .limit(5);
+      const rows = (data ?? []) as any[];
+      if (!rows.length) return `No dreams matching "${query}".`;
+      return rows
+        .map(
+          (r, i) =>
+            `${i + 1}. ${r.phase} ${String(r.occurred_at).slice(0, 10)}: ${String(r.content).slice(0, 200)}…`
+        )
+        .join("\n");
+    }
+    default: {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: remRows } = await supabase
+        .from("dreams")
+        .select("content, unprep_score")
+        .eq("phase", "REM")
+        .gte("occurred_at", today)
+        .order("unprep_score", { ascending: false })
+        .limit(3);
+      const rem = (remRows ?? []) as any[];
+      const { data: swsRows } = await supabase
+        .from("dreams")
+        .select("doubts")
+        .eq("phase", "SWS")
+        .gte("occurred_at", today)
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      const doubts = (swsRows?.[0] as any)?.doubts ?? [];
+
+      const lines = [`**Today's dreams**`, ``];
+      if (rem.length) {
+        lines.push("**REM scenarios (top 3 by unprep_score)**");
+        for (const r of rem) {
+          lines.push(`- (${(r.unprep_score ?? 0).toFixed(2)}) ${String(r.content).slice(0, 200)}…`);
+        }
+        lines.push(``);
+      }
+      if (doubts.length) {
+        lines.push("**Open DOUBTs from SWS**");
+        for (const d of doubts) lines.push(`- ${d}`);
+      }
+      if (!rem.length && !doubts.length) lines.push("No dreams yet today.");
+      return lines.join("\n");
+    }
+  }
+}
+
+export async function getMorningBriefAddendum(supabase: SupabaseClient): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: remRows } = await supabase
+    .from("dreams")
+    .select("content, unprep_score")
+    .eq("phase", "REM")
+    .gte("occurred_at", today)
+    .order("unprep_score", { ascending: false })
+    .limit(1);
+  const remBlock = remRows?.[0]
+    ? `**Atlas dreamt last night**\n${String((remRows[0] as any).content).slice(0, 280)}…\n`
+    : "";
+
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const { data: swsRows } = await supabase
+    .from("dreams")
+    .select("doubts")
+    .eq("phase", "SWS")
+    .gte("occurred_at", yesterday)
+    .lt("occurred_at", today);
+  const doubts = (swsRows?.[0] as any)?.doubts ?? [];
+  const doubtsBlock = doubts.length
+    ? `\n**Unresolved DOUBTs:** ${doubts.slice(0, 3).join("; ")}`
+    : "";
+
+  const { count: pending } = await supabase
+    .from("causal_edges")
+    .select("*", { count: "exact", head: true })
+    .eq("approved", false);
+  const dagBlock = pending
+    ? `\n**DAG**: ${pending} edges awaiting approval (\`/dag pending\`)`
+    : "";
+
+  const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data: divs } = await supabase
+    .from("twin_divergence")
+    .select("preference_id, gap, sample_size")
+    .gt("gap", 0.4)
+    .gte("sample_size", 5)
+    .gte("computed_at", cutoff7d)
+    .order("computed_at", { ascending: false });
+  const newDivs = (divs ?? []) as any[];
+  const seen = new Set<string>();
+  const dedupedDivs = newDivs.filter((d) => {
+    if (seen.has(d.preference_id)) return false;
+    seen.add(d.preference_id);
+    return true;
+  });
+  const twinBlock = dedupedDivs.length
+    ? `\n**[TWIN_ALERT]** ${dedupedDivs.length} preference${dedupedDivs.length > 1 ? "s" : ""} diverging — \`/twin divergence\``
+    : "";
+
+  return [remBlock, doubtsBlock, dagBlock, twinBlock].filter(Boolean).join("\n").trim();
+}

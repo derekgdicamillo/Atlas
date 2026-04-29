@@ -1459,6 +1459,13 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/dreams": {
+      const { handleDreamsCommand } = await import("./dream-engine.ts");
+      const reply = await handleDreamsCommand(supabase as any, args);
+      await ctx.reply(reply, { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
