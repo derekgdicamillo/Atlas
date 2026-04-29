@@ -183,3 +183,107 @@ export async function detectNaturalExperiments(
 
   return { inserted, experiments: out };
 }
+
+import { spawn } from "node:child_process";
+
+export interface PCEdgeCandidate {
+  from: string;
+  to: string;
+  stability: number;
+}
+
+export async function runPCDiscovery(
+  supabase: SupabaseClient,
+  opts?: { stabilityThreshold?: number; nIter?: number; daysBack?: number }
+): Promise<{ inserted: number; edges: PCEdgeCandidate[]; error?: string }> {
+  const stabilityThreshold = opts?.stabilityThreshold ??
+    Number(process.env.CAUSAL_PC_STABILITY_THRESHOLD ?? 0.7);
+  const nIter = opts?.nIter ?? 100;
+  const daysBack = opts?.daysBack ?? 90;
+
+  const cutoff = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  const { data: obs } = await supabase
+    .from("causal_observations")
+    .select("node_id, observed_at, value")
+    .gte("observed_at", cutoff);
+  if (!obs || obs.length === 0) {
+    return { inserted: 0, edges: [], error: "no observations" };
+  }
+
+  const { data: nodes } = await supabase.from("causal_nodes").select("id, name");
+  const idToName = new Map((nodes ?? []).map((n: any) => [n.id, n.name]));
+  const nameSet = new Set((nodes ?? []).map((n: any) => n.name));
+  const varNames = Array.from(nameSet) as string[];
+
+  const dayMap = new Map<string, Record<string, number>>();
+  for (const o of obs as any[]) {
+    const day = String(o.observed_at).slice(0, 10);
+    if (!dayMap.has(day)) dayMap.set(day, {});
+    const name = idToName.get(o.node_id);
+    if (!name) continue;
+    dayMap.get(day)![name as string] = Number(o.value);
+  }
+
+  const matrix: number[][] = [];
+  for (const day of Array.from(dayMap.keys()).sort()) {
+    const row = varNames.map((n) => dayMap.get(day)![n] ?? 0);
+    if (row.every((v) => Number.isFinite(v))) matrix.push(row);
+  }
+  if (matrix.length < 30) {
+    return { inserted: 0, edges: [], error: `only ${matrix.length} complete observation days; need >= 30` };
+  }
+
+  const result = await new Promise<{ edges?: PCEdgeCandidate[]; error?: string }>((resolve) => {
+    const py = spawn("python", ["scripts/causal_pc.py"]);
+    let stdout = "";
+    let stderr = "";
+    py.stdout.on("data", (d) => (stdout += d.toString()));
+    py.stderr.on("data", (d) => (stderr += d.toString()));
+    py.on("close", () => {
+      try {
+        resolve(JSON.parse(stdout));
+      } catch {
+        resolve({ error: stderr || "pc subprocess failed (non-JSON output)" });
+      }
+    });
+    py.on("error", (err) => resolve({ error: String(err) }));
+    py.stdin.write(JSON.stringify({
+      observations: matrix,
+      var_names: varNames,
+      n_iter: nIter,
+      stability_threshold: stabilityThreshold,
+    }));
+    py.stdin.end();
+  });
+
+  if (result.error) return { inserted: 0, edges: [], error: result.error };
+  const edges = result.edges ?? [];
+  if (!edges.length) return { inserted: 0, edges };
+
+  const nameToId = new Map((nodes ?? []).map((n: any) => [n.name, n.id]));
+  let inserted = 0;
+  for (const e of edges) {
+    const fromId = nameToId.get(e.from);
+    const toId = nameToId.get(e.to);
+    if (!fromId || !toId) continue;
+    const { data: existing } = await supabase
+      .from("causal_edges")
+      .select("id")
+      .eq("from_node", fromId)
+      .eq("to_node", toId)
+      .eq("proposed_by", "pc-algo")
+      .maybeSingle();
+    if (existing) continue;
+    await supabase.from("causal_edges").insert({
+      from_node: fromId,
+      to_node: toId,
+      effect_size: null,
+      evidence: [{ kind: "pc-algo", stability: e.stability, n_observations: matrix.length }],
+      status: "hypothesized",
+      proposed_by: "pc-algo",
+      approved: false,
+    });
+    inserted++;
+  }
+  return { inserted, edges };
+}
