@@ -125,3 +125,168 @@ export async function topSalient(
   }
   return out.sort((a, b) => b.score - a.score).slice(0, k);
 }
+
+import { callHaiku } from "./haiku-client.ts";
+import { mkdir, writeFile } from "node:fs/promises";
+
+const SWS_VARIANT_SYSTEM = `You read a past episode and generate 3-5 counterfactual variants.
+
+Each variant explores 'what if [different decision]?', 'what if [different timing]?', or 'what if [different actor]?'
+
+Output a JSON array: [{"variant": "...", "probable_outcome": "...", "key_uncertainty": "..."}, ...]
+
+Rules:
+- 3 to 5 variants
+- No invented facts beyond what the memory implies
+- Output only the JSON array. No preamble.`;
+
+const SWS_RULE_SYSTEM = `You read a set of counterfactual variants of a past episode and write ONE generalized rule (≤80 words) that captures any pattern across them.
+
+If no clear pattern, output the literal string "NO_RULE" (without quotes).
+
+Output the rule text only. No preamble.`;
+
+const SWS_DOUBT_SYSTEM = `You read a set of counterfactual variants. Output a JSON array of DOUBT topics — short noun phrases for any cases where two variants' probable_outcomes contradict each other.
+
+If no contradictions, output [].
+
+Output only the JSON array.`;
+
+export async function runSWS(supabase: SupabaseClient): Promise<{
+  dreamId: string | null;
+  rulesEmitted: number;
+  doubts: string[];
+}> {
+  const top = await topSalient(supabase, 24, 10);
+  if (!top.length) return { dreamId: null, rulesEmitted: 0, doubts: [] };
+
+  const allVariants: Record<string, any[]> = {};
+  const allRules: string[] = [];
+  const allDoubts: string[] = [];
+
+  for (const s of top) {
+    const { data: row } = await supabase
+      .from("memory")
+      .select("id, summary, tags, created_at")
+      .eq("id", s.memoryId)
+      .single();
+    if (!row) continue;
+
+    let variants: any[] = [];
+    try {
+      const r = await callHaiku({
+        system: SWS_VARIANT_SYSTEM,
+        userMessage: `Episode (created ${(row as any).created_at}, tags: ${(row as any).tags?.join(", ") ?? ""}):\n\n${(row as any).summary}`,
+        maxTokens: 800,
+        cacheSystem: true,
+      });
+      const text = r.text;
+      const start = text.indexOf("[");
+      const end = text.lastIndexOf("]");
+      variants = JSON.parse(text.slice(start, end + 1));
+    } catch (err) {
+      console.error(`[dream-sws] variants failed for ${s.memoryId}:`, err);
+      continue;
+    }
+    if (!variants.length) continue;
+    allVariants[s.memoryId] = variants;
+
+    try {
+      const r = await callHaiku({
+        system: SWS_RULE_SYSTEM,
+        userMessage: variants
+          .map((v, i) => `${i + 1}. ${v.variant} → ${v.probable_outcome}`)
+          .join("\n"),
+        maxTokens: 200,
+        cacheSystem: true,
+      });
+      const rule = r.text.trim();
+      if (rule && rule !== "NO_RULE") {
+        allRules.push(rule);
+      }
+    } catch { /* skip rule */ }
+
+    try {
+      const r = await callHaiku({
+        system: SWS_DOUBT_SYSTEM,
+        userMessage: variants
+          .map((v, i) => `${i + 1}. ${v.variant} → ${v.probable_outcome}`)
+          .join("\n"),
+        maxTokens: 200,
+        cacheSystem: true,
+      });
+      const text = r.text;
+      const start = text.indexOf("[");
+      const end = text.lastIndexOf("]");
+      const arr = JSON.parse(text.slice(start, end + 1)) as string[];
+      for (const d of arr) {
+        if (d && !allDoubts.includes(d)) allDoubts.push(d);
+      }
+    } catch { /* skip doubts */ }
+  }
+
+  // Insert each rule as a memory row (semantic, from-dream)
+  const ruleIds: string[] = [];
+  for (const rule of allRules) {
+    const { data: ins } = await supabase
+      .from("memory")
+      .insert({
+        content: rule,
+        original_content: rule,
+        summary: rule,
+        class: "semantic",
+        tags: ["from-dream", "sws"],
+      })
+      .select("id")
+      .single();
+    if (ins) ruleIds.push((ins as any).id);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const variantSection = Object.entries(allVariants)
+    .flatMap(([id, vs]) => [
+      `### ${id}`,
+      ...vs.map(
+        (v: any, i: number) =>
+          `${i + 1}. **${v.variant}** → ${v.probable_outcome} (uncertainty: ${v.key_uncertainty})`
+      ),
+      ``,
+    ]);
+  const narrative = [
+    `# Atlas SWS Dream — ${today}`,
+    ``,
+    `## Top-salient memories`,
+    ...top.map((s, i) => `${i + 1}. ${s.memoryId} — score ${s.score.toFixed(2)}`),
+    ``,
+    `## Counterfactual variants`,
+    ...variantSection,
+    ``,
+    `## Generalized rules`,
+    ...allRules.map((r, i) => `${i + 1}. ${r}`),
+    ``,
+    `## DOUBTs raised`,
+    ...allDoubts.map((d) => `- [DOUBT: ${d}]`),
+  ].join("\n");
+
+  await mkdir("memory/dreams", { recursive: true });
+  await writeFile(`memory/dreams/${today}-sws.md`, narrative, "utf8");
+
+  const { data: dreamRow } = await supabase
+    .from("dreams")
+    .insert({
+      phase: "SWS",
+      trigger: "nightly-sws-cron",
+      source_refs: top.map((s) => ({ kind: "memory", id: s.memoryId, score: s.score })),
+      content: narrative.slice(0, 30000),
+      rules_emitted: ruleIds,
+      doubts: allDoubts,
+    })
+    .select("id")
+    .single();
+
+  return {
+    dreamId: dreamRow ? (dreamRow as any).id : null,
+    rulesEmitted: ruleIds.length,
+    doubts: allDoubts,
+  };
+}
