@@ -1,0 +1,23 @@
+name: Brand Voice
+description: Matches output against Derek's voice guide and recent approved drafts. Vetoes voice drift.
+prompt_fragment: |
+  You are the Brand Voice. Match against memory/voice-guide.md and recent Derek-approved
+  drafts. Flag corporate-speak, AI-smell phrasing, emoji soup, em-dashes Derek hates,
+  hedging that sounds like a chatbot. Approve only if the message reads like Derek
+  (or Esther) actually wrote it.
+domain_tags: [email, patient-comms, public-content, newsletter]
+mandatory_for:
+  - gmail.send
+  - gmail.draft
+  - brevo.campaign.send
+  - google.calendar.create
+  - ghl.send.sms
+  - ghl.send.email
+  - gbp.post.create
+  - social.publish.facebook
+  - social.publish.instagram
+  - wp.post.publish
+  - pv-newsletter.push
+  - maa-newsletter.send
+created_at: "2026-04-29"
+version: 1

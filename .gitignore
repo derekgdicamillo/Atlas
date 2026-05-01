@@ -121,3 +121,8 @@ data/blackboard-worktrees/
 data/blackboard-archive/
 data/blackboard.lock
 data/test-blackboards/
+
+# Atlas Prime — named seat private keys (never commit)
+data/roles/*/key.priv
+data/test-roles/
+data/test-roles-*/
