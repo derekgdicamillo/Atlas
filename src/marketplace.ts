@@ -4,10 +4,14 @@
  * Beta posteriors with per-domain decay.
  *
  * Task 12: Foundation — registerBidder, betaSummary, recordOutcome.
- * Task 13 (next): routeTask, currentRouting, promoteTaskType.
+ * Task 13: routeTask, currentRouting, promoteTaskType, getTaskTypeMode.
  * Task 14 (next): decayAll.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { randomUUID } from "crypto";
+import { callHaiku } from "./haiku-client";
 
 export interface VowCard {
   cost_estimate_usd?: number;
@@ -168,4 +172,253 @@ export async function recordOutcome(
     },
     { onConflict: "bidder_id,domain" }
   );
+}
+
+// ============================================================
+// ROUTING (Task 13 — vow-cards routine + active bid novel)
+// ============================================================
+
+let routingCache: Record<string, string> | null = null;
+function loadRouting(): Record<string, string> {
+  if (routingCache) return routingCache;
+  const path = join(process.cwd(), "data/marketplace-current-routing.json");
+  routingCache = JSON.parse(readFileSync(path, "utf-8")) as Record<string, string>;
+  return routingCache;
+}
+
+/**
+ * Synchronous lookup of the baseline routing table.
+ * Returns the hard-coded winner for the given task type, or the "default" entry.
+ */
+export function currentRouting(taskType: string): string {
+  const r = loadRouting();
+  return r[taskType] ?? r["default"] ?? "code-research";
+}
+
+/**
+ * Issue a real-time bid from a bidder via Haiku (novel path).
+ */
+async function activeBidPrompt(
+  bidder: { id: string; type: string; vowCard: VowCard },
+  task: { type: string; description: string; domain: string }
+): Promise<Bid | null> {
+  const sys =
+    "You are " +
+    bidder.id +
+    ", a " +
+    bidder.type +
+    ". Vow card: " +
+    JSON.stringify(bidder.vowCard);
+  const userMessage =
+    "Bid on this task.\nTask type: " +
+    task.type +
+    "\nDescription: " +
+    task.description +
+    "\nDomain: " +
+    task.domain +
+    '\n\nOutput strict JSON only: {"want":bool,"confidence_now":0..1,"cost_now":number,"reason":"..."}';
+  try {
+    const out = await callHaiku({ system: sys, userMessage, maxTokens: 200, cacheSystem: true });
+    const m = out.text.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]) as {
+      want: boolean;
+      confidence_now: number;
+      cost_now: number;
+      reason: string;
+    };
+    return {
+      bid_id: randomUUID(),
+      task_id: "",
+      bidder_id: bidder.id,
+      want: !!parsed.want,
+      confidence_now: Number(parsed.confidence_now ?? 0.5),
+      cost_now: Number(parsed.cost_now ?? bidder.vowCard.cost_estimate_usd ?? 0.1),
+      reason: String(parsed.reason ?? ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return the current mode and sample count for a task type.
+ * Defaults to shadow mode with 0 samples when no row exists.
+ */
+export async function getTaskTypeMode(
+  supabase: SupabaseClient,
+  taskType: string
+): Promise<{ mode: "shadow" | "live"; sampleCount: number }> {
+  const { data } = await supabase
+    .from("marketplace_task_types")
+    .select("mode,sample_count")
+    .eq("task_type", taskType)
+    .maybeSingle();
+  return {
+    mode: (data?.mode as "shadow" | "live") ?? "shadow",
+    sampleCount: data?.sample_count ?? 0,
+  };
+}
+
+/**
+ * Promote a task type from shadow to live mode.
+ */
+export async function promoteTaskType(
+  supabase: SupabaseClient,
+  taskType: string,
+  byUser: string
+): Promise<void> {
+  await supabase.from("marketplace_task_types").upsert(
+    {
+      task_type: taskType,
+      mode: "live",
+      promoted_by: byUser,
+      promoted_at: new Date().toISOString(),
+    },
+    { onConflict: "task_type" }
+  );
+}
+
+async function bumpSampleCount(
+  supabase: SupabaseClient,
+  taskType: string
+): Promise<void> {
+  const { data } = await supabase
+    .from("marketplace_task_types")
+    .select("sample_count,mode")
+    .eq("task_type", taskType)
+    .maybeSingle();
+  await supabase.from("marketplace_task_types").upsert(
+    {
+      task_type: taskType,
+      sample_count: (data?.sample_count ?? 0) + 1,
+      mode: data?.mode ?? "shadow",
+    },
+    { onConflict: "task_type" }
+  );
+}
+
+/**
+ * Route a task through the marketplace.
+ *
+ * - Novel path (sample_count < NOVEL_THRESHOLD): real-time Haiku bids per bidder.
+ * - Routine path: synthesize bids from vow-cards (no Haiku call).
+ *
+ * In shadow mode: returns the baseline currentRouting() winner but logs the
+ * scored "would-have-won" in the reasoning field for comparison.
+ * In live mode: returns the scored winner.
+ */
+export async function routeTask(
+  supabase: SupabaseClient,
+  task: { type: string; description: string; payload: unknown; domain: string }
+): Promise<RouteTaskResult> {
+  const { mode, sampleCount } = await getTaskTypeMode(supabase, task.type);
+  const novel = sampleCount < NOVEL_THRESHOLD;
+
+  // Load bidders that have declared competence in this domain (have a reputation row for it).
+  // Falls back to all bidders if no domain-specific registrations exist.
+  const { data: repRows } = await supabase
+    .from("marketplace_reputation")
+    .select("bidder_id")
+    .eq("domain", task.domain);
+  const domainBidderIds = new Set((repRows ?? []).map((r) => r.bidder_id as string));
+
+  const { data: bidderRows } = await supabase.from("marketplace_bidders").select("*");
+  const allCandidates = (bidderRows ?? []).map((b) => ({
+    id: b.bidder_id as string,
+    type: b.type as "skill" | "subagent",
+    vowCard: b.vow_card_json as VowCard,
+  }));
+  // Prefer domain-matched bidders; if none declared for this domain, use all.
+  const candidates =
+    domainBidderIds.size > 0
+      ? allCandidates.filter((b) => domainBidderIds.has(b.id))
+      : allCandidates;
+
+  // Collect bids: novel or live path → active Haiku bids; routine shadow → synthesize from vow-card.
+  const bids: Bid[] = [];
+  if (novel || mode === "live") {
+    const responses = await Promise.all(
+      candidates.map((b) => activeBidPrompt(b, task))
+    );
+    for (const b of responses) {
+      if (b) {
+        b.task_id = randomUUID();
+        bids.push(b);
+      }
+    }
+    // Fallback: if all active bids failed (e.g., CLI unavailable), synthesize from vow-cards.
+    if (bids.length === 0) {
+      for (const c of candidates) {
+        bids.push({
+          bid_id: randomUUID(),
+          task_id: "",
+          bidder_id: c.id,
+          want: true,
+          confidence_now: c.vowCard.confidence_baseline ?? 0.5,
+          cost_now: c.vowCard.cost_estimate_usd ?? 0.1,
+          reason: "vow-card fallback (active bid failed)",
+        });
+      }
+    }
+  } else {
+    // Routine path — synthesize bid from vow-card without calling Haiku.
+    for (const c of candidates) {
+      bids.push({
+        bid_id: randomUUID(),
+        task_id: "",
+        bidder_id: c.id,
+        want: true,
+        confidence_now: c.vowCard.confidence_baseline ?? 0.5,
+        cost_now: c.vowCard.cost_estimate_usd ?? 0.1,
+        reason: "vow-card synthesized",
+      });
+    }
+  }
+
+  // Score each bid where want === true: confidence_now × Beta_mean / max(cost_now, 0.01).
+  const scored = await Promise.all(
+    bids
+      .filter((b) => b.want)
+      .map(async (b) => {
+        const rep = await betaSummary(supabase, b.bidder_id, task.domain);
+        const score = (b.confidence_now * rep.mean) / Math.max(b.cost_now, 0.01);
+        return { bid: b, score, betaMean: rep.mean };
+      })
+  );
+  scored.sort((a, b) => b.score - a.score);
+
+  const scoredWinner = scored[0]?.bid.bidder_id ?? currentRouting(task.type);
+  // Shadow mode returns baseline routing; live mode returns the scored winner.
+  const returnedWinner = mode === "live" ? scoredWinner : currentRouting(task.type);
+
+  // Persist bids to marketplace_bids.
+  const taskId = randomUUID();
+  for (const s of scored) {
+    s.bid.task_id = taskId;
+    const won = mode === "live" ? s.bid.bidder_id === scoredWinner : false;
+    s.bid.won = won;
+    await supabase.from("marketplace_bids").insert({
+      bid_id: s.bid.bid_id,
+      task_id: taskId,
+      bidder_id: s.bid.bidder_id,
+      want: s.bid.want,
+      confidence_now: s.bid.confidence_now,
+      cost_now: s.bid.cost_now,
+      reason: s.bid.reason,
+      won,
+      mode,
+    });
+  }
+
+  await bumpSampleCount(supabase, task.type);
+
+  return {
+    winner: returnedWinner,
+    bids,
+    reasoning:
+      "novel=" + novel + " mode=" + mode + " scored_winner=" + scoredWinner,
+    mode,
+    novelPath: novel,
+  };
 }
