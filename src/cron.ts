@@ -242,6 +242,10 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "midas-gbp":       3 * 60 * 1000, //  3 min — GBP content draft (Sonnet)
   "metrics-reminder": 30 * 1000,    // 30 sec — just sends a Telegram message
   "meeting-check":   3 * 60 * 1000, // 3 min — fetch + process transcripts via Claude
+  "marketplace-decay": 2 * 60 * 1000,     //  2 min — Supabase update pass
+  "council-shadow-review": 5 * 60 * 1000, //  5 min — LLM summary + file write
+  "blackboard-gc":   2 * 60 * 1000,       //  2 min — git bundle + file writes
+  "joint-deadline-sweeper": 60 * 1000,    //  1 min — quick Supabase sweep
   "default":         5 * 60 * 1000, //  5 min catch-all
 };
 
@@ -1474,6 +1478,68 @@ jobs.push(
         "twin-score-evening",
         `derek cal=${d.calibration.toFixed(2)} (n=${d.scored}), esther cal=${e.calibration.toFixed(2)} (n=${e.scored})`
       );
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 33. Atlas Prime Sprint 5: Marketplace decay (3:30 AM daily)
+jobs.push(
+  CronJob.from({
+    cronTime: "30 3 * * *",
+    onTick: safeTick("marketplace-decay", async () => {
+      const mod = await import("./marketplace.ts");
+      const result = await mod.decayAll(supabase);
+      log("marketplace-decay", result.rowsUpdated + " rows updated across " + result.bidderCount + " bidders, " + result.domainCount + " domains");
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 34. Atlas Prime Sprint 5: Council shadow review (8:00 AM daily)
+jobs.push(
+  CronJob.from({
+    cronTime: "0 8 * * *",
+    onTick: safeTick("council-shadow-review", async () => {
+      const mod = await import("./shadow-council.ts");
+      const yesterday = new Date(Date.now() - 86400_000);
+      const md = await mod.dailyShadowReview(supabase, yesterday);
+      const { mkdirSync } = await import("fs");
+      const dir = join("data", "council-shadow-reports");
+      mkdirSync(dir, { recursive: true });
+      const path = join(dir, yesterday.toISOString().slice(0, 10) + ".md");
+      writeFileSync(path, md);
+      await sendTelegramMessage(DEREK_CHAT_ID, "Council shadow report (" + yesterday.toISOString().slice(0, 10) + "):\n\n" + md.slice(0, 3500));
+      log("council-shadow-review", "wrote " + path);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 35. Atlas Prime Sprint 5: Blackboard GC (4:00 AM daily)
+jobs.push(
+  CronJob.from({
+    cronTime: "0 4 * * *",
+    onTick: safeTick("blackboard-gc", async () => {
+      const mod = await import("./blackboard-git.ts");
+      const result = await mod.gcResolved(30);
+      log("blackboard-gc", "archived " + result.archivedCount + " branches to " + result.archivePath);
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 36. Atlas Prime Sprint 5: Joint deadline sweeper (every 30 min)
+jobs.push(
+  CronJob.from({
+    cronTime: "*/30 * * * *",
+    onTick: safeTick("joint-deadline-sweeper", async () => {
+      const mod = await import("./joint-protocol.ts");
+      const result = await mod.sweepDeadlines(supabase);
+      if (result.expired > 0) {
+        await sendTelegramMessage(DEREK_CHAT_ID, "[joint] " + result.expired + " deliberation(s) expired without Ishtar review.");
+      }
+      log("joint-deadline-sweeper", "expired " + result.expired);
     }),
     timeZone: TIMEZONE,
   })

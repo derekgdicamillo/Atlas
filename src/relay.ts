@@ -1665,6 +1665,68 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/role": {
+      if (!supabase) {
+        await ctx.reply("Role Registry unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "list").toLowerCase();
+      const mod = await import("./role-registry.ts");
+      if (sub === "list") {
+        const sub2 = (args[1] ?? "").toLowerCase();
+        if (sub2 === "pending") {
+          const pending = await mod.listPending();
+          if (pending.length === 0) {
+            await ctx.reply("No pending roles.");
+            return true;
+          }
+          const lines = ["**Pending generated roles:**"];
+          for (const p of pending) lines.push("- " + p.pending_id + " | " + p.role.name + " — " + p.role.description);
+          await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+          return true;
+        }
+        const roles = await mod.listRoles();
+        const lines = ["**Active roles (" + roles.length + "):**"];
+        for (const r of roles) lines.push("- " + r.id + " | " + r.name);
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "approve") {
+        const pid = args[1];
+        if (!pid) {
+          await ctx.reply("usage: /role approve <pending_id>");
+          return true;
+        }
+        const result = await mod.approvePending(supabase, pid);
+        await ctx.reply("[role] approved " + result.roleId + " (ledger=" + result.pubkeyLedgerEntryId + ")");
+        return true;
+      }
+      if (sub === "reject") {
+        const pid = args[1];
+        const reason = args.slice(2).join(" ") || "no reason given";
+        if (!pid) {
+          await ctx.reply("usage: /role reject <pending_id> <reason>");
+          return true;
+        }
+        await mod.rejectPending(pid, reason);
+        await ctx.reply("[role] rejected " + pid);
+        return true;
+      }
+      if (sub === "reputation") {
+        const roleId = args[1];
+        const domain = args[2] ?? "default";
+        if (!roleId) {
+          await ctx.reply("usage: /role reputation <role_id> [domain]");
+          return true;
+        }
+        const rep = await mod.getReputation(supabase, roleId, domain);
+        await ctx.reply("**" + roleId + "** in *" + domain + "*: α=" + rep.alpha.toFixed(2) + " β=" + rep.beta.toFixed(2) + " mean=" + rep.mean.toFixed(2), { parse_mode: "Markdown" });
+        return true;
+      }
+      await ctx.reply("usage: /role list [pending] | /role approve <id> | /role reject <id> <reason> | /role reputation <id> [domain]");
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
