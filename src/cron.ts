@@ -3152,9 +3152,11 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
-  // PV Knowledge Layer: nightly `git pull` + re-ingest. SHA-256 dedup
-  // means unchanged files skip automatically; only new/edited content
-  // hits the embeddings pipeline.
+  // PV Knowledge Layer: nightly `git pull` + re-ingest. The Edge Function
+  // (ingestDocument) handles chunking, embedding, and content-hash dedup
+  // server-side, so unchanged files skip automatically. Same path the
+  // journal-ingest cron uses successfully (avoids the chunked_strategy
+  // schema drift in ingest-worker.ts).
   jobs.push(
     CronJob.from({
       cronTime: "45 3 * * *",
@@ -3184,14 +3186,47 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           warn("pv-knowledge-pull", `knowledge/ subdir missing: ${knowledgeContentDir}`);
           return;
         }
-        const { ingestFolder } = await import("./ingest-worker.ts");
-        const result = await ingestFolder({
-          path: knowledgeContentDir,
-          source: "pv-knowledge-layer",
-          supabase,
-          recursive: true,
-        });
-        log("pv-knowledge-pull", `re-ingest: ${result.filesProcessed} new/changed, ${result.filesSkipped} unchanged, ${result.filesErrored} errors, ${result.totalChunks} chunks`);
+
+        const { readdir, readFile, stat } = await import("fs/promises");
+        const { join: pathJoin, relative: pathRelative, extname, basename: pathBasename } = await import("path");
+        const SUPPORTED = new Set([".md", ".markdown", ".txt"]);
+
+        async function walk(dir: string): Promise<string[]> {
+          const out: string[] = [];
+          const entries = await readdir(dir, { withFileTypes: true });
+          for (const e of entries) {
+            if (e.name.startsWith(".")) continue;
+            if (e.name === "node_modules") continue;
+            const full = pathJoin(dir, e.name);
+            if (e.isDirectory()) out.push(...(await walk(full)));
+            else if (SUPPORTED.has(extname(e.name).toLowerCase())) out.push(full);
+          }
+          return out;
+        }
+
+        const files = await walk(knowledgeContentDir);
+        let processed = 0, skipped = 0, errored = 0, totalChunks = 0;
+        for (const filePath of files) {
+          const rel = pathRelative(knowledgeContentDir, filePath);
+          try {
+            const fst = await stat(filePath);
+            if (fst.size > 50 * 1024 * 1024) { skipped++; continue; }
+            const text = await readFile(filePath, "utf-8");
+            if (!text || text.trim().length < 50) { skipped++; continue; }
+            const titleMatch = text.match(/^#\s+(.+)/m);
+            const title = titleMatch ? titleMatch[1] : pathBasename(filePath).replace(/\.[^/.]+$/, "");
+            const result = await ingestDocument(supabase, text, {
+              source: "pv-knowledge-layer",
+              sourcePath: rel,
+              title,
+              metadata: { rootDir: knowledgeContentDir, repo: "PV-Knowledge-Layer" },
+            });
+            if (result.error) { errored++; }
+            else if (result.chunks_created === 0 && result.chunks_skipped > 0) { skipped++; }
+            else { processed++; totalChunks += result.chunks_created; }
+          } catch { errored++; }
+        }
+        log("pv-knowledge-pull", `re-ingest: ${processed} new/changed, ${skipped} unchanged, ${errored} errors, ${totalChunks} chunks`);
       }),
       timeZone: TIMEZONE,
     })
