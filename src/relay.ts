@@ -1466,6 +1466,58 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/council": {
+      if (!supabase) {
+        await ctx.reply("Council unavailable: Supabase not configured.");
+        return true;
+      }
+      // Use original (non-lowercased) args for surface names which may be snake_case
+      const originalArgs = text.trim().split(/\s+/).slice(1);
+      const sub = (originalArgs[0] ?? "").toLowerCase();
+      const mod = await import("./shadow-council.ts");
+      const userName = ctx.from?.username ?? userId;
+      if (sub === "promote" || sub === "demote") {
+        const surface = originalArgs[1];
+        if (!surface) {
+          await ctx.reply("Usage: /council promote <surface> | /council demote <surface>");
+          return true;
+        }
+        if (sub === "promote") {
+          await mod.promoteSurface(supabase, surface, userName);
+        } else {
+          await mod.demoteSurface(supabase, surface, userName);
+        }
+        await ctx.reply(`[council] \`${surface}\` → **${sub === "promote" ? "live" : "shadow"}**`, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "override") {
+        const actionId = originalArgs[1];
+        if (!actionId) {
+          await ctx.reply("Usage: /council override <action_id>");
+          return true;
+        }
+        // TODO(sprint6): Implement override flow — re-enqueue the held action
+        await ctx.reply(`Override for \`${actionId}\` noted. Full override flow lands in Sprint 6. Rewrite and resend the message to proceed now.`, { parse_mode: "Markdown" });
+        return true;
+      }
+      // Default: list surfaces with 24h vote stats
+      try {
+        const surfaces = await mod.listSurfaces(supabase);
+        const lines = ["**Council surfaces (24h):**"];
+        for (const s of surfaces) {
+          const modeEmoji = s.mode === "live" ? "🔴" : "🟡";
+          lines.push(
+            `${modeEmoji} \`${s.surface}\` | ${s.mode} | votes=${s.vote_count_24h} | veto-rate=${(s.veto_rate_24h * 100).toFixed(0)}%`
+          );
+        }
+        if (surfaces.length === 0) lines.push("_(no surfaces configured yet)_");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      } catch (err) {
+        await ctx.reply(`Council list failed: ${err}`);
+      }
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
@@ -3034,13 +3086,32 @@ async function processNewsletterIntents(response: string, chatId: string, thread
 
   // [PV_NEWSLETTER_PUSH]
   if (/\[PV_NEWSLETTER_PUSH\]/i.test(response)) {
-    const result = await pushDraftToGHL();
-    const msg = result.ok
-      ? `Draft pushed to GHL. Campaign ID: ${result.campaignId}\nReady for your visual check and Thursday send.`
-      : `Failed to push to GHL: ${result.error}`;
-    info("pv-newsletter", msg);
-    response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
-    response += `\n\n${msg}`;
+    // Atlas Prime Sprint 5: council review for newsletter push (newsletter_push surface)
+    let newsletterAllowed = true;
+    if (supabase) {
+      try {
+        const councilMod = await import("./shadow-council.ts");
+        const councilResult = await councilMod.review(supabase, { tool: "pv-newsletter.push", args: { campaign: "pv-newsletter" } });
+        if (!councilResult.allowed) {
+          const vetoMsg = councilResult.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+          warn("pv-newsletter", `PV_NEWSLETTER_PUSH held by council (live mode, vetoes: ${vetoMsg})`);
+          response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
+          response += `\n\n[COUNCIL_HELD: tool=pv-newsletter.push | action_id=${councilResult.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+          newsletterAllowed = false;
+        }
+      } catch (councilErr) {
+        warn("pv-newsletter", `council.review failed (non-blocking): ${councilErr}`);
+      }
+    }
+    if (newsletterAllowed) {
+      const result = await pushDraftToGHL();
+      const msg = result.ok
+        ? `Draft pushed to GHL. Campaign ID: ${result.campaignId}\nReady for your visual check and Thursday send.`
+        : `Failed to push to GHL: ${result.error}`;
+      info("pv-newsletter", msg);
+      response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
+      response += `\n\n${msg}`;
+    }
   }
 
   // [PV_NEWSLETTER_RESET]
@@ -3733,7 +3804,7 @@ async function handleUserMessage(
       }
 
       if (hasGoogle) {
-        try { response = await processGoogleIntents(response); }
+        try { response = await processGoogleIntents(response, supabase); }
         catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
       }
 
@@ -3743,7 +3814,7 @@ async function handleUserMessage(
       }
 
       if (featureFlags.ghl) {
-        try { response = await processGHLIntents(response); }
+        try { response = await processGHLIntents(response, supabase); }
         catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
       }
 
@@ -3753,7 +3824,7 @@ async function handleUserMessage(
       }
 
       if (isWebsiteReady()) {
-        try { response = await processWebsiteIntents(response); }
+        try { response = await processWebsiteIntents(response, supabase); }
         catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
       }
 
@@ -3813,6 +3884,28 @@ async function handleUserMessage(
 
     // Process automation pause/resume tags (before task spawning so pause takes effect first)
     response = processAutomationPauseTags(response);
+
+    // Atlas Prime Sprint 5: Surface COUNCIL_HELD messages to user
+    // These are injected by intent handlers (google.ts, ghl.ts, etc.) when council holds an action
+    for (const heldMatch of [...response.matchAll(/\[COUNCIL_HELD:\s*([\s\S]+?)\]/gi)]) {
+      try {
+        const heldParams: Record<string, string> = {};
+        for (const seg of heldMatch[1].split(/\s*\|\s*/)) {
+          const eqIdx = seg.indexOf("=");
+          if (eqIdx !== -1) {
+            heldParams[seg.slice(0, eqIdx).trim()] = seg.slice(eqIdx + 1).trim();
+          }
+        }
+        const tool = heldParams["tool"] ?? "unknown";
+        const actionId = heldParams["action_id"] ?? "";
+        const vetoesDec = heldParams["vetoes"] ? decodeURIComponent(heldParams["vetoes"]) : "(no details)";
+        const councilMsg = `⚠️ **Council held this action** (\`${tool}\`).\n\nVetoers: ${vetoesDec}\n\nReply \`/council override ${actionId}\` to send anyway, or rewrite.`;
+        ctx.reply(councilMsg, { parse_mode: "Markdown" }).catch(() => {});
+      } catch (heldErr) {
+        warn("council", `Failed to surface COUNCIL_HELD: ${heldErr}`);
+      }
+      response = response.replace(heldMatch[0], "").trim();
+    }
 
     // Process background task delegations
     const beforeTaskProcessing = response;
