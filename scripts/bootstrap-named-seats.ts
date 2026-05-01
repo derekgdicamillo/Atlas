@@ -22,6 +22,7 @@ const NAMED_SEATS = [
   "munger-inverter",
   "accountant-conservative",
   "family-calendar-guardian",
+  "ishtar-mirror",
 ];
 
 async function main() {
@@ -66,7 +67,7 @@ async function main() {
     );
   }
 
-  console.log("[bootstrap] done — " + NAMED_SEATS.length + " named seats");
+  console.log("[bootstrap] done — " + NAMED_SEATS.length + " named seats (including ishtar-mirror)");
 }
 
 main().catch((e) => {
