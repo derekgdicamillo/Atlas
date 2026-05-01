@@ -5,21 +5,25 @@
  *
  * Task 16: foundation — types + openDeliberation + postCounter + listOpen + get.
  * Task 17: shouldFireJoint (trigger detection)
- * Task 18: arbitrate (full resolution)
+ * Task 18: arbitrate (full resolution) + requestIshtarMirrorReview + sweepDeadlines
  * Task 19: /joint command
  * Task 20: cron registration
  */
 import { randomUUID } from "crypto";
+import { execSync } from "child_process";
 import { existsSync, writeFileSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
+import { Anthropic } from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   openDeliberation as openBlackboard,
   commitContract,
   walkTranscript,
+  mergeDeliberation,
   type TranscriptCommit,
 } from "./blackboard-git";
 import { signContract, type Action } from "./role-registry";
+import { processPool } from "./persistent-pool";
 import { I3_TRIGGERS } from "./joint-triggers";
 
 // ============================================================
@@ -280,12 +284,270 @@ export async function promoteTrigger(
   );
 }
 
+// ============================================================
+// ARBITRATOR PROMPT (K3)
+// ============================================================
+
+const ARBITRATOR_PROMPT = `You are the Joint Protocol Arbitrator. Below is the full git-log transcript of a joint deliberation between Atlas (Derek's voice) and Ishtar Mirror (Esther's voice).
+
+Read the entire transcript. Decide:
+- Did they agree?
+- What is the final decision?
+- If they did NOT agree, output a majority position + minority report.
+- Cite specific commits as evidence pointers.
+
+Output strict JSON:
+{
+  "agreed": bool,
+  "memo": "final decision in plain English, max 8 sentences",
+  "majority_position": "(only if !agreed)",
+  "minority_report": "(only if !agreed)",
+  "evidence_pointers": ["<commit>:<file>", ...]
+}
+
+TRANSCRIPT:
+{transcript}
+`;
+
 /**
- * arbitrate() — implemented in Task 18.
+ * Thin Opus wrapper.
+ *
+ * DEVIATION FROM PLAN: The plan calls `runOpus` from `./claude`, but `claude.ts`
+ * only exports `callClaude` (a CLI subprocess launcher). Role-bootstrap.ts uses
+ * `@anthropic-ai/sdk` directly, but `ANTHROPIC_API_KEY` is not in the project
+ * .env — Sprint 4/5 Opus calls go through Derek's Max-plan Claude CLI OAuth.
+ *
+ * Strategy (dual-path):
+ * 1. If ANTHROPIC_API_KEY is set → use SDK directly (same as role-bootstrap.ts).
+ * 2. Otherwise → use Claude CLI subprocess with --model opus (same pattern as
+ *    haiku-client.ts, which is the established Max-plan pattern for this project).
+ */
+async function runOpus(prompt: string, opts: { maxTokens?: number } = {}): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (apiKey) {
+    // SDK path (when running with a direct API key)
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model: "claude-opus-4-6",
+      max_tokens: opts.maxTokens ?? 2000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const block = response.content[0];
+    if (!block || block.type !== "text") {
+      throw new Error("Unexpected Opus response block type: " + (block as any)?.type);
+    }
+    return block.text;
+  }
+
+  // CLI subprocess path (Max-plan OAuth — same pattern as haiku-client.ts)
+  const { spawn } = await import("bun");
+  const { sanitizedEnv, validateSpawnArgs } = await import("./claude.ts");
+  const { extractFirstAssistantText } = await import("./prompt-runner.ts");
+  const { error: logError } = await import("./logger.ts");
+
+  const claudePath = process.env.CLAUDE_PATH || "claude";
+  const projectDir = process.env.PROJECT_DIR || process.cwd();
+
+  const args = [
+    claudePath,
+    "-p",
+    "--model", "opus",
+    "--output-format", "stream-json",
+    "--verbose",
+    "--allowedTools", "",
+  ];
+
+  validateSpawnArgs(args);
+
+  try {
+    const proc = spawn(args, {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      cwd: projectDir,
+      env: sanitizedEnv(),
+    });
+
+    proc.stdin.write(prompt);
+    proc.stdin.end();
+
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0) {
+      const stderr = await new Response(proc.stderr).text();
+      throw new Error(`runOpus CLI exited ${exitCode}: ${stderr.slice(0, 500)}`);
+    }
+
+    return extractFirstAssistantText(output);
+  } catch (err) {
+    logError("joint-protocol", `runOpus failed: ${err}`);
+    throw err;
+  }
+}
+
+/**
+ * arbitrate() — Task 18.
+ * Reads the full git-log transcript of a deliberation branch, calls Opus to
+ * produce a structured arbitration result, merges to final-memo.md, and closes
+ * the DB row.
  */
 export async function arbitrate(
-  _supabase: SupabaseClient,
-  _deliberationId: string
+  supabase: SupabaseClient,
+  deliberationId: string
 ): Promise<{ memo: string; agreed: boolean; mergeCommit: string }> {
-  throw new Error("arbitrate() implemented in Task 18");
+  // 1. Fetch deliberation row
+  const { data: row, error } = await supabase
+    .from("joint_deliberations")
+    .select("*")
+    .eq("id", deliberationId)
+    .maybeSingle();
+
+  if (error) throw new Error("joint_deliberations select failed: " + error.message);
+  if (!row) throw new Error("deliberation not found: " + deliberationId);
+
+  // 2. Build full transcript via git log -p
+  const repoPath = join(process.cwd(), "data", "atlas-blackboard.git");
+  let transcript: string;
+  try {
+    // Use quoted git-dir path; branch name must not contain spaces (safe for joint/ names)
+    transcript = execSync(
+      `git --git-dir="${repoPath}" log -p ${row.branch}`,
+      { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
+    ).slice(0, 30000);
+  } catch (gitErr: any) {
+    // Fallback: simpleGit (already a dep via blackboard-git.ts)
+    const { simpleGit } = await import("simple-git");
+    const sg = simpleGit({ baseDir: process.cwd() });
+    const raw = await sg.raw([
+      "--git-dir=" + repoPath,
+      "log",
+      "-p",
+      row.branch,
+    ]);
+    transcript = raw.slice(0, 30000);
+  }
+
+  // 3. Call Opus arbitrator
+  const opusInput = ARBITRATOR_PROMPT.replace("{transcript}", transcript);
+  const out = await runOpus(opusInput, { maxTokens: 2000 });
+
+  // 4. Parse strict JSON from response
+  const m = out.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("arbitrator returned no JSON: " + out.slice(0, 200));
+  const parsed = JSON.parse(m[0]) as {
+    agreed: boolean;
+    memo: string;
+    majority_position?: string;
+    minority_report?: string;
+    evidence_pointers?: string[];
+  };
+
+  // 5. Build memo text
+  let memoText = parsed.memo;
+  if (!parsed.agreed) {
+    memoText =
+      parsed.memo +
+      "\n\n## Majority\n" +
+      (parsed.majority_position ?? "") +
+      "\n\n## Minority\n" +
+      (parsed.minority_report ?? "");
+  }
+
+  // 6. Append evidence pointers
+  if (parsed.evidence_pointers?.length) {
+    memoText += "\n\n## Evidence\n" + parsed.evidence_pointers.map((e) => "- " + e).join("\n");
+  }
+
+  // 7. Merge to final-memo.md via blackboard-git
+  const { mergeCommit } = await mergeDeliberation(
+    row.branch,
+    memoText,
+    "arbitrator-opus",
+    parsed.agreed
+  );
+
+  // 8. Update DB row: status=closed, closed_at, final_commit, agreed
+  await supabase
+    .from("joint_deliberations")
+    .update({
+      status: "closed",
+      closed_at: new Date().toISOString(),
+      final_commit: mergeCommit,
+      agreed: parsed.agreed,
+    })
+    .eq("id", deliberationId);
+
+  // 9. Return result
+  return { memo: memoText, agreed: parsed.agreed, mergeCommit };
+}
+
+/**
+ * requestIshtarMirrorReview() — Task 18 (J3 routing).
+ * Sends a review request to Ishtar's persistent-pool entry.
+ * If urgent: polls for status change up to URGENT_TIMEOUT_MS (60s).
+ *
+ * DEVIATION FROM PLAN: plan calls sendToPool("ishtar", ...) but persistent-pool.ts
+ * exports processPool (ProcessPool class) with a .get(agentId) => PersistentProcess
+ * that has .sendTurn(prompt). We adapt accordingly.
+ */
+export async function requestIshtarMirrorReview(
+  supabase: SupabaseClient,
+  deliberationId: string,
+  urgent: boolean
+): Promise<void> {
+  try {
+    const proc = processPool.get("ishtar");
+    // Fire-and-forget: don't await (Ishtar's pool may be idle; ensureAlive handles it)
+    proc.sendTurn("joint:review " + deliberationId).catch(() => {
+      // best-effort silent — deadline sweeper will catch it
+    });
+  } catch {
+    // If pool throws (e.g., not configured), swallow — deadline sweeper will handle it
+  }
+
+  if (urgent) {
+    // Poll up to URGENT_TIMEOUT_MS for status change to converging or closed
+    const start = Date.now();
+    while (Date.now() - start < URGENT_TIMEOUT_MS) {
+      const { data } = await supabase
+        .from("joint_deliberations")
+        .select("status")
+        .eq("id", deliberationId)
+        .maybeSingle();
+      if (data?.status === "converging" || data?.status === "closed") return;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    // Timeout — caller decides next action (escalation is Task 19/20)
+  }
+}
+
+/**
+ * sweepDeadlines() — Task 18 (J3 deadline cron).
+ * Marks overdue pending deliberations as expired.
+ * Called by the cron registered in Task 20.
+ */
+export async function sweepDeadlines(
+  supabase: SupabaseClient
+): Promise<{ expired: number }> {
+  const now = new Date().toISOString();
+  const { data: pending, error } = await supabase
+    .from("joint_deliberations")
+    .select("id")
+    .eq("status", "pending")
+    .lt("deadline_at", now);
+
+  if (error) throw new Error("sweepDeadlines select failed: " + error.message);
+
+  let expired = 0;
+  for (const p of pending ?? []) {
+    await supabase
+      .from("joint_deliberations")
+      .update({ status: "expired", closed_at: now })
+      .eq("id", p.id);
+    expired += 1;
+  }
+
+  return { expired };
 }
