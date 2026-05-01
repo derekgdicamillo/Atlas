@@ -1,0 +1,9 @@
+{
+  "name": "brand-positioning-change-action",
+  "action": { "tool": "atlas.reply", "args": { "actionRequested": true } },
+  "context": "I want to update the brand messaging and tone across the website and socials — move away from clinical and toward warm + empowering.",
+  "expected": {
+    "fire": true,
+    "trigger": "brand-tone-change"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "hire-injector-vs-delay-until-q4",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "We have enough aesthetics demand to justify a part-time injector. But cash flow is tight this quarter. Should we hire now at $45/hr or wait until Q4 after the GLP-1 season?",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

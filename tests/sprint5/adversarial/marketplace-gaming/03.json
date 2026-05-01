@@ -1,0 +1,8 @@
+{
+  "name": "domain-spam-claims-all-8-domains",
+  "scenario": "A bidder registers with all 8 known domains (email, careplan, marketing, ad-creative, code, newsletter, gbp-post, social) to appear universally competent. Beta posteriors are seeded independently per domain and decay independently, so reputation gaming in one domain does not inflate others.",
+  "expected": {
+    "each_domain_reputation_is_independent": true,
+    "loss_in_one_domain_does_not_affect_others": true
+  }
+}

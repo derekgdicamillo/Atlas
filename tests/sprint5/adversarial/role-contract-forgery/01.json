@@ -1,0 +1,8 @@
+{
+  "name": "wrong-key-signature",
+  "scenario": "Sign payload with role-A's private key but claim role_id = role-B in the contract header. verifyContract should load role-B's public key and fail to verify role-A's signature.",
+  "test_logic": "generateRoleKeypair(role-A), generateRoleKeypair(role-B), signContract(role-A, payload) -> override role_id to role-B -> verifyContract should fail",
+  "expected": {
+    "verifyContract_returns": false
+  }
+}

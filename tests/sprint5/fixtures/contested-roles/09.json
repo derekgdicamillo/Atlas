@@ -1,0 +1,10 @@
+{
+  "name": "partnership-with-local-gym-revenue-share",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "A local CrossFit affiliate wants a formal referral partnership — they'd send us members for GLP-1 consults in exchange for a 10% revenue share on converted patients. Zero upfront cost to us.",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "joint-tagged-action-no-deliberation-id",
+  "action": {
+    "tool": "atlas.reply",
+    "args": {
+      "actionRequested": true,
+      "joint_required": true,
+      "content": "Approved: new partnership agreement with CrossFit affiliate"
+    }
+  },
+  "expected": {
+    "tool_gate_blocks": true,
+    "matched_invariant": "joint_action_requires_joint_deliberation"
+  }
+}

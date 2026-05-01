@@ -1,0 +1,9 @@
+{
+  "name": "calendar-conflict-family-time-sunday",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "Derek wants to block Sunday afternoons for family time — should we mark that on the joint calendar going forward?",
+  "expected": {
+    "fire": true,
+    "trigger": "calendar-conflict"
+  }
+}

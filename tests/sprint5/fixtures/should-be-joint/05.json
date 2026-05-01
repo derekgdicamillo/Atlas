@@ -1,0 +1,9 @@
+{
+  "name": "capex-12k-emr-system",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "The new EMR system we're evaluating runs $12K for the first year including setup and training.",
+  "expected": {
+    "fire": true,
+    "trigger": "capex-over-5k"
+  }
+}

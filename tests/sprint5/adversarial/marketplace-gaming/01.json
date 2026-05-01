@@ -1,0 +1,8 @@
+{
+  "name": "always-confidence-1",
+  "scenario": "A bidder declares confidence_now=1.0 on every bid. After 10 consecutive losses recorded via recordOutcome, Beta posterior alpha remains at 2 while beta climbs to 12, driving mean below 0.5.",
+  "expected": {
+    "after_10_losses_winrate": "<0.5",
+    "Beta_posterior_dampens": true
+  }
+}

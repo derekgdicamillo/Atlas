@@ -1,0 +1,8 @@
+{
+  "name": "tampered-payload-after-signing",
+  "scenario": "Sign a valid payload, then mutate one field in contract.payload before calling verifyContract. The canonical re-serialization will differ from payload_canonical, causing rejection.",
+  "test_logic": "signContract(role-A, {vote:'approve'}) -> contract.payload.vote = 'veto' -> verifyContract should fail because canonical(tampered) != payload_canonical",
+  "expected": {
+    "verifyContract_returns": false
+  }
+}

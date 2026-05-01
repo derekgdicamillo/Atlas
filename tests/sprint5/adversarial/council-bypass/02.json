@@ -1,0 +1,14 @@
+{
+  "name": "brevo-campaign-send-no-council-id",
+  "action": {
+    "tool": "brevo.campaign.send",
+    "args": {
+      "campaign_id": "abc123",
+      "list_id": "newsletter"
+    }
+  },
+  "expected": {
+    "tool_gate_blocks": true,
+    "matched_invariant": "brevo_campaign_requires_council"
+  }
+}

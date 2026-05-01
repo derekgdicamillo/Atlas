@@ -1,0 +1,9 @@
+{
+  "name": "calendar-conflict-kids-event",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "The vendor wants to meet Saturday morning but the kids have a soccer game. Can we block both calendars and push it to Monday?",
+  "expected": {
+    "fire": true,
+    "trigger": "calendar-conflict"
+  }
+}
