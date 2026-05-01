@@ -279,6 +279,46 @@ export async function promoteTaskType(
   );
 }
 
+// ============================================================
+// DECAY (H3 per-domain half-life)
+// ============================================================
+
+export async function decayAll(
+  supabase: SupabaseClient
+): Promise<{ bidderCount: number; domainCount: number; rowsUpdated: number }> {
+  const { data: rows } = await supabase
+    .from("marketplace_reputation")
+    .select("bidder_id,domain,alpha,beta,last_decay_at,prior_alpha,prior_beta,half_life_days");
+  if (!rows) return { bidderCount: 0, domainCount: 0, rowsUpdated: 0 };
+
+  const now = Date.now();
+  const bidders = new Set<string>();
+  const domains = new Set<string>();
+  let updated = 0;
+  for (const r of rows) {
+    const lastMs = new Date(r.last_decay_at).getTime();
+    const tDays = (now - lastMs) / 86400_000;
+    if (tDays <= 0) continue;
+    const halfLife = r.half_life_days ?? 60;
+    const shrink = Math.exp((-tDays * Math.LN2) / halfLife);
+    const alphaNew = r.alpha * shrink + r.prior_alpha * (1 - shrink);
+    const betaNew = r.beta * shrink + r.prior_beta * (1 - shrink);
+    await supabase
+      .from("marketplace_reputation")
+      .update({
+        alpha: alphaNew,
+        beta: betaNew,
+        last_decay_at: new Date(now).toISOString(),
+      })
+      .eq("bidder_id", r.bidder_id)
+      .eq("domain", r.domain);
+    bidders.add(r.bidder_id as string);
+    domains.add(r.domain as string);
+    updated += 1;
+  }
+  return { bidderCount: bidders.size, domainCount: domains.size, rowsUpdated: updated };
+}
+
 async function bumpSampleCount(
   supabase: SupabaseClient,
   taskType: string
