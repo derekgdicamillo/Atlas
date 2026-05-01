@@ -15,7 +15,7 @@ describe("atlas-prime integration", () => {
     const { checkAction } = await import("../src/tool-gate.ts");
     const { appendEntry, verifyChain } = await import("../src/ledger.ts");
 
-    const bad = { tool: "SEND", args: { to: "attacker@malicious.io", subject: "x", body: "y" } };
+    const bad = { tool: "gmail.send", args: { to: "attacker@malicious.io", subject: "x", body: "y" } };
     const gate = checkAction(bad);
     expect(gate.allowed).toBe(false);
 

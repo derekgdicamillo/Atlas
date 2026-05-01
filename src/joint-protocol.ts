@@ -23,8 +23,9 @@ import {
   type TranscriptCommit,
 } from "./blackboard-git";
 import { signContract, type Action } from "./role-registry";
-import { processPool } from "./persistent-pool";
 import { I3_TRIGGERS } from "./joint-triggers";
+import { runPrompt } from "./prompt-runner";
+import { MODELS } from "./constants";
 
 // ============================================================
 // TYPES
@@ -484,42 +485,82 @@ export async function arbitrate(
 }
 
 /**
+ * ishtarMirrorReviewHelper — internal helper.
+ * Calls Sonnet directly to produce Ishtar's counter-proposal and posts it.
+ * Mirrors the logic in relay.ts:1148-1186 (the manual-trigger fallback),
+ * minus the Telegram reply at the end.
+ */
+async function ishtarMirrorReviewHelper(
+  supabase: SupabaseClient,
+  deliberationId: string
+): Promise<void> {
+  const { deliberation, transcript } = await get(supabase, deliberationId);
+
+  if (deliberation.status !== "pending" && deliberation.status !== "converging") {
+    // Already resolved — nothing to do.
+    return;
+  }
+
+  // Read USER.md for Esther's profile (non-critical if missing)
+  let profile = "";
+  try {
+    profile = readFileSync(join(process.cwd(), "USER.md"), "utf-8");
+  } catch {
+    // best-effort
+  }
+
+  const transcriptText = transcript.map((c: { message: string }) => "- " + c.message).join("\n");
+  const sys = "You are Ishtar Mirror. Use Esther's preference profile below.\n\n" + profile.slice(0, 6000);
+  const userMsg =
+    "Joint deliberation transcript:\n" +
+    transcriptText +
+    "\n\nWrite Ishtar's response. Either a counter-proposal (if disagreement) or concur (if alignment). Be specific. Sign off as Ishtar.";
+
+  const out = await runPrompt(sys + "\n\n" + userMsg, MODELS.sonnet);
+  if (!out) throw new Error("ishtarMirrorReviewHelper: runPrompt returned empty string");
+
+  await postCounter(supabase, deliberationId, "ishtar", out);
+}
+
+/**
  * requestIshtarMirrorReview() — Task 18 (J3 routing).
- * Sends a review request to Ishtar's persistent-pool entry.
- * If urgent: polls for status change up to URGENT_TIMEOUT_MS (60s).
- *
- * DEVIATION FROM PLAN: plan calls sendToPool("ishtar", ...) but persistent-pool.ts
- * exports processPool (ProcessPool class) with a .get(agentId) => PersistentProcess
- * that has .sendTurn(prompt). We adapt accordingly.
+ * Calls a direct Sonnet → postCounter helper, bypassing the persistent-pool.
+ * Non-urgent: fire-and-forget (background Promise).
+ * Urgent: awaits up to URGENT_TIMEOUT_MS (60s) for status change.
  */
 export async function requestIshtarMirrorReview(
   supabase: SupabaseClient,
   deliberationId: string,
   urgent: boolean
 ): Promise<void> {
-  try {
-    const proc = processPool.get("ishtar");
-    // Fire-and-forget: don't await (Ishtar's pool may be idle; ensureAlive handles it)
-    proc.sendTurn("joint:review " + deliberationId).catch(() => {
-      // best-effort silent — deadline sweeper will catch it
+  if (!urgent) {
+    // Fire-and-forget — deadline sweeper catches any failure
+    ishtarMirrorReviewHelper(supabase, deliberationId).catch(() => {
+      // best-effort silent
     });
-  } catch {
-    // If pool throws (e.g., not configured), swallow — deadline sweeper will handle it
+    return;
   }
 
-  if (urgent) {
-    // Poll up to URGENT_TIMEOUT_MS for status change to converging or closed
-    const start = Date.now();
-    while (Date.now() - start < URGENT_TIMEOUT_MS) {
-      const { data } = await supabase
-        .from("joint_deliberations")
-        .select("status")
-        .eq("id", deliberationId)
-        .maybeSingle();
-      if (data?.status === "converging" || data?.status === "closed") return;
-      await new Promise((r) => setTimeout(r, 2000));
+  // Urgent path: race the helper against the 60s timeout
+  const timeoutPromise = new Promise<void>((_, reject) =>
+    setTimeout(() => reject(new Error("urgent mirror review timed out")), URGENT_TIMEOUT_MS)
+  );
+
+  try {
+    await Promise.race([
+      ishtarMirrorReviewHelper(supabase, deliberationId),
+      timeoutPromise,
+    ]);
+  } catch {
+    // Timeout or helper error — poll once more to see if status changed anyway
+    const { data } = await supabase
+      .from("joint_deliberations")
+      .select("status")
+      .eq("id", deliberationId)
+      .maybeSingle();
+    if (data?.status !== "converging" && data?.status !== "closed") {
+      // Still pending — swallow; deadline sweeper will handle expiry
     }
-    // Timeout — caller decides next action (escalation is Task 19/20)
   }
 }
 

@@ -1259,11 +1259,11 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
       continue;
     }
     // Atlas Prime: gate check
-    const gateNote = checkAction({ tool: "GHL_NOTE", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } });
+    const gateNote = checkAction({ tool: "ghl.note.create", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } });
     if (!gateNote.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_NOTE", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } },
+        action: { tool: "ghl.note.create", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1277,7 +1277,7 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
         await addContactNote(contact.id, body);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "GHL_NOTE", args: { contact: nameQuery, body } },
+          action: { tool: "ghl.note.create", args: { contact: nameQuery, body } },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: true },
@@ -1338,11 +1338,11 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
       continue;
     }
     // Atlas Prime: gate check
-    const gateTask = checkAction({ tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } });
+    const gateTask = checkAction({ tool: "ghl.task.create", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } });
     if (!gateTask.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } },
+        action: { tool: "ghl.task.create", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1356,7 +1356,7 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
         await createContactTask(contact.id, title, { dueDate });
         await appendEntry({
           actor: "atlas",
-          action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } },
+          action: { tool: "ghl.task.create", args: { contact: nameQuery, title, dueDate } },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: true },
@@ -1417,11 +1417,11 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
       continue;
     }
     // Atlas Prime: gate check
-    const gateTag = checkAction({ tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } });
+    const gateTag = checkAction({ tool: "ghl.tag.add", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } });
     if (!gateTag.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } },
+        action: { tool: "ghl.tag.add", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1439,7 +1439,7 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
         }
         await appendEntry({
           actor: "atlas",
-          action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } },
+          action: { tool: "ghl.tag.add", args: { contact: nameQuery, tag: tagName, action } },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: true },
@@ -1514,13 +1514,13 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
     }
     // Atlas Prime: gate check (passes approved_by_user so spec can enforce it)
     const gateWorkflow = checkAction({
-      tool: "GHL_WORKFLOW",
+      tool: "ghl.workflow.enroll",
       args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser, council_review_id: councilWorkflow.actionId },
     });
     if (!gateWorkflow.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser, council_review_id: councilWorkflow.actionId } },
+        action: { tool: "ghl.workflow.enroll", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser, council_review_id: councilWorkflow.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1543,7 +1543,7 @@ export async function processGHLIntents(response: string, supabase?: SupabaseCli
         }
         await appendEntry({
           actor: "atlas",
-          action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser } },
+          action: { tool: "ghl.workflow.enroll", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser } },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: true },
