@@ -5,7 +5,7 @@
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Role, Action } from "./role-registry";
-import { auctionFor, signContract, getReputation, domainFor } from "./role-registry";
+import { auctionFor, signContract, getReputation, domainFor, updateReputation } from "./role-registry";
 import { openDeliberation, commitContract } from "./blackboard-git";
 import { callHaiku } from "./haiku-client";
 
@@ -266,4 +266,101 @@ export async function review(
     mode,
     actionId,
   };
+}
+
+// ============================================================
+// OUTCOME SCORING (per vote) + DAILY REVIEWER
+// ============================================================
+
+export type ActionFinalOutcome = "sent_as_drafted" | "rewritten" | "cancelled";
+
+/**
+ * After Derek's post-hoc decision (sent_as_drafted | rewritten | cancelled),
+ * score each council vote on this action as win or loss for the role.
+ *
+ * Rule:
+ * - Vote=veto + outcome=rewritten or cancelled → win (critic was right)
+ * - Vote=veto + outcome=sent_as_drafted → loss (critic over-vetoed)
+ * - Vote=approve + outcome=sent_as_drafted → win
+ * - Vote=approve + outcome=rewritten or cancelled → loss
+ * - Vote=abstain → no update
+ *
+ * Sprint 5 simplification: domain is hard-coded to "email" for outbound_email surfaces.
+ * Future: store domain on the council_votes row so it can be resolved accurately per surface.
+ */
+export async function scoreVoteOutcome(
+  supabase: SupabaseClient,
+  actionId: string,
+  outcome: ActionFinalOutcome
+): Promise<void> {
+  const { data: votes } = await supabase
+    .from("council_votes")
+    .select("role_id,vote,action_id")
+    .eq("action_id", actionId);
+  if (!votes) return;
+  const wasOverridden = outcome !== "sent_as_drafted";
+  for (const v of votes) {
+    if (v.vote === "abstain") continue;
+    const correct =
+      (v.vote === "veto" && wasOverridden) || (v.vote === "approve" && !wasOverridden);
+    // TODO(sprint6): store domain on vote row and resolve it here instead of defaulting to "email"
+    const domain = "email";
+    await updateReputation(supabase, v.role_id, domain, correct ? "win" : "loss");
+  }
+}
+
+/**
+ * Build a daily Markdown summary of all shadow-mode council votes in the given day window.
+ * Groups by role_id; shows approve/veto/abstain counts and veto rate per role.
+ * Surface column shows "(mixed)" since vote rows don't store surface in Sprint 5.
+ */
+export async function dailyShadowReview(supabase: SupabaseClient, day: Date): Promise<string> {
+  const start = new Date(day);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  const { data } = await supabase
+    .from("council_votes")
+    .select("role_id,vote,action_id,mode,reason")
+    .gte("created_at", start.toISOString())
+    .lt("created_at", end.toISOString())
+    .eq("mode", "shadow");
+
+  const rows = data ?? [];
+  const byRole = new Map<string, { veto: number; approve: number; abstain: number }>();
+  for (const r of rows) {
+    const k = r.role_id as string;
+    if (!byRole.has(k)) byRole.set(k, { veto: 0, approve: 0, abstain: 0 });
+    const c = byRole.get(k)!;
+    (c as Record<string, number>)[r.vote as string] =
+      ((c as Record<string, number>)[r.vote as string] ?? 0) + 1;
+  }
+
+  const lines: string[] = [
+    "# Council Shadow Report — " + start.toISOString().slice(0, 10),
+    "",
+    "Surface | Role | Approves | Vetoes | Abstains | Veto rate",
+    "--- | --- | --- | --- | --- | ---",
+  ];
+
+  for (const [role, c] of byRole) {
+    const total = c.approve + c.veto + c.abstain;
+    const rate = total > 0 ? (c.veto / total).toFixed(2) : "—";
+    lines.push(
+      "(mixed) | " +
+        role +
+        " | " +
+        c.approve +
+        " | " +
+        c.veto +
+        " | " +
+        c.abstain +
+        " | " +
+        rate
+    );
+  }
+
+  if (byRole.size === 0) lines.push("_(no shadow votes in window)_");
+  return lines.join("\n");
 }
