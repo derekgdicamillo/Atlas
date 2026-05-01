@@ -1500,17 +1500,16 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         await ctx.reply(`Override for \`${actionId}\` noted. Full override flow lands in Sprint 6. Rewrite and resend the message to proceed now.`, { parse_mode: "Markdown" });
         return true;
       }
-      // Default: list surfaces with 24h vote stats
+      // Default: list surfaces with mode (per-surface vote stats land in Sprint 6)
       try {
         const surfaces = await mod.listSurfaces(supabase);
-        const lines = ["**Council surfaces (24h):**"];
+        const lines = ["**Council surfaces:**"];
         for (const s of surfaces) {
           const modeEmoji = s.mode === "live" ? "🔴" : "🟡";
-          lines.push(
-            `${modeEmoji} \`${s.surface}\` | ${s.mode} | votes=${s.vote_count_24h} | veto-rate=${(s.veto_rate_24h * 100).toFixed(0)}%`
-          );
+          lines.push(`${modeEmoji} \`${s.surface}\` | ${s.mode}`);
         }
         if (surfaces.length === 0) lines.push("_(no surfaces configured yet)_");
+        lines.push("_(per-surface vote stats in Sprint 6)_");
         await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
       } catch (err) {
         await ctx.reply(`Council list failed: ${err}`);

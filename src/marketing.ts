@@ -1364,7 +1364,10 @@ Just the post text. No metadata, no headers. Ready to copy-paste into GBP.`;
  * Call after Derek approves the draft.
  * Returns the post result.
  */
-export async function publishGBPDraft(draftDate?: string): Promise<{ success: boolean; error?: string }> {
+export async function publishGBPDraft(
+  draftDate?: string,
+  supabase?: import("@supabase/supabase-js").SupabaseClient | null
+): Promise<{ success: boolean; error?: string }> {
   const { isGBPReady, createLocalPost } = await import("./gbp.ts");
 
   if (!isGBPReady()) {
@@ -1394,6 +1397,27 @@ export async function publishGBPDraft(draftDate?: string): Promise<{ success: bo
   content = content.replace(/<!--[\s\S]*?-->\n*/g, "").trim();
 
   if (content.length < 20) return { success: false, error: "Draft content too short" };
+
+  // Atlas Prime Sprint 5: council review for gbp.post.create (gbp_post surface)
+  if (supabase) {
+    const action = {
+      tool: "gbp.post.create",
+      args: { content: content.slice(0, 300), cta: "LEARN_MORE", mediaUrl: null },
+    };
+    const council = await import("./shadow-council.ts");
+    let councilResult: import("./shadow-council.ts").CouncilReviewResult;
+    try {
+      councilResult = await council.review(supabase, action);
+    } catch (e) {
+      warn("marketing", `council.review failed (fail-open): ${(e as Error).message}`);
+      councilResult = { allowed: true, vetoes: [], votes: [], weightedScore: 0, threshold: 0, deliberationBranch: "", mode: "shadow" as const, actionId: "" };
+    }
+    if (!councilResult.allowed) {
+      const vetoMsg = councilResult.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("marketing", `GBP post held by council (live mode). action_id=${councilResult.actionId} vetoes=${vetoMsg}`);
+      return { success: false, error: `Held by council: ${vetoMsg}` };
+    }
+  }
 
   // Publish with LEARN_MORE CTA pointing to landing page
   const result = await createLocalPost(content, {

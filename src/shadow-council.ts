@@ -111,21 +111,11 @@ export async function listSurfaces(
     vote_count_24h: number;
     veto_rate_24h: number;
   }[] = [];
+  // Sprint 5: per-surface vote stats require a `surface` column on council_votes (Sprint 6).
+  // action_id is a randomUUID() — .like("action_id", "%surface%") always returns 0 rows.
+  // Return surface + mode only; /council output notes that stats land in Sprint 6.
   for (const s of surfaces ?? []) {
-    const since = new Date(Date.now() - 86_400_000).toISOString();
-    const { data: votes } = await supabase
-      .from("council_votes")
-      .select("vote")
-      .gte("created_at", since)
-      .like("action_id", "%" + s.surface + "%");
-    const total = votes?.length ?? 0;
-    const vetoes = (votes ?? []).filter((v) => v.vote === "veto").length;
-    out.push({
-      surface: s.surface,
-      mode: s.mode,
-      vote_count_24h: total,
-      veto_rate_24h: total > 0 ? vetoes / total : 0,
-    });
+    out.push({ surface: s.surface, mode: s.mode, vote_count_24h: 0, veto_rate_24h: 0 });
   }
   return out;
 }

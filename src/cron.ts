@@ -2953,7 +2953,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       CronJob.from({
         cronTime: "0 9 * * 6",
         onTick: safeTick("maa-newsletter-free-send", async () => {
-          const result = await sendFreeNewsletter();
+          const result = await sendFreeNewsletter(supabase);
           if (result.success) {
             await sendTelegramMessage(DEREK_CHAT_ID, "TMAA free newsletter sent to FB Group Leads list.");
           } else if (result.error?.includes("not approved")) {
@@ -2974,7 +2974,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
       CronJob.from({
         cronTime: "0 9 * * 0",
         onTick: safeTick("maa-newsletter-paid-send", async () => {
-          const result = await sendPaidNewsletter();
+          const result = await sendPaidNewsletter(supabase);
           if (result.success) {
             await sendTelegramMessage(DEREK_CHAT_ID, "TMAA Insider (paid newsletter) sent to TMAA Members list.");
           } else if (result.error?.includes("not approved")) {
