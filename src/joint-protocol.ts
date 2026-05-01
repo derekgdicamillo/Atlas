@@ -19,7 +19,8 @@ import {
   walkTranscript,
   type TranscriptCommit,
 } from "./blackboard-git";
-import { signContract } from "./role-registry";
+import { signContract, type Action } from "./role-registry";
+import { I3_TRIGGERS } from "./joint-triggers";
 
 // ============================================================
 // TYPES
@@ -238,13 +239,45 @@ export async function get(
 }
 
 /**
- * shouldFireJoint() — implemented in Task 17.
+ * shouldFireJoint — I3 hard-coded trigger detection.
+ * Pure regex in the hot path; no Haiku classifier.
+ * Looks up per-trigger mode from joint_trigger_modes table (default: 'shadow').
  */
 export async function shouldFireJoint(
-  _supabase: SupabaseClient,
-  _context: unknown
-): Promise<{ fire: boolean; reason: string }> {
-  throw new Error("shouldFireJoint() implemented in Task 17");
+  supabase: SupabaseClient,
+  action: Action,
+  conversationContext: string
+): Promise<{ fire: boolean; trigger: string | null; mode: "shadow" | "live" }> {
+  const text = (conversationContext + " " + JSON.stringify(action.args)).slice(0, 4000);
+  for (const t of I3_TRIGGERS) {
+    if (!t.match.test(text)) continue;
+    if (t.contextKeywords && !t.contextKeywords.some((k) => text.toLowerCase().includes(k.toLowerCase()))) continue;
+    if (t.requiresAction && !(action.args as Record<string, unknown>).actionRequested) continue;
+    // Look up per-trigger mode from DB (default: 'shadow')
+    const { data } = await supabase
+      .from("joint_trigger_modes")
+      .select("mode")
+      .eq("trigger_name", t.name)
+      .maybeSingle();
+    const mode = (data?.mode as "shadow" | "live") ?? "shadow";
+    return { fire: true, trigger: t.name, mode };
+  }
+  return { fire: false, trigger: null, mode: "shadow" };
+}
+
+/**
+ * promoteTrigger — move a trigger from shadow to live mode.
+ * Upserts joint_trigger_modes row with mode='live'.
+ */
+export async function promoteTrigger(
+  supabase: SupabaseClient,
+  triggerName: string,
+  byUser: string
+): Promise<void> {
+  await supabase.from("joint_trigger_modes").upsert(
+    { trigger_name: triggerName, mode: "live", promoted_by: byUser, promoted_at: new Date().toISOString() },
+    { onConflict: "trigger_name" }
+  );
 }
 
 /**
