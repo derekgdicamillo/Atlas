@@ -2,7 +2,7 @@
  * Atlas Prime — Role Registry
  * 8 hand-curated named seats + 32 Opus-generated roles. ed25519 contracts.
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { generateKeyPairSync, sign, verify, createPublicKey, createPrivateKey } from "crypto";
 import * as YAML from "js-yaml";
@@ -198,4 +198,80 @@ export async function auctionFor(
   const seats = [...mandatory, ...elected];
   const reasoning = "Mandatory floor: [" + (mandatory.map((r) => r.id).join(", ") || "none") + "]. Elected: [" + (elected.map((r) => r.id).join(", ") || "none") + "].";
   return { seats, reasoning };
+}
+
+// ============================================================
+// PENDING / BOOTSTRAP WORKFLOW
+// ============================================================
+import { appendEntry } from "./ledger";
+
+const PENDING_DIR = "_pending";
+function pendingDir(root?: string): string { return join(rolesRoot(root), PENDING_DIR); }
+
+export async function listPending(root?: string): Promise<PendingRole[]> {
+  const dir = pendingDir(root);
+  if (!existsSync(dir)) return [];
+  const files = readdirSync(dir).filter((f) => f.endsWith(".yaml"));
+  const out: PendingRole[] = [];
+  for (const f of files) {
+    const raw = readFileSync(join(dir, f), "utf-8");
+    const data = YAML.load(raw) as { id?: string } & Omit<Role, "id">;
+    const pendingId = f.replace(/\.yaml$/, "");
+    const { id: _ignore, ...rest } = data;
+    out.push({ pending_id: pendingId, role: rest as Omit<Role, "id"> });
+  }
+  return out;
+}
+
+export async function approvePending(
+  supabase: SupabaseClient,
+  pendingId: string,
+  root?: string
+): Promise<{ roleId: string; pubkeyLedgerEntryId: string }> {
+  const pendingFile = join(pendingDir(root), pendingId + ".yaml");
+  if (!existsSync(pendingFile)) throw new Error("pending not found: " + pendingId);
+  const raw = readFileSync(pendingFile, "utf-8");
+  const data = YAML.load(raw) as { id?: string } & Omit<Role, "id">;
+  const roleId = data.id ?? pendingId;
+  if (!/^[a-z0-9-]+$/.test(roleId)) throw new Error("invalid role id: " + roleId);
+  if (existsSync(roleDir(roleId, root))) throw new Error("role already exists: " + roleId);
+
+  mkdirSync(roleDir(roleId, root), { recursive: true });
+  const { id: _drop, ...rest } = data;
+  writeFileSync(rolePath(roleId, root), YAML.dump(rest));
+
+  const { publicKey } = await generateRoleKeypair(roleId, root);
+  const pubkey_b64 = publicKey.toString("base64");
+
+  const entry = await appendEntry({
+    actor: "system",
+    action: {
+      tool: "role.publish_pubkey",
+      args: { role_id: roleId, pubkey_b64, approved_from_pending: pendingId },
+    },
+    sourceClaims: [],
+  });
+
+  await supabase.from("role_pubkeys").upsert({
+    role_id: roleId,
+    pubkey: publicKey,
+    ledger_publication_entry_id: entry.entryHash,
+  });
+
+  unlinkSync(pendingFile);
+  return { roleId, pubkeyLedgerEntryId: entry.entryHash };
+}
+
+export async function rejectPending(pendingId: string, reason: string, root?: string): Promise<void> {
+  const pendingFile = join(pendingDir(root), pendingId + ".yaml");
+  if (!existsSync(pendingFile)) throw new Error("pending not found: " + pendingId);
+  await appendEntry({
+    actor: "system",
+    action: {
+      tool: "role.pending_rejected",
+      args: { pending_id: pendingId, reason },
+    },
+    sourceClaims: [],
+  });
+  unlinkSync(pendingFile);
 }
