@@ -1517,6 +1517,48 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/marketplace": {
+      if (!supabase) {
+        await ctx.reply("Marketplace unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      const mod = await import("./marketplace");
+      const userName = ctx.from?.username ?? userId;
+      if (sub === "promote") {
+        const taskType = args[1];
+        if (!taskType) {
+          await ctx.reply("usage: /marketplace promote <task_type>");
+          return true;
+        }
+        await mod.promoteTaskType(supabase, taskType, userName);
+        await ctx.reply(`[marketplace] \`${taskType}\` → **live**`, { parse_mode: "Markdown" });
+        return true;
+      }
+      // Default: list top 15 bidders in a domain
+      const domain = args[1] ?? "default";
+      const { data } = await supabase
+        .from("marketplace_reputation")
+        .select("bidder_id,alpha,beta")
+        .eq("domain", domain)
+        .order("alpha", { ascending: false })
+        .limit(15);
+      const lines = ["**Marketplace reputations — domain: " + domain + "**"];
+      for (const r of data ?? []) {
+        const summary = await mod.betaSummary(supabase, r.bidder_id, domain);
+        lines.push(
+          "- " + r.bidder_id +
+          " | mean=" + summary.mean.toFixed(2) +
+          " | CI95=[" + summary.ci95[0].toFixed(2) + "," + summary.ci95[1].toFixed(2) + "]"
+        );
+      }
+      if ((data ?? []).length === 0) {
+        lines.push("_(no bidders registered for this domain yet)_");
+      }
+      await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/approve": {
       const tier = args[0]?.toLowerCase();
       if (tier !== "free" && tier !== "paid") {
