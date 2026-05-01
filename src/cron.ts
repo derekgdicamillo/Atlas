@@ -240,6 +240,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "midas-recon":     5 * 60 * 1000, //  5 min — competitor recon (Opus)
   "midas-monthly":  10 * 60 * 1000, // 10 min — monthly strategic brief (Opus, big prompt)
   "midas-gbp":       3 * 60 * 1000, //  3 min — GBP content draft (Sonnet)
+  "pv-knowledge-pull": 10 * 60 * 1000, // 10 min — git pull + re-ingest changed knowledge files
   "metrics-reminder": 30 * 1000,    // 30 sec — just sends a Telegram message
   "meeting-check":   3 * 60 * 1000, // 3 min — fetch + process transcripts via Claude
   "marketplace-decay": 2 * 60 * 1000,     //  2 min — Supabase update pass
@@ -3151,6 +3152,51 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // PV Knowledge Layer: nightly `git pull` + re-ingest. SHA-256 dedup
+  // means unchanged files skip automatically; only new/edited content
+  // hits the embeddings pipeline.
+  jobs.push(
+    CronJob.from({
+      cronTime: "45 3 * * *",
+      onTick: safeTick("pv-knowledge-pull", async () => {
+        if (!supabase) return;
+        const knowledgeRepoDir = process.env.PV_KNOWLEDGE_LAYER_DIR
+          ? join(process.env.PV_KNOWLEDGE_LAYER_DIR, "..")
+          : join(PROJECT_DIR, "..", "PV-Knowledge-Layer");
+        if (!existsSync(knowledgeRepoDir)) {
+          warn("pv-knowledge-pull", `Knowledge layer repo missing: ${knowledgeRepoDir}`);
+          return;
+        }
+
+        const { spawnSync } = await import("child_process");
+        const pull = spawnSync("git", ["pull", "--ff-only"], {
+          cwd: knowledgeRepoDir,
+          encoding: "utf-8",
+        });
+        if (pull.status !== 0) {
+          warn("pv-knowledge-pull", `git pull failed: ${pull.stderr || pull.stdout}`);
+          return;
+        }
+        log("pv-knowledge-pull", `git pull: ${(pull.stdout || "").trim().split("\n").pop() || "ok"}`);
+
+        const knowledgeContentDir = join(knowledgeRepoDir, "knowledge");
+        if (!existsSync(knowledgeContentDir)) {
+          warn("pv-knowledge-pull", `knowledge/ subdir missing: ${knowledgeContentDir}`);
+          return;
+        }
+        const { ingestFolder } = await import("./ingest-worker.ts");
+        const result = await ingestFolder({
+          path: knowledgeContentDir,
+          source: "pv-knowledge-layer",
+          supabase,
+          recursive: true,
+        });
+        log("pv-knowledge-pull", `re-ingest: ${result.filesProcessed} new/changed, ${result.filesSkipped} unchanged, ${result.filesErrored} errors, ${result.totalChunks} chunks`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -3165,6 +3211,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 7:00 AM      Content waterfall (sonnet)");
   console.log("  - Every 15min  Health state dump");
   console.log("  - 3:00 AM      Monthly memory cleanup (1st of month)");
+  console.log("  - 3:45 AM      PV Knowledge Layer git pull + re-ingest");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
   console.log("  - 11:00 PM     Nightly evolution pipeline (scout+audit+architect+implementer+validator)");

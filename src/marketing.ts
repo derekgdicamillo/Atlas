@@ -131,6 +131,99 @@ function saveState(state: MarketingState): void {
 }
 
 // ============================================================
+// PV KNOWLEDGE LAYER (separate git repo cloned alongside Atlas)
+// ============================================================
+
+const KNOWLEDGE_LAYER_DIR = process.env.PV_KNOWLEDGE_LAYER_DIR
+  || join(PROJECT_DIR, "..", "PV-Knowledge-Layer", "knowledge");
+
+function readKnowledge(relPath: string, maxChars?: number): string {
+  try {
+    const fullPath = join(KNOWLEDGE_LAYER_DIR, relPath);
+    if (!existsSync(fullPath)) return "";
+    const text = readFileSync(fullPath, "utf-8");
+    return maxChars ? text.slice(0, maxChars) : text;
+  } catch {
+    return "";
+  }
+}
+
+export type KnowledgeFocus = "hooks" | "recon" | "gbp" | "monthly";
+
+/**
+ * Build a structured knowledge layer context block for a Midas prompt.
+ * Each focus selects a curated subset of canonical files. Returns "" if
+ * the knowledge layer dir isn't cloned (Midas degrades gracefully).
+ */
+export function loadKnowledgeContext(focus: KnowledgeFocus): string {
+  if (!existsSync(KNOWLEDGE_LAYER_DIR)) return "";
+
+  const sections: string[] = [];
+  const add = (label: string, content: string) => {
+    if (content && content.trim().length > 50) sections.push(`### ${label}\n${content}`);
+  };
+
+  if (focus === "hooks" || focus === "monthly" || focus === "gbp") {
+    add("Voice Guide (canonical)", readKnowledge("A-voice/voice-guide.md", 12000));
+    add("Humanizer Rules", readKnowledge("A-voice/humanizer.md", 8000));
+    add("Anti-Patterns (banned phrasing/structures)", readKnowledge("A-voice/anti-patterns.md", 4000));
+  }
+
+  if (focus === "hooks" || focus === "monthly") {
+    add("Avatar — Linda (WL primary, 52, peri/postmenopausal, on Wegovy, stalled)",
+      readKnowledge("B-customer/avatars/linda.md", 8000));
+    add("Avatar — Mike (WL secondary, 44, dad-of-two business owner, A1c 6.0)",
+      readKnowledge("B-customer/avatars/mike.md", 8000));
+    add("Avatar — Maggie (WL tertiary, GLP-1 graduate, fighting regain)",
+      readKnowledge("B-customer/avatars/maggie.md", 6000));
+    add("Avatar — Sophie (aesthetics, 38-45, Botox/Jeuveau regular)",
+      readKnowledge("B-customer/avatars/sophie.md", 6000));
+    add("Awareness Stages (Schwartz) per avatar",
+      readKnowledge("B-customer/awareness-stages.md", 6000));
+    add("Objections, Fears, Desires per avatar",
+      readKnowledge("B-customer/objections-fears-desires.md", 6000));
+    add("PV Hook Library (55 hooks, tagged by avatar/stage/channel — reference, don't reinvent)",
+      readKnowledge("F-marketing/hooks.md", 14000));
+
+    const derekFrameworks = [
+      "5-pillars", "vitality-tracker", "protein-paradox", "fuel-code",
+      "fuel-code-plate", "movement-hierarchy", "calm-core",
+      "cooling-fuel", "slow-and-shield",
+    ];
+    let frameworks = "";
+    for (const f of derekFrameworks) {
+      const text = readKnowledge(`D-frameworks/derek/${f}.md`, 1200);
+      if (text) frameworks += `\n--- ${f} ---\n${text}\n`;
+    }
+    add("Derek's Named Frameworks (canonical phrasing)", frameworks);
+  }
+
+  if (focus === "gbp") {
+    add("Avatar — Linda (WL primary, the GBP audience)",
+      readKnowledge("B-customer/avatars/linda.md", 6000));
+  }
+
+  if (focus === "recon" || focus === "monthly") {
+    add("Competitive Synthesis — What's Working Now",
+      readKnowledge("G-competitive/_whats-working-now.md", 6000));
+    add("FB Ad Library Sweep",
+      readKnowledge("G-competitive/fb-ad-library.md", 4000));
+    add("WL Ad Creative Patterns (synthesized)",
+      readKnowledge("F-marketing/wl/ad-creative.md", 6000));
+    add("Aesthetics Ad Creative Patterns",
+      readKnowledge("F-marketing/aesthetics/ad-creative.md", 4000));
+  }
+
+  if (sections.length === 0) return "";
+  return [
+    "## PV Knowledge Layer (canonical)",
+    "_Source: PV-Knowledge-Layer git repo. Voice, avatars, hooks, frameworks here are authoritative. Match them — don't invent parallel terms._",
+    "",
+    sections.join("\n\n"),
+  ].join("\n");
+}
+
+// ============================================================
 // FUNNEL CONVERSION MONITOR (Daily 9 AM job)
 // ============================================================
 
@@ -827,9 +920,13 @@ export async function buildContentHooksMemo(): Promise<string> {
     }
   } catch {}
 
+  const knowledgeContext = loadKnowledgeContext("hooks");
+
   const prompt = `You are Midas, marketing strategist for PV MediSpa & Weight Loss (Prescott Valley, AZ).
 
 Generate a Content Hooks Memo with 3 content hook ideas based on current GLP-1, weight loss, and functional medicine trends.
+
+${knowledgeContext}
 
 ## Business Context
 ${businessContext || "(see constraints below)"}
@@ -955,9 +1052,13 @@ export async function runCompetitorRecon(): Promise<string> {
     }
   } catch {}
 
+  const knowledgeContext = loadKnowledgeContext("recon");
+
   const prompt = `You are Midas, marketing strategist for PV MediSpa & Weight Loss (Prescott Valley, AZ).
 
 Run a weekly competitor reconnaissance report. Analyze competitor positioning, identify threats and opportunities.
+
+${knowledgeContext}
 
 ## Our Competitive Position
 ${ourPosition || "(not available)"}
@@ -1163,10 +1264,14 @@ export async function buildMonthlyBrief(): Promise<string> {
     }
   } catch {}
 
+  const knowledgeContext = loadKnowledgeContext("monthly");
+
   const prompt = `You are Midas, marketing strategist for PV MediSpa & Weight Loss (Prescott Valley, AZ).
 Generate the Monthly Marketing Strategic Brief for ${monthName}.
 
 This is THE capstone analysis. It synthesizes all data from the past month into a clear plan for next month.
+
+${knowledgeContext}
 
 ## Business Context
 ${businessContext || "(not available)"}
@@ -1319,9 +1424,13 @@ export async function draftGBPPost(): Promise<string> {
     return "";
   }
 
+  const knowledgeContext = loadKnowledgeContext("gbp");
+
   const prompt = `You are Midas, drafting a Google Business Profile post for PV MediSpa & Weight Loss (Prescott Valley, AZ).
 
 Adapt this content into a GBP post format: short (100-300 words), local, with a clear CTA.
+
+${knowledgeContext}
 
 ## Source Content
 ${waterfallContent || "(no waterfall content)"}
