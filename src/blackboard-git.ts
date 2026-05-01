@@ -225,29 +225,41 @@ export async function openDeliberation(
   });
 
   // Initial open commit so the branch has at least one Sprint 5 commit.
+  // Wrap in try/catch: if anything fails here the worktree was already created
+  // (inside the lock above), so we must force-remove it before re-throwing.
   const wt = simpleGit(worktreePath);
-  await wt.addConfig("user.email", "atlas@pvmedispa.com");
-  await wt.addConfig("user.name", "Atlas");
+  try {
+    await wt.addConfig("user.email", "atlas@pvmedispa.com");
+    await wt.addConfig("user.name", "Atlas");
 
-  const meta = {
-    primitive,
-    slug,
-    opened_at: new Date().toISOString(),
-    parent_branch: parentBranch ?? null,
-  };
-  writeFileSync(join(worktreePath, "deliberation.json"), JSON.stringify(meta, null, 2));
-  writeFileSync(join(worktreePath, "contracts.jsonl"), "");
-  await wt.add(["deliberation.json", "contracts.jsonl"]);
-  await wt.commit(`open: ${primitive} deliberation ${slug}`);
+    const meta = {
+      primitive,
+      slug,
+      opened_at: new Date().toISOString(),
+      parent_branch: parentBranch ?? null,
+    };
+    writeFileSync(join(worktreePath, "deliberation.json"), JSON.stringify(meta, null, 2));
+    writeFileSync(join(worktreePath, "contracts.jsonl"), "");
+    await wt.add(["deliberation.json", "contracts.jsonl"]);
+    await wt.commit(`open: ${primitive} deliberation ${slug}`);
 
-  // Push back to bare repo so bare has the branch ref
-  await wt
-    .push(["origin", `HEAD:${branch}`])
-    .catch(async () => {
-      // If origin isn't configured in the worktree, add it
-      await wt.addRemote("origin", bareRepoPath(root));
-      await wt.push(["origin", `HEAD:${branch}`]);
-    });
+    // Push back to bare repo so bare has the branch ref
+    await wt
+      .push(["origin", `HEAD:${branch}`])
+      .catch(async () => {
+        // If origin isn't configured in the worktree, add it
+        await wt.addRemote("origin", bareRepoPath(root));
+        await wt.push(["origin", `HEAD:${branch}`]);
+      });
+  } catch (err) {
+    // Clean up the dangling worktree so the bare repo stays consistent
+    try {
+      await bareGit(root).raw(["worktree", "remove", "--force", worktreePath]);
+    } catch {
+      // best-effort; ignore cleanup error
+    }
+    throw err;
+  }
 
   return { branch, worktreePath };
 }
@@ -370,37 +382,52 @@ export async function mergeDeliberation(
 
   const wt = simpleGit(worktreePath);
 
+  // Issue 2 fix: wrap commit chain in try/catch with hard reset on failure
+  // so a mid-flight failure doesn't leave dirty state in the worktree.
   writeFileSync(
     join(worktreePath, "final-memo.md"),
     `# Final Memo\n\n**Arbitrator:** ${arbitratorId}\n**Agreed:** ${agreed}\n**Closed:** ${new Date().toISOString()}\n\n${mergeMemo}\n`
   );
-  await wt.add("final-memo.md");
-  await wt.commit(`close: arbitrator ${arbitratorId} (agreed=${agreed})`);
-  await wt.push(["origin", `HEAD:${branch}`]);
+  let head: string;
+  try {
+    await wt.add("final-memo.md");
+    await wt.commit(`close: arbitrator ${arbitratorId} (agreed=${agreed})`);
+    await wt.push(["origin", `HEAD:${branch}`]);
+    head = (await wt.revparse(["HEAD"])).trim();
+  } catch (commitErr) {
+    // Rollback worktree to last good HEAD on commit/push failure
+    await wt.reset(["--hard"]);
+    throw commitErr;
+  }
 
-  const head = (await wt.revparse(["HEAD"])).trim();
-
-  const entry = await appendEntry({
-    actor: "atlas",
-    action: {
-      tool: "blackboard.mergeDeliberation",
-      args: {
-        branch,
-        commit: head,
-        arbitrator_id: arbitratorId,
-        agreed,
+  // Issue 3 fix: label appendEntry failures as LedgerSyncError for consistency
+  // with commitContract.
+  try {
+    const entry = await appendEntry({
+      actor: "atlas",
+      action: {
+        tool: "blackboard.mergeDeliberation",
+        args: {
+          branch,
+          commit: head,
+          arbitrator_id: arbitratorId,
+          agreed,
+        },
       },
-    },
-    sourceClaims: [
-      {
-        claim_id: `blackboard:merge:${head}`,
-        source_file: "src/blackboard-git.ts",
-      },
-    ],
-    outcome: { success: true },
-  });
-
-  return { mergeCommit: head, ledgerEntryId: entry.entryHash };
+      sourceClaims: [
+        {
+          claim_id: `blackboard:merge:${head}`,
+          source_file: "src/blackboard-git.ts",
+        },
+      ],
+      outcome: { success: true },
+    });
+    return { mergeCommit: head, ledgerEntryId: entry.entryHash };
+  } catch (e) {
+    throw new Error(
+      `LedgerSyncError: blackboard merge ${head} could not be ledger-chained: ${(e as Error).message}`
+    );
+  }
 }
 
 /**
@@ -521,6 +548,14 @@ export async function gcResolved(
       // bundle or branch delete failed → preserve (fail-safe)
       continue;
     }
+  }
+
+  // Issue 4 fix: prune stale worktree entries from the bare repo after GC loop.
+  // This removes references to worktrees deleted by rmSync above.
+  try {
+    await git.raw(["worktree", "prune"]);
+  } catch {
+    // best-effort cleanup; non-fatal
   }
 
   return { archivedCount: archived, archivePath };
