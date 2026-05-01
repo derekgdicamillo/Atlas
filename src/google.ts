@@ -857,11 +857,11 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
       // Inject council_review_id so spec gate (gmail.draft invariant) passes
       const augmentedArgs = { to: params.to, subject: params.subject, body: params.body, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "DRAFT", args: augmentedArgs });
+      const gate = checkAction({ tool: "gmail.draft", args: augmentedArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "DRAFT", args: augmentedArgs },
+          action: { tool: "gmail.draft", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -873,7 +873,7 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
         const draftId = await createDraft(params.to, params.subject, params.body);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "DRAFT", args: augmentedArgs },
+          action: { tool: "gmail.draft", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!draftId },
@@ -907,11 +907,11 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
       // Inject council_review_id so spec gate (gmail.send invariant) passes
       const augmentedArgs = { to: params.to, subject: params.subject, body: params.body, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "SEND", args: augmentedArgs });
+      const gate = checkAction({ tool: "gmail.send", args: augmentedArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "SEND", args: augmentedArgs },
+          action: { tool: "gmail.send", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -923,7 +923,7 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
         const msgId = await sendEmail(params.to, params.subject, params.body);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "SEND", args: augmentedArgs },
+          action: { tool: "gmail.send", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!msgId },
@@ -970,11 +970,11 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
       // Inject council_review_id so spec gate (cal_invite_external invariant) passes
       const augmentedCalArgs = { title: params.title, date: params.date, invite: params.invite, has_external_attendee: hasExternal, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "CAL_ADD", args: augmentedCalArgs });
+      const gate = checkAction({ tool: "google.calendar.create", args: augmentedCalArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "CAL_ADD", args: augmentedCalArgs },
+          action: { tool: "google.calendar.create", args: augmentedCalArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -995,7 +995,7 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
         const event = await createEvent(eventParams);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "CAL_ADD", args: augmentedCalArgs },
+          action: { tool: "google.calendar.create", args: augmentedCalArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!event },
@@ -1022,11 +1022,11 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
       continue;
     }
     // Atlas Prime: gate check
-    const gate = checkAction({ tool: "CAL_REMOVE", args: { search: searchText } });
+    const gate = checkAction({ tool: "google.calendar.delete", args: { search: searchText } });
     if (!gate.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "CAL_REMOVE", args: { search: searchText } },
+        action: { tool: "google.calendar.delete", args: { search: searchText } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1038,7 +1038,7 @@ export async function processGoogleIntents(response: string, supabase?: Supabase
       const deleted = await deleteEvent(searchText);
       await appendEntry({
         actor: "atlas",
-        action: { tool: "CAL_REMOVE", args: { search: searchText } },
+        action: { tool: "google.calendar.delete", args: { search: searchText } },
         sourceClaims: [],
         policyDecision: { spec_result: "allow" },
         outcome: { success: !!deleted },

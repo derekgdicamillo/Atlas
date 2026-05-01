@@ -5,7 +5,7 @@
 #
 # Schema:
 #   invariants: list of { name, applies_to, when, require | forbid }
-#   applies_to: tool tag (e.g. "SEND", "CAL_ADD", "GHL_WORKFLOW")
+#   applies_to: new-style tool name (e.g. "gmail.send", "google.calendar.create", "ghl.workflow.enroll")
 #   when: optional JMESPath-ish guard on args (plain dot-path predicates)
 #   require: list of predicates that must all be true
 #   forbid:  list of predicates any of which being true blocks the action
@@ -18,27 +18,27 @@ version: 2
 invariants:
 
   - name: NoEmailOutsideAllowlist
-    applies_to: SEND
+    applies_to: gmail.send
     require:
       - { path: to, op: matches, value: "^[^@]+@(pvmedispa\\.com|medicalaestheticsassociation\\.com|gmail\\.com|besafehealthcare\\.com)$" }
 
   - name: NoPatientRecordDelete
-    applies_to: GHL_DELETE
+    applies_to: ghl.contact.delete
     forbid:
       - { path: _always, op: equals, value: true }
 
   - name: NoTelegramSendToUnknownChat
-    applies_to: TELEGRAM_SEND
+    applies_to: telegram.send
     require:
       - { path: chatId, op: present }
 
   - name: CalendarInviteRequiresTitle
-    applies_to: CAL_ADD
+    applies_to: google.calendar.create
     require:
       - { path: title, op: present }
 
   - name: GHLWorkflowRequiresExplicitApproval
-    applies_to: GHL_WORKFLOW
+    applies_to: ghl.workflow.enroll
     when: { path: action, op: equals, value: add }
     require:
       - { path: approved_by_user, op: equals, value: true }
