@@ -111,3 +111,91 @@ export async function updateReputation(supabase: SupabaseClient, roleId: string,
   const beta = (data?.beta ?? 2.0) + (outcome === "loss" ? 1 : 0);
   await supabase.from("role_reputation").upsert({ role_id: roleId, domain, alpha, beta, last_outcome_at: new Date().toISOString() }, { onConflict: "role_id,domain" });
 }
+
+// ============================================================
+// AUCTIONEER (E3 hybrid: mandatory floor + reputation-weighted ceiling)
+// ============================================================
+
+export interface Action {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+const TOOL_TO_DOMAIN: Record<string, string> = {
+  "gmail.send": "email",
+  "gmail.draft": "email",
+  "brevo.campaign.send": "email",
+  "google.calendar.create": "email",
+  "ghl.send.email": "email",
+  "ghl.send.sms": "email",
+  "ghl.workflow.enroll": "email",
+  "gbp.post.create": "gbp-post",
+  "social.publish.facebook": "social",
+  "social.publish.instagram": "social",
+  "wp.post.publish": "marketing",
+  "wp.post.update": "marketing",
+  "pv-newsletter.push": "newsletter",
+  "maa-newsletter.send": "newsletter",
+  "ad.creative.review": "ad-creative",
+  "code.task": "code",
+};
+
+export function domainFor(action: Action): string {
+  return TOOL_TO_DOMAIN[action.tool] ?? "default";
+}
+
+// Sprint 5 ships a TF-cosine stub. Sprint 6 swaps in the reranker for real embeddings.
+function tfVec(text: string): Map<string, number> {
+  const tokens = text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const v = new Map<string, number>();
+  for (const t of tokens) v.set(t, (v.get(t) ?? 0) + 1);
+  return v;
+}
+
+function cosine(a: Map<string, number>, b: Map<string, number>): number {
+  let dot = 0; let na = 0; let nb = 0;
+  for (const [k, v] of a) { na += v * v; dot += v * (b.get(k) ?? 0); }
+  for (const v of b.values()) nb += v * v;
+  if (na === 0 || nb === 0) return 0;
+  return dot / Math.sqrt(na * nb);
+}
+
+export async function auctionFor(
+  supabase: SupabaseClient,
+  action: Action,
+  opts: { mandatoryFloor?: string[]; ceilingSeats?: number } = {},
+  root?: string
+): Promise<{ seats: Role[]; reasoning: string }> {
+  const ceiling = opts.ceilingSeats ?? 3;
+  const allRoles = await listRoles(undefined, root);
+
+  const mandatorySet = new Set<string>(opts.mandatoryFloor ?? []);
+  for (const r of allRoles) {
+    if (r.mandatory_for.includes(action.tool)) mandatorySet.add(r.id);
+  }
+  const mandatory = allRoles.filter((r) => mandatorySet.has(r.id));
+
+  const remaining = ceiling - mandatory.length;
+  let elected: Role[] = [];
+  if (remaining > 0) {
+    const queryText = action.tool + " " + JSON.stringify(action.args).slice(0, 1000);
+    const queryVec = tfVec(queryText);
+    const domain = domainFor(action);
+    const candidates = allRoles.filter((r) => !mandatorySet.has(r.id));
+    const scored = await Promise.all(
+      candidates.map(async (r) => {
+        const cardText = r.name + " " + r.description + " " + r.prompt_fragment + " " + r.domain_tags.join(" ");
+        const cardVec = tfVec(cardText);
+        const cos = cosine(queryVec, cardVec);
+        const rep = await getReputation(supabase, r.id, domain);
+        return { role: r, score: cos * Math.sqrt(rep.mean) };
+      })
+    );
+    scored.sort((a, b) => b.score - a.score);
+    elected = scored.slice(0, remaining).map((s) => s.role);
+  }
+
+  const seats = [...mandatory, ...elected];
+  const reasoning = "Mandatory floor: [" + (mandatory.map((r) => r.id).join(", ") || "none") + "]. Elected: [" + (elected.map((r) => r.id).join(", ") || "none") + "].";
+  return { seats, reasoning };
+}
