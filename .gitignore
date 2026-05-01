@@ -114,3 +114,10 @@ data/replay-results/
 
 # Atlas Prime — trust snapshot rotations
 data/trust-snapshots-*.bak
+
+# Atlas Prime — Git Blackboard substrate
+data/atlas-blackboard.git/
+data/blackboard-worktrees/
+data/blackboard-archive/
+data/blackboard.lock
+data/test-blackboards/
