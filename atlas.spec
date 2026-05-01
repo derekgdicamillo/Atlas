@@ -13,7 +13,7 @@
 # Predicate form:
 #   - { path: <dot-path into args>, op: <in|equals|matches|not_in|present>, value: ... }
 
-version: 1
+version: 2
 
 invariants:
 
@@ -47,6 +47,49 @@ invariants:
     applies_to: META_ADS_UPDATE
     forbid:
       - { path: spend_delta_usd, op: greater_than, value: 100 }
+
+  # Sprint 5: Society substrate — Council + Joint Protocol invariants
+
+  - name: outbound_email_requires_council
+    applies_to: gmail.send
+    when:
+      path: to
+      op: matches
+      value: '@(?!pvmedispa\.com|medicalaestheticsassociation\.com|bsfehealth\.com)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    require:
+      - { path: council_review_id, op: present }
+
+  - name: outbound_email_draft_requires_council
+    applies_to: gmail.draft
+    when:
+      path: to
+      op: matches
+      value: '@(?!pvmedispa\.com|medicalaestheticsassociation\.com|bsfehealth\.com)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    require:
+      - { path: council_review_id, op: present }
+
+  - name: brevo_campaign_requires_council
+    applies_to: brevo.campaign.send
+    require:
+      - { path: council_review_id, op: present }
+
+  - name: cal_invite_external_requires_council
+    applies_to: google.calendar.create
+    when:
+      path: has_external_attendee
+      op: equals
+      value: true
+    require:
+      - { path: council_review_id, op: present }
+
+  - name: joint_action_requires_joint_deliberation
+    applies_to: _any_
+    when:
+      path: joint_required
+      op: equals
+      value: true
+    require:
+      - { path: joint_deliberation_id, op: present }
 
 # Shield-mode invariants (apply regardless of tag — belt and suspenders)
 shield:

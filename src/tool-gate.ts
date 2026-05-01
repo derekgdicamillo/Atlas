@@ -103,7 +103,7 @@ function evalPredicate(p: Predicate, args: Record<string, unknown>): boolean {
 export function checkAction(action: Action, specPath?: string): GateResult {
   const spec = loadSpec(specPath);
   for (const inv of spec.invariants) {
-    if (inv.applies_to !== action.tool) continue;
+    if (inv.applies_to !== "_any_" && inv.applies_to !== action.tool) continue;
     if (inv.when && !evalPredicate(inv.when, action.args)) continue;
 
     if (inv.forbid) {
