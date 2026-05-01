@@ -1,0 +1,10 @@
+{
+  "name": "switch-compounding-pharmacy-vendor",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "A new compounding pharmacy is offering tirzepatide at 22% lower COGS than Hallandale. They're PCAB-accredited but only 6 months in business. Switch to save margin or stay with the known vendor?",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

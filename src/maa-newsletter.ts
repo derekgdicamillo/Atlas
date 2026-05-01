@@ -757,7 +757,9 @@ export async function draftPaidNewsletter(
 // ORCHESTRATION — SEND
 // ============================================================
 
-export async function sendFreeNewsletter(): Promise<{ success: boolean; error?: string }> {
+export async function sendFreeNewsletter(
+  supabase?: import("@supabase/supabase-js").SupabaseClient | null
+): Promise<{ success: boolean; error?: string }> {
   const state = loadState();
 
   if (!state.freeApproved) {
@@ -768,6 +770,25 @@ export async function sendFreeNewsletter(): Promise<{ success: boolean; error?: 
   }
 
   const campaignId = state.freeCampaignId;
+
+  // Atlas Prime Sprint 5: council review for maa-newsletter.send (newsletter_push surface)
+  if (supabase) {
+    const action = { tool: "maa-newsletter.send", args: { campaignId, type: "free" } };
+    const council = await import("./shadow-council.ts");
+    let councilResult: import("./shadow-council.ts").CouncilReviewResult;
+    try {
+      councilResult = await council.review(supabase, action);
+    } catch (e) {
+      warn("maa-newsletter", `council.review failed (fail-open): ${(e as Error).message}`);
+      councilResult = { allowed: true, vetoes: [], votes: [], weightedScore: 0, threshold: 0, deliberationBranch: "", mode: "shadow" as const, actionId: "" };
+    }
+    if (!councilResult.allowed) {
+      const vetoMsg = councilResult.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("maa-newsletter", `Free newsletter held by council (live mode). action_id=${councilResult.actionId} vetoes=${vetoMsg}`);
+      return { success: false, error: `Held by council: ${vetoMsg}` };
+    }
+  }
+
   const result = await sendCampaign(campaignId);
   if (!result.ok) {
     return { success: false, error: `Send failed: ${result.error}` };
@@ -782,7 +803,9 @@ export async function sendFreeNewsletter(): Promise<{ success: boolean; error?: 
   return { success: true };
 }
 
-export async function sendPaidNewsletter(): Promise<{ success: boolean; error?: string }> {
+export async function sendPaidNewsletter(
+  supabase?: import("@supabase/supabase-js").SupabaseClient | null
+): Promise<{ success: boolean; error?: string }> {
   const state = loadState();
 
   if (!state.paidApproved) {
@@ -793,6 +816,25 @@ export async function sendPaidNewsletter(): Promise<{ success: boolean; error?: 
   }
 
   const campaignId = state.paidCampaignId;
+
+  // Atlas Prime Sprint 5: council review for maa-newsletter.send (newsletter_push surface)
+  if (supabase) {
+    const action = { tool: "maa-newsletter.send", args: { campaignId, type: "paid" } };
+    const council = await import("./shadow-council.ts");
+    let councilResult: import("./shadow-council.ts").CouncilReviewResult;
+    try {
+      councilResult = await council.review(supabase, action);
+    } catch (e) {
+      warn("maa-newsletter", `council.review failed (fail-open): ${(e as Error).message}`);
+      councilResult = { allowed: true, vetoes: [], votes: [], weightedScore: 0, threshold: 0, deliberationBranch: "", mode: "shadow" as const, actionId: "" };
+    }
+    if (!councilResult.allowed) {
+      const vetoMsg = councilResult.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("maa-newsletter", `Paid newsletter held by council (live mode). action_id=${councilResult.actionId} vetoes=${vetoMsg}`);
+      return { success: false, error: `Held by council: ${vetoMsg}` };
+    }
+  }
+
   const result = await sendCampaign(campaignId);
   if (!result.ok) {
     return { success: false, error: `Send failed: ${result.error}` };

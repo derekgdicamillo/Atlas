@@ -1144,6 +1144,47 @@ const BOT_START_TIME = Date.now();
 
 async function handleCommand(ctx: Context, text: string, userId: string): Promise<boolean> {
   const lower = text.toLowerCase().trim();
+
+  // Atlas Prime Sprint 5: intercept `joint:review <id>` messages sent by requestIshtarMirrorReview via sendTurn.
+  // These arrive as raw text (no leading /), so we handle them before the slash gate.
+  if (lower.startsWith("joint:review")) {
+    const cmdChatId = String(ctx.chat?.id || "");
+    const agent = resolveAgent(userId, cmdChatId, botIdFromCtx(ctx));
+    const agentId = agent?.config.id || "atlas";
+    if (agentId !== "ishtar") {
+      // Not the Ishtar process — silently skip so it falls through to Claude.
+      return false;
+    }
+    if (!supabase) return false;
+    const parts = lower.split(/\s+/);
+    const deliberationId = parts[1];
+    if (!deliberationId) {
+      await ctx.reply("usage: joint:review <deliberation_id>");
+      return true;
+    }
+    try {
+      const mod = await import("./joint-protocol.ts");
+      const { deliberation, transcript } = await mod.get(supabase, deliberationId);
+      if (deliberation.status !== "pending" && deliberation.status !== "converging") {
+        await ctx.reply(`[joint:review] ${deliberationId.slice(0, 8)} is ${deliberation.status} — skipping`);
+        return true;
+      }
+      // Build Esther-profile prompt from USER.md (Esther section)
+      const userMdPath = join(PROJECT_ROOT, "USER.md");
+      let profile = "";
+      try { profile = readFileSync(userMdPath, "utf-8"); } catch { /* non-critical */ }
+      const transcriptText = transcript.map((c: { message: string }) => "- " + c.message).join("\n");
+      const sys = "You are Ishtar Mirror. Use Esther's preference profile below.\n\n" + profile.slice(0, 6000);
+      const userMsg = "Joint deliberation transcript:\n" + transcriptText + "\n\nWrite Ishtar's response. Either a counter-proposal (if disagreement) or concur (if alignment). Be specific. Sign off as Ishtar.";
+      const out = await runPrompt(sys + "\n\n" + userMsg, MODELS.sonnet);
+      await mod.postCounter(supabase, deliberationId, "ishtar", out);
+      await ctx.reply(`[joint:review] posted counter for ${deliberationId.slice(0, 8)}`);
+    } catch (e) {
+      await ctx.reply(`[joint:review] error: ${e}`);
+    }
+    return true;
+  }
+
   if (!lower.startsWith("/")) return false;
 
   const [cmd, ...args] = lower.split(/\s+/);
@@ -1463,6 +1504,226 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       const { handleDreamsCommand } = await import("./dream-engine.ts");
       const reply = await handleDreamsCommand(supabase as any, args);
       await ctx.reply(reply, { parse_mode: "Markdown" });
+      return true;
+    }
+
+    case "/council": {
+      if (!supabase) {
+        await ctx.reply("Council unavailable: Supabase not configured.");
+        return true;
+      }
+      // Use original (non-lowercased) args for surface names which may be snake_case
+      const originalArgs = text.trim().split(/\s+/).slice(1);
+      const sub = (originalArgs[0] ?? "").toLowerCase();
+      const mod = await import("./shadow-council.ts");
+      const userName = ctx.from?.username ?? userId;
+      if (sub === "promote" || sub === "demote") {
+        const surface = originalArgs[1];
+        if (!surface) {
+          await ctx.reply("Usage: /council promote <surface> | /council demote <surface>");
+          return true;
+        }
+        if (sub === "promote") {
+          await mod.promoteSurface(supabase, surface, userName);
+        } else {
+          await mod.demoteSurface(supabase, surface, userName);
+        }
+        await ctx.reply(`[council] \`${surface}\` → **${sub === "promote" ? "live" : "shadow"}**`, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "override") {
+        const actionId = originalArgs[1];
+        if (!actionId) {
+          await ctx.reply("Usage: /council override <action_id>");
+          return true;
+        }
+        // TODO(sprint6): Implement override flow — re-enqueue the held action
+        await ctx.reply(`Override for \`${actionId}\` noted. Full override flow lands in Sprint 6. Rewrite and resend the message to proceed now.`, { parse_mode: "Markdown" });
+        return true;
+      }
+      // Default: list surfaces with mode (per-surface vote stats land in Sprint 6)
+      try {
+        const surfaces = await mod.listSurfaces(supabase);
+        const lines = ["**Council surfaces:**"];
+        for (const s of surfaces) {
+          const modeEmoji = s.mode === "live" ? "🔴" : "🟡";
+          lines.push(`${modeEmoji} \`${s.surface}\` | ${s.mode}`);
+        }
+        if (surfaces.length === 0) lines.push("_(no surfaces configured yet)_");
+        lines.push("_(per-surface vote stats in Sprint 6)_");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      } catch (err) {
+        await ctx.reply(`Council list failed: ${err}`);
+      }
+      return true;
+    }
+
+    case "/marketplace": {
+      if (!supabase) {
+        await ctx.reply("Marketplace unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      const mod = await import("./marketplace");
+      const userName = ctx.from?.username ?? userId;
+      if (sub === "promote") {
+        const taskType = args[1];
+        if (!taskType) {
+          await ctx.reply("usage: /marketplace promote <task_type>");
+          return true;
+        }
+        await mod.promoteTaskType(supabase, taskType, userName);
+        await ctx.reply(`[marketplace] \`${taskType}\` → **live**`, { parse_mode: "Markdown" });
+        return true;
+      }
+      // Default: list top 15 bidders in a domain
+      const domain = args[1] ?? "default";
+      const { data } = await supabase
+        .from("marketplace_reputation")
+        .select("bidder_id,alpha,beta")
+        .eq("domain", domain)
+        .order("alpha", { ascending: false })
+        .limit(15);
+      const lines = ["**Marketplace reputations — domain: " + domain + "**"];
+      for (const r of data ?? []) {
+        const summary = await mod.betaSummary(supabase, r.bidder_id, domain);
+        lines.push(
+          "- " + r.bidder_id +
+          " | mean=" + summary.mean.toFixed(2) +
+          " | CI95=[" + summary.ci95[0].toFixed(2) + "," + summary.ci95[1].toFixed(2) + "]"
+        );
+      }
+      if ((data ?? []).length === 0) {
+        lines.push("_(no bidders registered for this domain yet)_");
+      }
+      await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
+    case "/joint": {
+      if (!supabase) {
+        await ctx.reply("Joint Protocol unavailable: Supabase not configured.");
+        return true;
+      }
+      const originalArgs = text.trim().split(/\s+/).slice(1);
+      const sub = (originalArgs[0] ?? "").toLowerCase();
+      const jointUserName = ctx.from?.username ?? userId;
+      const mod = await import("./joint-protocol.ts");
+
+      if (sub === "list" || sub === "") {
+        const open = await mod.listOpen(supabase);
+        if (open.length === 0) {
+          await ctx.reply("No open joint deliberations.");
+          return true;
+        }
+        const lines = ["**Open joint deliberations:**"];
+        for (const d of open) {
+          lines.push(
+            "- `" + d.id.slice(0, 8) + "` | " + d.urgency + " | opened by " + d.opened_by +
+            " | trigger=" + d.trigger_reason + " | status=" + d.status
+          );
+        }
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+
+      if (sub === "promote") {
+        const trig = originalArgs[1];
+        if (!trig) {
+          await ctx.reply("usage: /joint promote <trigger>");
+          return true;
+        }
+        await mod.promoteTrigger(supabase, trig, jointUserName);
+        await ctx.reply(`[joint] trigger \`${trig}\` → live`, { parse_mode: "Markdown" });
+        return true;
+      }
+
+      // /joint <id_prefix> — show deliberation details
+      const idPrefix = sub;
+      const open = await mod.listOpen(supabase);
+      const match = open.find((o: { id: string }) => o.id.startsWith(idPrefix));
+      const id = match?.id ?? idPrefix;
+      try {
+        const { deliberation, transcript, finalMemo } = await mod.get(supabase, id);
+        const lines = [
+          "**Joint `" + deliberation.id.slice(0, 8) + "`** | " + deliberation.urgency + " | " + deliberation.status,
+          "Branch: " + deliberation.branch,
+          "Opened by: " + deliberation.opened_by + " | Trigger: " + deliberation.trigger_reason,
+          "",
+          "**Transcript (" + transcript.length + " commits):**",
+        ];
+        for (const c of transcript.slice(0, 8)) {
+          lines.push("- `" + c.hash.slice(0, 7) + "` " + c.author + " — " + c.message.slice(0, 80));
+        }
+        if (finalMemo) {
+          lines.push("", "**Final memo:**", finalMemo.slice(0, 1500));
+        }
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      } catch (e) {
+        await ctx.reply("not found: " + id);
+      }
+      return true;
+    }
+
+    case "/role": {
+      if (!supabase) {
+        await ctx.reply("Role Registry unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "list").toLowerCase();
+      const mod = await import("./role-registry.ts");
+      if (sub === "list") {
+        const sub2 = (args[1] ?? "").toLowerCase();
+        if (sub2 === "pending") {
+          const pending = await mod.listPending();
+          if (pending.length === 0) {
+            await ctx.reply("No pending roles.");
+            return true;
+          }
+          const lines = ["**Pending generated roles:**"];
+          for (const p of pending) lines.push("- " + p.pending_id + " | " + p.role.name + " — " + p.role.description);
+          await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+          return true;
+        }
+        const roles = await mod.listRoles();
+        const lines = ["**Active roles (" + roles.length + "):**"];
+        for (const r of roles) lines.push("- " + r.id + " | " + r.name);
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "approve") {
+        const pid = args[1];
+        if (!pid) {
+          await ctx.reply("usage: /role approve <pending_id>");
+          return true;
+        }
+        const result = await mod.approvePending(supabase, pid);
+        await ctx.reply("[role] approved " + result.roleId + " (ledger=" + result.pubkeyLedgerEntryId + ")");
+        return true;
+      }
+      if (sub === "reject") {
+        const pid = args[1];
+        const reason = args.slice(2).join(" ") || "no reason given";
+        if (!pid) {
+          await ctx.reply("usage: /role reject <pending_id> <reason>");
+          return true;
+        }
+        await mod.rejectPending(pid, reason);
+        await ctx.reply("[role] rejected " + pid);
+        return true;
+      }
+      if (sub === "reputation") {
+        const roleId = args[1];
+        const domain = args[2] ?? "default";
+        if (!roleId) {
+          await ctx.reply("usage: /role reputation <role_id> [domain]");
+          return true;
+        }
+        const rep = await mod.getReputation(supabase, roleId, domain);
+        await ctx.reply("**" + roleId + "** in *" + domain + "*: α=" + rep.alpha.toFixed(2) + " β=" + rep.beta.toFixed(2) + " mean=" + rep.mean.toFixed(2), { parse_mode: "Markdown" });
+        return true;
+      }
+      await ctx.reply("usage: /role list [pending] | /role approve <id> | /role reject <id> <reason> | /role reputation <id> [domain]");
       return true;
     }
 
@@ -3034,13 +3295,32 @@ async function processNewsletterIntents(response: string, chatId: string, thread
 
   // [PV_NEWSLETTER_PUSH]
   if (/\[PV_NEWSLETTER_PUSH\]/i.test(response)) {
-    const result = await pushDraftToGHL();
-    const msg = result.ok
-      ? `Draft pushed to GHL. Campaign ID: ${result.campaignId}\nReady for your visual check and Thursday send.`
-      : `Failed to push to GHL: ${result.error}`;
-    info("pv-newsletter", msg);
-    response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
-    response += `\n\n${msg}`;
+    // Atlas Prime Sprint 5: council review for newsletter push (newsletter_push surface)
+    let newsletterAllowed = true;
+    if (supabase) {
+      try {
+        const councilMod = await import("./shadow-council.ts");
+        const councilResult = await councilMod.review(supabase, { tool: "pv-newsletter.push", args: { campaign: "pv-newsletter" } });
+        if (!councilResult.allowed) {
+          const vetoMsg = councilResult.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+          warn("pv-newsletter", `PV_NEWSLETTER_PUSH held by council (live mode, vetoes: ${vetoMsg})`);
+          response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
+          response += `\n\n[COUNCIL_HELD: tool=pv-newsletter.push | action_id=${councilResult.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+          newsletterAllowed = false;
+        }
+      } catch (councilErr) {
+        warn("pv-newsletter", `council.review failed (non-blocking): ${councilErr}`);
+      }
+    }
+    if (newsletterAllowed) {
+      const result = await pushDraftToGHL();
+      const msg = result.ok
+        ? `Draft pushed to GHL. Campaign ID: ${result.campaignId}\nReady for your visual check and Thursday send.`
+        : `Failed to push to GHL: ${result.error}`;
+      info("pv-newsletter", msg);
+      response = response.replace(/\[PV_NEWSLETTER_PUSH\]/i, "").trim();
+      response += `\n\n${msg}`;
+    }
   }
 
   // [PV_NEWSLETTER_RESET]
@@ -3733,7 +4013,7 @@ async function handleUserMessage(
       }
 
       if (hasGoogle) {
-        try { response = await processGoogleIntents(response); }
+        try { response = await processGoogleIntents(response, supabase); }
         catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
       }
 
@@ -3743,7 +4023,7 @@ async function handleUserMessage(
       }
 
       if (featureFlags.ghl) {
-        try { response = await processGHLIntents(response); }
+        try { response = await processGHLIntents(response, supabase); }
         catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
       }
 
@@ -3753,7 +4033,7 @@ async function handleUserMessage(
       }
 
       if (isWebsiteReady()) {
-        try { response = await processWebsiteIntents(response); }
+        try { response = await processWebsiteIntents(response, supabase); }
         catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
       }
 
@@ -3813,6 +4093,53 @@ async function handleUserMessage(
 
     // Process automation pause/resume tags (before task spawning so pause takes effect first)
     response = processAutomationPauseTags(response);
+
+    // Atlas Prime Sprint 5: Surface COUNCIL_HELD messages to user
+    // These are injected by intent handlers (google.ts, ghl.ts, etc.) when council holds an action
+    for (const heldMatch of [...response.matchAll(/\[COUNCIL_HELD:\s*([\s\S]+?)\]/gi)]) {
+      try {
+        const heldParams: Record<string, string> = {};
+        for (const seg of heldMatch[1].split(/\s*\|\s*/)) {
+          const eqIdx = seg.indexOf("=");
+          if (eqIdx !== -1) {
+            heldParams[seg.slice(0, eqIdx).trim()] = seg.slice(eqIdx + 1).trim();
+          }
+        }
+        const tool = heldParams["tool"] ?? "unknown";
+        const actionId = heldParams["action_id"] ?? "";
+        const vetoesDec = heldParams["vetoes"] ? decodeURIComponent(heldParams["vetoes"]) : "(no details)";
+        const councilMsg = `⚠️ **Council held this action** (\`${tool}\`).\n\nVetoers: ${vetoesDec}\n\nReply \`/council override ${actionId}\` to send anyway, or rewrite.`;
+        ctx.reply(councilMsg, { parse_mode: "Markdown" }).catch(() => {});
+      } catch (heldErr) {
+        warn("council", `Failed to surface COUNCIL_HELD: ${heldErr}`);
+      }
+      response = response.replace(heldMatch[0], "").trim();
+    }
+
+    // Atlas Prime Sprint 5: [JOINT_DECISION: proposal text] tag handler
+    // Opens a joint deliberation and requests Ishtar mirror review.
+    const jointDecisionMatch = response.match(/\[JOINT_DECISION:\s*([\s\S]+?)\s*\]/i);
+    if (jointDecisionMatch && supabase) {
+      try {
+        const proposal = jointDecisionMatch[1];
+        const senderName = ctx.from?.first_name ?? "";
+        const opener: "derek" | "esther" | "atlas" =
+          senderName === "Derek" ? "derek" :
+          senderName === "Esther" ? "esther" :
+          agentId === "ishtar" ? "esther" :
+          "atlas";
+        const jointMod = await import("./joint-protocol.ts");
+        const r = await jointMod.openDeliberation(supabase, opener, proposal, "routine", "spec-tagged-joint");
+        await jointMod.requestIshtarMirrorReview(supabase, r.deliberationId, false);
+        response = response.replace(jointDecisionMatch[0], "").trim();
+        ctx.reply(
+          `Joint deliberation opened: \`${r.deliberationId.slice(0, 8)}\` (branch \`${r.branch}\`)`,
+          { parse_mode: "Markdown" }
+        ).catch(() => {});
+      } catch (jointErr) {
+        warn("joint", `[JOINT_DECISION] tag handler failed: ${jointErr}`);
+      }
+    }
 
     // Process background task delegations
     const beforeTaskProcessing = response;

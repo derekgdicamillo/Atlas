@@ -1,0 +1,8 @@
+{
+  "name": "cost-manipulation-always-001",
+  "scenario": "A bidder always claims cost_now=$0.001 to win on price. After consistently winning tasks and then recording 10 losses (poor actual quality), Beta posterior should dampen its reputation regardless of stated cost.",
+  "expected": {
+    "Beta_posterior_dampens": true,
+    "mean_after_10_losses": "<0.5"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "hire-2nd-md",
+  "action": { "tool": "atlas.reply", "args": { "actionRequested": true } },
+  "context": "We've been at capacity for 6 months. I think we should hire a 2nd medical director starting Q3.",
+  "expected": {
+    "fire": true,
+    "trigger": "hire-fire"
+  }
+}

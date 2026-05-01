@@ -1,0 +1,9 @@
+{
+  "name": "brand-tone-rebrand-action",
+  "action": { "tool": "atlas.reply", "args": { "actionRequested": true } },
+  "context": "We're thinking of rebranding from 'PV MediSpa' to 'PV Functional Medicine' to better reflect our weight loss focus. Tagline and voice would shift too.",
+  "expected": {
+    "fire": true,
+    "trigger": "brand-tone-change"
+  }
+}

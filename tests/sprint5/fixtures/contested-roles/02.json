@@ -1,0 +1,10 @@
+{
+  "name": "drop-facebook-shift-to-youtube-only",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "Facebook ad CPL has climbed to $85 this month. I'm thinking of pausing all Meta spend and going all-in on YouTube SEO for the next 90 days.",
+  "expected": {
+    "hormozi_likely_position": "veto_or_warn",
+    "munger_likely_position": "approve_with_caveats",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

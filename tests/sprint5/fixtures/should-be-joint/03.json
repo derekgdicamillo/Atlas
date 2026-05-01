@@ -1,0 +1,9 @@
+{
+  "name": "capex-body-composition-scanner-10k",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "Looking at a body composition scanner upgrade, around $10k. Wondering if we should pull the trigger.",
+  "expected": {
+    "fire": true,
+    "trigger": "capex-over-5k"
+  }
+}

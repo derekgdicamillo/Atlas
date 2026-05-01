@@ -1,0 +1,9 @@
+{
+  "name": "capex-laser-device-15k",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "I found a used laser device for $15,000. The margins on body contouring could make this back in 6 months.",
+  "expected": {
+    "fire": true,
+    "trigger": "capex-over-5k"
+  }
+}

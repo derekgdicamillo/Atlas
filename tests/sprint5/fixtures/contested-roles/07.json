@@ -1,0 +1,10 @@
+{
+  "name": "skool-community-paid-tier",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "We have 340 members in the Vitality Unchained Tribe Skool community. We're thinking of adding a $47/month paid tier with weekly coaching calls and exclusive content. Worth it at this size?",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

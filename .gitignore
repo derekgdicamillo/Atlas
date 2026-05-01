@@ -14,6 +14,9 @@ data/
 memory/
 logs/
 
+# Track specific data files needed by code (not runtime state)
+!data/marketplace-current-routing.json
+
 # Atlas Prime ledger signing keys (never commit)
 data/atlas-ledger.key
 data/atlas-ledger.pub
@@ -114,3 +117,15 @@ data/replay-results/
 
 # Atlas Prime — trust snapshot rotations
 data/trust-snapshots-*.bak
+
+# Atlas Prime — Git Blackboard substrate
+data/atlas-blackboard.git/
+data/blackboard-worktrees/
+data/blackboard-archive/
+data/blackboard.lock
+data/test-blackboards/
+
+# Atlas Prime — named seat private keys (never commit)
+data/roles/*/key.priv
+data/test-roles/
+data/test-roles-*/

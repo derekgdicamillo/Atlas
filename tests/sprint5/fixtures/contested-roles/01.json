@@ -1,0 +1,10 @@
+{
+  "name": "weight-loss-promo-aggressive-discount",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "We want to run a 50% off weight loss bundle for the next 7 days to drive Q3 launch numbers.",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

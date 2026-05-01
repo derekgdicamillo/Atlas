@@ -1,0 +1,9 @@
+{
+  "name": "fire-front-desk-ma",
+  "action": { "tool": "atlas.reply", "args": { "actionRequested": true } },
+  "context": "We need to fire the front desk MA — she's been a no-call no-show twice this month and it's affecting patient experience.",
+  "expected": {
+    "fire": true,
+    "trigger": "hire-fire"
+  }
+}

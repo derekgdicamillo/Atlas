@@ -1,0 +1,8 @@
+{
+  "name": "modified-payload-canonical",
+  "scenario": "Sign a valid payload, then overwrite payload_canonical with a different canonical string while leaving payload unchanged. verifyContract re-canonicalizes and compares — the mismatch blocks verification.",
+  "test_logic": "signContract(role-A, {vote:'approve'}) -> contract.payload_canonical = '{\"vote\":\"veto\"}' -> verifyContract should fail on canonical mismatch guard",
+  "expected": {
+    "verifyContract_returns": false
+  }
+}

@@ -1208,10 +1208,23 @@ export function formatWorkflows(workflows: GHLWorkflow[]): string {
  * Uses [\s\S]+? (not .+?) so content can span lines and contain brackets.
  * Pipe splitting uses lookahead so pipes within body text don't break parsing.
  */
-export async function processGHLIntents(response: string): Promise<string> {
+export async function processGHLIntents(response: string, supabase?: SupabaseClient | null): Promise<string> {
   let clean = response;
   // Atlas Prime: skip tags inside code fences or inline code (illustrative syntax, not live commands)
   const codeRanges = findCodeRanges(response);
+
+  // Atlas Prime Sprint 5: Shadow Council helper (shadow mode → no-op, live mode → may hold)
+  async function councilReview(tool: string, args: Record<string, unknown>): Promise<{ allowed: boolean; actionId: string; vetoes: Array<{ role_id: string; reason: string }> }> {
+    if (!supabase) return { allowed: true, actionId: "", vetoes: [] };
+    try {
+      const council = await import("./shadow-council.ts");
+      const result = await council.review(supabase, { tool, args });
+      return { allowed: result.allowed, actionId: result.actionId, vetoes: result.vetoes };
+    } catch (err) {
+      warn("ghl", `council.review failed (non-blocking): ${err}`);
+      return { allowed: true, actionId: "", vetoes: [] };
+    }
+  }
 
   // [GHL_NOTE: contactName | body text]
   // Split on | only when NOT followed by a known field key (body is the last positional field)
@@ -1236,12 +1249,21 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime Sprint 5: council review (GHL_NOTE → ghl.send.note → ghl_patient_message surface, shadow by default)
+    const councilNote = await councilReview("ghl.send.note", { contact: nameQuery, body });
+    if (!councilNote.allowed) {
+      const vetoMsg = councilNote.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("ghl", `GHL_NOTE held by council (live mode, vetoes: ${vetoMsg})`);
+      clean = clean.replace(match[0], "");
+      clean += `\n\n[COUNCIL_HELD: tool=ghl.send.note | action_id=${councilNote.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+      continue;
+    }
     // Atlas Prime: gate check
-    const gateNote = checkAction({ tool: "GHL_NOTE", args: { contact: nameQuery, body } });
+    const gateNote = checkAction({ tool: "GHL_NOTE", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } });
     if (!gateNote.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_NOTE", args: { contact: nameQuery, body } },
+        action: { tool: "GHL_NOTE", args: { contact: nameQuery, body, council_review_id: councilNote.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1306,12 +1328,21 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime Sprint 5: council review (GHL_TASK → internal task, shadow surface)
+    const councilTask = await councilReview("ghl.send.task", { contact: nameQuery, title, dueDate });
+    if (!councilTask.allowed) {
+      const vetoMsg = councilTask.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("ghl", `GHL_TASK held by council (live mode, vetoes: ${vetoMsg})`);
+      clean = clean.replace(match[0], "");
+      clean += `\n\n[COUNCIL_HELD: tool=ghl.send.task | action_id=${councilTask.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+      continue;
+    }
     // Atlas Prime: gate check
-    const gateTask = checkAction({ tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } });
+    const gateTask = checkAction({ tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } });
     if (!gateTask.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate } },
+        action: { tool: "GHL_TASK", args: { contact: nameQuery, title, dueDate, council_review_id: councilTask.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1376,12 +1407,21 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime Sprint 5: council review (GHL_TAG → shadow surface)
+    const councilTag = await councilReview("ghl.send.tag", { contact: nameQuery, tag: tagName, action });
+    if (!councilTag.allowed) {
+      const vetoMsg = councilTag.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("ghl", `GHL_TAG held by council (live mode, vetoes: ${vetoMsg})`);
+      clean = clean.replace(match[0], "");
+      clean += `\n\n[COUNCIL_HELD: tool=ghl.send.tag | action_id=${councilTag.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+      continue;
+    }
     // Atlas Prime: gate check
-    const gateTag = checkAction({ tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } });
+    const gateTag = checkAction({ tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } });
     if (!gateTag.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action } },
+        action: { tool: "GHL_TAG", args: { contact: nameQuery, tag: tagName, action, council_review_id: councilTag.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1463,15 +1503,24 @@ export async function processGHLIntents(response: string): Promise<string> {
       continue;
     }
 
+    // Atlas Prime Sprint 5: council review (GHL_WORKFLOW → ghl.workflow.enroll → ghl_patient_message surface)
+    const councilWorkflow = await councilReview("ghl.workflow.enroll", { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser });
+    if (!councilWorkflow.allowed) {
+      const vetoMsg = councilWorkflow.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("ghl", `GHL_WORKFLOW held by council (live mode, vetoes: ${vetoMsg})`);
+      clean = clean.replace(match[0], "");
+      clean += `\n\n[COUNCIL_HELD: tool=ghl.workflow.enroll | action_id=${councilWorkflow.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+      continue;
+    }
     // Atlas Prime: gate check (passes approved_by_user so spec can enforce it)
     const gateWorkflow = checkAction({
       tool: "GHL_WORKFLOW",
-      args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser },
+      args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser, council_review_id: councilWorkflow.actionId },
     });
     if (!gateWorkflow.allowed) {
       await appendEntry({
         actor: "atlas",
-        action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser } },
+        action: { tool: "GHL_WORKFLOW", args: { contact: nameQuery, workflowId, action: action!, approved_by_user: approvedByUser, council_review_id: councilWorkflow.actionId } },
         sourceClaims: [],
         policyDecision: { spec_result: "deny" },
       });
@@ -1540,6 +1589,16 @@ export async function processGHLIntents(response: string): Promise<string> {
     if (!summary) {
       warn("ghl", `GHL_SOCIAL missing summary text: ${match[0].substring(0, 100)}`);
       clean = clean.replace(match[0], "");
+      continue;
+    }
+
+    // Atlas Prime Sprint 5: council review (GHL_SOCIAL → social.publish.ghl → social_publish surface)
+    const councilSocial = await councilReview("social.publish.ghl", { summary, platforms, mediaUrl, scheduleDate, status });
+    if (!councilSocial.allowed) {
+      const vetoMsg = councilSocial.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+      warn("ghl", `GHL_SOCIAL held by council (live mode, vetoes: ${vetoMsg})`);
+      clean = clean.replace(match[0], "");
+      clean += `\n\n[COUNCIL_HELD: tool=social.publish.ghl | action_id=${councilSocial.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
       continue;
     }
 

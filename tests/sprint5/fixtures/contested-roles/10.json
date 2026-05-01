@@ -1,0 +1,10 @@
+{
+  "name": "price-increase-glp1-10-percent",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "Our semaglutide package hasn't changed price in 18 months while pharmacy COGS went up 12%. I want to raise prices 10% across all GLP-1 tiers effective next month. Will we lose patients?",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "approve_with_caveats",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

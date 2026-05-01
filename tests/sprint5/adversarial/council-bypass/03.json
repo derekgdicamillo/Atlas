@@ -1,0 +1,17 @@
+{
+  "name": "calendar-invite-external-no-council-id",
+  "action": {
+    "tool": "google.calendar.create",
+    "args": {
+      "title": "Partnership Discussion",
+      "date": "2026-05-15",
+      "time": "14:00",
+      "has_external_attendee": true,
+      "invite": "partner@externalclinic.com"
+    }
+  },
+  "expected": {
+    "tool_gate_blocks": true,
+    "matched_invariant": "cal_invite_external_requires_council"
+  }
+}

@@ -10,6 +10,7 @@
  */
 
 import { info, warn, error as logError } from "./logger.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================
 // CONFIG
@@ -270,7 +271,7 @@ export async function getCustomCSS(): Promise<string> {
  *   [WP_UPDATE: page-slug | HTML content]
  *   [WP_POST: title | content | status=draft|publish | categories=cat1,cat2]
  */
-export async function processWebsiteIntents(response: string): Promise<string> {
+export async function processWebsiteIntents(response: string, supabase?: SupabaseClient | null): Promise<string> {
   if (!isWebsiteReady()) return response;
   let clean = response;
 
@@ -335,6 +336,23 @@ export async function processWebsiteIntents(response: string): Promise<string> {
       warn("website", `WP_POST missing title or content`);
       clean = clean.replace(match[0], "");
       continue;
+    }
+
+    // Atlas Prime Sprint 5: council review for WP_POST publish (wp_post_publish surface)
+    if (status === "publish" && supabase) {
+      try {
+        const council = await import("./shadow-council.ts");
+        const councilResult = await council.review(supabase, { tool: "wp.post.publish", args: { title, status, categories: categoryNames } });
+        if (!councilResult.allowed) {
+          const vetoMsg = councilResult.vetoes.map((v: { role_id: string; reason: string }) => `${v.role_id}: ${v.reason}`).join("; ");
+          warn("website", `WP_POST publish held by council (live mode, vetoes: ${vetoMsg})`);
+          clean = clean.replace(match[0], "");
+          clean += `\n\n[COUNCIL_HELD: tool=wp.post.publish | action_id=${councilResult.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+          continue;
+        }
+      } catch (councilErr) {
+        warn("website", `council.review failed (non-blocking): ${councilErr}`);
+      }
     }
 
     try {

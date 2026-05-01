@@ -18,6 +18,7 @@ import { info, warn, error as logError } from "./logger.ts";
 import { checkAction } from "./tool-gate.ts";
 import { appendEntry } from "./ledger.ts";
 import { findCodeRanges, isInCodeBlock } from "./tag-utils.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
@@ -820,22 +821,47 @@ export async function getGoogleContext(): Promise<string> {
  *
  * Uses [\s\S]+? (not .+?) so content can span lines and contain brackets.
  */
-export async function processGoogleIntents(response: string): Promise<string> {
+export async function processGoogleIntents(response: string, supabase?: SupabaseClient | null): Promise<string> {
   let clean = response;
   // Atlas Prime: skip tags inside code fences or inline code (illustrative syntax, not live commands)
   const codeRanges = findCodeRanges(response);
+
+  // Helper: call Shadow Council review if supabase is available, otherwise no-op
+  async function councilReview(tool: string, args: Record<string, unknown>): Promise<{ allowed: boolean; actionId: string; vetoes: Array<{ role_id: string; reason: string }> }> {
+    if (!supabase) return { allowed: true, actionId: "", vetoes: [] };
+    try {
+      const council = await import("./shadow-council.ts");
+      const result = await council.review(supabase, { tool, args });
+      return { allowed: result.allowed, actionId: result.actionId, vetoes: result.vetoes };
+    } catch (err) {
+      warn("google", `council.review failed (non-blocking): ${err}`);
+      return { allowed: true, actionId: "", vetoes: [] };
+    }
+  }
 
   // [DRAFT: to=addr | subject=Subj | body=Body text]
   for (const match of response.matchAll(/\[DRAFT:\s*([\s\S]+?)\]/gi)) {
     if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
+      // Atlas Prime Sprint 5: Shadow Council review
+      const council = await councilReview("gmail.draft", { to: params.to, subject: params.subject, body: params.body });
+      if (!council.allowed) {
+        const vetoMsg = council.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+        warn("google", `DRAFT held by council (live mode, vetoes: ${vetoMsg})`);
+        clean = clean.replace(match[0], "");
+        // Signal back to relay that council held this — relay wraps this fn, so we encode in the cleaned response
+        clean += `\n\n[COUNCIL_HELD: tool=gmail.draft | action_id=${council.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+        continue;
+      }
+      // Inject council_review_id so spec gate (gmail.draft invariant) passes
+      const augmentedArgs = { to: params.to, subject: params.subject, body: params.body, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } });
+      const gate = checkAction({ tool: "DRAFT", args: augmentedArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } },
+          action: { tool: "DRAFT", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -847,13 +873,13 @@ export async function processGoogleIntents(response: string): Promise<string> {
         const draftId = await createDraft(params.to, params.subject, params.body);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "DRAFT", args: { to: params.to, subject: params.subject, body: params.body } },
+          action: { tool: "DRAFT", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!draftId },
         });
         if (draftId) {
-          info("google", `Intent: Draft created (${draftId})`);
+          info("google", `Intent: Draft created (${draftId}) [council=${council.actionId || "no-supabase"}]`);
         }
       } catch (err) {
         warn("google", `DRAFT failed: ${err}`);
@@ -869,12 +895,23 @@ export async function processGoogleIntents(response: string): Promise<string> {
     if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.to && params.subject && params.body) {
+      // Atlas Prime Sprint 5: Shadow Council review
+      const council = await councilReview("gmail.send", { to: params.to, subject: params.subject, body: params.body });
+      if (!council.allowed) {
+        const vetoMsg = council.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+        warn("google", `SEND held by council (live mode, vetoes: ${vetoMsg})`);
+        clean = clean.replace(match[0], "");
+        clean += `\n\n[COUNCIL_HELD: tool=gmail.send | action_id=${council.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+        continue;
+      }
+      // Inject council_review_id so spec gate (gmail.send invariant) passes
+      const augmentedArgs = { to: params.to, subject: params.subject, body: params.body, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } });
+      const gate = checkAction({ tool: "SEND", args: augmentedArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } },
+          action: { tool: "SEND", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -886,13 +923,13 @@ export async function processGoogleIntents(response: string): Promise<string> {
         const msgId = await sendEmail(params.to, params.subject, params.body);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "SEND", args: { to: params.to, subject: params.subject, body: params.body } },
+          action: { tool: "SEND", args: augmentedArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!msgId },
         });
         if (msgId) {
-          info("google", `Intent: Email sent (${msgId})`);
+          info("google", `Intent: Email sent (${msgId}) [council=${council.actionId || "no-supabase"}]`);
         }
       } catch (err) {
         warn("google", `SEND failed: ${err}`);
@@ -908,12 +945,36 @@ export async function processGoogleIntents(response: string): Promise<string> {
     if (isInCodeBlock(match.index ?? 0, codeRanges)) continue;
     const params = parseTagParams(match[1]);
     if (params.title) {
+      // Atlas Prime Sprint 5: Shadow Council review for external attendees
+      const inviteList = params.invite ? params.invite.split(",").map((e) => e.trim()) : [];
+      const hasExternal = inviteList.some((addr) => {
+        const at = addr.lastIndexOf("@");
+        if (at < 0) return false;
+        const dom = addr.slice(at + 1).toLowerCase();
+        return !["pvmedispa.com", "medicalaestheticsassociation.com", "bsfehealth.com"].some((d) => dom === d || dom.endsWith("." + d));
+      });
+      const calToolName = hasExternal ? "google.calendar.create" : "cal_add_internal";
+      const council = await councilReview(calToolName, {
+        title: params.title,
+        date: params.date,
+        invite: params.invite,
+        has_external_attendee: hasExternal,
+      });
+      if (!council.allowed) {
+        const vetoMsg = council.vetoes.map((v) => `${v.role_id}: ${v.reason}`).join("; ");
+        warn("google", `CAL_ADD held by council (live mode, vetoes: ${vetoMsg})`);
+        clean = clean.replace(match[0], "");
+        clean += `\n\n[COUNCIL_HELD: tool=google.calendar.create | action_id=${council.actionId} | vetoes=${encodeURIComponent(vetoMsg)}]`;
+        continue;
+      }
+      // Inject council_review_id so spec gate (cal_invite_external invariant) passes
+      const augmentedCalArgs = { title: params.title, date: params.date, invite: params.invite, has_external_attendee: hasExternal, council_review_id: council.actionId };
       // Atlas Prime: gate check
-      const gate = checkAction({ tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } });
+      const gate = checkAction({ tool: "CAL_ADD", args: augmentedCalArgs });
       if (!gate.allowed) {
         await appendEntry({
           actor: "atlas",
-          action: { tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } },
+          action: { tool: "CAL_ADD", args: augmentedCalArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "deny" },
         });
@@ -927,20 +988,20 @@ export async function processGoogleIntents(response: string): Promise<string> {
           date: params.date || todayDateStr(),
           time: params.time || "09:00",
           duration: params.duration ? parseInt(params.duration, 10) : 60,
-          invite: params.invite ? params.invite.split(",").map((e) => e.trim()) : undefined,
+          invite: inviteList.length > 0 ? inviteList : undefined,
           location: params.location,
           description: params.description,
         };
         const event = await createEvent(eventParams);
         await appendEntry({
           actor: "atlas",
-          action: { tool: "CAL_ADD", args: { title: params.title, date: params.date, invite: params.invite } },
+          action: { tool: "CAL_ADD", args: augmentedCalArgs },
           sourceClaims: [],
           policyDecision: { spec_result: "allow" },
           outcome: { success: !!event },
         });
         if (event) {
-          info("google", `Intent: Calendar event created (${event.title})`);
+          info("google", `Intent: Calendar event created (${event.title}) [council=${council.actionId || "no-supabase"}]`);
         }
       } catch (err) {
         warn("google", `CAL_ADD failed: ${err}`);

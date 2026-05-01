@@ -1,0 +1,10 @@
+{
+  "name": "double-ad-budget-to-scale-leads",
+  "force_seats": ["hormozi-analyst", "munger-inverter"],
+  "scenario": "Our current Meta ads are converting at $52 CPL and we close 60% from consult. I want to double the ad budget from $3K to $6K/month to scale faster.",
+  "expected": {
+    "hormozi_likely_position": "approve_with_caveats",
+    "munger_likely_position": "veto_or_warn",
+    "arbitration_should_emit": "either-side-wins-or-dissent"
+  }
+}

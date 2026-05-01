@@ -1,0 +1,9 @@
+{
+  "name": "false-positive-fire-diffuser",
+  "action": { "tool": "atlas.reply", "args": {} },
+  "context": "I want to fire up the diffuser in the waiting room before the afternoon block — it helps with patient experience.",
+  "expected": {
+    "fire": false,
+    "trigger": null
+  }
+}

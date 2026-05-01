@@ -935,6 +935,83 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     runs: "twin-update-nightly 22:30, twin-predict-morning 05:30, twin-score-evening 21:00",
     state: "twin_stated_preferences, twin_revealed_observations, twin_divergence, twin_predictions, data/twin-calibration.jsonl",
   },
+  // Sprint 5: Society
+  {
+    section: "Git-Branched Blackboard",
+    module: "src/blackboard-git.ts",
+    description: "Literal git substrate for multi-agent deliberations. Bare repo + worktrees + signed commits chained to Merkle ledger.",
+    can: [
+      "open deliberation branches (council, joint, marketplace, role-audit)",
+      "commit signed contracts with ledger entry per commit",
+      "fork dissent branches",
+      "merge final memos via arbitrator",
+      "git blame any claim back to its commit",
+      "walk transcript via git log",
+      "GC resolved branches to compressed bundles",
+    ],
+    cannot: [
+      "garbage-collect open deliberations",
+      "operate without ledger.ts (commits fail closed if ledger sync fails)",
+    ],
+  },
+  {
+    section: "Role Registry",
+    module: "src/role-registry.ts",
+    description: "8 hand-curated named seats + 32 Opus-generated roles. ed25519-signed contracts. Hybrid auctioneer.",
+    can: [
+      "list and load roles from data/roles/<id>/role.yaml",
+      "generate ed25519 keypairs",
+      "sign and verify contracts",
+      "auction 3-5 seats per action via mandatory floor + reputation-weighted ceiling",
+      "track per-domain Beta posterior reputation",
+      "approve/reject pending generated roles via /role command",
+    ],
+    cannot: ["sign contracts for roles without keypairs (must run bootstrap-named-seats.ts first)"],
+  },
+  {
+    section: "Shadow Council",
+    module: "src/shadow-council.ts",
+    description: "3 trust-weighted critics on every patient-facing send. Per-surface shadow/live mode.",
+    can: [
+      "review actions across 8 patient-facing surface classes (outbound_email, brevo, cal_invite_external, ghl_patient_message, gbp_post, social_publish, wp_post_publish, newsletter_push)",
+      "veto with trust-weighted tally (Beta_mean per role per domain)",
+      "fail closed in live mode if <2 critics respond within 3s SLA",
+      "generate daily shadow-mode review reports for Derek",
+      "score votes vs Derek's eventual outcome to update role reputation",
+      "promote/demote per-surface mode via /council promote <surface>",
+    ],
+    cannot: ["intercept actions that bypass the relay tag handlers (e.g., direct API calls)"],
+  },
+  {
+    section: "Agent Marketplace",
+    module: "src/marketplace.ts",
+    description: "Skills + named subagents bid for tasks. Vow-cards routine + active bid novel. Beta posterior reputation with per-domain decay.",
+    can: [
+      "register bidders with vow-cards",
+      "route tasks via reputation-weighted scoring (confidence × Beta_mean / cost)",
+      "active-bid via Haiku for novel task types (sample_count < 50)",
+      "synthesize bids from vow-cards for routine task types",
+      "decay per-domain reputation on nightly cron",
+      "report 95% CI on bidder reputations via betaSummary",
+      "promote per-task-type from shadow to live via /marketplace promote",
+    ],
+    cannot: ["actually execute the winning task (returns winner_id; caller dispatches)"],
+  },
+  {
+    section: "Joint Protocol",
+    module: "src/joint-protocol.ts",
+    description: "Atlas + Ishtar negotiation on shared-owner decisions. I3 hard-shortlist trigger + J3 sync/async + K3 transcript-as-memo.",
+    can: [
+      "auto-fire on hire/fire, capex>$5K, calendar-conflict, brand-tone-change, [JOINT_DECISION:] tag",
+      "open literal-git branch per deliberation",
+      "post counter-proposals (up to 3 rounds)",
+      "block synchronously for urgent (60s timeout) or run async with 2h deadline for routine",
+      "arbitrate via Opus reading full git log -p of branch",
+      "produce K3 dissent packet (majority + minority) when no convergence",
+      "promote per-trigger live status via /joint promote",
+    ],
+    cannot: ["take action on the agreed memo (memo is advisory; Derek/Esther act)"],
+  },
 ];
 
 /**
