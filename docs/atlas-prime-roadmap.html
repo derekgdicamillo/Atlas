@@ -228,8 +228,8 @@
     </div>
 
     <!-- Sprint 5 -->
-    <div class="stop next">
-      <span class="badge">Up next</span>
+    <div class="stop good">
+      <span class="badge">Shipped</span>
       <div class="num">Sprint 5 · Wk 6-8</div>
       <div class="title">Society</div>
       <div class="blurb">A single voice becomes a deliberative pair.</div>
@@ -243,8 +243,8 @@
     </div>
 
     <!-- Sprint 6 -->
-    <div class="stop">
-      <span class="badge">Pending</span>
+    <div class="stop next">
+      <span class="badge">Up next</span>
       <div class="num">Sprint 6 · Wk 8-9</div>
       <div class="title">Self-Improvement</div>
       <div class="blurb">Atlas commits improvements to itself, with a human gate.</div>
@@ -277,14 +277,14 @@
   <!-- YOU ARE HERE -->
   <div class="here">
     <div>
-      <h2>You are here — Sprint 4 just shipped, Sprint 5 up next</h2>
-      <p>Sprints 1-4 merged to master. 192/192 Sprint 4 tests green. 9 SQL migrations queued for Supabase. Causal DAG seed + Python deps + Atlas restart pending. Sprint 5 brainstorm next — Role Registry, Shadow Council pre-send veto, Agent Marketplace, Atlas ↔ Ishtar joint protocol, git-branched blackboard.</p>
+      <h2>You are here — Sprint 5 just shipped (autonomously), Sprint 6 up next</h2>
+      <p>Sprints 1-5 on master. Sprint 5 was completed by Atlas's own evolution pipeline while we were brainstorming. 73/73 tests passing post-fixes. 11 SQL migrations queued (043-053). Sprint 6 brainstorm next — DGM Fork (nightly variants), skill shadow-routing, self-regenerating skills, DPO LoRA on your own life, /why introspection.</p>
     </div>
     <div class="stat">
-      <strong>Sprint 4 stats</strong>
-      18 tasks · 18 commits · 192/192 tests<br>
-      Causal DAG · World Model · Dream Engine · Derek Twin live<br>
-      <em>Open: apply migrations 034-042, pip install python deps, seed graph, restart Atlas</em>
+      <strong>Sprint 5 stats</strong>
+      21 tasks · autonomous · 73/73 tests<br>
+      8 named seats · 3-critic council · git blackboard · joint protocol · marketplace<br>
+      <em>Open: apply migrations 043-053, restart Atlas, audit autonomous output vs spec</em>
     </div>
   </div>
 
@@ -326,21 +326,21 @@
     <!-- Society -->
     <div class="group">
       <h3>Society — the deliberative layer</h3>
-      <div class="prim"><div class="id">#8</div><div><div class="name">Role Registry + Signed Contracts<span class="pill now">Sprint 5</span></div><div class="desc">40+ role definitions (Skeptic, Compliance-Lawyer, Hormozi-Analyst, …). An auctioneer picks 3-5 per task. They sign a JSON contract on the blackboard. Roles evolve nightly.</div></div></div>
-      <div class="prim"><div class="id">#9</div><div><div class="name">Shadow Council (pre-send veto)<span class="pill now">Sprint 5</span></div><div class="desc">Every outbound passes through 3 parallel Haiku critics in 3s. 2/3 vetoes holds for Derek review. Would have caught the April 11 wrong-Brevo-batch incident.</div></div></div>
-      <div class="prim"><div class="id">#10</div><div><div class="name">Agent Marketplace + Reputation<span class="pill now">Sprint 5</span></div><div class="desc">Skills bid {cost, confidence, past_success}. 30-day half-life. Adding a skill is zero-config — it starts bidding. Self-pruning library.</div></div></div>
-      <div class="prim"><div class="id">#11</div><div><div class="name">Atlas ↔ Ishtar Joint Protocol<span class="pill now">Sprint 5</span></div><div class="desc">For decisions affecting both owners, mirrors negotiate from each preference profile. Either converge or produce a typed dissent packet. Family-structured agents.</div></div></div>
-      <div class="prim"><div class="id">#12</div><div><div class="name">Git-Branched Blackboard with Dissent<span class="pill now">Sprint 5</span></div><div class="desc">Agents branch when they disagree. Arbitrator reconciles. <code>git blame</code> a wrong answer in production.</div></div></div>
+      <div class="prim"><div class="id">#8</div><div><div class="name">Role Registry + Signed Contracts<span class="pill shipped">shipped (Sprint 5)</span></div><div class="desc">40+ role definitions (Skeptic, Compliance-Lawyer, Hormozi-Analyst, …). An auctioneer picks 3-5 per task. They sign a JSON contract on the blackboard. Roles evolve nightly.</div></div></div>
+      <div class="prim"><div class="id">#9</div><div><div class="name">Shadow Council (pre-send veto)<span class="pill shipped">shipped (Sprint 5)</span></div><div class="desc">Every outbound passes through 3 parallel Haiku critics in 3s. 2/3 vetoes holds for Derek review. Would have caught the April 11 wrong-Brevo-batch incident.</div></div></div>
+      <div class="prim"><div class="id">#10</div><div><div class="name">Agent Marketplace + Reputation<span class="pill shipped">shipped (Sprint 5)</span></div><div class="desc">Skills bid {cost, confidence, past_success}. 30-day half-life. Adding a skill is zero-config — it starts bidding. Self-pruning library.</div></div></div>
+      <div class="prim"><div class="id">#11</div><div><div class="name">Atlas ↔ Ishtar Joint Protocol<span class="pill shipped">shipped (Sprint 5)</span></div><div class="desc">For decisions affecting both owners, mirrors negotiate from each preference profile. Either converge or produce a typed dissent packet. Family-structured agents.</div></div></div>
+      <div class="prim"><div class="id">#12</div><div><div class="name">Git-Branched Blackboard with Dissent<span class="pill shipped">shipped (Sprint 5)</span></div><div class="desc">Agents branch when they disagree. Arbitrator reconciles. <code>git blame</code> a wrong answer in production.</div></div></div>
     </div>
 
     <!-- Self-improvement -->
     <div class="group">
       <h3>Self-Improvement — the engine that compounds</h3>
-      <div class="prim"><div class="id">SI-1</div><div><div class="name">DGM Fork (nightly)<span class="pill pending">Sprint 6</span></div><div class="desc">3-5 variants of <code>src/</code> + rules forked nightly. Each scored against the Replay Harness. Winners merge with human review gate. Losers archive.</div></div></div>
-      <div class="prim"><div class="id">SI-2</div><div><div class="name">Skill Shadow-Routing<span class="pill pending">Sprint 6</span></div><div class="desc">New / updated skills route at 10% in shadow. Auto-promote at 7/10 wins over a week. Skills self-regenerate from invocation traces.</div></div></div>
-      <div class="prim"><div class="id">SI-3</div><div><div class="name">DPO on Your Own Life<span class="pill pending">Sprint 6</span></div><div class="desc">(user turn, original Atlas response, Derek-corrected response) → DPO preference dataset. Monthly LoRA on base Sonnet. The gradient-learned version of <code>behavioral-fixes.md</code>.</div></div></div>
+      <div class="prim"><div class="id">SI-1</div><div><div class="name">DGM Fork (nightly)<span class="pill now">Sprint 6</span></div><div class="desc">3-5 variants of <code>src/</code> + rules forked nightly. Each scored against the Replay Harness. Winners merge with human review gate. Losers archive.</div></div></div>
+      <div class="prim"><div class="id">SI-2</div><div><div class="name">Skill Shadow-Routing<span class="pill now">Sprint 6</span></div><div class="desc">New / updated skills route at 10% in shadow. Auto-promote at 7/10 wins over a week. Skills self-regenerate from invocation traces.</div></div></div>
+      <div class="prim"><div class="id">SI-3</div><div><div class="name">DPO on Your Own Life<span class="pill now">Sprint 6</span></div><div class="desc">(user turn, original Atlas response, Derek-corrected response) → DPO preference dataset. Monthly LoRA on base Sonnet. The gradient-learned version of <code>behavioral-fixes.md</code>.</div></div></div>
       <div class="prim"><div class="id">SI-4</div><div><div class="name">Weekly Knowledge Audit<span class="pill pending">Sprint 7</span></div><div class="desc">Saturdays: review hot-domain answers, diff vs current docs, log drift, recalibrate Staleness Sentinel half-lives based on observed decay.</div></div></div>
-      <div class="prim"><div class="id">SI-5</div><div><div class="name">/why Introspection Server<span class="pill pending">Sprint 6</span></div><div class="desc">Given any past message ID, replay ring buffer + event log + source-of-truth at that moment. "Why did I say this; would I say it again given what I now know?"</div></div></div>
+      <div class="prim"><div class="id">SI-5</div><div><div class="name">/why Introspection Server<span class="pill now">Sprint 6</span></div><div class="desc">Given any past message ID, replay ring buffer + event log + source-of-truth at that moment. "Why did I say this; would I say it again given what I now know?"</div></div></div>
     </div>
 
     <!-- Layer above -->
