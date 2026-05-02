@@ -3,7 +3,10 @@ import { scoreVoteOutcome, dailyShadowReview } from "../../src/shadow-council";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  (process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY)!
+);
 
 describe("shadow-council — scoring", () => {
   it("scoreVoteOutcome rewards critic that vetoed an action Derek rewrote", async () => {
