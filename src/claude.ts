@@ -285,13 +285,15 @@ export function sanitizedEnv(): Record<string, string | undefined> {
 
 /**
  * OpenClaw 2.19 Windows security: Validate spawn arguments.
- * Rejects args containing CR/LF (command injection vector on Windows)
- * and warns on cmd metacharacters that could cause issues.
+ * Rejects args containing CR (\r) — the genuine command-line injection vector
+ * on Windows when args end up in cmd.exe. LF (\n) is allowed because Bun's
+ * spawn(args[], ...) bypasses shell parsing and many call sites legitimately
+ * pass multi-line system prompts (reader.ts, content-critic.ts, etc.).
  */
 export function validateSpawnArgs(args: string[]): void {
   for (const arg of args) {
-    if (/[\r\n]/.test(arg)) {
-      throw new Error(`Spawn arg contains CR/LF (potential injection): ${arg.substring(0, 50)}`);
+    if (/\r/.test(arg)) {
+      throw new Error(`Spawn arg contains CR (potential injection): ${arg.substring(0, 50)}`);
     }
   }
 }
