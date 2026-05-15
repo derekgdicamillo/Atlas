@@ -9,6 +9,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import * as YAML from "js-yaml";
+import type { ProbeResult } from "./entropy-probe.ts";
 
 // ============================================================
 // TYPES
@@ -131,4 +132,28 @@ export function checkAction(action: Action, specPath?: string): GateResult {
     }
   }
   return { allowed: true };
+}
+
+// ============================================================
+// COMPANION: ENTROPY-AWARE CHECK (Sprint 7)
+// ============================================================
+
+export async function checkActionWithEntropy(
+  action: Action,
+  opts: { ambiguous: boolean; userPrompt?: string }
+): Promise<GateResult & { entropy?: ProbeResult }> {
+  const base = checkAction(action);
+  if (!base.allowed) return base;
+  if (!opts.ambiguous || !opts.userPrompt) return base;
+
+  const { probe } = await import("./entropy-probe.ts");
+  const result = await probe(opts.userPrompt);
+  if (result.recommendation === "clarify" || result.recommendation === "manual_review") {
+    return {
+      allowed: false,
+      reason: `entropy: ${result.recommendation} — ${result.reason}`,
+      entropy: result,
+    };
+  }
+  return { ...base, entropy: result };
 }

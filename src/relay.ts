@@ -4295,6 +4295,45 @@ async function handleUserMessage(
         catch (e) { warn("intents", `processGraphIntents failed: ${e}`); }
       }
 
+      // Atlas Prime Sprint 7: ambiguity detection + entropy probe
+      // Runs after memory/graph (safe intents) but before external-action dispatch.
+      // If ≥2 distinct external-action tag types appear in the response and the probe
+      // recommends clarification, we skip dispatch for this turn and ask the user.
+      try {
+        if (process.env.ENTROPY_PROBE_ENABLED !== "false") {
+          const tagMatches = Array.from(response.matchAll(/\[([A-Z_]+):/g));
+          const distinctTags = new Set(tagMatches.map((m) => m[1]));
+          if (distinctTags.size >= 2) {
+            const { probe } = await import("./entropy-probe.ts");
+            const verdict = await probe(combinedText);
+            if (supabase) {
+              try {
+                await supabase.from("tool_entropy_probes").insert({
+                  turn_id: turn_id ?? null,
+                  user_prompt: String(combinedText).slice(0, 4000),
+                  samples: verdict.samples,
+                  clusters: verdict.clusters,
+                  entropy: verdict.entropy,
+                  action: verdict.recommendation === "clarify" ? "clarified" : "dispatched",
+                  selected_tool: verdict.selectedTool ?? null,
+                });
+              } catch {}
+            }
+            if (verdict.recommendation === "clarify") {
+              try {
+                await ctx.reply(
+                  `🤔 I'm not sure which is right — I'd either ${[...distinctTags].join(" or ")}. Which do you want?\n\n_(${verdict.reason})_`,
+                  { parse_mode: "Markdown" }
+                );
+              } catch {}
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        try { logError("entropy-probe", `failed: ${err}`); } catch {}
+      }
+
       // Atlas Prime Sprint 7B: freeze-flag gate — skip all external-action intent processors
       // when shadow-divergence freeze is active. Memory, graph, and newsletter intents are safe
       // (they are internal / read-only), but anything that sends emails, fires GHL workflows,

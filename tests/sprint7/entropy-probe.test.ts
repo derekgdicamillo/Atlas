@@ -50,3 +50,14 @@ describe("entropy-probe — destructive-asymmetry override", () => {
     expect(result.selectedTool).toBe("DRAFT");
   });
 });
+
+describe("tool-gate — checkActionWithEntropy", () => {
+  it("delegates to checkAction when not ambiguous", async () => {
+    const { checkActionWithEntropy } = await import("../../src/tool-gate.ts");
+    const result = await checkActionWithEntropy(
+      { tool: "REMEMBER", args: { content: "x" } },
+      { ambiguous: false }
+    );
+    expect(result.allowed).toBe(true);
+  });
+});
