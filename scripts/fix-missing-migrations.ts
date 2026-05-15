@@ -104,13 +104,18 @@ for (const item of EXPECTED) {
 console.log(`\nPresent: ${present.length}, Missing: ${missing.length}\n`);
 
 // ============================================================
-// APPLY: 023 and 031 (the two we know are missing & needed now)
+// APPLY: all migrations 023-042 in order. Idempotent.
 // ============================================================
 
-const TARGETS = ["023_attribution_log.sql", "031_memory_increment_access_fn.sql"];
-const MIGRATIONS_DIR = join(process.cwd(), "db", "migrations");
+import { readdirSync } from "fs";
 
-console.log("Applying 023 + 031...");
+const MIGRATIONS_DIR = join(process.cwd(), "db", "migrations");
+const TARGETS = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => /^(02[3-9]|03[0-9]|04[0-2])_.*\.sql$/.test(f))
+  .sort();
+
+console.log(`Applying ${TARGETS.length} migrations (023-042) in order...`);
+let failed = 0;
 for (const file of TARGETS) {
   const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf-8");
   try {
@@ -118,11 +123,9 @@ for (const file of TARGETS) {
     console.log(`  ✓ ${file}`);
   } catch (err) {
     console.error(`  ✗ ${file} — ${err}`);
-    process.exitCode = 1;
+    failed++;
   }
 }
 
-console.log("\nDone.");
-if (missing.length > 2) {
-  console.log(`\nNOTE: ${missing.length - 2} other objects are missing. Re-run after reviewing the audit above to apply additional migrations.`);
-}
+console.log(`\nDone. ${TARGETS.length - failed}/${TARGETS.length} succeeded.`);
+if (failed > 0) process.exitCode = 1;
