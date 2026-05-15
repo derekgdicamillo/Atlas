@@ -1613,6 +1613,54 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/skill": {
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "regenerate") {
+        const name = args[1];
+        if (!name) { await ctx.reply("Usage: `/skill regenerate <name>`", { parse_mode: "Markdown" }); return true; }
+        await ctx.reply(`Regenerating \`${name}\`… 1-2 min.`, { parse_mode: "Markdown" });
+        const { readFile } = await import("node:fs/promises");
+        const { regenerate } = await import("./self-regen.ts");
+        const skillPath = `.claude/skills/${name}/SKILL.md`;
+        let currentText = "";
+        try {
+          currentText = await readFile(skillPath, "utf8");
+        } catch {
+          await ctx.reply(`Skill \`${name}\` not found at \`${skillPath}\``, { parse_mode: "Markdown" });
+          return true;
+        }
+        try {
+          const result = await regenerate({
+            skill_id: name,
+            current_text: currentText,
+            invocations: [],
+            callClaude: (p: string, o?: any) => callClaude(p, { ...o, isolated: true }),
+          });
+          // Insert into dgm_variants for scoring (same merge-list pipeline).
+          if (supabase) {
+            await supabase.from("dgm_variants").insert({
+              target_file: skillPath,
+              target_kind: "skill",
+              variant_branch: `regen/${name}-${Date.now()}`,
+              diff_summary: result.rationale.split("\n")[0].slice(0, 200),
+              opus_rationale: result.rationale,
+              status: "proposed",
+            });
+          }
+          await ctx.reply([
+            `✓ Regenerated \`${name}\`. Variant queued for scoring.`,
+            ``,
+            `**Rationale:** ${result.rationale.slice(0, 500)}`,
+          ].join("\n"), { parse_mode: "Markdown" });
+        } catch (err) {
+          await ctx.reply(`Regeneration failed: ${(err as Error).message}`);
+        }
+        return true;
+      }
+      await ctx.reply(["**/skill commands**", "`/skill regenerate <name>` — refine a skill via Opus + queue for scoring"].join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");
