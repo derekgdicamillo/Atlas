@@ -4068,6 +4068,16 @@ async function handleUserMessage(
         })
       : null;
 
+    // Atlas Prime Sprint 7A: fire shadow-Atlas in parallel before primary call
+    // Fire-and-forget; primary call is NOT blocked by shadow startup
+    const shadowPromise = (async () => {
+      if (process.env.SHADOW_ATLAS_ENABLED === "false") return null;
+      try {
+        const { fireShadow } = await import("./shadow-driver.ts");
+        return await fireShadow(enrichedPrompt);
+      } catch { return null; }
+    })();
+
     const rawResponse = await callClaude(enrichedPrompt, {
       resume: shouldResume,
       model: agentModel,
@@ -4092,6 +4102,43 @@ async function handleUserMessage(
 
     // Store intent flags for next turn's topic change detection (Phase 2)
     previousIntentMap.set(key, intent as Record<string, boolean>);
+
+    // Atlas Prime Sprint 7A: score drift asynchronously after primary response — must not block user reply
+    const _turn_id_snap = turn_id;
+    const _rawResponse_snap = rawResponse;
+    const _supabase_snap = supabase;
+    const _chatId_snap = chatId;
+    (async () => {
+      try {
+        const sr = await shadowPromise;
+        if (!sr || !sr.ok || !sr.shadowText) return;
+        const { scoreDrift, countMemoryWritesInWindow, recordDivergence } =
+          await import("./shadow-driver.ts");
+        const { distance, reason } = await scoreDrift(_rawResponse_snap, sr.shadowText);
+        const since = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+        const writes = _supabase_snap ? await countMemoryWritesInWindow(_supabase_snap, since) : 0;
+        const { classified, id } = await recordDivergence({
+          supabase: _supabase_snap,
+          turn_id: _turn_id_snap,
+          primaryText: _rawResponse_snap,
+          shadowText: sr.shadowText,
+          distance,
+          reason,
+          memoryWritesInWindow: writes,
+        });
+        if (classified === "alarm") {
+          try {
+            const alarmMsg =
+              `🚨 **Shadow divergence ALARM** — distance ${distance.toFixed(2)}\n\n` +
+              `Reason: ${reason}\n\nAtlas is **frozen** for external actions.\n` +
+              `Review: \`/shadow status\`\nResume: \`/shadow resume ${id ?? ""}\``;
+            await ctx.api.sendMessage(Number(_chatId_snap), alarmMsg, { parse_mode: "Markdown" });
+          } catch {}
+        }
+      } catch (err) {
+        try { warn("shadow-driver", `post-turn drift handling failed: ${err}`); } catch {}
+      }
+    })();
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
     if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
@@ -4248,29 +4295,68 @@ async function handleUserMessage(
         catch (e) { warn("intents", `processGraphIntents failed: ${e}`); }
       }
 
-      if (hasGoogle) {
-        try { response = await processGoogleIntents(response, supabase); }
-        catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
-      }
+      // Atlas Prime Sprint 7B: freeze-flag gate — skip all external-action intent processors
+      // when shadow-divergence freeze is active. Memory, graph, and newsletter intents are safe
+      // (they are internal / read-only), but anything that sends emails, fires GHL workflows,
+      // creates calendar events, posts to social, or modifies websites must be gated.
+      let _shadowFrozen = false;
+      let _shadowFreezeReason: string | null = null;
+      try {
+        const { isFrozen, readFreezeReason } = await import("./shadow-driver.ts");
+        if (await isFrozen()) {
+          _shadowFrozen = true;
+          const fr = await readFreezeReason();
+          _shadowFreezeReason = fr?.reason ?? "unknown";
+        }
+      } catch { /* shadow-driver unavailable — fail open, proceed normally */ }
 
-      if (featureFlags.tmaa) {
-        try { response = await processTMAAIntents(response); }
-        catch (e) { warn("intents", `processTMAAIntents failed: ${e}`); }
-      }
+      if (_shadowFrozen) {
+        warn("shadow-driver", `Freeze gate: blocking external-action intents. Reason: ${_shadowFreezeReason}`);
+        try {
+          await ctx.reply(
+            `❄️ Atlas is **frozen** — external actions blocked this turn.\n` +
+            `Reason: ${_shadowFreezeReason}\n\n` +
+            `Use \`/shadow status\` to review and \`/shadow resume\` to clear.`,
+            { parse_mode: "Markdown" }
+          );
+        } catch {}
+        // Strip external-action tags from response text so they are not shown to user
+        const { EXTERNAL_ACTION_TOOLS_REGEX } = await (async () => {
+          try {
+            // Build a regex that matches any of the external-action tag names inline
+            // so the raw tag text is scrubbed before it reaches Telegram.
+            const tagNames = ["SEND","TMAA_SEND","CAL_ADD","CAL_REMOVE","TMAA_CAL_ADD","TMAA_CAL_REMOVE","GHL_WORKFLOW","GHL_SOCIAL","WP_POST","WP_UPDATE","PLANNER_TASK","PLANNER_MOVE","PLANNER_DONE"];
+            return { EXTERNAL_ACTION_TOOLS_REGEX: new RegExp(`\\[(${tagNames.join("|")}):[^\\]]*\\]`, "gi") };
+          } catch { return { EXTERNAL_ACTION_TOOLS_REGEX: null }; }
+        })();
+        if (EXTERNAL_ACTION_TOOLS_REGEX) {
+          response = response.replace(EXTERNAL_ACTION_TOOLS_REGEX, "[action blocked — Atlas frozen]");
+        }
+      } else {
+        if (hasGoogle) {
+          try { response = await processGoogleIntents(response, supabase); }
+          catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
+        }
 
-      if (featureFlags.ghl) {
-        try { response = await processGHLIntents(response, supabase); }
-        catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
-      }
+        if (featureFlags.tmaa) {
+          try { response = await processTMAAIntents(response); }
+          catch (e) { warn("intents", `processTMAAIntents failed: ${e}`); }
+        }
 
-      if (featureFlags.m365) {
-        try { response = await processM365Intents(response); }
-        catch (e) { warn("intents", `processM365Intents failed: ${e}`); }
-      }
+        if (featureFlags.ghl) {
+          try { response = await processGHLIntents(response, supabase); }
+          catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
+        }
 
-      if (isWebsiteReady()) {
-        try { response = await processWebsiteIntents(response, supabase); }
-        catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+        if (featureFlags.m365) {
+          try { response = await processM365Intents(response); }
+          catch (e) { warn("intents", `processM365Intents failed: ${e}`); }
+        }
+
+        if (isWebsiteReady()) {
+          try { response = await processWebsiteIntents(response, supabase); }
+          catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+        }
       }
 
       // PV Newsletter tags
