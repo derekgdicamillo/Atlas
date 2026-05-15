@@ -243,8 +243,8 @@
     </div>
 
     <!-- Sprint 6 -->
-    <div class="stop next">
-      <span class="badge">Up next</span>
+    <div class="stop good">
+      <span class="badge">Shipped</span>
       <div class="num">Sprint 6 · Wk 8-9</div>
       <div class="title">Self-Improvement</div>
       <div class="blurb">Atlas commits improvements to itself, with a human gate.</div>
@@ -258,8 +258,8 @@
     </div>
 
     <!-- Sprint 7 -->
-    <div class="stop">
-      <span class="badge">Pending</span>
+    <div class="stop next">
+      <span class="badge">Up next</span>
       <div class="num">Sprint 7 · Wk 9-10</div>
       <div class="title">Bulletproofing</div>
       <div class="blurb">Defenses against drift, poisoning, and slow compromise.</div>
@@ -277,14 +277,14 @@
   <!-- YOU ARE HERE -->
   <div class="here">
     <div>
-      <h2>You are here — Sprint 5 just shipped (autonomously), Sprint 6 up next</h2>
-      <p>Sprints 1-5 on master. Sprint 5 was completed by Atlas's own evolution pipeline while we were brainstorming. 73/73 tests passing post-fixes. 11 SQL migrations queued (043-053). Sprint 6 brainstorm next — DGM Fork (nightly variants), skill shadow-routing, self-regenerating skills, DPO LoRA on your own life, /why introspection.</p>
+      <h2>You are here — Sprint 6 just shipped, Sprint 7 up next</h2>
+      <p>Sprints 1-6 on master. Sprint 6 wrapped 13 tasks via subagents on the same evening. 44/44 Sprint 6 tests pass. All model calls route through the Claude CLI subprocess (Max-plan OAuth) — zero @anthropic-ai/sdk imports in Sprint 6 modules. Only Sprint 7 (Bulletproofing — Shadow-Atlas divergence monitor, semantic entropy probes, signed memory entries, weekly knowledge audit, public Merkle beacon) remains.</p>
     </div>
     <div class="stat">
-      <strong>Sprint 5 stats</strong>
-      21 tasks · autonomous · 73/73 tests<br>
-      8 named seats · 3-critic council · git blackboard · joint protocol · marketplace<br>
-      <em>Open: apply migrations 043-053, restart Atlas, audit autonomous output vs spec</em>
+      <strong>Sprint 6 stats</strong>
+      13 tasks · 13 commits · 44/44 tests<br>
+      DGM Fork · Shadow-Routing · Self-Regen · Soft-DPO · /why introspection<br>
+      <em>Open: apply migrations 054-059, init DGM repo, restart Atlas</em>
     </div>
   </div>
 
@@ -302,7 +302,7 @@
       <div class="prim"><div class="id">#13</div><div><div class="name">atlas.spec — Executable Constitution<span class="pill shipped">shipped</span></div><div class="desc">YAML invariants compiled into a pre-tool-call gate. No email outside allowlist, no patient-record delete, spend caps. Nothing bypasses it.</div></div></div>
       <div class="prim"><div class="id">#14</div><div><div class="name">Planner/Reader Split (CaMeL)<span class="pill shipped">shipped</span></div><div class="desc">Reader extracts typed fields from untrusted bytes with no tools. Planner only ever sees structured extractions. Kills indirect prompt injection by architecture.</div></div></div>
       <div class="prim"><div class="id">#15</div><div><div class="name">Merkle-Hashed Action Ledger<span class="pill shipped">shipped</span></div><div class="desc">Append-only, ed25519-signed, hourly root publish. Every action traced to source claims. HIPAA / EU AI Act audit trail as a free side effect.</div></div></div>
-      <div class="prim"><div class="id">#16</div><div><div class="name">Shadow-Atlas Divergence Monitor<span class="pill pending">Sprint 7</span></div><div class="desc">Second instance, cold context, replays prompts. If primary drifts unexplained, alarm fires and Atlas freezes. Only defense against MemoryGraft-class slow compromise.</div></div></div>
+      <div class="prim"><div class="id">#16</div><div><div class="name">Shadow-Atlas Divergence Monitor<span class="pill now">Sprint 7</span></div><div class="desc">Second instance, cold context, replays prompts. If primary drifts unexplained, alarm fires and Atlas freezes. Only defense against MemoryGraft-class slow compromise.</div></div></div>
       <div class="prim"><div class="id">#17</div><div><div class="name">Staleness Sentinel + Freshness Feed<span class="pill shipped">shipped</span></div><div class="desc">Haiku classifier per turn. Hot-domain answers must cite a freshness timestamp or refuse. Self-horizon map on demand.</div></div></div>
     </div>
 
@@ -336,11 +336,11 @@
     <!-- Self-improvement -->
     <div class="group">
       <h3>Self-Improvement — the engine that compounds</h3>
-      <div class="prim"><div class="id">SI-1</div><div><div class="name">DGM Fork (nightly)<span class="pill now">Sprint 6</span></div><div class="desc">3-5 variants of <code>src/</code> + rules forked nightly. Each scored against the Replay Harness. Winners merge with human review gate. Losers archive.</div></div></div>
-      <div class="prim"><div class="id">SI-2</div><div><div class="name">Skill Shadow-Routing<span class="pill now">Sprint 6</span></div><div class="desc">New / updated skills route at 10% in shadow. Auto-promote at 7/10 wins over a week. Skills self-regenerate from invocation traces.</div></div></div>
-      <div class="prim"><div class="id">SI-3</div><div><div class="name">DPO on Your Own Life<span class="pill now">Sprint 6</span></div><div class="desc">(user turn, original Atlas response, Derek-corrected response) → DPO preference dataset. Monthly LoRA on base Sonnet. The gradient-learned version of <code>behavioral-fixes.md</code>.</div></div></div>
-      <div class="prim"><div class="id">SI-4</div><div><div class="name">Weekly Knowledge Audit<span class="pill pending">Sprint 7</span></div><div class="desc">Saturdays: review hot-domain answers, diff vs current docs, log drift, recalibrate Staleness Sentinel half-lives based on observed decay.</div></div></div>
-      <div class="prim"><div class="id">SI-5</div><div><div class="name">/why Introspection Server<span class="pill now">Sprint 6</span></div><div class="desc">Given any past message ID, replay ring buffer + event log + source-of-truth at that moment. "Why did I say this; would I say it again given what I now know?"</div></div></div>
+      <div class="prim"><div class="id">SI-1</div><div><div class="name">DGM Fork (nightly)<span class="pill shipped">shipped (Sprint 6)</span></div><div class="desc">3-5 variants of <code>src/</code> + rules forked nightly. Each scored against the Replay Harness. Winners merge with human review gate. Losers archive.</div></div></div>
+      <div class="prim"><div class="id">SI-2</div><div><div class="name">Skill Shadow-Routing<span class="pill shipped">shipped (Sprint 6)</span></div><div class="desc">New / updated skills route at 10% in shadow. Auto-promote at 7/10 wins over a week. Skills self-regenerate from invocation traces.</div></div></div>
+      <div class="prim"><div class="id">SI-3</div><div><div class="name">DPO on Your Own Life<span class="pill shipped">shipped (Sprint 6)</span></div><div class="desc">(user turn, original Atlas response, Derek-corrected response) → DPO preference dataset. Monthly LoRA on base Sonnet. The gradient-learned version of <code>behavioral-fixes.md</code>.</div></div></div>
+      <div class="prim"><div class="id">SI-4</div><div><div class="name">Weekly Knowledge Audit<span class="pill now">Sprint 7</span></div><div class="desc">Saturdays: review hot-domain answers, diff vs current docs, log drift, recalibrate Staleness Sentinel half-lives based on observed decay.</div></div></div>
+      <div class="prim"><div class="id">SI-5</div><div><div class="name">/why Introspection Server<span class="pill shipped">shipped (Sprint 6)</span></div><div class="desc">Given any past message ID, replay ring buffer + event log + source-of-truth at that moment. "Why did I say this; would I say it again given what I now know?"</div></div></div>
     </div>
 
     <!-- Layer above -->
