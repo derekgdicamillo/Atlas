@@ -1,5 +1,41 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Atlas Prime Sprint 7: sign a memory row pre-insert.
+ * Lenient by default — if no session key is initialized (e.g., tests, scripts),
+ * log a warning and proceed with an unsigned (legacy) row. Set
+ * MEMORY_SIGNING_STRICT=true to make the throw propagate.
+ */
+async function maybeSignRow(row: Record<string, unknown>): Promise<void> {
+  if (!row.id) {
+    // Some inserts let Postgres assign id via default. We can still sign the
+    // server-assigned id after insert in a future iteration; for now, skip
+    // signing rows without a pre-assigned id when not strict.
+    if (process.env.MEMORY_SIGNING_STRICT === "true") {
+      throw new Error("memory-signing strict mode: row has no id");
+    }
+    return;
+  }
+  try {
+    const { signMemoryRow } = await import("./memory-signing.ts");
+    const sig = await signMemoryRow({
+      id: String(row.id),
+      content: String(row.content ?? ""),
+      embedding: (row.embedding as number[] | null | undefined) ?? null,
+      created_at: String(row.created_at ?? new Date().toISOString()),
+      agent: String(row.agent ?? "atlas"),
+      user_id: String(row.user_id ?? ""),
+      class: String(row.class ?? "episodic"),
+    });
+    row.signature = sig.signature;
+    row.sig_payload_hash = sig.sig_payload_hash;
+    row.session_id = sig.session_id;
+  } catch (err) {
+    if (process.env.MEMORY_SIGNING_STRICT === "true") throw err;
+    console.warn(`[cortex] memory signing skipped (lenient mode): ${err}`);
+  }
+}
+
 export const TIERS = [
   "sensory",
   "working",
@@ -183,6 +219,7 @@ export async function executeDemotion(
   }
 
   const draft = composeInversion(row, today);
+  await maybeSignRow(draft as unknown as Record<string, unknown>);
   const { error: insErr } = await supabase.from("memory").insert([draft]);
   if (insErr) {
     return { demoted: true, inverted: false, alertReason: `insert failed: ${insErr.message}` };
@@ -206,8 +243,20 @@ export async function processDemotions(supabase: SupabaseClient): Promise<number
     return 0;
   }
   if (!data?.length) return 0;
+  // Atlas Prime Sprint 7: verify signatures on loaded rows; skip + log failures.
+  const { verifyMemoryRow, logMemoryVerificationFailure } = await import("./memory-signing.ts");
+  const verified: typeof data = [];
+  for (const r of data) {
+    const v = await verifyMemoryRow(supabase, r as any);
+    if (!v.valid) {
+      await logMemoryVerificationFailure(supabase, r as any, v.reason ?? "unknown");
+      console.warn(`[cortex] memory verify fail for ${(r as any).id}: ${v.reason}`);
+      continue;
+    }
+    verified.push(r);
+  }
   let count = 0;
-  for (const row of data as MemoryRow[]) {
+  for (const row of verified as MemoryRow[]) {
     const result = await executeDemotion(supabase, row);
     if (result.demoted) count++;
     if (result.alertReason) console.warn("[cortex] demotion alert:", result.alertReason);
@@ -238,15 +287,15 @@ export async function processEpisodicClustering(supabase: SupabaseClient): Promi
       console.error("[cortex] cluster Haiku failed:", err);
       continue;
     }
-    const { error: insErr } = await supabase.from("memory").insert([
-      {
-        content: rule,
-        original_content: rule,
-        summary: rule,
-        class: "semantic",
-        tags: [c.tag, "episodic-promoted"],
-      },
-    ]);
+    const newRow: Record<string, unknown> = {
+      content: rule,
+      original_content: rule,
+      summary: rule,
+      class: "semantic",
+      tags: [c.tag, "episodic-promoted"],
+    };
+    await maybeSignRow(newRow);
+    const { error: insErr } = await supabase.from("memory").insert([newRow]);
     if (insErr) {
       console.error("[cortex] cluster insert failed:", insErr);
       continue;
