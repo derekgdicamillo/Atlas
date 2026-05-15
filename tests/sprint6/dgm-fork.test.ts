@@ -5,8 +5,10 @@ import {
   qualifiesForMergeList,
   pickTargets,
   proposeVariant,
+  buildMergeList,
   type VariantScoreDeltas,
   type MutationTarget,
+  type DgmVariantRow,
 } from "../../src/dgm-fork";
 
 describe("dgm-fork — excluded paths", () => {
@@ -182,5 +184,51 @@ describe("dgm-fork — proposeVariant", () => {
     await expect(
       proposeVariant(target, { currentContent: "x", recentFailures: [], callClaude })
     ).rejects.toThrow(/missing/i);
+  });
+});
+
+describe("dgm-fork — merge-list builder", () => {
+  it("includes only variants with status='scored' AND qualifying deltas", () => {
+    const rows: DgmVariantRow[] = [
+      {
+        id: "v1", target_file: "data/roles-seed.yaml", target_kind: "role-prompt",
+        variant_branch: "v1", diff_summary: "x", opus_rationale: "y",
+        status: "scored", delta_aggregate: 0.04, delta_groundedness: 0.05, delta_tool: 0.03, delta_refusal: -0.01,
+      },
+      {
+        id: "v2", target_file: "data/roles-seed.yaml", target_kind: "role-prompt",
+        variant_branch: "v2", diff_summary: "x", opus_rationale: "y",
+        status: "scored", delta_aggregate: 0.01, delta_groundedness: 0.02, delta_tool: 0.0, delta_refusal: 0.0,
+      },
+      {
+        id: "v3", target_file: "data/roles-seed.yaml", target_kind: "role-prompt",
+        variant_branch: "v3", diff_summary: "x", opus_rationale: "y",
+        status: "scored", delta_aggregate: 0.05, delta_groundedness: 0.06, delta_tool: 0.05, delta_refusal: -0.08,
+      },
+      {
+        id: "v4", target_file: "data/roles-seed.yaml", target_kind: "role-prompt",
+        variant_branch: "v4", diff_summary: "x", opus_rationale: "y",
+        status: "rejected", delta_aggregate: 0.10, delta_groundedness: 0.10, delta_tool: 0.10, delta_refusal: 0.10,
+      },
+    ];
+    const merged = buildMergeList(rows);
+    expect(merged.map((r) => r.id)).toEqual(["v1"]);
+  });
+
+  it("sorts by delta_aggregate descending", () => {
+    const rows: DgmVariantRow[] = [
+      {
+        id: "low", target_file: "a", target_kind: "skill",
+        variant_branch: "x", diff_summary: "x", opus_rationale: "y",
+        status: "scored", delta_aggregate: 0.03, delta_groundedness: 0.05, delta_tool: 0.03, delta_refusal: 0.02,
+      },
+      {
+        id: "high", target_file: "a", target_kind: "skill",
+        variant_branch: "x", diff_summary: "x", opus_rationale: "y",
+        status: "scored", delta_aggregate: 0.10, delta_groundedness: 0.05, delta_tool: 0.03, delta_refusal: 0.02,
+      },
+    ];
+    const merged = buildMergeList(rows);
+    expect(merged.map((r) => r.id)).toEqual(["high", "low"]);
   });
 });
