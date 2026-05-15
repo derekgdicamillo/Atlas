@@ -1507,6 +1507,71 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/dgm": {
+      if (!supabase) {
+        await ctx.reply("DGM unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "pending") {
+        const { data } = await supabase
+          .from("dgm_variants")
+          .select("id, target_file, target_kind, delta_aggregate, status")
+          .eq("status", "queued")
+          .order("delta_aggregate", { ascending: false });
+        const rows = (data ?? []) as any[];
+        if (!rows.length) { await ctx.reply("DGM queue: empty."); return true; }
+        const lines = ["**DGM queue**", ""];
+        for (const r of rows) lines.push(`\`${String(r.id).slice(0, 8)}\` ${r.target_file} (Δ ${(r.delta_aggregate ?? 0).toFixed(3)})`);
+        lines.push("", "Use `/dgm review <id>` for diff + Opus rationale + decision buttons.");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "review") {
+        const id = args[1];
+        if (!id) { await ctx.reply("Usage: `/dgm review <variant_id>`"); return true; }
+        const { data: row } = await supabase.from("dgm_variants").select("*").eq("id", id).single();
+        if (!row) { await ctx.reply(`Variant \`${id}\` not found.`); return true; }
+        const v = row as any;
+        const reviewText = [
+          `**DGM ${String(id).slice(0, 8)}** — ${v.target_file} (${v.target_kind})`,
+          ``,
+          `Δ aggregate: ${(v.delta_aggregate ?? 0).toFixed(3)}`,
+          `Δ groundedness: ${(v.delta_groundedness ?? 0).toFixed(3)}`,
+          `Δ tool: ${(v.delta_tool ?? 0).toFixed(3)}`,
+          `Δ refusal: ${(v.delta_refusal ?? 0).toFixed(3)}`,
+          ``,
+          `**Rationale:** ${v.opus_rationale}`,
+          ``,
+          `Decide: \`/dgm merge ${id}\` | \`/dgm archive ${id}\``,
+        ].join("\n");
+        await ctx.reply(reviewText, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "merge" || sub === "archive") {
+        const id = args[1];
+        if (!id) { await ctx.reply(`Usage: \`/dgm ${sub} <variant_id>\``); return true; }
+        const username = String(ctx.from?.username ?? userId).toLowerCase();
+        const approver = username.includes("esther") ? "esther" : "derek";
+        const result = await new Promise<{ ok: boolean; sha?: string; error?: string }>((resolve) => {
+          const cp = require("node:child_process").spawn("bun", ["run", "scripts/dgm-merge-handler.ts", sub, id, approver], { stdio: ["ignore", "pipe", "pipe"] });
+          let stdout = "";
+          cp.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+          cp.on("close", () => {
+            try { resolve(JSON.parse(stdout)); } catch { resolve({ ok: false, error: "handler returned non-JSON" }); }
+          });
+        });
+        if (result.ok) {
+          await ctx.reply(sub === "merge" ? `✓ merged. commit: ${result.sha?.slice(0, 8)}` : `✗ archived.`);
+        } else {
+          await ctx.reply(`Error: ${result.error}`);
+        }
+        return true;
+      }
+      await ctx.reply(["**/dgm commands**", "`/dgm pending` — queued variants", "`/dgm review <id>` — full diff + buttons", "`/dgm merge <id>` — merge to master", "`/dgm archive <id>` — discard"].join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");

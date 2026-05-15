@@ -3232,6 +3232,85 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // Atlas Prime Sprint 6: DGM Fork nightly at 22:00 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 22 * * *",
+      onTick: safeTick("dgm-fork-nightly", async () => {
+        if (!supabase) { log("dgm-fork-nightly", "supabase unavailable, skipping"); return; }
+        const { runNightly } = await import("./dgm-fork.ts");
+        const { loadDataset } = await import("./replay-dataset.ts");
+        const { scoreEntry } = await import("./replay-judge.ts");
+        const { readFile, mkdir, writeFile } = await import("node:fs/promises");
+        const { spawn: spawnChild } = await import("node:child_process");
+
+        const resolveTargetFile = (agentId: string): string => {
+          if (agentId.endsWith("-mirror") || agentId.includes("seat")) return "data/roles-seed.yaml";
+          return `.claude/skills/${agentId}/SKILL.md`;
+        };
+        const fetchRecentFailures = async (_targetFile: string): Promise<string[]> => {
+          const ds = await loadDataset("data/replay-dataset.jsonl").catch(() => []);
+          return ds.filter((e: any) => e.label === "bad").slice(-30).map((e: any) => e.derekCorrection ?? "").filter(Boolean);
+        };
+        const setupWorktree = async (variantId: string, targetFile: string, newContent: string): Promise<string> => {
+          const wt = `data/dgm-worktrees/${variantId}`;
+          await mkdir(wt, { recursive: true });
+          await new Promise<void>((resolve, reject) => {
+            const p = spawnChild("git", ["worktree", "add", "--detach", wt], { shell: process.platform === "win32" });
+            p.on("close", (code: number | null) => (code === 0 ? resolve() : reject(new Error(`worktree add exited ${code}`))));
+          });
+          await writeFile(`${wt}/${targetFile}`, newContent, "utf8");
+          return wt;
+        };
+        try {
+          const result = await runNightly(supabase, {
+            resolveTargetFile,
+            callClaude: (p: string, o?: any) => callClaude(p, { ...o, isolated: true }),
+            loadDataset,
+            scoreEntry,
+            readFile: (p: string) => readFile(p, "utf8"),
+            fetchRecentFailures,
+            setupWorktree,
+          });
+          log("dgm-fork-nightly", `proposed=${result.proposed} queued=${result.queued} archived=${result.archived}`);
+        } catch (err) {
+          log("dgm-fork-nightly", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Atlas Prime Sprint 6: DGM morning review at 08:00 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 8 * * *",
+      onTick: safeTick("dgm-morning-review", async () => {
+        if (!supabase) { log("dgm-morning-review", "supabase unavailable, skipping"); return; }
+        const { data: queued } = await supabase
+          .from("dgm_variants")
+          .select("id, target_file, target_kind, diff_summary, delta_aggregate")
+          .eq("status", "queued")
+          .order("delta_aggregate", { ascending: false })
+          .limit(10);
+        if (!queued?.length) {
+          log("dgm-morning-review", "no queued variants");
+          return;
+        }
+        const lines = ["🧬 **DGM merge list** — ready for review", ""];
+        for (const v of queued as any[]) {
+          lines.push(`\`${String(v.id).slice(0, 8)}\` ${v.target_file} (Δ ${(v.delta_aggregate ?? 0).toFixed(3)})`);
+          lines.push(`  ${String(v.diff_summary).slice(0, 120)}`);
+        }
+        lines.push("", "Use `/dgm review <id>` for full diff. `/dgm merge <id>` or `/dgm archive <id>`.");
+        const msg = lines.join("\n");
+        await sendTelegramMessage(DEREK_CHAT_ID, msg);
+        log("dgm-morning-review", `surfaced ${queued.length} variant(s) to Derek`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -3249,6 +3328,8 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 3:45 AM      PV Knowledge Layer git pull + re-ingest");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
+  console.log("  - 10:00 PM     DGM Fork nightly (propose+test+score variants)");
+  console.log("  - 8:00 AM      DGM morning review (surface queued variants to Derek)");
   console.log("  - 11:00 PM     Nightly evolution pipeline (scout+audit+architect+implementer+validator)");
   console.log("  - 1:00 AM      Cognitive consolidation + fallback summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
