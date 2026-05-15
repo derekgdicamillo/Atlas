@@ -1015,6 +1015,94 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     ],
     cannot: ["take action on the agreed memo (memo is advisory; Derek/Esther act)"],
   },
+  {
+    section: "Atlas Prime - DGM Fork",
+    description: "Nightly proposes variants of skill prompts, role prompts, behavioral fixes, heuristics, rules, and system prompts. Tiered scoring (build → test → 10-conv smoke → 50-conv full replay). Variants qualifying ≥+0.02 aggregate land on Derek's morning merge list. Excluded paths protect the trust substrate.",
+    can: [
+      "propose mutations to src/+rules via Opus call (CLI subprocess, Max-plan OAuth)",
+      "score variants on replay-harness with tiered budget (~$3/night cap)",
+      "surface qualifying variants to Telegram with diff + delta + rationale + 3-button keyboard",
+      "merge approved variants with ledger-signed commits",
+    ],
+    cannot: [
+      "modify atlas.spec, ledger code/keys, migrations, claude.ts, haiku-client.ts, tool-gate.ts, package.json, or .env",
+      "auto-merge without explicit Derek approval",
+    ],
+    module: "src/dgm-fork.ts",
+    depends: "agent_reputation (Sprint 5), replay-dataset.jsonl (Sprint 2), callClaude (CLI)",
+    commands: ["/dgm pending", "/dgm review", "/dgm merge", "/dgm archive"],
+    runs: "dgm-fork-nightly 22:00, dgm-morning-review 08:00",
+  },
+  {
+    section: "Atlas Prime - Skill Shadow-Routing",
+    description: "Continuous A/B test on candidate skill replacements. Every shadow-routed task fires a Haiku judge comparing baseline vs candidate output. 7/10 wins in a rolling window auto-promotes; 7/10 losses in 30d auto-demotes. Derek can veto individual wins.",
+    can: [
+      "judge shadow outputs via Haiku (CLI subprocess)",
+      "auto-promote candidates that meet the 7/10 threshold",
+      "auto-demote candidates that lose 7/10 of their post-promotion rolling window",
+      "let Derek veto individual shadow wins via /skills veto",
+    ],
+    cannot: [
+      "promote without 10 non-vetoed scores",
+      "modify the baseline skill — only the routing table changes",
+    ],
+    module: "src/skill-shadow-router.ts",
+    depends: "marketplace (Sprint 5), haiku-client.ts",
+    commands: ["/skills shadow", "/skills veto"],
+  },
+  {
+    section: "Atlas Prime - Self-Regenerating Skills",
+    description: "Opus reads the last 30 invocations of a skill + the current text, proposes a v2. The v2 enters the DGM scoring pipeline. Triggered nightly for struggling skills (β/(α+β) > 0.6 in agent_reputation) or on demand via /skill regenerate <name>.",
+    can: [
+      "regenerate a skill's text via Opus (CLI subprocess)",
+      "queue the v2 as a DGM variant for replay-harness scoring",
+      "trigger from /skill regenerate <name> for explicit refresh",
+    ],
+    cannot: [
+      "auto-apply v2 without going through DGM merge-list approval",
+      "modify excluded paths",
+    ],
+    module: "src/self-regen.ts",
+    depends: "callClaude (CLI), dgm-fork pipeline, agent_reputation",
+    commands: ["/skill regenerate"],
+  },
+  {
+    section: "Atlas Prime - Soft-DPO",
+    description: "Collects (user turn, Atlas original, Derek-corrected) pairs from three sources: [LABEL_BAD:] tags, Haiku follow-up classifier, explicit [DPO:] tag. Pairs are embedded; nightly digest writes data/behavioral-soft-dpo.md. Data accumulates in dpo_pairs for future fine-tuning.",
+    can: [
+      "capture pairs from 3 sources with OpenAI embeddings",
+      "match top-K pairs per turn by semantic similarity + domain filter",
+      "regenerate data/behavioral-soft-dpo.md digest nightly",
+      "export pairs to fine-tuning JSONL via scripts/export-dpo-jsonl.ts",
+    ],
+    cannot: [
+      "perform real LoRA / gradient training on Claude (no Anthropic fine-tuning API today)",
+      "modify Atlas's response without going through the standard prompt → callClaude path",
+    ],
+    module: "src/soft-dpo.ts",
+    depends: "dpo_pairs table (Sprint 6), OpenAI embeddings, label-tag (Sprint 2)",
+    commands: ["/dpo stats", "/dpo digest"],
+    runs: "dpo-digest-nightly 23:30",
+  },
+  {
+    section: "Atlas Prime - /why Introspection",
+    description: "Given any turn_id or Telegram message link from the last 30 days, reconstructs Atlas's state at the time (frozen memory.original_content + DAG edges approved before message_ts + council reviews) and contrasts it with today's state. Opus reasons over the delta and answers 'would I say it again?'",
+    can: [
+      "resolve turn_id from UUID or Telegram message link",
+      "reconstruct time-then and time-now state",
+      "produce 3-section output (At the time / Today / Would I say it again)",
+      "cite memory IDs, DAG edges, council review IDs",
+      "cache results 30 days (TTL purge nightly)",
+    ],
+    cannot: [
+      "reconstruct turns older than 30 days (returns archived-redirect message)",
+      "verify ledger signatures (verification is at read time via ledger.ts)",
+    ],
+    module: "src/introspect.ts",
+    depends: "memory.original_content (Sprint 3), attribution_log (Sprint 3), causal_edges (Sprint 4), council_votes (Sprint 5)",
+    commands: ["/why"],
+    runs: "introspect-cache-purge 04:30",
+  },
 ];
 
 /**

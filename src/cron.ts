@@ -3333,6 +3333,36 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // 36. Atlas Prime Sprint 6: nightly soft-DPO digest at 23:30 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 23 * * *",
+      onTick: safeTick("dpo-digest-nightly", async () => {
+        const { runNightlyDigest } = await import("./soft-dpo.ts");
+        try {
+          const result = await runNightlyDigest(supabase);
+          log("dpo-digest-nightly", `wrote digest: ${result.total} pairs across ${Object.keys(result.pairs_by_domain).length} domains`);
+        } catch (err) {
+          log("dpo-digest-nightly", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 37. Atlas Prime Sprint 6: shadow-judge cleanup every 5 min.
+  //     Placeholder — judges run inline today via executeWithShadow.
+  //     Reserves the cron handle for a future async pipeline if volume requires it.
+  jobs.push(
+    CronJob.from({
+      cronTime: "*/5 * * * *",
+      onTick: safeTick("shadow-judge-flush", async () => {
+        log("shadow-judge-flush", "tick (judges run inline; placeholder for future async pipeline)");
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }

@@ -129,3 +129,10 @@ data/test-blackboards/
 data/roles/*/key.priv
 data/test-roles/
 data/test-roles-*/
+
+# Atlas Prime Sprint 6 — DGM artifacts
+data/dgm.git/
+data/dgm-worktrees/
+data/dgm-review/
+data/behavioral-soft-dpo.md
+data/dpo-export-*.jsonl
