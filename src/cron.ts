@@ -3232,6 +3232,137 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // Atlas Prime Sprint 6: DGM Fork nightly at 22:00 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 22 * * *",
+      onTick: safeTick("dgm-fork-nightly", async () => {
+        if (!supabase) { log("dgm-fork-nightly", "supabase unavailable, skipping"); return; }
+        const { runNightly } = await import("./dgm-fork.ts");
+        const { loadDataset } = await import("./replay-dataset.ts");
+        const { scoreEntry } = await import("./replay-judge.ts");
+        const { readFile, mkdir, writeFile } = await import("node:fs/promises");
+        const { spawn: spawnChild } = await import("node:child_process");
+
+        const resolveTargetFile = (agentId: string): string => {
+          if (agentId.endsWith("-mirror") || agentId.includes("seat")) return "data/roles-seed.yaml";
+          return `.claude/skills/${agentId}/SKILL.md`;
+        };
+        const fetchRecentFailures = async (_targetFile: string): Promise<string[]> => {
+          const ds = await loadDataset("data/replay-dataset.jsonl").catch(() => []);
+          return ds.filter((e: any) => e.label === "bad").slice(-30).map((e: any) => e.derekCorrection ?? "").filter(Boolean);
+        };
+        const setupWorktree = async (variantId: string, targetFile: string, newContent: string): Promise<string> => {
+          const wt = `data/dgm-worktrees/${variantId}`;
+          await mkdir(wt, { recursive: true });
+          await new Promise<void>((resolve, reject) => {
+            const p = spawnChild("git", ["worktree", "add", "--detach", wt], { shell: process.platform === "win32" });
+            p.on("close", (code: number | null) => (code === 0 ? resolve() : reject(new Error(`worktree add exited ${code}`))));
+          });
+          await writeFile(`${wt}/${targetFile}`, newContent, "utf8");
+          return wt;
+        };
+        try {
+          const result = await runNightly(supabase, {
+            resolveTargetFile,
+            callClaude: (p: string, o?: any) => callClaude(p, { ...o, isolated: true }),
+            loadDataset,
+            scoreEntry,
+            readFile: (p: string) => readFile(p, "utf8"),
+            fetchRecentFailures,
+            setupWorktree,
+          });
+          log("dgm-fork-nightly", `proposed=${result.proposed} queued=${result.queued} archived=${result.archived}`);
+        } catch (err) {
+          log("dgm-fork-nightly", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Atlas Prime Sprint 6: DGM morning review at 08:00 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 8 * * *",
+      onTick: safeTick("dgm-morning-review", async () => {
+        if (!supabase) { log("dgm-morning-review", "supabase unavailable, skipping"); return; }
+        const { data: queued } = await supabase
+          .from("dgm_variants")
+          .select("id, target_file, target_kind, diff_summary, delta_aggregate")
+          .eq("status", "queued")
+          .order("delta_aggregate", { ascending: false })
+          .limit(10);
+        if (!queued?.length) {
+          log("dgm-morning-review", "no queued variants");
+          return;
+        }
+        const lines = ["🧬 **DGM merge list** — ready for review", ""];
+        for (const v of queued as any[]) {
+          lines.push(`\`${String(v.id).slice(0, 8)}\` ${v.target_file} (Δ ${(v.delta_aggregate ?? 0).toFixed(3)})`);
+          lines.push(`  ${String(v.diff_summary).slice(0, 120)}`);
+        }
+        lines.push("", "Use `/dgm review <id>` for full diff. `/dgm merge <id>` or `/dgm archive <id>`.");
+        const msg = lines.join("\n");
+        await sendTelegramMessage(DEREK_CHAT_ID, msg);
+        log("dgm-morning-review", `surfaced ${queued.length} variant(s) to Derek`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // Atlas Prime Sprint 6: /why cache TTL purge at 04:30 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 4 * * *",
+      onTick: safeTick("introspect-cache-purge", async () => {
+        if (!supabase) { log("introspect-cache-purge", "supabase unavailable, skipping"); return; }
+        const ttlDays = Number(process.env.INTROSPECT_TTL_DAYS ?? 30);
+        const cutoff = new Date(Date.now() - ttlDays * 86_400_000).toISOString();
+        const { error, count } = await supabase
+          .from("introspect_cache")
+          .delete({ count: "exact" })
+          .lt("reconstructed_at", cutoff);
+        if (error) {
+          log("introspect-cache-purge", `failed: ${error.message}`);
+          return;
+        }
+        log("introspect-cache-purge", `deleted ${count ?? 0} rows`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 36. Atlas Prime Sprint 6: nightly soft-DPO digest at 23:30 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 23 * * *",
+      onTick: safeTick("dpo-digest-nightly", async () => {
+        const { runNightlyDigest } = await import("./soft-dpo.ts");
+        try {
+          const result = await runNightlyDigest(supabase);
+          log("dpo-digest-nightly", `wrote digest: ${result.total} pairs across ${Object.keys(result.pairs_by_domain).length} domains`);
+        } catch (err) {
+          log("dpo-digest-nightly", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 37. Atlas Prime Sprint 6: shadow-judge cleanup every 5 min.
+  //     Placeholder — judges run inline today via executeWithShadow.
+  //     Reserves the cron handle for a future async pipeline if volume requires it.
+  jobs.push(
+    CronJob.from({
+      cronTime: "*/5 * * * *",
+      onTick: safeTick("shadow-judge-flush", async () => {
+        log("shadow-judge-flush", "tick (judges run inline; placeholder for future async pipeline)");
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -3249,6 +3380,8 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - 3:45 AM      PV Knowledge Layer git pull + re-ingest");
   console.log("  - Sunday 6 PM  Weekly executive summary");
   console.log("  - Sunday 7 PM  Weekly todo review (haiku)");
+  console.log("  - 10:00 PM     DGM Fork nightly (propose+test+score variants)");
+  console.log("  - 8:00 AM      DGM morning review (surface queued variants to Derek)");
   console.log("  - 11:00 PM     Nightly evolution pipeline (scout+audit+architect+implementer+validator)");
   console.log("  - 1:00 AM      Cognitive consolidation + fallback summarization (haiku)");
   console.log("  - Every 5min   Task supervisor check");
@@ -3288,6 +3421,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - Wed 8 AM     Midas: competitor recon (opus)");
   console.log("  - Mon/Thu 7:30 Midas: GBP content draft (sonnet, requires approval)");
   console.log("  - 1st 10 AM    Midas: monthly strategic brief (opus)");
+  console.log("  - 4:30 AM      /why introspection cache purge (30d TTL)");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.

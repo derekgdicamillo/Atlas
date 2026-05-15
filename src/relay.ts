@@ -1507,6 +1507,242 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/dgm": {
+      if (!supabase) {
+        await ctx.reply("DGM unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "pending") {
+        const { data } = await supabase
+          .from("dgm_variants")
+          .select("id, target_file, target_kind, delta_aggregate, status")
+          .eq("status", "queued")
+          .order("delta_aggregate", { ascending: false });
+        const rows = (data ?? []) as any[];
+        if (!rows.length) { await ctx.reply("DGM queue: empty."); return true; }
+        const lines = ["**DGM queue**", ""];
+        for (const r of rows) lines.push(`\`${String(r.id).slice(0, 8)}\` ${r.target_file} (Δ ${(r.delta_aggregate ?? 0).toFixed(3)})`);
+        lines.push("", "Use `/dgm review <id>` for diff + Opus rationale + decision buttons.");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "review") {
+        const id = args[1];
+        if (!id) { await ctx.reply("Usage: `/dgm review <variant_id>`"); return true; }
+        const { data: row } = await supabase.from("dgm_variants").select("*").eq("id", id).single();
+        if (!row) { await ctx.reply(`Variant \`${id}\` not found.`); return true; }
+        const v = row as any;
+        const reviewText = [
+          `**DGM ${String(id).slice(0, 8)}** — ${v.target_file} (${v.target_kind})`,
+          ``,
+          `Δ aggregate: ${(v.delta_aggregate ?? 0).toFixed(3)}`,
+          `Δ groundedness: ${(v.delta_groundedness ?? 0).toFixed(3)}`,
+          `Δ tool: ${(v.delta_tool ?? 0).toFixed(3)}`,
+          `Δ refusal: ${(v.delta_refusal ?? 0).toFixed(3)}`,
+          ``,
+          `**Rationale:** ${v.opus_rationale}`,
+          ``,
+          `Decide: \`/dgm merge ${id}\` | \`/dgm archive ${id}\``,
+        ].join("\n");
+        await ctx.reply(reviewText, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "merge" || sub === "archive") {
+        const id = args[1];
+        if (!id) { await ctx.reply(`Usage: \`/dgm ${sub} <variant_id>\``); return true; }
+        const username = String(ctx.from?.username ?? userId).toLowerCase();
+        const approver = username.includes("esther") ? "esther" : "derek";
+        const result = await new Promise<{ ok: boolean; sha?: string; error?: string }>((resolve) => {
+          const cp = require("node:child_process").spawn("bun", ["run", "scripts/dgm-merge-handler.ts", sub, id, approver], { stdio: ["ignore", "pipe", "pipe"] });
+          let stdout = "";
+          cp.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+          cp.on("close", () => {
+            try { resolve(JSON.parse(stdout)); } catch { resolve({ ok: false, error: "handler returned non-JSON" }); }
+          });
+        });
+        if (result.ok) {
+          await ctx.reply(sub === "merge" ? `✓ merged. commit: ${result.sha?.slice(0, 8)}` : `✗ archived.`);
+        } else {
+          await ctx.reply(`Error: ${result.error}`);
+        }
+        return true;
+      }
+      await ctx.reply(["**/dgm commands**", "`/dgm pending` — queued variants", "`/dgm review <id>` — full diff + buttons", "`/dgm merge <id>` — merge to master", "`/dgm archive <id>` — discard"].join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
+    case "/skills": {
+      if (!supabase) {
+        await ctx.reply("Skills unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "shadow") {
+        const { data } = await supabase
+          .from("skill_shadow_scores")
+          .select("*")
+          .order("scored_at", { ascending: false })
+          .limit(20);
+        const rows = (data ?? []) as any[];
+        if (!rows.length) { await ctx.reply("No shadow scores yet."); return true; }
+        const lines = ["**Recent shadow scores**", ""];
+        for (const r of rows) {
+          const tag = r.derek_veto ? "🚫" : r.judge_verdict === "shadow_wins" ? "✅" : r.judge_verdict === "baseline_wins" ? "🔻" : "≈";
+          lines.push(`${tag} \`${r.id}\` ${r.skill_id} vs ${r.baseline_skill_id}: ${r.judge_verdict}`);
+          if (r.judge_reason) lines.push(`   ${String(r.judge_reason).slice(0, 100)}`);
+        }
+        lines.push("", "Veto a shadow_wins: `/skills veto <score_id>`");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "veto") {
+        const id = args[1];
+        if (!id) { await ctx.reply("Usage: `/skills veto <score_id>`", { parse_mode: "Markdown" }); return true; }
+        const { vetoShadowWin } = await import("./skill-shadow-router.ts");
+        const username = String(ctx.from?.username ?? userId).toLowerCase();
+        const approver = username.includes("esther") ? "esther" : "derek";
+        await vetoShadowWin(supabase as any, Number(id), approver);
+        await ctx.reply(`Vetoed score \`${id}\`. Excluded from promotion math.`, { parse_mode: "Markdown" });
+        return true;
+      }
+      await ctx.reply(
+        ["**/skills commands**", "`/skills shadow` — recent shadow comparisons", "`/skills veto <id>` — veto a shadow win"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
+    case "/skill": {
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "regenerate") {
+        const name = args[1];
+        if (!name) { await ctx.reply("Usage: `/skill regenerate <name>`", { parse_mode: "Markdown" }); return true; }
+        await ctx.reply(`Regenerating \`${name}\`… 1-2 min.`, { parse_mode: "Markdown" });
+        const { readFile } = await import("node:fs/promises");
+        const { regenerate } = await import("./self-regen.ts");
+        const skillPath = `.claude/skills/${name}/SKILL.md`;
+        let currentText = "";
+        try {
+          currentText = await readFile(skillPath, "utf8");
+        } catch {
+          await ctx.reply(`Skill \`${name}\` not found at \`${skillPath}\``, { parse_mode: "Markdown" });
+          return true;
+        }
+        try {
+          const result = await regenerate({
+            skill_id: name,
+            current_text: currentText,
+            invocations: [],
+            callClaude: (p: string, o?: any) => callClaude(p, { ...o, isolated: true }),
+          });
+          // Insert into dgm_variants for scoring (same merge-list pipeline).
+          if (supabase) {
+            await supabase.from("dgm_variants").insert({
+              target_file: skillPath,
+              target_kind: "skill",
+              variant_branch: `regen/${name}-${Date.now()}`,
+              diff_summary: result.rationale.split("\n")[0].slice(0, 200),
+              opus_rationale: result.rationale,
+              status: "proposed",
+            });
+          }
+          await ctx.reply([
+            `✓ Regenerated \`${name}\`. Variant queued for scoring.`,
+            ``,
+            `**Rationale:** ${result.rationale.slice(0, 500)}`,
+          ].join("\n"), { parse_mode: "Markdown" });
+        } catch (err) {
+          await ctx.reply(`Regeneration failed: ${(err as Error).message}`);
+        }
+        return true;
+      }
+      await ctx.reply(["**/skill commands**", "`/skill regenerate <name>` — refine a skill via Opus + queue for scoring"].join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
+    case "/dpo": {
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "stats") {
+        if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+        const { data } = await supabase.from("dpo_pairs").select("domain, source").limit(2000);
+        const counts: Record<string, number> = {};
+        for (const r of (data ?? []) as any[]) {
+          const k = `${(r.domain as string | null) ?? "uncategorized"} (${r.source as string})`;
+          counts[k] = (counts[k] ?? 0) + 1;
+        }
+        const lines = ["**DPO pair stats**", ""];
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20);
+        if (!sorted.length) { lines.push("(no pairs yet)"); }
+        else for (const [k, n] of sorted) lines.push(`- ${k}: ${n}`);
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "digest") {
+        if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+        const { runNightlyDigest } = await import("./soft-dpo.ts");
+        const result = await runNightlyDigest(supabase as any);
+        await ctx.reply(
+          `Digest written: ${result.total} pairs across ${Object.keys(result.pairs_by_domain).length} domains. See \`data/behavioral-soft-dpo.md\`.`
+        );
+        return true;
+      }
+      await ctx.reply(
+        ["**/dpo commands**", "`/dpo stats` — pair counts by domain", "`/dpo digest` — regenerate behavioral-soft-dpo.md"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
+    case "/why": {
+      const target = args.join(" ").trim();
+      if (!target) {
+        await ctx.reply("Usage: `/why <turn_id>` or `/why <telegram_message_link>`", { parse_mode: "Markdown" });
+        return true;
+      }
+      if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+      const { resolveTurnId, reconstruct } = await import("./introspect.ts");
+      const { callClaude } = await import("./claude.ts");
+      let turn_id: string;
+      const r = resolveTurnId(target);
+      if (typeof r === "string") {
+        turn_id = r;
+      } else if (r && "chat_id" in r) {
+        const { data: msg } = await supabase
+          .from("messages")
+          .select("metadata")
+          .eq("metadata->>chat_id", r.chat_id)
+          .eq("metadata->>message_id", r.message_id)
+          .maybeSingle();
+        if (!msg) { await ctx.reply(`No message found for that link.`); return true; }
+        turn_id = (msg as any).metadata?.turn_id;
+        if (!turn_id) { await ctx.reply(`Message found but no turn_id in metadata.`); return true; }
+      } else {
+        await ctx.reply(`Unrecognized format. Use a UUID or a t.me link.`);
+        return true;
+      }
+      await ctx.reply("Reconstructing… 30s-ish.");
+      const result = await reconstruct(supabase as any, turn_id, {
+        callClaude: (p, o) => callClaude(p, { ...o, isolated: true }),
+      });
+      if ("error" in result) { await ctx.reply(result.error); return true; }
+      const lines = [
+        `**Why did I say that — turn \`${turn_id.slice(0, 8)}\`**`,
+        `Captured: ${String(result.message_ts).slice(0, 19)}`,
+        ``,
+        `## At the time, Atlas knew:`,
+        result.time_then.slice(0, 1200),
+        ``,
+        `## Today, Atlas knows:`,
+        result.time_now.slice(0, 1200),
+        ``,
+        `## Would I say it again?`,
+        result.delta_reasoning.slice(0, 1200),
+      ];
+      await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");
