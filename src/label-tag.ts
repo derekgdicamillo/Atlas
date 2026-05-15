@@ -63,5 +63,29 @@ export async function processLabelTag(
     }
   }
 
+  // Atlas Prime Sprint 6: capture as soft-DPO pair for nightly digest + per-turn injection.
+  if (parsed.label === "bad" && input.supabase) {
+    try {
+      const { capturePair, embedTextOpenAI } = await import("./soft-dpo.ts");
+      await capturePair(
+        input.supabase,
+        {
+          source: "label_bad",
+          turn_id: input.turn_id,
+          user_id: input.agent === "ishtar" ? "esther" : "derek",
+          agent: input.agent,
+          user_turn: input.prevUserTurn.slice(0, 4000),
+          atlas_original: input.prevAtlasResponse.slice(0, 4000),
+          derek_corrected: parsed.reason ?? "[LABEL_BAD without specific correction]",
+          domain: undefined,
+          reason: parsed.reason ?? undefined,
+        },
+        { embedText: embedTextOpenAI }
+      );
+    } catch (err) {
+      console.error("[label-tag] soft-dpo capture failed:", err);
+    }
+  }
+
   return { written: true };
 }

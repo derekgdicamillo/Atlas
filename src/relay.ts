@@ -1661,6 +1661,39 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/dpo": {
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "stats") {
+        if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+        const { data } = await supabase.from("dpo_pairs").select("domain, source").limit(2000);
+        const counts: Record<string, number> = {};
+        for (const r of (data ?? []) as any[]) {
+          const k = `${(r.domain as string | null) ?? "uncategorized"} (${r.source as string})`;
+          counts[k] = (counts[k] ?? 0) + 1;
+        }
+        const lines = ["**DPO pair stats**", ""];
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20);
+        if (!sorted.length) { lines.push("(no pairs yet)"); }
+        else for (const [k, n] of sorted) lines.push(`- ${k}: ${n}`);
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "digest") {
+        if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+        const { runNightlyDigest } = await import("./soft-dpo.ts");
+        const result = await runNightlyDigest(supabase as any);
+        await ctx.reply(
+          `Digest written: ${result.total} pairs across ${Object.keys(result.pairs_by_domain).length} domains. See \`data/behavioral-soft-dpo.md\`.`
+        );
+        return true;
+      }
+      await ctx.reply(
+        ["**/dpo commands**", "`/dpo stats` — pair counts by domain", "`/dpo digest` — regenerate behavioral-soft-dpo.md"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");

@@ -1,11 +1,14 @@
 /**
  * Atlas Prime Sprint 6 — Soft-DPO Foundation
  *
- * capturePair   — store a preference pair (chosen/rejected) with embedding
- * findMatchingPairs — semantic retrieval of relevant past corrections
- * buildInjectionBlock — render corrections into a system-prompt block
+ * capturePair        — store a preference pair (chosen/rejected) with embedding
+ * findMatchingPairs  — semantic retrieval of relevant past corrections
+ * buildInjectionBlock — render corrections into a compact system-prompt block
+ * embedTextOpenAI    — OpenAI text-embedding-3-small helper
+ * runNightlyDigest   — generate data/behavioral-soft-dpo.md from last 7 days
  */
 
+import { writeFile, mkdir } from "node:fs/promises";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -142,4 +145,77 @@ export function buildInjectionBlock(pairs: MatchingPair[]): string {
   }
 
   return lines.join("\n");
+}
+
+// ─── embedTextOpenAI ─────────────────────────────────────────────────────────
+
+/**
+ * Thin wrapper around OpenAI text-embedding-3-small.
+ * Exported so relay-side code can pass it as a dep without importing the full OpenAI SDK.
+ */
+export async function embedTextOpenAI(text: string): Promise<number[]> {
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({ input: text, model: "text-embedding-3-small" }),
+  });
+  if (!res.ok) throw new Error(`OpenAI embedding ${res.status}: ${await res.text()}`);
+  const j = (await res.json()) as any;
+  return j.data[0].embedding;
+}
+
+// ─── runNightlyDigest ─────────────────────────────────────────────────────────
+
+/**
+ * Aggregate dpo_pairs from the last 7 days into a human-readable Markdown file
+ * at data/behavioral-soft-dpo.md, grouped by domain.
+ * Returns per-domain counts + total for the Telegram digest message.
+ */
+export async function runNightlyDigest(
+  supabase: SupabaseClient
+): Promise<{ pairs_by_domain: Record<string, number>; total: number }> {
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data } = await supabase
+    .from("dpo_pairs")
+    .select("domain, user_turn, atlas_original, derek_corrected, reason, captured_at, user_id, source")
+    .gte("captured_at", since)
+    .order("captured_at", { ascending: false })
+    .limit(500);
+  const pairs = (data ?? []) as any[];
+
+  const byDomain = new Map<string, any[]>();
+  for (const p of pairs) {
+    const d = (p.domain as string | null) ?? "uncategorized";
+    if (!byDomain.has(d)) byDomain.set(d, []);
+    byDomain.get(d)!.push(p);
+  }
+
+  const out: string[] = [
+    "# Behavioral Soft-DPO Digest",
+    "",
+    "Auto-generated nightly from `dpo_pairs`.",
+    "Per-turn relay injection picks the top-K by semantic match to the active turn.",
+    "",
+  ];
+  const stats: Record<string, number> = {};
+
+  for (const [domain, items] of byDomain.entries()) {
+    stats[domain] = items.length;
+    out.push(`## ${domain}`, "");
+    for (const p of items.slice(0, 20)) {
+      out.push(`- **User asked:** "${(p.user_turn as string).slice(0, 200)}"`);
+      out.push(`  **Atlas said:** "${(p.atlas_original as string).slice(0, 200)}"`);
+      out.push(`  **${p.user_id as string} wanted:** "${(p.derek_corrected as string).slice(0, 200)}"`);
+      if (p.reason) out.push(`  *Reason:* ${p.reason as string}`);
+      out.push(`  *(Captured ${String(p.captured_at).slice(0, 10)} via ${p.source as string})*`, "");
+    }
+    out.push("");
+  }
+
+  await mkdir("data", { recursive: true });
+  await writeFile("data/behavioral-soft-dpo.md", out.join("\n"), "utf8");
+  return { pairs_by_domain: stats, total: pairs.length };
 }
