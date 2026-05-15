@@ -12,6 +12,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { callHaiku } from "./haiku-client";
+import { judgeShadowOutput, recordScore } from "./skill-shadow-router.ts";
 
 export interface VowCard {
   cost_estimate_usd?: number;
@@ -461,4 +462,57 @@ export async function routeTask(
     mode,
     novelPath: novel,
   };
+}
+
+// ============================================================
+// SHADOW EXECUTION (Task 7 — run baseline + candidate in parallel)
+// ============================================================
+
+export interface ShadowExecutionOpts {
+  taskId: string;
+  taskKind: string;
+  domain: string;
+  task_description: string;
+  baselineSkillId: string;
+  candidateSkillId: string;
+  executeBaseline: () => Promise<any>;
+  executeCandidate: () => Promise<any>;
+}
+
+/**
+ * Run baseline and candidate in parallel. Judge + score fire-and-forget.
+ * Returns the live (baseline) output immediately; promote/demote flags are
+ * always false because judging is async — check skill_shadow_scores later.
+ */
+export async function executeWithShadow(
+  supabase: SupabaseClient,
+  opts: ShadowExecutionOpts
+): Promise<{ liveOutput: any; promote: boolean; demote: boolean }> {
+  const [liveOutput, shadowOutput] = await Promise.all([
+    opts.executeBaseline(),
+    opts.executeCandidate().catch((err) => ({ __shadow_error: String(err) })),
+  ]);
+  // Fire-and-forget judge + score
+  judgeShadowOutput(
+    { task_description: opts.task_description, task_id: opts.taskId, domain: opts.domain },
+    liveOutput,
+    shadowOutput
+  )
+    .then(async (judged) => {
+      const { promote, demote } = await recordScore(supabase, {
+        task_id: opts.taskId,
+        skill_id: opts.candidateSkillId,
+        baseline_skill_id: opts.baselineSkillId,
+        task_kind: opts.taskKind,
+        domain: opts.domain,
+        judge_verdict: judged.verdict,
+        judge_reason: judged.reason,
+      });
+      if (promote)
+        console.log(`[shadow-router] PROMOTE ${opts.candidateSkillId} over ${opts.baselineSkillId}`);
+      if (demote)
+        console.log(`[shadow-router] DEMOTE ${opts.candidateSkillId}`);
+    })
+    .catch((err) => console.error("[shadow-router] judge/record failed:", err));
+  return { liveOutput, promote: false, demote: false };
 }

@@ -1572,6 +1572,47 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/skills": {
+      if (!supabase) {
+        await ctx.reply("Skills unavailable: Supabase not configured.");
+        return true;
+      }
+      const sub = (args[0] ?? "").toLowerCase();
+      if (sub === "shadow") {
+        const { data } = await supabase
+          .from("skill_shadow_scores")
+          .select("*")
+          .order("scored_at", { ascending: false })
+          .limit(20);
+        const rows = (data ?? []) as any[];
+        if (!rows.length) { await ctx.reply("No shadow scores yet."); return true; }
+        const lines = ["**Recent shadow scores**", ""];
+        for (const r of rows) {
+          const tag = r.derek_veto ? "🚫" : r.judge_verdict === "shadow_wins" ? "✅" : r.judge_verdict === "baseline_wins" ? "🔻" : "≈";
+          lines.push(`${tag} \`${r.id}\` ${r.skill_id} vs ${r.baseline_skill_id}: ${r.judge_verdict}`);
+          if (r.judge_reason) lines.push(`   ${String(r.judge_reason).slice(0, 100)}`);
+        }
+        lines.push("", "Veto a shadow_wins: `/skills veto <score_id>`");
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "veto") {
+        const id = args[1];
+        if (!id) { await ctx.reply("Usage: `/skills veto <score_id>`", { parse_mode: "Markdown" }); return true; }
+        const { vetoShadowWin } = await import("./skill-shadow-router.ts");
+        const username = String(ctx.from?.username ?? userId).toLowerCase();
+        const approver = username.includes("esther") ? "esther" : "derek";
+        await vetoShadowWin(supabase as any, Number(id), approver);
+        await ctx.reply(`Vetoed score \`${id}\`. Excluded from promotion math.`, { parse_mode: "Markdown" });
+        return true;
+      }
+      await ctx.reply(
+        ["**/skills commands**", "`/skills shadow` — recent shadow comparisons", "`/skills veto <id>` — veto a shadow win"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");
