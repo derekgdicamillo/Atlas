@@ -1694,6 +1694,55 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
       return true;
     }
 
+    case "/why": {
+      const target = args.join(" ").trim();
+      if (!target) {
+        await ctx.reply("Usage: `/why <turn_id>` or `/why <telegram_message_link>`", { parse_mode: "Markdown" });
+        return true;
+      }
+      if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+      const { resolveTurnId, reconstruct } = await import("./introspect.ts");
+      const { callClaude } = await import("./claude.ts");
+      let turn_id: string;
+      const r = resolveTurnId(target);
+      if (typeof r === "string") {
+        turn_id = r;
+      } else if (r && "chat_id" in r) {
+        const { data: msg } = await supabase
+          .from("messages")
+          .select("metadata")
+          .eq("metadata->>chat_id", r.chat_id)
+          .eq("metadata->>message_id", r.message_id)
+          .maybeSingle();
+        if (!msg) { await ctx.reply(`No message found for that link.`); return true; }
+        turn_id = (msg as any).metadata?.turn_id;
+        if (!turn_id) { await ctx.reply(`Message found but no turn_id in metadata.`); return true; }
+      } else {
+        await ctx.reply(`Unrecognized format. Use a UUID or a t.me link.`);
+        return true;
+      }
+      await ctx.reply("Reconstructing… 30s-ish.");
+      const result = await reconstruct(supabase as any, turn_id, {
+        callClaude: (p, o) => callClaude(p, { ...o, isolated: true }),
+      });
+      if ("error" in result) { await ctx.reply(result.error); return true; }
+      const lines = [
+        `**Why did I say that — turn \`${turn_id.slice(0, 8)}\`**`,
+        `Captured: ${String(result.message_ts).slice(0, 19)}`,
+        ``,
+        `## At the time, Atlas knew:`,
+        result.time_then.slice(0, 1200),
+        ``,
+        `## Today, Atlas knows:`,
+        result.time_now.slice(0, 1200),
+        ``,
+        `## Would I say it again?`,
+        result.delta_reasoning.slice(0, 1200),
+      ];
+      await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
     case "/council": {
       if (!supabase) {
         await ctx.reply("Council unavailable: Supabase not configured.");

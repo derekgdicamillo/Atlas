@@ -3311,6 +3311,28 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // Atlas Prime Sprint 6: /why cache TTL purge at 04:30 PHX.
+  jobs.push(
+    CronJob.from({
+      cronTime: "30 4 * * *",
+      onTick: safeTick("introspect-cache-purge", async () => {
+        if (!supabase) { log("introspect-cache-purge", "supabase unavailable, skipping"); return; }
+        const ttlDays = Number(process.env.INTROSPECT_TTL_DAYS ?? 30);
+        const cutoff = new Date(Date.now() - ttlDays * 86_400_000).toISOString();
+        const { error, count } = await supabase
+          .from("introspect_cache")
+          .delete({ count: "exact" })
+          .lt("reconstructed_at", cutoff);
+        if (error) {
+          log("introspect-cache-purge", `failed: ${error.message}`);
+          return;
+        }
+        log("introspect-cache-purge", `deleted ${count ?? 0} rows`);
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -3369,6 +3391,7 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - Wed 8 AM     Midas: competitor recon (opus)");
   console.log("  - Mon/Thu 7:30 Midas: GBP content draft (sonnet, requires approval)");
   console.log("  - 1st 10 AM    Midas: monthly strategic brief (opus)");
+  console.log("  - 4:30 AM      /why introspection cache purge (30d TTL)");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.
