@@ -77,13 +77,22 @@ export async function commitAndPush(
   if (!existsSync(join(workdir, ".git"))) {
     return { pushed: false, reason: "not_a_git_repo" };
   }
+  // Ensure local commits have an identity even when running from cron / Actions.
+  await gitInWorkdir(["config", "user.email", "atlas-beacon@bot.local"], workdir);
+  await gitInWorkdir(["config", "user.name", "atlas-beacon"], workdir);
   await gitInWorkdir(["add", "."], workdir);
   const status = await gitInWorkdir(["status", "--porcelain"], workdir);
   if (!status.stdout.trim()) return { pushed: false, reason: "no_changes" };
-  await gitInWorkdir(
+  const commitResult = await gitInWorkdir(
     ["commit", "-m", `beacon update ${new Date().toISOString()}`],
     workdir
   );
+  if (commitResult.code !== 0) {
+    return {
+      pushed: false,
+      reason: `commit_failed: ${(commitResult.stderr || commitResult.stdout).slice(0, 200)}`,
+    };
+  }
   const pushResult = await gitInWorkdir(["push", "origin", "HEAD"], workdir);
   if (pushResult.code !== 0) {
     return {
