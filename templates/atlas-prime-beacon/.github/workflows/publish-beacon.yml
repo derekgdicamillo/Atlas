@@ -4,8 +4,39 @@ on:
     - cron: '15 * * * *'
   workflow_dispatch: {}
 
+# Resilience fallback for when Derek's local hourly beacon-export cron is
+# offline. Clones a private source mirror, builds the public root files,
+# and pushes them here.
+#
+# Until the BEACON_PAT, BEACON_SOURCE_REPO, and BEACON_PUBLIC_REPO secrets
+# are configured, the workflow exits early via the check-secrets gate so
+# hourly ticks succeed silently instead of erroring on missing inputs.
+
 jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Determine whether secrets are configured
+        id: check
+        env:
+          HAS_PAT: ${{ secrets.BEACON_PAT != '' }}
+          HAS_SOURCE: ${{ secrets.BEACON_SOURCE_REPO != '' }}
+          HAS_PUBLIC: ${{ secrets.BEACON_PUBLIC_REPO != '' }}
+        run: |
+          if [ "$HAS_PAT" = "true" ] && [ "$HAS_SOURCE" = "true" ] && [ "$HAS_PUBLIC" = "true" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Secrets configured — full publish will run."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Secrets not configured (BEACON_PAT / BEACON_SOURCE_REPO / BEACON_PUBLIC_REPO)."
+            echo "Local Atlas cron is the canonical publisher. Exiting cleanly."
+          fi
+
   publish:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.configured == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source mirror
