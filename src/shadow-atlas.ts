@@ -8,7 +8,7 @@
  * Run as its own Bun process:
  *   bun src/shadow-atlas.ts
  */
-import { readFile } from "fs/promises";
+import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { createServer, type Socket } from "net";
@@ -19,34 +19,49 @@ import { extractFirstAssistantText } from "./prompt-runner.ts";
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const SHADOW_DIR = join(PROJECT_DIR, "data", "shadow-atlas");
 const SNAPSHOT_FILE = join(SHADOW_DIR, "memory-snapshot.jsonl");
+/** Cold context written to disk and passed to claude via --system-prompt-file.
+ *  The full personality stack (~37KB) exceeds Windows's ~32KB CLI arg limit,
+ *  so we cannot use --system-prompt directly. */
+const SYSTEM_PROMPT_FILE = join(SHADOW_DIR, "cold-system-prompt.txt");
 const SOCKET_PATH = process.platform === "win32"
   ? "\\\\.\\pipe\\shadow-atlas"
   : join(SHADOW_DIR, "shadow.sock");
 
-let coldSystem: string | null = null;
+let coldSystemPath: string | null = null;
 
-async function loadColdContext(): Promise<string> {
-  if (coldSystem) return coldSystem;
+/** Strip CR so the assembled system prompt is LF-only.
+ *  Windows checkouts use CRLF line endings; src/claude.ts:validateSpawnArgs
+ *  rejects any arg containing \r as a potential injection vector. */
+function normalizeNewlines(s: string): string {
+  return s.replace(/\r\n?/g, "\n");
+}
+
+/** Assemble the cold context once, write to disk, and return the path. */
+async function loadColdContextPath(): Promise<string> {
+  if (coldSystemPath) return coldSystemPath;
+  await mkdir(SHADOW_DIR, { recursive: true });
   const parts: string[] = [];
   for (const f of ["CLAUDE.md", "SOUL.md", "IDENTITY.md", "USER.md", "SHIELD.md", "TOOLS.md", "GOOGLE.md"]) {
     const p = join(PROJECT_DIR, f);
-    if (existsSync(p)) parts.push(await readFile(p, "utf-8"));
+    if (existsSync(p)) parts.push(normalizeNewlines(await readFile(p, "utf-8")));
   }
   if (existsSync(SNAPSHOT_FILE)) {
     parts.push("## Memory snapshot (frozen at last shadow sync)");
-    parts.push(await readFile(SNAPSHOT_FILE, "utf-8"));
+    parts.push(normalizeNewlines(await readFile(SNAPSHOT_FILE, "utf-8")));
   }
-  coldSystem = parts.join("\n\n---\n\n");
-  return coldSystem;
+  const assembled = parts.join("\n\n---\n\n");
+  await writeFile(SYSTEM_PROMPT_FILE, assembled, "utf-8");
+  coldSystemPath = SYSTEM_PROMPT_FILE;
+  return coldSystemPath;
 }
 
 async function shadowRespond(prompt: string, budgetMs: number): Promise<{ text: string }> {
-  const system = await loadColdContext();
+  const systemPath = await loadColdContextPath();
   const args = [
     process.env.CLAUDE_PATH || "claude",
     "-p",
     "--model", process.env.SHADOW_ATLAS_MODEL || "sonnet",
-    "--system-prompt", system,
+    "--system-prompt-file", systemPath,
     "--output-format", "stream-json",
     "--verbose",
     "--allowedTools", "",

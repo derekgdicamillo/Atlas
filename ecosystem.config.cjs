@@ -37,8 +37,7 @@ module.exports = {
     },
     {
       name: "shadow-atlas",
-      script: "src/shadow-atlas.ts",
-      interpreter: "bun",
+      script: "start-shadow-atlas.cjs",
       cwd: "C:\\Users\\Derek DiCamillo\\Projects\\atlas",
       env: {
         NODE_ENV: "production",
