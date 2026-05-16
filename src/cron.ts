@@ -3363,6 +3363,98 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     })
   );
 
+  // 38. Atlas Prime Sprint 7: weekly knowledge audit (Saturday 9 AM PHX)
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 9 * * 6",
+      onTick: safeTick("knowledge-audit-weekly", async () => {
+        if (!supabase) { log("knowledge-audit-weekly", "supabase unavailable, skipping"); return; }
+        const { runWeeklyAudit, formatAuditSummary } = await import("./knowledge-audit.ts");
+        try {
+          const fetchRecentSamples = async (domain: string, max: number): Promise<string[]> => {
+            try {
+              const { data } = await supabase
+                .from("messages")
+                .select("content, metadata")
+                .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
+                .order("created_at", { ascending: false })
+                .limit(200);
+              const samples: string[] = [];
+              for (const r of (data ?? []) as any[]) {
+                const m = r.metadata ?? {};
+                const matched = m.staleness_domain === domain ||
+                  (typeof r.content === "string" && r.content.toLowerCase().includes(domain.toLowerCase()));
+                if (matched && r.content) {
+                  samples.push(String(r.content).slice(0, 1200));
+                  if (samples.length >= max) break;
+                }
+              }
+              return samples;
+            } catch { return []; }
+          };
+          const webFetch = async (url: string, _prompt: string): Promise<string> => {
+            const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+            return await res.text();
+          };
+          const results = await runWeeklyAudit(supabase, { fetchRecentSamples, webFetch });
+          if (results.length > 0) {
+            await sendTelegramMessage(DEREK_CHAT_ID, formatAuditSummary(results).slice(0, 4000));
+          }
+          log("knowledge-audit-weekly", `examined ${results.length} domains`);
+        } catch (err) {
+          log("knowledge-audit-weekly", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 39. Atlas Prime Sprint 7: shadow-process watchdog (every 5 min)
+  jobs.push(
+    CronJob.from({
+      cronTime: "*/5 * * * *",
+      onTick: safeTick("shadow-process-watchdog", async () => {
+        const { fireShadow } = await import("./shadow-driver.ts");
+        const ping = await fireShadow("ping", { budgetMs: 8_000 });
+        if (!ping.ok) {
+          log("shadow-process-watchdog", `shadow down: ${ping.reason}`);
+          try {
+            const { spawn } = await import("node:child_process");
+            spawn("bun", ["src/shadow-atlas.ts"], {
+              detached: true,
+              stdio: "ignore",
+              shell: process.platform === "win32",
+            }).unref();
+            log("shadow-process-watchdog", "attempted restart");
+          } catch (err) {
+            log("shadow-process-watchdog", `restart spawn failed: ${err}`);
+          }
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
+  // 40. Atlas Prime Sprint 7: beacon-roots-export (hourly, top of hour)
+  jobs.push(
+    CronJob.from({
+      cronTime: "0 * * * *",
+      onTick: safeTick("beacon-roots-export", async () => {
+        try {
+          const { spawn } = await import("node:child_process");
+          const p = spawn("bun", ["scripts/beacon-export.ts"], {
+            shell: process.platform === "win32",
+          });
+          await new Promise<void>((resolve) => p.on("close", () => resolve()));
+          log("beacon-roots-export", "export run complete");
+        } catch (err) {
+          log("beacon-roots-export", `failed: ${err}`);
+        }
+      }),
+      timeZone: TIMEZONE,
+    })
+  );
+
   for (const job of jobs) {
     job.start();
   }
@@ -3422,6 +3514,9 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
   console.log("  - Mon/Thu 7:30 Midas: GBP content draft (sonnet, requires approval)");
   console.log("  - 1st 10 AM    Midas: monthly strategic brief (opus)");
   console.log("  - 4:30 AM      /why introspection cache purge (30d TTL)");
+  console.log("  - Saturday 9 AM Weekly knowledge audit (knowledge-audit-weekly)");
+  console.log("  - Every 5 min  Shadow-Atlas watchdog (shadow-process-watchdog)");
+  console.log("  - Hourly       Beacon roots export (beacon-roots-export)");
 
   // ---- Missed-job catch-up (OpenClaw v2026.2.14 cron resilience) ----
   // If Atlas restarted and a critical daily job was missed, run it now.

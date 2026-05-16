@@ -577,6 +577,15 @@ if (initEtsy(supabase || undefined)) {
 }
 // Approval queue init deferred to bot.start() where bot instance is available
 
+// Atlas Prime Sprint 7: initialize per-process session signing key
+if (supabase) {
+  const agent = (process.env.AGENT_ID === "ishtar" ? "ishtar" : "atlas") as "atlas" | "ishtar";
+  import("./memory-signing.ts")
+    .then(({ generateSessionKey }) => generateSessionKey(supabase!, agent))
+    .then(() => info("startup", `session key generated for agent=${agent}`))
+    .catch((err) => warn("startup", `failed to generate session key: ${err}`));
+}
+
 async function saveMessage(
   role: string,
   content: string,
@@ -739,6 +748,13 @@ async function gracefulShutdown(exitCode: number): Promise<never> {
     }
     await killAllRunningSubagents("Atlas process shutting down").catch(() => {});
     await saveDedupCache();
+    // Atlas Prime Sprint 7: retire session signing key
+    if (supabase) {
+      try {
+        const { retireSessionKey } = await import("./memory-signing.ts");
+        await retireSessionKey(supabase);
+      } catch {}
+    }
     await Promise.all(allBots.map((b) => b.stop().catch(() => {})));
   } catch (e) {
     warn("shutdown", `Error during graceful stop: ${e}`);
@@ -1740,6 +1756,195 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         result.delta_reasoning.slice(0, 1200),
       ];
       await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
+    // ── Sprint 7 Bulletproofing commands ──────────────────────────────────
+
+    case "/shadow": {
+      const sub = (args[0] ?? "status").toLowerCase();
+      const { isFrozen, readFreezeReason, resume } = await import("./shadow-driver.ts");
+      if (sub === "status") {
+        const frozen = await isFrozen();
+        if (!frozen) {
+          if (supabase) {
+            const { data } = await supabase
+              .from("shadow_divergence_log")
+              .select("ts, distance, classified, judge_reason")
+              .order("ts", { ascending: false })
+              .limit(5);
+            const lines = ["**Shadow status**: 🟢 not frozen", ""];
+            if ((data ?? []).length > 0) {
+              lines.push("Recent divergences:");
+              for (const r of data as any[]) {
+                lines.push(`- ${String(r.ts).slice(0,19)} · d=${Number(r.distance).toFixed(2)} · ${r.classified}`);
+              }
+            }
+            await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+          } else {
+            await ctx.reply("Shadow status: 🟢 not frozen");
+          }
+          return true;
+        }
+        const fr = await readFreezeReason();
+        await ctx.reply(
+          `**Shadow status**: ❄️ frozen\n\nSince: ${fr?.since ?? "?"}\nReason: ${fr?.reason ?? "?"}\n\nResume with \`/shadow resume\`.`,
+          { parse_mode: "Markdown" }
+        );
+        return true;
+      }
+      if (sub === "resume") {
+        const by = ctx.from?.username ?? userId;
+        await resume(by, args.slice(1).join(" "));
+        await ctx.reply("Shadow freeze cleared. External actions re-enabled.");
+        return true;
+      }
+      if (sub === "freeze") {
+        const { freeze } = await import("./shadow-driver.ts");
+        await freeze(`manual freeze by ${ctx.from?.username ?? userId}`);
+        await ctx.reply("Shadow manually frozen.");
+        return true;
+      }
+      await ctx.reply(
+        ["**/shadow commands**", "`/shadow status` — current freeze state + recent divergences", "`/shadow resume [note]` — clear freeze", "`/shadow freeze` — manually freeze"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
+    case "/entropy": {
+      if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+      const sub = (args[0] ?? "review").toLowerCase();
+      if (sub === "review") {
+        const { data } = await supabase
+          .from("tool_entropy_probes")
+          .select("id, ts, user_prompt, entropy, action, selected_tool")
+          .order("ts", { ascending: false })
+          .limit(10);
+        if (!(data ?? []).length) {
+          await ctx.reply("No entropy probes recorded yet.");
+          return true;
+        }
+        const lines = ["**Recent tool-entropy probes**", ""];
+        for (const r of data as any[]) {
+          lines.push(`\`${String(r.id).slice(0,8)}\` · H=${Number(r.entropy).toFixed(3)} · ${r.action}${r.selected_tool ? ` → ${r.selected_tool}` : ""}`);
+          lines.push(`  ${String(r.user_prompt).slice(0,120)}`);
+        }
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      await ctx.reply(["**/entropy commands**", "`/entropy review` — recent probes"].join("\n"), { parse_mode: "Markdown" });
+      return true;
+    }
+
+    case "/audit": {
+      if (!supabase) { await ctx.reply("Supabase not configured."); return true; }
+      const sub = (args[0] ?? "status").toLowerCase();
+      if (sub === "status") {
+        const { data } = await supabase
+          .from("knowledge_audit_log")
+          .select("domain, audit_at, drift_score, proposed_half_life, current_half_life, decision")
+          .order("audit_at", { ascending: false })
+          .limit(10);
+        if (!(data ?? []).length) { await ctx.reply("No audits yet. Saturday 9 AM cron will populate."); return true; }
+        const lines = ["**Recent knowledge audits**", ""];
+        for (const r of data as any[]) {
+          lines.push(`${String(r.audit_at).slice(0,10)} · **${r.domain}** drift=${Math.round(r.drift_score*100)}% · ${r.current_half_life}d → ${r.proposed_half_life}d · ${r.decision}`);
+        }
+        await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "apply") {
+        const domain = args[1];
+        if (!domain) { await ctx.reply("Usage: `/audit apply <domain>`", { parse_mode: "Markdown" }); return true; }
+        const { data } = await supabase
+          .from("knowledge_audit_log")
+          .select("proposed_half_life")
+          .eq("domain", domain)
+          .eq("decision", "proposed")
+          .order("audit_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!data) { await ctx.reply(`No pending audit for \`${domain}\`.`, { parse_mode: "Markdown" }); return true; }
+        const { applyHalfLifeUpdate } = await import("./knowledge-audit.ts");
+        await applyHalfLifeUpdate({
+          domain,
+          newHalfLife: (data as any).proposed_half_life,
+          decidedBy: ctx.from?.username ?? userId,
+          supabase,
+        });
+        await ctx.reply(`Applied half-life ${(data as any).proposed_half_life}d for **${domain}**.`, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "applyall") {
+        const { data } = await supabase
+          .from("knowledge_audit_log")
+          .select("domain, proposed_half_life")
+          .eq("decision", "proposed");
+        if (!(data ?? []).length) { await ctx.reply("No pending audits."); return true; }
+        const { applyHalfLifeUpdate } = await import("./knowledge-audit.ts");
+        let n = 0;
+        for (const r of data as any[]) {
+          try {
+            await applyHalfLifeUpdate({
+              domain: r.domain,
+              newHalfLife: r.proposed_half_life,
+              decidedBy: ctx.from?.username ?? userId,
+              supabase,
+            });
+            n++;
+          } catch {}
+        }
+        await ctx.reply(`Applied ${n} of ${(data ?? []).length} pending half-life updates.`);
+        return true;
+      }
+      await ctx.reply(
+        ["**/audit commands**", "`/audit status` — recent audits", "`/audit apply <domain>` — apply pending", "`/audit applyall` — apply all pending"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
+      return true;
+    }
+
+    case "/beacon": {
+      const sub = (args[0] ?? "status").toLowerCase();
+      const { existsSync, readFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const latestPath = join(process.env.PROJECT_DIR ?? process.cwd(), "data", "beacon-repo", "roots", "latest.json");
+      if (sub === "status") {
+        if (!existsSync(latestPath)) {
+          await ctx.reply("Beacon: not yet bootstrapped. Run `bun scripts/beacon-export.ts` after `git clone`-ing the public repo to `data/beacon-repo`.");
+          return true;
+        }
+        const latest = JSON.parse(readFileSync(latestPath, "utf-8"));
+        const ageMin = Math.round((Date.now() - new Date(latest.ts).getTime()) / 60000);
+        await ctx.reply(
+          `**Beacon status**\nLatest root: \`${String(latest.root).slice(0,16)}…\`\nEntries: ${latest.entries}\nAge: ${ageMin} min`,
+          { parse_mode: "Markdown" }
+        );
+        return true;
+      }
+      if (sub === "verify") {
+        const { spawn } = await import("node:child_process");
+        const p = spawn("bun", ["scripts/verify-beacon.ts"], { shell: process.platform === "win32" });
+        let stdout = ""; let stderr = "";
+        p.stdout?.on("data", (b: Buffer) => { stdout += b.toString(); });
+        p.stderr?.on("data", (b: Buffer) => { stderr += b.toString(); });
+        const code: number = await new Promise((res) => p.on("close", (c: number | null) => res(c ?? 1)));
+        const status = code === 0 ? "🟢 MATCH" : (code === 1 ? "🔴 MISMATCH" : "⚠️ SETUP ERROR");
+        await ctx.reply(`**Beacon verify**: ${status}\n\n\`\`\`\n${(stdout + stderr).slice(0,3000)}\n\`\`\``, { parse_mode: "Markdown" });
+        return true;
+      }
+      if (sub === "bounty") {
+        await ctx.reply(
+          `**Beacon bounty**\nStanding offer: $${process.env.BEACON_BOUNTY_USD ?? "500"} for verifiable inconsistencies.\nSee BOUNTY.md in the public repo (\`${process.env.BEACON_PUBLIC_REPO ?? "atlas-prime-beacon"}\`).`,
+          { parse_mode: "Markdown" }
+        );
+        return true;
+      }
+      await ctx.reply(
+        ["**/beacon commands**", "`/beacon status` — latest published root", "`/beacon verify` — run local-vs-published check", "`/beacon bounty` — show standing bounty terms"].join("\n"),
+        { parse_mode: "Markdown" }
+      );
       return true;
     }
 
@@ -4068,6 +4273,16 @@ async function handleUserMessage(
         })
       : null;
 
+    // Atlas Prime Sprint 7A: fire shadow-Atlas in parallel before primary call
+    // Fire-and-forget; primary call is NOT blocked by shadow startup
+    const shadowPromise = (async () => {
+      if (process.env.SHADOW_ATLAS_ENABLED === "false") return null;
+      try {
+        const { fireShadow } = await import("./shadow-driver.ts");
+        return await fireShadow(enrichedPrompt);
+      } catch { return null; }
+    })();
+
     const rawResponse = await callClaude(enrichedPrompt, {
       resume: shouldResume,
       model: agentModel,
@@ -4092,6 +4307,43 @@ async function handleUserMessage(
 
     // Store intent flags for next turn's topic change detection (Phase 2)
     previousIntentMap.set(key, intent as Record<string, boolean>);
+
+    // Atlas Prime Sprint 7A: score drift asynchronously after primary response — must not block user reply
+    const _turn_id_snap = turn_id;
+    const _rawResponse_snap = rawResponse;
+    const _supabase_snap = supabase;
+    const _chatId_snap = chatId;
+    (async () => {
+      try {
+        const sr = await shadowPromise;
+        if (!sr || !sr.ok || !sr.shadowText) return;
+        const { scoreDrift, countMemoryWritesInWindow, recordDivergence } =
+          await import("./shadow-driver.ts");
+        const { distance, reason } = await scoreDrift(_rawResponse_snap, sr.shadowText);
+        const since = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+        const writes = _supabase_snap ? await countMemoryWritesInWindow(_supabase_snap, since) : 0;
+        const { classified, id } = await recordDivergence({
+          supabase: _supabase_snap,
+          turn_id: _turn_id_snap,
+          primaryText: _rawResponse_snap,
+          shadowText: sr.shadowText,
+          distance,
+          reason,
+          memoryWritesInWindow: writes,
+        });
+        if (classified === "alarm") {
+          try {
+            const alarmMsg =
+              `🚨 **Shadow divergence ALARM** — distance ${distance.toFixed(2)}\n\n` +
+              `Reason: ${reason}\n\nAtlas is **frozen** for external actions.\n` +
+              `Review: \`/shadow status\`\nResume: \`/shadow resume ${id ?? ""}\``;
+            await ctx.api.sendMessage(Number(_chatId_snap), alarmMsg, { parse_mode: "Markdown" });
+          } catch {}
+        }
+      } catch (err) {
+        try { warn("shadow-driver", `post-turn drift handling failed: ${err}`); } catch {}
+      }
+    })();
 
     // 10. Add assistant response to ring buffer (skip empty/error responses)
     if (rawResponse && rawResponse.trim() && !rawResponse.startsWith("Error:") && !rawResponse.startsWith("Sorry, that took too long")) {
@@ -4248,29 +4500,107 @@ async function handleUserMessage(
         catch (e) { warn("intents", `processGraphIntents failed: ${e}`); }
       }
 
-      if (hasGoogle) {
-        try { response = await processGoogleIntents(response, supabase); }
-        catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
+      // Atlas Prime Sprint 7: ambiguity detection + entropy probe
+      // Runs after memory/graph (safe intents) but before external-action dispatch.
+      // If ≥2 distinct external-action tag types appear in the response and the probe
+      // recommends clarification, we skip dispatch for this turn and ask the user.
+      try {
+        if (process.env.ENTROPY_PROBE_ENABLED !== "false") {
+          const tagMatches = Array.from(response.matchAll(/\[([A-Z_]+):/g));
+          const distinctTags = new Set(tagMatches.map((m) => m[1]));
+          if (distinctTags.size >= 2) {
+            const { probe } = await import("./entropy-probe.ts");
+            const verdict = await probe(combinedText);
+            if (supabase) {
+              try {
+                await supabase.from("tool_entropy_probes").insert({
+                  turn_id: turn_id ?? null,
+                  user_prompt: String(combinedText).slice(0, 4000),
+                  samples: verdict.samples,
+                  clusters: verdict.clusters,
+                  entropy: verdict.entropy,
+                  action: verdict.recommendation === "clarify" ? "clarified" : "dispatched",
+                  selected_tool: verdict.selectedTool ?? null,
+                });
+              } catch {}
+            }
+            if (verdict.recommendation === "clarify") {
+              try {
+                await ctx.reply(
+                  `🤔 I'm not sure which is right — I'd either ${[...distinctTags].join(" or ")}. Which do you want?\n\n_(${verdict.reason})_`,
+                  { parse_mode: "Markdown" }
+                );
+              } catch {}
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        try { logError("entropy-probe", `failed: ${err}`); } catch {}
       }
 
-      if (featureFlags.tmaa) {
-        try { response = await processTMAAIntents(response); }
-        catch (e) { warn("intents", `processTMAAIntents failed: ${e}`); }
-      }
+      // Atlas Prime Sprint 7B: freeze-flag gate — skip all external-action intent processors
+      // when shadow-divergence freeze is active. Memory, graph, and newsletter intents are safe
+      // (they are internal / read-only), but anything that sends emails, fires GHL workflows,
+      // creates calendar events, posts to social, or modifies websites must be gated.
+      let _shadowFrozen = false;
+      let _shadowFreezeReason: string | null = null;
+      try {
+        const { isFrozen, readFreezeReason } = await import("./shadow-driver.ts");
+        if (await isFrozen()) {
+          _shadowFrozen = true;
+          const fr = await readFreezeReason();
+          _shadowFreezeReason = fr?.reason ?? "unknown";
+        }
+      } catch { /* shadow-driver unavailable — fail open, proceed normally */ }
 
-      if (featureFlags.ghl) {
-        try { response = await processGHLIntents(response, supabase); }
-        catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
-      }
+      if (_shadowFrozen) {
+        warn("shadow-driver", `Freeze gate: blocking external-action intents. Reason: ${_shadowFreezeReason}`);
+        try {
+          await ctx.reply(
+            `❄️ Atlas is **frozen** — external actions blocked this turn.\n` +
+            `Reason: ${_shadowFreezeReason}\n\n` +
+            `Use \`/shadow status\` to review and \`/shadow resume\` to clear.`,
+            { parse_mode: "Markdown" }
+          );
+        } catch {}
+        // Strip external-action tags from response text so they are not shown to user
+        const { EXTERNAL_ACTION_TOOLS_REGEX } = await (async () => {
+          try {
+            // Build a regex that matches any of the external-action tag names inline
+            // so the raw tag text is scrubbed before it reaches Telegram.
+            const tagNames = ["SEND","TMAA_SEND","CAL_ADD","CAL_REMOVE","TMAA_CAL_ADD","TMAA_CAL_REMOVE","GHL_WORKFLOW","GHL_SOCIAL","WP_POST","WP_UPDATE","PLANNER_TASK","PLANNER_MOVE","PLANNER_DONE"];
+            return { EXTERNAL_ACTION_TOOLS_REGEX: new RegExp(`\\[(${tagNames.join("|")}):[^\\]]*\\]`, "gi") };
+          } catch { return { EXTERNAL_ACTION_TOOLS_REGEX: null }; }
+        })();
+        if (EXTERNAL_ACTION_TOOLS_REGEX) {
+          response = response.replace(EXTERNAL_ACTION_TOOLS_REGEX, "[action blocked — Atlas frozen]");
+        }
+      } else {
+        if (hasGoogle) {
+          try { response = await processGoogleIntents(response, supabase); }
+          catch (e) { warn("intents", `processGoogleIntents failed: ${e}`); }
+        }
 
-      if (featureFlags.m365) {
-        try { response = await processM365Intents(response); }
-        catch (e) { warn("intents", `processM365Intents failed: ${e}`); }
-      }
+        if (featureFlags.tmaa) {
+          try { response = await processTMAAIntents(response); }
+          catch (e) { warn("intents", `processTMAAIntents failed: ${e}`); }
+        }
 
-      if (isWebsiteReady()) {
-        try { response = await processWebsiteIntents(response, supabase); }
-        catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+        if (featureFlags.ghl) {
+          try { response = await processGHLIntents(response, supabase); }
+          catch (e) { warn("intents", `processGHLIntents failed: ${e}`); }
+        }
+
+        if (featureFlags.m365) {
+          try { response = await processM365Intents(response); }
+          catch (e) { warn("intents", `processM365Intents failed: ${e}`); }
+        }
+
+        if (isWebsiteReady()) {
+          try { response = await processWebsiteIntents(response, supabase); }
+          catch (e) { warn("intents", `processWebsiteIntents failed: ${e}`); }
+        }
       }
 
       // PV Newsletter tags

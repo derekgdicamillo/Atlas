@@ -136,3 +136,8 @@ data/dgm-worktrees/
 data/dgm-review/
 data/behavioral-soft-dpo.md
 data/dpo-export-*.jsonl
+
+# Atlas Prime Sprint 7
+data/shadow-atlas/
+data/beacon-repo/
+data/beacon-publisher.key

@@ -1,0 +1,26 @@
+name: publish-beacon-hourly
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source mirror
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.BEACON_SOURCE_REPO }}
+          token: ${{ secrets.BEACON_PAT }}
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+      - name: Build public files
+        run: bun scripts/beacon-export.ts --mode=mirror
+      - name: Push to public
+        run: |
+          cd data/beacon-repo
+          git config user.email "atlas-beacon@bot.local"
+          git config user.name "atlas-beacon"
+          git remote set-url origin "https://x-access-token:${{ secrets.BEACON_PAT }}@github.com/${{ secrets.BEACON_PUBLIC_REPO }}.git"
+          git push origin HEAD:main
