@@ -3414,10 +3414,15 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     CronJob.from({
       cronTime: "*/5 * * * *",
       onTick: safeTick("shadow-process-watchdog", async () => {
-        const { fireShadow } = await import("./shadow-driver.ts");
-        const ping = await fireShadow("ping", { budgetMs: 8_000 });
+        // Use the cheap `ping` opcode — bypasses claude spawn entirely.
+        // Liveness only; semantic correctness is checked turn-by-turn elsewhere.
+        const { pingShadow } = await import("./shadow-driver.ts");
+        const ping = await pingShadow({ budgetMs: 5_000 });
         if (!ping.ok) {
           log("shadow-process-watchdog", `shadow down: ${ping.reason}`);
+          // Note: pm2 is responsible for keeping shadow-atlas alive
+          // (ecosystem.config.cjs autorestart). The detached spawn here is a
+          // last-resort fallback when pm2 isn't running this process.
           try {
             const { spawn } = await import("node:child_process");
             spawn("bun", ["src/shadow-atlas.ts"], {

@@ -33,16 +33,14 @@ export interface ShadowFireResult {
   reason?: string;
 }
 
-export async function fireShadow(
-  prompt: string,
-  opts?: { budgetMs?: number }
+async function sendShadowRequest(
+  payload: Record<string, unknown>,
+  budgetMs: number
 ): Promise<ShadowFireResult> {
   if (process.env.SHADOW_ATLAS_ENABLED === "false") {
     return { ok: false, reason: "shadow_disabled" };
   }
-  const budgetMs = opts?.budgetMs ?? DEFAULT_BUDGET_MS;
   return await new Promise((resolve) => {
-    const id = randomUUID();
     let socket: Socket | null = null;
     let buf = "";
     const timer = setTimeout(() => {
@@ -56,7 +54,7 @@ export async function fireShadow(
       return resolve({ ok: false, reason: `connect: ${err}` });
     }
     socket.on("connect", () => {
-      socket!.write(JSON.stringify({ id, prompt, budgetMs }) + "\n");
+      socket!.write(JSON.stringify(payload) + "\n");
     });
     socket.on("data", (chunk) => {
       buf += chunk.toString("utf-8");
@@ -79,6 +77,29 @@ export async function fireShadow(
       resolve({ ok: false, reason: `socket: ${err.message}` });
     });
   });
+}
+
+export async function fireShadow(
+  prompt: string,
+  opts?: { budgetMs?: number }
+): Promise<ShadowFireResult> {
+  const budgetMs = opts?.budgetMs ?? DEFAULT_BUDGET_MS;
+  return sendShadowRequest(
+    { id: randomUUID(), prompt, budgetMs },
+    budgetMs
+  );
+}
+
+/** Cheap liveness probe — shadow returns "pong" without spawning claude.
+ *  Use this from the watchdog cron, not fireShadow. */
+export async function pingShadow(
+  opts?: { budgetMs?: number }
+): Promise<ShadowFireResult> {
+  const budgetMs = opts?.budgetMs ?? 5_000;
+  return sendShadowRequest(
+    { id: randomUUID(), prompt: "", ping: true, budgetMs },
+    budgetMs
+  );
 }
 
 // ============================================================

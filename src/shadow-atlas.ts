@@ -97,6 +97,9 @@ interface IPCRequest {
   id: string;
   prompt: string;
   budgetMs?: number;
+  /** When true, skip claude spawn and return a synthetic 'pong' immediately.
+   *  Used by the watchdog cron to verify process liveness cheaply. */
+  ping?: boolean;
 }
 interface IPCResponse {
   id: string;
@@ -118,6 +121,12 @@ function handleConnection(socket: Socket): void {
         req = JSON.parse(line);
       } catch (err) {
         const out: IPCResponse = { id: "?", error: `parse: ${err}` };
+        socket.write(JSON.stringify(out) + "\n");
+        continue;
+      }
+      if (req.ping) {
+        // Cheap liveness check — bypass claude spawn entirely.
+        const out: IPCResponse = { id: req.id, text: "pong" };
         socket.write(JSON.stringify(out) + "\n");
         continue;
       }
