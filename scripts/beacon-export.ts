@@ -59,10 +59,11 @@ async function gitInWorkdir(
   cwd: string
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const p = spawn("git", args, {
-      cwd,
-      shell: process.platform === "win32",
-    });
+    // shell:false keeps args un-tokenized so multi-word values like
+    // `-m "beacon update <iso>"` don't get split by Windows cmd.exe.
+    // git.exe is resolved through PATH directly.
+    const cmd = process.platform === "win32" ? "git.exe" : "git";
+    const p = spawn(cmd, args, { cwd, shell: false });
     let stdout = "";
     let stderr = "";
     p.stdout?.on("data", (b) => (stdout += b.toString()));
