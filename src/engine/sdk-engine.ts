@@ -3,6 +3,7 @@ import type { StreamEvent } from "../claude.ts";
 import type { EngineResult } from "./types.ts";
 import { mapSdkMessageToEvents } from "./sdk-adapter.ts";
 import { loadMcpServersForSdk } from "./mcp-config.ts";
+import { MAX_TOOL_CALLS_PER_REQUEST } from "../constants.ts";
 
 export interface RunViaSdkOptions {
   modelId: string;                 // resolved model string (MODELS[tier])
@@ -30,6 +31,8 @@ export async function runViaSdk(
   let text = "";
   let sessionId: string | null = opts.resumeSessionId ?? null;
   let inputTokens = 0, outputTokens = 0, toolCallCount = 0, isError = false;
+  let errorReason: string | undefined;
+  let errorDetail: string | undefined;
 
   // Watchdog: abort on inactivity or wall-clock, same semantics as the CLI path's kill().
   const watchdog = setInterval(() => {
@@ -55,11 +58,19 @@ export async function runViaSdk(
     for await (const msg of iterator) {
       lastActivity = Date.now();
       for (const ev of mapSdkMessageToEvents(msg)) {
-        if (ev.type === "assistant" && ev.toolName) toolCallCount++;
+        if (ev.type === "assistant" && ev.toolName) {
+          toolCallCount++;
+          if (toolCallCount > MAX_TOOL_CALLS_PER_REQUEST) {
+            isError = true; errorReason = "tool_call_loop";
+            controller.abort();
+            break;
+          }
+        }
         if (ev.type === "text_delta" && ev.textDelta) text += ev.textDelta;
         if (ev.type === "result") {
           if (ev.resultText) text = ev.resultText || text; // prefer final result text
           isError = !!ev.isError;
+          if (ev.isError) { errorReason = errorReason || "error"; errorDetail = ev.errorSubtype || errorDetail; }
           inputTokens = ev.inputTokens || inputTokens;
           outputTokens = ev.outputTokens || outputTokens;
         }
@@ -69,14 +80,14 @@ export async function runViaSdk(
     }
   } catch (err: any) {
     if (controller.signal.aborted) {
-      isError = true;
-      onEvent({ type: "result", sessionId: sessionId ?? undefined, resultText: "", isError: true, errorSubtype: "timeout" });
+      isError = true; errorReason = errorReason || "timeout";
     } else {
-      throw err;
+      isError = true; errorReason = "error"; errorDetail = String(err?.message || err);
     }
+    onEvent({ type: "result", sessionId: sessionId ?? undefined, resultText: "", isError: true, errorSubtype: errorReason });
   } finally {
     clearInterval(watchdog);
   }
 
-  return { text, sessionId, inputTokens, outputTokens, isError, toolCallCount };
+  return { text, sessionId, inputTokens, outputTokens, isError, toolCallCount, errorReason, errorDetail };
 }
