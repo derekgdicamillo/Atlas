@@ -57,6 +57,17 @@ export async function runViaSdk(
 
     for await (const msg of iterator) {
       lastActivity = Date.now();
+
+      // Capture structured error signals the adapter doesn't carry, for fallback classification.
+      if (msg?.type === "assistant" && (msg as any).error) {
+        errorDetail = errorDetail || String((msg as any).error);
+      }
+      if (msg?.type === "result") {
+        const r: any = msg;
+        if (r.api_error_status) errorDetail = errorDetail || `api_error_status ${r.api_error_status}`;
+        if (Array.isArray(r.errors) && r.errors.length) errorDetail = errorDetail || r.errors.join("; ");
+      }
+
       for (const ev of mapSdkMessageToEvents(msg)) {
         if (ev.type === "assistant" && ev.toolName) {
           toolCallCount++;
@@ -70,7 +81,11 @@ export async function runViaSdk(
         if (ev.type === "result") {
           if (ev.resultText) text = ev.resultText || text; // prefer final result text
           isError = !!ev.isError;
-          if (ev.isError) { errorReason = errorReason || "error"; errorDetail = ev.errorSubtype || errorDetail; }
+          if (ev.isError) {
+            errorReason = errorReason || "error";
+            // Structured SDK error signal takes precedence over the adapter's subtype string.
+            errorDetail = errorDetail || ev.errorSubtype;
+          }
           inputTokens = ev.inputTokens || inputTokens;
           outputTokens = ev.outputTokens || outputTokens;
         }
