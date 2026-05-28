@@ -185,7 +185,7 @@ export async function detectNaturalExperiments(
 }
 
 import { spawn } from "node:child_process";
-import { Anthropic } from "@anthropic-ai/sdk";
+import { callOpus } from "./haiku-client.ts";
 
 export interface PCEdgeCandidate {
   from: string;
@@ -301,9 +301,8 @@ export interface LLMEdgeProposal {
 
 export async function proposeLLMEdges(
   supabase: SupabaseClient,
-  opts?: { weeksBack?: number; client?: Anthropic }
+  opts?: { weeksBack?: number }
 ): Promise<{ inserted: number; proposals: LLMEdgeProposal[] }> {
-  const client = opts?.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const weeksBack = opts?.weeksBack ?? 1;
 
   const { readdir, readFile } = await import("node:fs/promises");
@@ -371,14 +370,13 @@ Rules:
     scorecardSummary,
   ].join("\n");
 
-  const resp = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 2000,
+  const resp = await callOpus({
     system: SYSTEM,
-    messages: [{ role: "user", content: userMessage }],
+    userMessage,
+    maxTokens: 2000,
   });
 
-  const text = (resp.content[0] as any)?.text ?? "";
+  const text = resp.text;
   let proposals: LLMEdgeProposal[];
   try {
     const jsonStart = text.indexOf("[");

@@ -281,6 +281,7 @@ export async function processEpisodicClustering(supabase: SupabaseClient): Promi
         system: `You read a cluster of episodic memories sharing tag "${c.tag}" and write ONE generalized rule (≤80 words) capturing the pattern. Output the rule, no preamble.`,
         userMessage: c.member_summaries.map((s, i) => `${i + 1}. ${s}`).join("\n"),
         maxTokens: 200,
+        caller: "cortex-cluster",
       });
       rule = r.text.trim();
     } catch (err) {

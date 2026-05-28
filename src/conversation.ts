@@ -17,12 +17,17 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { writeFileSync } from "fs";
 import { join, dirname } from "path";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { info, warn } from "./logger.ts";
 import { CONTEXT_PRUNE_AGE_ENTRIES, CONTEXT_PRUNE_MAX_CHARS, IMAGE_DEDUP_TAIL_KEEP, COMPACTION_BUDGET_THRESHOLD, COMPACTION_MIN_ENTRIES, DEFAULT_QUEUE_MODE, type QueueMode } from "./constants.ts";
 
 const PROJECT_ROOT = dirname(dirname(import.meta.path));
 const CONVERSATIONS_DIR = join(PROJECT_ROOT, "data", "conversations");
-const MAX_ENTRIES = 20;
+// MAX_ENTRIES was 20 — too small for full-day sessions (2026-05-26 had 27+ turns,
+// so 7+ early Hermes-install turns got evicted and Atlas later "forgot" doing the work).
+// 60 gives ~2-3 normal active days of headroom before eviction; compression still
+// triggers at COMPRESS_THRESHOLD (10) to keep prompt size sane.
+const MAX_ENTRIES = 60;
 const MAX_CONTENT_LENGTH = 2000; // ring buffer entry limit (prompt formatting caps total at 8K)
 const MAX_ACCUMULATOR_SIZE = 50; // cap pending messages per session to prevent memory spikes
 const USER_TIMEZONE = process.env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -55,6 +60,7 @@ export async function compressOldEntries(
   key: string,
   summarizeFn: (prompt: string) => Promise<string>,
   wmHints?: { activeIntent?: string; keyEntities?: string[]; workInProgress?: string },
+  supabase?: SupabaseClient | null,
 ): Promise<void> {
   const entries = await loadBuffer(key);
   if (entries.length <= COMPRESS_THRESHOLD) return;
@@ -103,7 +109,31 @@ export async function compressOldEntries(
   try {
     const summaryPath = join(CONVERSATIONS_DIR, `${key}-summary.json`);
     writeFileSync(summaryPath, JSON.stringify(compression));
-  } catch { /* non-fatal */ }
+  } catch (err) {
+    warn("conversation", `Failed to persist local summary for ${key}: ${err}`);
+  }
+
+  // Durable backup: also write to Supabase summaries table so compression survives
+  // local file loss (corruption, restart, manual wipe). The local JSON is the fast
+  // path; Supabase is the safety net. Non-fatal if it fails — local copy still works.
+  if (supabase) {
+    try {
+      const periodStart = oldEntries[0]?.timestamp || new Date().toISOString();
+      const periodEnd = oldEntries[oldEntries.length - 1]?.timestamp || new Date().toISOString();
+      const { error } = await supabase.from("summaries").insert({
+        content: `[conversation-buffer ${key}] ${summary}`,
+        source_message_ids: [],
+        period_start: periodStart,
+        period_end: periodEnd,
+        message_count: oldCount,
+      });
+      if (error) {
+        warn("conversation", `Supabase summary insert failed for ${key}: ${error.message}`);
+      }
+    } catch (err) {
+      warn("conversation", `Supabase summary write threw for ${key}: ${err}`);
+    }
+  }
 
   info("conversation", `Compressed ${oldCount} entries for ${key} (${summary.length} chars)`);
 }
@@ -433,6 +463,7 @@ export async function compactIfNeeded(
   contextChars: number,
   budgetChars: number,
   summarizeFn: (text: string) => Promise<string>,
+  supabase?: SupabaseClient | null,
 ): Promise<string | null> {
   const entries = await loadBuffer(key);
   if (entries.length < COMPACTION_MIN_ENTRIES) return null;
@@ -446,7 +477,7 @@ export async function compactIfNeeded(
   if (cached && cached.coveredCount >= entriesOlderThanTail) return null;
 
   info("conversation", `[compaction] Inline compaction for ${key} (ratio: ${(ratio * 100).toFixed(0)}%, ${entries.length} entries)`);
-  await compressOldEntries(key, summarizeFn);
+  await compressOldEntries(key, summarizeFn, undefined, supabase);
 
   return await formatForPrompt(key, 0);
 }

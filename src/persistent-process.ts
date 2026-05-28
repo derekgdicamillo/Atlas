@@ -111,6 +111,10 @@ export class PersistentProcess {
   // Turn tracking (Phase 2: tiered context loading)
   private turnCount = 0;
 
+  // Cumulative tool-call count across this process lifetime.
+  // Used (with turnCount) for session-level recycling — see Tier 1 Fix #01.
+  private cumulativeToolCalls = 0;
+
   // Turn state
   private turnResolve: ((result: TurnResult) => void) | null = null;
   private turnReject: ((err: Error) => void) | null = null;
@@ -434,7 +438,13 @@ export class PersistentProcess {
    */
   async restart(): Promise<boolean> {
     info("persistent", `Manual restart requested for agent ${this.config.agentId}`);
+
+    // Mark intent BEFORE killing so monitorExit knows this is deliberate and
+    // bails instead of also calling autoRestart() → second spawn. See Tier 1 Fix #02.
+    this.status = "restarting";
+
     this.turnCount = 0;
+    this.cumulativeToolCalls = 0;
 
     // Kill existing process
     if (this.proc) {
@@ -700,14 +710,22 @@ export class PersistentProcess {
           durationMs: turnDuration,
         });
 
-        // Auto-restart after heavy turns to prevent process getting stuck.
-        // The CLI accumulates internal state from tool calls; after enough
-        // complexity, the next message hangs. Proactive restart is cheap
-        // compared to a stuck session.
-        const HEAVY_TOOL_THRESHOLD = 5;
-        const HEAVY_DURATION_THRESHOLD = 120_000; // 2 minutes
-        if (turnTools >= HEAVY_TOOL_THRESHOLD || turnDuration >= HEAVY_DURATION_THRESHOLD) {
-          info("persistent", `[${this.config.agentId}] Heavy turn (${turnTools} tools, ${Math.round(turnDuration / 1000)}s). Auto-restarting process for stability.`);
+        // Session-level recycling — see Tier 1 Fix #01.
+        // The original heavy-turn killer fired on every meaningful Opus reply (5 tools / 120s
+        // is well below a normal multi-tool turn). The per-turn watchdog at startWatchdog()
+        // already catches truly stuck turns (Opus: 540s inactivity, 2700s wall). What this
+        // block actually defends against is the long-standing CLI bug where internal state
+        // accumulates from many tool calls and the *next* message hangs. So recycle at the
+        // session level instead — same defense, none of the per-turn collateral damage.
+        // The next message respawns the CLI fresh.
+        this.cumulativeToolCalls += turnTools;
+        const SESSION_TURN_LIMIT = 60;
+        const SESSION_TOOL_LIMIT = 250; // stays under MAX_TOOL_CALLS_PER_REQUEST = 300
+        if (this.turnCount >= SESSION_TURN_LIMIT
+            || this.cumulativeToolCalls >= SESSION_TOOL_LIMIT) {
+          info("persistent",
+            `[${this.config.agentId}] Session limits reached (${this.turnCount} turns, ` +
+            `${this.cumulativeToolCalls} tools). Recycling for fresh CLI state.`);
           this.restart().catch(() => {});
         }
         break;
@@ -788,7 +806,10 @@ export class PersistentProcess {
     if (!this.proc) return;
 
     this.proc.exited.then((exitCode) => {
-      if (this.status === "shutdown") return;
+      // "shutdown" = clean stop. "restarting" = restart() handled this kill deliberately
+      // and will spawn its own replacement; if we also fire autoRestart() we double-spawn.
+      // See Tier 1 Fix #02.
+      if (this.status === "shutdown" || this.status === "restarting") return;
 
       warn("persistent", `Process exited (code=${exitCode}) for agent ${this.config.agentId}`);
 

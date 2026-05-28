@@ -87,6 +87,35 @@ function repairLlmJson(raw: string): string {
 }
 
 const MAA_DASHBOARD_TOKEN = process.env.MAA_DASHBOARD_TOKEN || "";
+
+/**
+ * Safely parse a WP REST API response as JSON.
+ *
+ * SiteGround WAF sometimes serves CAPTCHA challenges with HTTP 202 + text/html.
+ * Since 202 is in 200-299, res.ok passes — but res.json() then throws a cryptic
+ * "SyntaxError: Failed to parse JSON". This helper detects that case and throws
+ * a descriptive error with the IP to whitelist.
+ */
+async function parseWpJson<T>(res: Response, context: string): Promise<T> {
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    const body = await res.text().catch(() => "");
+    const isCaptcha = body.includes("sgcaptcha") || body.includes("/.well-known/");
+    if (isCaptcha) {
+      const ipMatch = body.match(/ipc:(\d+\.\d+\.\d+\.\d+)/);
+      const ip = ipMatch ? ipMatch[1] : "unknown";
+      throw new Error(
+        `SiteGround CAPTCHA blocked WP API (${context}, HTTP ${res.status}). ` +
+        `Whitelist Atlas IP ${ip} in SiteGround Security → Block/Allow IPs.`
+      );
+    }
+    throw new Error(
+      `WP API returned non-JSON (${context}, HTTP ${res.status}, ${ct || "no content-type"}): ` +
+      body.substring(0, 200)
+    );
+  }
+  return res.json() as Promise<T>;
+}
 const SAGE_API_URL = `${MAA_SITE_URL}/wp-json/maa/v1/dashboard/sage`;
 const SAGE_PERIOD = "90d";
 const SAGE_MIN_QUESTION_COUNT = 5;
@@ -126,7 +155,7 @@ async function fetchSageData(): Promise<SageDashboardResponse | null> {
       return null;
     }
 
-    const raw = (await res.json()) as any;
+    const raw = await parseWpJson<any>(res, "SAGE API");
     return normalizeSageResponse(raw);
   } catch (err) {
     warn("maa-blog", `SAGE API failed: ${err}, falling back to pillars`);
@@ -314,7 +343,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
       );
 
       if (searchRes.ok) {
-        const tags = (await searchRes.json()) as { id: number; name: string }[];
+        const tags = await parseWpJson<{ id: number; name: string }[]>(searchRes, "tag search");
         const exact = tags.find(
           (t) => t.name.toLowerCase() === name.toLowerCase()
         );
@@ -337,7 +366,7 @@ async function resolveTagIds(tagNames: string[]): Promise<number[]> {
       });
 
       if (createRes.ok) {
-        const created = (await createRes.json()) as { id: number };
+        const created = await parseWpJson<{ id: number }>(createRes, "tag create");
         ids.push(created.id);
       } else {
         warn("maa-blog", `Failed to create tag "${name}": ${createRes.status}`);
@@ -391,7 +420,7 @@ async function publishPost(
       return null;
     }
 
-    const post = (await res.json()) as { id: number; link: string };
+    const post = await parseWpJson<{ id: number; link: string }>(res, "post publish");
     info("maa-blog", `Published: "${title}" (ID ${post.id}) at ${post.link}`);
     return post;
   } catch (err) {

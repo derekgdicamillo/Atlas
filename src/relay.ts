@@ -287,6 +287,7 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ISHTAR_BOT_TOKEN = process.env.ISHTAR_BOT_TOKEN || "";
 const COACH_BOT_TOKEN = process.env.COACH_BOT_TOKEN || "";
 const MEDICINE_BOT_TOKEN = process.env.MEDICINE_BOT_TOKEN || "";
+const ANNABETH_BOT_TOKEN = process.env.ANNABETH_BOT_TOKEN || "";
 const ALLOWED_USER_ID = process.env.TELEGRAM_USER_ID || "";
 const RELAY_DIR = process.env.RELAY_DIR || join(process.env.HOME || process.env.USERPROFILE || require("os").homedir(), ".claude-relay");
 
@@ -301,6 +302,7 @@ function botIdFromCtx(ctx: Context): string {
   if (token === COACH_BOT_TOKEN) return "coach";
   if (token === ISHTAR_BOT_TOKEN) return "ishtar";
   if (token === MEDICINE_BOT_TOKEN) return "medicine";
+  if (token === ANNABETH_BOT_TOKEN) return "annabeth";
   return "atlas";
 }
 
@@ -629,9 +631,10 @@ const bot = new Bot(BOT_TOKEN);
 const ishtarBot = ISHTAR_BOT_TOKEN ? new Bot(ISHTAR_BOT_TOKEN) : null;
 const coachBot = COACH_BOT_TOKEN ? new Bot(COACH_BOT_TOKEN) : null;
 const medicineBot = MEDICINE_BOT_TOKEN ? new Bot(MEDICINE_BOT_TOKEN) : null;
+const annabethBot = ANNABETH_BOT_TOKEN ? new Bot(ANNABETH_BOT_TOKEN) : null;
 
 /** All active bots for shutdown and startup */
-const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : []), ...(medicineBot ? [medicineBot] : [])];
+const allBots: Bot[] = [bot, ...(ishtarBot ? [ishtarBot] : []), ...(coachBot ? [coachBot] : []), ...(medicineBot ? [medicineBot] : []), ...(annabethBot ? [annabethBot] : [])];
 
 // ============================================================
 // GRAMMY PLUGINS (production resilience)
@@ -1025,11 +1028,12 @@ const OFFSET_FILE = join(PROJECT_ROOT, ".last_update_id");
 const OFFSET_FILE_ISHTAR = join(PROJECT_ROOT, ".last_update_id_ishtar");
 const OFFSET_FILE_COACH = join(PROJECT_ROOT, ".last_update_id_coach");
 const OFFSET_FILE_MEDICINE = join(PROJECT_ROOT, ".last_update_id_medicine");
+const OFFSET_FILE_ANNABETH = join(PROJECT_ROOT, ".last_update_id_annabeth");
 
 // Per-bot update ID tracking. Each bot has its own Telegram update ID namespace,
 // so a single global counter causes cross-bot stale detection (bug: Ishtar's
 // 726M IDs made Atlas's 579M IDs look "stale").
-const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0, coach: 0, medicine: 0 };
+const lastProcessedUpdateIds: Record<string, number> = { atlas: 0, ishtar: 0, coach: 0, medicine: 0, annabeth: 0 };
 
 async function loadLastUpdateId(): Promise<number> {
   try {
@@ -1067,12 +1071,22 @@ async function loadLastUpdateIdMedicine(): Promise<number> {
   }
 }
 
+async function loadLastUpdateIdAnnabeth(): Promise<number> {
+  try {
+    const data = await readFile(OFFSET_FILE_ANNABETH, "utf-8");
+    return parseInt(data.trim(), 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function saveLastUpdateId(updateId: number, botId: string = "atlas"): Promise<void> {
   try {
     let file = OFFSET_FILE;
     if (botId === "ishtar") file = OFFSET_FILE_ISHTAR;
     else if (botId === "coach") file = OFFSET_FILE_COACH;
     else if (botId === "medicine") file = OFFSET_FILE_MEDICINE;
+    else if (botId === "annabeth") file = OFFSET_FILE_ANNABETH;
     await writeFile(file, String(updateId), "utf-8");
     lastProcessedUpdateIds[botId] = updateId;
   } catch (e) {
@@ -4175,6 +4189,7 @@ async function handleUserMessage(
       const compacted = await compactIfNeeded(
         key, totalContextChars, MAX_PROMPT_CHARS,
         (p) => runPrompt(p, MODELS.haiku),
+        supabase,
       );
       if (compacted) {
         conversationContext = compacted;
@@ -4353,8 +4368,14 @@ async function handleUserMessage(
         timestamp: new Date().toISOString(),
       });
 
-      // Fire-and-forget: compress old conversation entries in background
-      compressOldEntries(key, (p) => runPrompt(p, MODELS.haiku)).catch(() => {});
+      // Fire-and-forget: compress old conversation entries in background.
+      // Pass supabase so summaries are also persisted to the `summaries` table —
+      // local JSON is the fast path, Supabase is the durable backup. Failures must
+      // be logged: when Haiku errors silently dropped this on 2026-05-26, Atlas
+      // lost the entire Hermes-install context for the day.
+      compressOldEntries(key, (p) => runPrompt(p, MODELS.haiku), undefined, supabase).catch((err) => {
+        warn("conversation", `compressOldEntries failed for ${key}: ${err}`);
+      });
 
       // Auto-persist: extract key facts from long responses and save to memory.
       // This supplements the behavioral AUTO-PERSIST RULE with an enforced mechanism.
@@ -6197,13 +6218,18 @@ if (medicineBot) {
   medicineBot.use(handlers);
   info("startup", "Medicine bot initialized (multi-bot mode)");
 }
+if (annabethBot) {
+  annabethBot.use(handlers);
+  info("startup", "Annabeth bot initialized (multi-bot mode)");
+}
 
 // Load persisted update offsets (per-bot) to skip already-processed messages after restart
-Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach(), loadLastUpdateIdMedicine()]).then(async ([atlasId, ishtarId, coachId, medicineId]) => {
+Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach(), loadLastUpdateIdMedicine(), loadLastUpdateIdAnnabeth()]).then(async ([atlasId, ishtarId, coachId, medicineId, annabethId]) => {
   lastProcessedUpdateIds.atlas = atlasId;
   lastProcessedUpdateIds.ishtar = ishtarId;
   lastProcessedUpdateIds.coach = coachId;
   lastProcessedUpdateIds.medicine = medicineId;
+  lastProcessedUpdateIds.annabeth = annabethId;
   const id = atlasId; // backward compat for dropPending logic below
   info("startup", `Loaded last update IDs: atlas=${atlasId}, ishtar=${ishtarId}, coach=${coachId}, medicine=${medicineId}`);
 
@@ -6582,5 +6608,66 @@ Promise.all([loadLastUpdateId(), loadLastUpdateIdIshtar(), loadLastUpdateIdCoach
     }
 
     startMedicine();
+  }
+
+  // Start Annabeth bot with same 409-resilient retry loop
+  if (annabethBot) {
+    let annabethAttempt = 0;
+    let annabethPollingStartedAt = 0;
+    let annabethConsecutiveQuickExits = 0;
+
+    async function startAnnabeth(): Promise<void> {
+      try {
+        annabethPollingStartedAt = Date.now();
+        await annabethBot!.start({
+          drop_pending_updates: dropPending,
+          onStart: () => {
+            info("startup", "Annabeth bot is running!");
+            annabethAttempt = 0;
+            annabethConsecutiveQuickExits = 0;
+          },
+        });
+        if (!isShuttingDown) {
+          const aliveMs = Date.now() - annabethPollingStartedAt;
+          const isQuickExit = aliveMs < QUICK_EXIT_THRESHOLD_MS;
+
+          if (isQuickExit) {
+            annabethConsecutiveQuickExits++;
+            if (annabethConsecutiveQuickExits >= MAX_QUICK_EXITS) {
+              warn("startup", `Annabeth polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${annabethConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Backing off for 5 minutes.`);
+              await new Promise((r) => setTimeout(r, 5 * 60_000));
+              annabethConsecutiveQuickExits = 0;
+            } else {
+              const backoffMs = Math.min(35_000 * Math.pow(2, annabethConsecutiveQuickExits - 1), 5 * 60_000);
+              warn("startup", `Annabeth polling loop died after ${Math.round(aliveMs / 1000)}s (quick exit ${annabethConsecutiveQuickExits}/${MAX_QUICK_EXITS}). Waiting ${Math.round(backoffMs / 1000)}s.`);
+              await new Promise((r) => setTimeout(r, backoffMs));
+            }
+          } else {
+            annabethConsecutiveQuickExits = 0;
+            warn("startup", `Annabeth polling loop exited after ${Math.round(aliveMs / 1000)}s. Restarting in 35s.`);
+            await new Promise((r) => setTimeout(r, 35_000));
+          }
+
+          return startAnnabeth();
+        }
+      } catch (err) {
+        const is409 = err && typeof err === "object" && "error_code" in err && (err as any).error_code === 409;
+        if (is409 && annabethAttempt < MAX_START_RETRIES) {
+          annabethAttempt++;
+          const backoffMs = Math.min(5000 * Math.pow(2, annabethAttempt - 1), 60_000);
+          warn("startup", `Annabeth 409 conflict on start (attempt ${annabethAttempt}/${MAX_START_RETRIES}). Retrying in ${backoffMs / 1000}s...`);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          return startAnnabeth();
+        }
+        logError("startup", `Annabeth bot start failed after ${annabethAttempt} attempts: ${err}`);
+        warn("startup", "Annabeth exhausted retries. Will try again in 5 minutes.");
+        await new Promise((r) => setTimeout(r, 5 * 60_000));
+        annabethAttempt = 0;
+        annabethConsecutiveQuickExits = 0;
+        return startAnnabeth();
+      }
+    }
+
+    startAnnabeth();
   }
 });

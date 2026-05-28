@@ -2335,82 +2335,108 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     );
   }
 
-  // Ad creative performance tracker — DISABLED 2026-04-28
-  // Derek removed for marketing redo. Code preserved.
-  // eslint-disable-next-line no-constant-condition
-  if (false as boolean) {
-    const { isMetaReady, getTopAds, getDailyAdInsights } = await import("./meta.ts");
-    if (isMetaReady()) {
-      jobs.push(
-        CronJob.from({
-          cronTime: "0 21 * * *",
-          onTick: safeTick("ad-tracker", async () => {
-            try {
-              const todayStr = today();
-              // Use 7-day rolling window with daily breakdown to capture
-              // Meta's retroactive attribution (conversions backfilled to click date).
-              // Each night refreshes the last 7 days of snapshots via upsert.
-              const dailyAds = await getDailyAdInsights("7d");
-              let snapshots: AdSnapshot[] = [];
-              if (dailyAds.length === 0) {
-                // Fallback to today-only query for backward compat
-                const ads = await getTopAds("today", 100);
-                if (ads.length === 0) {
-                  log("ad-tracker", "No ad data for today, skipping snapshot");
-                  return;
-                }
-                snapshots = insightsToSnapshots(ads, todayStr);
-                recordAdSnapshots(snapshots);
-                log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr} (fallback)`);
-              } else {
-                // Convert daily insights to snapshots (each has its own date)
-                snapshots = dailyAds.map(ad => ({
-                  date: ad.date,
-                  campaignName: ad.campaignName,
-                  adId: ad.adId,
-                  adName: ad.adName,
-                  spend: ad.spend,
-                  impressions: ad.impressions,
-                  clicks: ad.clicks,
-                  conversions: ad.conversions,
-                  cpl: ad.cpl,
-                  ctr: ad.ctr,
-                  frequency: ad.reach > 0 ? ad.impressions / ad.reach : 0,
-                  reach: ad.reach,
-                  lpViews: ad.landingPageViews || 0,
-                }));
-                recordAdSnapshots(snapshots);
-                const dates = [...new Set(dailyAds.map(a => a.date))].sort();
-                const totalLPV = snapshots.reduce((s, snap) => s + (snap.lpViews || 0), 0);
-                log("ad-tracker", `Refreshed ${snapshots.length} snapshots across ${dates.length} days (${dates[0]} - ${dates[dates.length - 1]}), ${totalLPV} landing page views`);
-              }
+  // Ad creative performance tracker — 9 PM daily
+  // Register unconditionally so the cron always fires even if initMeta() loses
+  // the race with startCronJobs(). The tick checks isMetaReady() at fire time.
+  {
+    const adTrackerTick = async () => {
+      try {
+        const { isMetaReady, getTopAds, getDailyAdInsights } = await import("./meta.ts");
+        if (!isMetaReady()) {
+          log("ad-tracker", "Meta not ready at tick time, skipping");
+          return;
+        }
+        const todayStr = today();
+        // Use 7-day rolling window with daily breakdown to capture
+        // Meta's retroactive attribution (conversions backfilled to click date).
+        // Each night refreshes the last 7 days of snapshots via upsert.
+        const dailyAds = await getDailyAdInsights("7d");
+        let snapshots: AdSnapshot[] = [];
+        if (dailyAds.length === 0) {
+          // Fallback to today-only query for backward compat
+          const ads = await getTopAds("today", 100);
+          if (ads.length === 0) {
+            log("ad-tracker", "No ad data for today, skipping snapshot");
+            return;
+          }
+          snapshots = insightsToSnapshots(ads, todayStr);
+          recordAdSnapshots(snapshots);
+          log("ad-tracker", `Recorded ${snapshots.length} ad snapshots for ${todayStr} (fallback)`);
+        } else {
+          // Convert daily insights to snapshots (each has its own date)
+          snapshots = dailyAds.map(ad => ({
+            date: ad.date,
+            campaignName: ad.campaignName,
+            adId: ad.adId,
+            adName: ad.adName,
+            spend: ad.spend,
+            impressions: ad.impressions,
+            clicks: ad.clicks,
+            conversions: ad.conversions,
+            cpl: ad.cpl,
+            ctr: ad.ctr,
+            frequency: ad.reach > 0 ? ad.impressions / ad.reach : 0,
+            reach: ad.reach,
+            lpViews: ad.landingPageViews || 0,
+          }));
+          recordAdSnapshots(snapshots);
+          const dates = [...new Set(dailyAds.map(a => a.date))].sort();
+          const totalLPV = snapshots.reduce((s, snap) => s + (snap.lpViews || 0), 0);
+          log("ad-tracker", `Refreshed ${snapshots.length} snapshots across ${dates.length} days (${dates[0]} - ${dates[dates.length - 1]}), ${totalLPV} landing page views`);
+        }
 
-              // Update Midas learner: ad registry + decay curves
-              updateAdRegistry(snapshots);
+        // Update Midas learner: ad registry + decay curves
+        updateAdRegistry(snapshots);
 
-              // Run 7-day analysis
-              const recommendations = analyzeAdPerformance(7);
+        // Run 7-day analysis
+        const recommendations = analyzeAdPerformance(7);
 
-              // Record recommendations in learner for outcome tracking
-              if (recommendations.length > 0) {
-                const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString().split("T")[0];
-                const recentSnaps = snapshots.filter(s => s.date >= cutoff7d);
-                recordRecommendations(recommendations, recentSnaps.length > 0 ? recentSnaps : snapshots);
+        // Record recommendations in learner for outcome tracking
+        if (recommendations.length > 0) {
+          const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString().split("T")[0];
+          const recentSnaps = snapshots.filter(s => s.date >= cutoff7d);
+          recordRecommendations(recommendations, recentSnaps.length > 0 ? recentSnaps : snapshots);
 
-                const summary = recommendations
-                  .slice(0, 5)
-                  .map(r => `[${r.type.toUpperCase()}] ${r.adName}: ${r.reason}`)
-                  .join("\n");
-                log("ad-tracker", `${recommendations.length} recommendation(s):\n${summary}`);
-              }
-            } catch (err) {
-              logError("cron", `Ad tracker snapshot failed: ${err}`);
-            }
-          }),
-          timeZone: TIMEZONE,
-        })
-      );
-    }
+          const summary = recommendations
+            .slice(0, 5)
+            .map(r => `[${r.type.toUpperCase()}] ${r.adName}: ${r.reason}`)
+            .join("\n");
+          log("ad-tracker", `${recommendations.length} recommendation(s):\n${summary}`);
+        }
+      } catch (err) {
+        logError("cron", `Ad tracker snapshot failed: ${err}`);
+      }
+    };
+
+    jobs.push(
+      CronJob.from({
+        cronTime: "0 21 * * *",
+        onTick: safeTick("ad-tracker", adTrackerTick),
+        timeZone: TIMEZONE,
+      })
+    );
+
+    // Startup catch-up: if last snapshot is >24h old and Meta is ready, run immediately.
+    // Handles the case where Atlas was down during the 9 PM window.
+    setTimeout(async () => {
+      try {
+        const { isMetaReady } = await import("./meta.ts");
+        if (!isMetaReady()) return;
+        const trackerData = JSON.parse(
+          await import("fs").then(fs => fs.readFileSync("data/ad-tracker.json", "utf8"))
+        ) as { lastUpdated?: string };
+        const lastUpdated = trackerData.lastUpdated ? new Date(trackerData.lastUpdated) : null;
+        const hoursSinceUpdate = lastUpdated
+          ? (Date.now() - lastUpdated.getTime()) / 3_600_000
+          : Infinity;
+        if (hoursSinceUpdate > 24) {
+          log("ad-tracker", `Stale data (${Math.round(hoursSinceUpdate)}h old) — running catch-up on startup`);
+          await adTrackerTick();
+        }
+      } catch (err) {
+        logError("cron", `Ad tracker startup catch-up failed: ${err}`);
+      }
+    }, 30_000); // wait 30s for initMeta() to complete
   }
 
   // ============================================================
@@ -3414,11 +3440,17 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
     CronJob.from({
       cronTime: "*/5 * * * *",
       onTick: safeTick("shadow-process-watchdog", async () => {
+        // Respect the same env flag the client checks (shadow-driver.ts:40). Without
+        // this, we restart-spam a process the user has deliberately disabled, because
+        // pingShadow short-circuits to {ok:false, reason:"shadow_disabled"} which the
+        // old !ping.ok branch couldn't distinguish from a real outage. Tier 1 Fix #05A.
+        if (process.env.SHADOW_ATLAS_ENABLED === "false") return;
+
         // Use the cheap `ping` opcode — bypasses claude spawn entirely.
         // Liveness only; semantic correctness is checked turn-by-turn elsewhere.
         const { pingShadow } = await import("./shadow-driver.ts");
         const ping = await pingShadow({ budgetMs: 5_000 });
-        if (!ping.ok) {
+        if (!ping.ok && ping.reason !== "shadow_disabled") {
           log("shadow-process-watchdog", `shadow down: ${ping.reason}`);
           // Note: pm2 is responsible for keeping shadow-atlas alive
           // (ecosystem.config.cjs autorestart). The detached spawn here is a

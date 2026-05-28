@@ -31,6 +31,8 @@ import {
 } from "./cognitive.ts";
 import { markMemoryShared } from "./shared-memory.ts";
 
+const TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
+
 // ── Auto-share: business-relevant patterns ──
 const SHARED_PATTERNS = [
   /revenue|profit|margin|financ/i,
@@ -302,6 +304,7 @@ export async function browseMemory(
 
       const lines = results.map((r) => {
         const date = new Date(r.created_at).toLocaleDateString("en-US", {
+          timeZone: TIMEZONE,
           month: "short",
           day: "numeric",
         });
@@ -341,12 +344,13 @@ export async function browseMemory(
 
     const lines = data.map((m: any) => {
       const date = new Date(m.created_at).toLocaleDateString("en-US", {
+        timeZone: TIMEZONE,
         month: "short",
         day: "numeric",
       });
       const prefix = m.type === "goal" ? "GOAL" : m.type === "fact" ? "FACT" : m.type.toUpperCase();
       const deadline = m.deadline
-        ? ` (by ${new Date(m.deadline).toLocaleDateString()})`
+        ? ` (by ${new Date(m.deadline).toLocaleDateString("en-US", { timeZone: TIMEZONE, month: "short", day: "numeric" })})`
         : "";
       return `[${prefix}] ${date} — ${m.content}${deadline}`;
     });

@@ -83,6 +83,7 @@ export async function classifyObservation(opts: {
     userMessage,
     maxTokens: 200,
     cacheSystem: true,
+    caller: "twin-classify",
   });
 
   let parsed: any;
@@ -227,11 +228,10 @@ export function formatTwinReport(opts: {
 // generateMorningPredictions / scoreEveningPredictions / rollingCalibration
 // ---------------------------------------------------------------------------
 
-import { Anthropic } from "@anthropic-ai/sdk";
+import { callOpus } from "./haiku-client.ts";
 
-interface MorningPredictOpts {
-  client?: Anthropic;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+interface MorningPredictOpts {}
 
 const PREDICT_SYSTEM = `You predict 3-5 things the user is likely to ask Atlas about today, given context.
 
@@ -251,8 +251,6 @@ export async function generateMorningPredictions(
   date: string,
   opts: MorningPredictOpts = {}
 ): Promise<TwinPrediction[]> {
-  const client = opts.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-
   const context: any = {
     today: date,
     weekday: new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long" }),
@@ -268,13 +266,12 @@ export async function generateMorningPredictions(
 
   const userMessage = `Build 3-5 predictions for what ${user_id} will ask about today.\n\nCONTEXT:\n${JSON.stringify(context, null, 2)}`;
 
-  const resp = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 1500,
+  const resp = await callOpus({
     system: PREDICT_SYSTEM,
-    messages: [{ role: "user", content: userMessage }],
+    userMessage,
+    maxTokens: 1500,
   });
-  const text = (resp.content[0] as any)?.text ?? "[]";
+  const text = resp.text;
   let arr: any[];
   try {
     const start = text.indexOf("[");
@@ -362,6 +359,7 @@ export async function scoreEveningPredictions(
       userMessage: userMsg,
       maxTokens: 200,
       cacheSystem: true,
+      caller: "twin-score",
     });
     let judged: any;
     try {

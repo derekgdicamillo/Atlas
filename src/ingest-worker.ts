@@ -111,6 +111,7 @@ export async function chunkContextually(
         userMessage,
         maxTokens: 100,
         cacheSystem: true,
+        caller: "ingest-preamble",
       });
       preamble = result.text.trim().slice(0, 400);
     } catch (err) {

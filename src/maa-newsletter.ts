@@ -39,7 +39,7 @@ const BREVO_PAID_TEMPLATE_ID = parseInt(process.env.BREVO_PAID_TEMPLATE_ID || "0
 const DATA_DIR = join(process.env.PROJECT_DIR || process.cwd(), "data");
 const STATE_FILE = join(DATA_DIR, "maa-newsletter-state.json");
 
-const APPROVAL_EMAILS = ["derek@pvmedispa.com", "esther@pvmedispa.com"];
+const APPROVAL_EMAILS = ["derekgdicamillo@gmail.com", "esther.dicamillo@gmail.com"];
 
 const CTA_OPTIONS = [
   { label: "Join TMAA", url: `${MAA_SITE_URL}/join` },
@@ -205,6 +205,19 @@ async function fetchRecentPosts(count: number): Promise<WPPost[]> {
     );
     if (!res.ok) {
       warn("maa-newsletter", `WP posts API ${res.status}`);
+      return [];
+    }
+    // Guard: SiteGround CAPTCHA returns HTTP 202 + text/html (passes res.ok)
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const body = await res.text().catch(() => "");
+      const isCaptcha = body.includes("sgcaptcha") || body.includes("/.well-known/");
+      if (isCaptcha) {
+        const ipMatch = body.match(/ipc:(\d+\.\d+\.\d+\.\d+)/);
+        warn("maa-newsletter", `WP CAPTCHA challenge (HTTP ${res.status}). Whitelist Atlas IP ${ipMatch?.[1] ?? "unknown"} in SiteGround Security.`);
+      } else {
+        warn("maa-newsletter", `WP posts returned non-JSON (HTTP ${res.status}, ${ct}): ${body.substring(0, 150)}`);
+      }
       return [];
     }
     return (await res.json()) as WPPost[];
@@ -455,6 +468,14 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+function extractHtmlContent(raw: string): string {
+  const fenced = raw.match(/```html\s*\n([\s\S]*?)\n```/);
+  if (fenced) return fenced[1].trim();
+  const tableMatch = raw.match(/(<table[\s\S]*<\/table>)/i);
+  if (tableMatch) return tableMatch[1].trim();
+  return raw.trim();
+}
+
 function pickSageTopics(
   sageData: SageDashboardResponse | null,
   posts: WPPost[],
@@ -583,7 +604,7 @@ function buildPaidPrompt(
   posts: WPPost[],
   sageData: SageDashboardResponse | null,
   partner: Partner | null,
-  resourceHighlight: string
+  _resourceHighlight: string
 ): string {
   const postList = posts
     .map((p) => `- "${stripHtml(p.title.rendered)}" — ${stripHtml(p.excerpt.rendered)} (${p.link})`)
@@ -591,49 +612,79 @@ function buildPaidPrompt(
 
   const sageSection =
     sageData?.available && sageData.top_topics.length > 0
-      ? `Top SAGE trending themes (rephrase as member insights, NEVER mention SAGE by name):
+      ? `Trending community data (use as fuel for the Deep Dive and Community sections — NEVER mention SAGE, AI, dashboards, or algorithms by name):
+Topics:
 ${sageData.top_topics
-  .slice(0, 4)
+  .slice(0, 5)
   .map((t) => `- ${t.topic} (${t.count} conversations)`)
   .join("\n")}
-Top member questions:
+Questions members are asking:
 ${(sageData.top_questions || [])
-  .slice(0, 3)
+  .slice(0, 5)
   .map((q) => `- "${q.question}"`)
   .join("\n")}`
-      : "No trending data — write 3 general practice optimization insights instead.";
+      : "No trending data available. Write the Deep Dive about a concrete, timely challenge aesthetic practices face right now (staffing, pricing compression, patient retention, insurance reimbursement changes, or supplier cost increases). Use specific numbers or benchmarks.";
 
-  const partnerSection = partner
-    ? `Partner Spotlight:
+  const partnerBlock = partner
+    ? `**Partner Spotlight** — Feature this partner like a recommendation to a friend, not an ad:
 Name: ${partner.name}
-Contact: ${partner.contact_name || "N/A"}
-Description: ${partner.description}
-Discount: ${partner.discount_code ? `Code "${partner.discount_code}" — ${partner.discount_description}` : "See link for member pricing"}
-URL: ${partner.url || "Contact via TMAA"}`
-    : "Skip partner spotlight this edition (no active partners).";
+What they do: ${partner.description}
+${partner.discount_code ? `Member discount: Code "${partner.discount_code}" — ${partner.discount_description}` : "Member pricing available — see link"}
+${partner.url ? `Link: ${partner.url}` : "Contact via TMAA"}
+Write 3-4 sentences. Who is this for, what problem does it solve, why should they care.`
+    : `**Tool of the Week** — Recommend one specific tool, resource, or vendor that solves a real practice problem. Be specific about what it does, who it's for, and why it's worth trying. 3-4 sentences. Write it like a recommendation to a friend.`;
+
+  const questionsBlock = (sageData?.top_questions || [])
+    .filter((q) => q.question.length > 30 && q.question.length < 300)
+    .slice(0, 3)
+    .map((q) => `- "${q.question}"`)
+    .join("\n");
 
   return `You are writing the biweekly paid newsletter for The Medical Aesthetics Association (TMAA).
+
 Newsletter name: "TMAA Insider"
-Audience: Paying TMAA members — aesthetic practitioners who value exclusive, actionable content.
-Tone: Pure value delivery. No sales, no CTAs to buy anything. These people already paid.
+Audience: Paying TMAA members — aesthetic practitioners (NPs, RNs, PAs, MDs, estheticians) running or growing their own practices. They paid for access. They expect content they cannot get anywhere else.
+Tone: Sharp, direct, collegial. Like a text from a colleague who just figured something out and is sharing it before anyone else catches on. No corporate warmth. No "we value your membership." They know they are members — prove it was worth it.
 
-STRUCTURE (follow this exactly):
+THIS NEWSLETTER EXISTS TO MAKE MEMBERS SMARTER THAN NON-MEMBERS. Every section must contain information, analysis, or a framework they cannot get from the free newsletter, a blog post, or a Google search.
 
-1. **Opening** (2-3 sentences): Acknowledge the value of their membership. Keep it human, not corporate.
+STRUCTURE (follow exactly):
 
-2. **Blog Recap**: All posts from the past 2 weeks. Each gets 1-2 engaging sentences + "Read more →" link.
+1. **The Lead** (3-4 sentences): Open with a specific, timely insight about the aesthetics industry right now. A regulatory shift, a pricing trend, a supplier change, a reimbursement update, a competitive pattern — something that affects how they run their practice THIS month. No greeting. No "welcome back." Start with the insight.
+
+2. **Deep Dive** (350-400 words — THIS IS THE CENTERPIECE):
+   Pick the most consequential topic from the trending community data below. Write a mini-briefing that a practice owner would forward to their business partner. Structure:
+   - **What is happening** (2-3 sentences): The trend, shift, or problem stated plainly
+   - **Why it matters for your practice** (3-4 sentences): Connect it to revenue, patient retention, compliance, or competitive positioning. Use specific numbers or benchmarks where possible.
+   - **What the smart practices are doing** (3-4 sentences): Concrete actions, not theory. "Practices seeing the best retention are..." not "you should consider..."
+   - **The move to make this week** (2-3 sentences): One specific action with enough detail to execute
+${sageSection}
+
+3. **From the Community** (2-3 real questions with real answers):
+   These are actual questions practitioners are asking. Each gets a 3-4 sentence answer that is genuinely useful — a complete thought, not a teaser. Frame as: "A member asked: [question]" then answer directly.
+${questionsBlock || "Use 2-3 realistic practitioner questions about scaling, pricing, or patient retention."}
+   CRITICAL: Never mention SAGE, AI, dashboards, or algorithms. These are "questions from the community" or "what members are asking."
+
+4. **What We Published** (blog posts, compact):
+   Each post gets ONE sentence naming the specific problem it solves + "Read more" link. Not a recap — a reason to click.
 ${postList}
 
-3. **SAGE Insights** (the exclusive section): 3-4 trending themes, each with a meaty 2-3 sentence actionable takeaway. This is what free members DON'T get.
-${sageSection}
-CRITICAL: Never mention SAGE, AI, algorithms, or data analysis. Frame these as "what your peers are discussing" or "trending in the community."
+5. ${partnerBlock}
 
-4. **Partner Spotlight**: Feature this partner warmly. 3-4 sentences about what they offer and why it matters for practitioners. Include discount if available.
-${partnerSection}
+6. **One Thing to Try Before Next Issue**:
+   A single, specific challenge or experiment. Not "review your pricing" but "Pull your top 5 services by revenue. For each one, search '[service name] + [your city]' and screenshot the top 3 competitor prices. Time it — this takes 12 minutes." Give them something concrete to execute and come back with results.
 
-5. **Resources Reminder**: Highlight: "${resourceHighlight}" — mention it's available in the members-only resources section at ${MAA_SITE_URL}/resources.
+QUALITY RULES:
+- Zero filler. If a sentence does not teach, inform, or provoke thought, cut it.
+- "You" language throughout. Never "practitioners should" or "one might consider."
+- Minimum 3 specific numbers, percentages, or benchmarks across the newsletter.
+- The Deep Dive is 50% of this newsletter's value — invest accordingly.
+- No sign-off or signature block (Brevo template handles that).
+- Do NOT end with "Live Life Unchained" or any closing — template adds it.
+- Never use "here is what most programs/practices never check/tell you/consider" — that pattern is banned.
+- No em dashes. Use commas, periods, or colons instead.
 
-OUTPUT: Return ONLY the HTML email body content (no <html>, <head>, or <body> tags). Use inline styles. Keep total length under 900 words. Zero sales language.`;
+OUTPUT: Return ONLY the HTML email body content (no <html>, <head>, or <body> tags — just inner content for the Brevo template). Use inline styles. Target 800-1100 words. Zero sales language — these people already paid.`;
 }
 
 // ============================================================
@@ -663,7 +714,8 @@ export async function draftFreeNewsletter(
   const cta = getNextCta(state);
   const recentSageTopics = state.recentSageTopics || [];
   const prompt = buildFreePrompt(posts, sageData, cta, recentSageTopics);
-  const htmlContent = await generateFn(prompt);
+  const rawContent = await generateFn(prompt);
+  const htmlContent = extractHtmlContent(rawContent);
 
   const subject = `This Week at TMAA — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
@@ -672,10 +724,8 @@ export async function draftFreeNewsletter(
     return { success: false, error: `Failed to create campaign: ${campaign.error}` };
   }
 
-  const test = await sendTestEmail(campaign.campaignId);
-  if (!test.ok) {
-    warn("maa-newsletter", `Test email failed: ${test.error}`);
-  }
+  // DISABLED: Derek sends via Brevo UI directly. Atlas only drafts.
+  // const test = await sendTestEmail(campaign.campaignId);
 
   state.freeCampaignId = campaign.campaignId;
   state.freeApproved = false;
@@ -728,7 +778,8 @@ export async function draftPaidNewsletter(
   const resourceHighlight = resourceHighlights[state.lastPartnerIndex % resourceHighlights.length];
 
   const prompt = buildPaidPrompt(posts, sageData, partner, resourceHighlight);
-  const htmlContent = await generateFn(prompt);
+  const rawContent = await generateFn(prompt);
+  const htmlContent = extractHtmlContent(rawContent);
 
   const subject = `TMAA Insider — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
@@ -737,10 +788,8 @@ export async function draftPaidNewsletter(
     return { success: false, error: `Failed to create campaign: ${campaign.error}` };
   }
 
-  const test = await sendTestEmail(campaign.campaignId);
-  if (!test.ok) {
-    warn("maa-newsletter", `Test email failed: ${test.error}`);
-  }
+  // DISABLED: Derek sends via Brevo UI directly. Atlas only drafts.
+  // const test = await sendTestEmail(campaign.campaignId);
 
   state.paidCampaignId = campaign.campaignId;
   state.paidApproved = false;
@@ -789,18 +838,9 @@ export async function sendFreeNewsletter(
     }
   }
 
-  const result = await sendCampaign(campaignId);
-  if (!result.ok) {
-    return { success: false, error: `Send failed: ${result.error}` };
-  }
-
-  state.freeApproved = false;
-  state.freeCampaignId = null;
-  state.lastFreeSent = new Date().toISOString();
-  saveState(state);
-
-  info("maa-newsletter", `Free newsletter sent: campaign ${campaignId}`);
-  return { success: true };
+  // DISABLED: Derek sends via Brevo UI directly. Atlas only drafts.
+  warn("maa-newsletter", `Free newsletter campaign ${campaignId} ready in Brevo. Derek will send manually.`);
+  return { success: false, error: "Brevo sends disabled. Derek sends via Brevo UI." };
 }
 
 export async function sendPaidNewsletter(
@@ -835,19 +875,9 @@ export async function sendPaidNewsletter(
     }
   }
 
-  const result = await sendCampaign(campaignId);
-  if (!result.ok) {
-    return { success: false, error: `Send failed: ${result.error}` };
-  }
-
-  state.paidApproved = false;
-  state.paidCampaignId = null;
-  state.lastPaidSent = new Date().toISOString();
-  state.paidWeekToggle = !state.paidWeekToggle;
-  saveState(state);
-
-  info("maa-newsletter", `Paid newsletter sent: campaign ${campaignId}`);
-  return { success: true };
+  // DISABLED: Derek sends via Brevo UI directly. Atlas only drafts.
+  warn("maa-newsletter", `Paid newsletter campaign ${campaignId} ready in Brevo. Derek will send manually.`);
+  return { success: false, error: "Brevo sends disabled. Derek sends via Brevo UI." };
 }
 
 export function isPaidWeek(): boolean {

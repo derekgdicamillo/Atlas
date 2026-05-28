@@ -96,6 +96,7 @@ export async function generateSamples(
             userMessage: prompt,
             maxTokens: 200,
             cacheSystem: true,
+            caller: "entropy-sample",
           });
           return parseSample(text, i);
         } catch {
@@ -142,6 +143,7 @@ export async function clusterSamples(samples: Sample[]): Promise<Cluster[]> {
       userMessage: userMsg,
       maxTokens: 400,
       cacheSystem: true,
+      caller: "entropy-cluster",
     });
     const m = text.match(/\[[\s\S]*\]/);
     if (!m) throw new Error("no JSON array");

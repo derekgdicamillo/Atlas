@@ -106,6 +106,7 @@ export async function classify(userMessage: string): Promise<ClassifyResult> {
       userMessage,
       maxTokens: 20,
       cacheSystem: true,
+      caller: "staleness-sentinel",
     });
     const tier = text.trim().toLowerCase() as StalenessTier;
     const valid: StalenessTier[] = ["timeless", "slow", "medium", "fast", "real_time"];

@@ -33,7 +33,7 @@ const DEREK_USER_ID = process.env.TELEGRAM_USER_ID || "";
 // STATE
 // ============================================================
 
-const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation", "tasks", "proactive"] as const;
+const CHECK_TYPES = ["health", "todos", "memory", "journal", "conversation", "tasks", "proactive", "accomplishments"] as const;
 type CheckType = (typeof CHECK_TYPES)[number];
 
 interface HeartbeatState {
@@ -78,12 +78,44 @@ async function saveState(state: HeartbeatState): Promise<void> {
 // CHECK-SPECIFIC CONTEXT GATHERING
 // ============================================================
 
+/**
+ * Format a UTC ISO timestamp as local time + relative age so the heartbeat
+ * LLM cannot misread UTC hours as local. Returns e.g. "May 26, 16:05 MST (2h ago)".
+ *
+ * Why: error timestamps come from `new Date().toISOString()` (UTC). Passing raw
+ * ISO strings to Sonnet caused it to read 23:05 UTC as "11:05 PM" and report
+ * afternoon Phoenix errors as "overnight 11 PM - 1:30 AM" (heartbeat #1585).
+ */
+function formatLocalTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+
+  const time = d.toLocaleString("en-US", {
+    timeZone: TIMEZONE,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  });
+
+  const ageMin = Math.round((Date.now() - d.getTime()) / 60_000);
+  let rel: string;
+  if (ageMin < 1) rel = "just now";
+  else if (ageMin < 60) rel = `${ageMin}m ago`;
+  else if (ageMin < 1440) rel = `${Math.round(ageMin / 60)}h ago`;
+  else rel = `${Math.round(ageMin / 1440)}d ago`;
+
+  return `${time} (${rel})`;
+}
+
 async function getHealthContext(): Promise<string> {
   const metrics = getMetrics();
   const health = getHealthStatus();
   return (
     `HEALTH STATUS: ${health.status}\n` +
-    `- Uptime since: ${metrics.startedAt}\n` +
+    `- Uptime since: ${formatLocalTime(metrics.startedAt)}\n` +
     `- Messages: ${metrics.messageCount} | Claude calls: ${metrics.claudeCallCount}\n` +
     `- Errors: ${metrics.errorCount} | Timeouts: ${metrics.claudeTimeoutCount}\n` +
     `- Avg response: ${metrics.avgResponseMs}ms\n` +
@@ -93,7 +125,7 @@ async function getHealthContext(): Promise<string> {
     (metrics.recentErrors.length > 0
       ? `- Recent errors:\n${metrics.recentErrors
           .slice(-5)
-          .map((e) => `  ${e.time}: [${e.event}] ${e.message}`)
+          .map((e) => `  ${formatLocalTime(e.time)}: [${e.event}] ${e.message}`)
           .join("\n")}\n`
       : "")
   );
@@ -190,6 +222,19 @@ async function buildHeartbeatPrompt(
         "If nothing needs proactive attention right now, respond HEARTBEAT_OK.\n" +
         "Use [REMEMBER: ...] to queue insights for the learning queue.";
       break;
+    case "accomplishments":
+      checkContext =
+        "ACCOMPLISHMENTS CHECK: Look at the last 24h of work — supervised tasks completed below " +
+        "AND the conversation history visible via --resume.\n\n" +
+        "Name ONE specific thing accomplished today that Derek may want surfaced. " +
+        "Examples: 'Built Hermes medical knowledge base (27 files)', 'Fixed Gemini→Anthropic config bug after 3 attempts', 'Shipped 4 ANE intake summaries.'\n\n" +
+        "Rules:\n" +
+        "- Be SPECIFIC: name the artifact, count, or concrete outcome. No 'helped Derek' / 'made progress.'\n" +
+        "- Only count work YOU did (or supervised). Not Derek's own actions.\n" +
+        "- Only surface if it's genuinely noteworthy — if today was routine, respond HEARTBEAT_OK.\n" +
+        "- Verify against the actual data below before claiming anything. Do NOT pull from prior heartbeat notes.\n\n" +
+        getTaskContext();
+      break;
   }
 
   const previousNotes =
@@ -216,7 +261,7 @@ async function buildHeartbeatPrompt(
     "SYSTEM SUMMARY:\n" +
     `- Uptime: ${uptimeHrs}h | Msgs today: ${metrics.messageCount} | Health: ${health.status} | Errors: ${metrics.errorCount}\n` +
     `- Last heartbeat: tick #${state.tickCount} (${state.lastResult}) | Model: ${HEARTBEAT_MODEL}\n\n` +
-    "PREVIOUS HEARTBEAT NOTES:\n" +
+    "YOUR PRIOR HEARTBEAT OUTPUTS (your own recall — last 3 notifications you sent; may contain mistakes or stale info, do NOT repeat claims from here without re-verifying against the CURRENT CHECK data above):\n" +
     previousNotes
   );
 }

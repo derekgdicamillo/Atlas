@@ -179,6 +179,7 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
         userMessage: `Episode (created ${(row as any).created_at}, tags: ${(row as any).tags?.join(", ") ?? ""}):\n\n${(row as any).summary}`,
         maxTokens: 800,
         cacheSystem: true,
+        caller: "dream-sws-variant",
       });
       const text = r.text;
       const start = text.indexOf("[");
@@ -199,6 +200,7 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
           .join("\n"),
         maxTokens: 200,
         cacheSystem: true,
+        caller: "dream-sws-rule",
       });
       const rule = r.text.trim();
       if (rule && rule !== "NO_RULE") {
@@ -214,6 +216,7 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
           .join("\n"),
         maxTokens: 200,
         cacheSystem: true,
+        caller: "dream-sws-doubt",
       });
       const text = r.text;
       const start = text.indexOf("[");
@@ -430,6 +433,12 @@ export async function runREM(
   supabase: SupabaseClient,
   opts: { client?: Anthropic } = {}
 ): Promise<{ dreamIds: string[]; topUnprep: number }> {
+  // Atlas runs on Max-plan OAuth, not ANTHROPIC_API_KEY. Guard the SDK construction
+  // when no key is set AND no client was injected (test path), so the cron doesn't
+  // scream a stack trace nightly. See atlas-tier1-fixes.html · Fix 08.
+  if (!opts.client && !process.env.ANTHROPIC_API_KEY) {
+    return { dreamIds: [], topUnprep: 0 };
+  }
   const client = opts.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const pool = await buildUncertaintyPool(supabase);
   if (!pool.length) return { dreamIds: [], topUnprep: 0 };

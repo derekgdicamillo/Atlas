@@ -126,6 +126,7 @@ export async function auditDomain(
         userMessage: `### Current docs (excerpt)\n${sourceText.slice(0, 6000)}\n\n### Atlas claim\n${claim}`,
         maxTokens: 200,
         cacheSystem: true,
+        caller: "knowledge-audit",
       });
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) continue;

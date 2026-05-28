@@ -17,6 +17,7 @@ import { info, warn, error as logError } from "./logger.ts";
 const BATCH_SIZE = 50;       // messages per summary
 const MAX_BATCHES = 5;       // max batches per run (250 messages/night)
 const AGE_THRESHOLD_HOURS = 48; // only summarize messages older than this
+const TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
 
 // ============================================================
 // TYPES
@@ -62,6 +63,7 @@ export async function runSummarization(
     const formattedText = messages
       .map((m) => {
         const time = new Date(m.created_at).toLocaleString("en-US", {
+          timeZone: TIMEZONE,
           month: "short",
           day: "numeric",
           hour: "numeric",

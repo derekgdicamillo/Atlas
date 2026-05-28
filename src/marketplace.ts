@@ -219,7 +219,7 @@ async function activeBidPrompt(
     task.domain +
     '\n\nOutput strict JSON only: {"want":bool,"confidence_now":0..1,"cost_now":number,"reason":"..."}';
   try {
-    const out = await callHaiku({ system: sys, userMessage, maxTokens: 200, cacheSystem: true });
+    const out = await callHaiku({ system: sys, userMessage, maxTokens: 200, cacheSystem: true, caller: "marketplace-bid" });
     const m = out.text.match(/\{[\s\S]*\}/);
     if (!m) return null;
     const parsed = JSON.parse(m[0]) as {

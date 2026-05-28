@@ -102,6 +102,30 @@
       }
     },
     {
+      "id": "annabeth",
+      "name": "Annabeth",
+      "model": "sonnet",
+      "type": "primary",
+      "capabilities": ["homework", "reminders", "art", "mentoring"],
+      "personalityFile": "config/personas/annabeth.md",
+      "systemPrompt": "You are Annabeth, Eden's personal AI companion. Named after Annabeth Chase from Percy Jackson. You are strategic, wise, curious, and fun. Eden is 12 years old, loves art, has a pet lizard named Lizzy, and is a passionate Christian. You help with homework, art encouragement, responsibility reminders, and eventually Tox Tray business mentoring. Keep everything age-appropriate, encouraging, and quest-themed. Percy Jackson references are your native language. NEVER give medical advice, facilitate purchases, or undermine parental authority. You are NOT Atlas, Ishtar, or Coach.",
+      "allowedUserIds": ["8875065641", "8436579045"],
+      "description": "Annabeth -- Eden's AI companion. Homework help, art encouragement, faith, Lizzy reminders, Tox Tray mentoring.",
+      "features": {
+        "memory": true,
+        "resume": true,
+        "todos": true,
+        "google": false,
+        "search": true,
+        "dashboard": false,
+        "ghl": false,
+        "graph": false,
+        "careplan": false,
+        "m365": false,
+        "browser": false
+      }
+    },
+    {
       "id": "medicine",
       "name": "Atlas Medicine",
       "model": "opus",

@@ -97,6 +97,28 @@ async function wpFetch<T>(
     throw new Error(`WP API ${res.status}: ${body.substring(0, 300)}`);
   }
 
+  // Guard against WAF/CAPTCHA challenges that return HTTP 202 + text/html.
+  // SiteGround serves these with "202 Accepted" (passes res.ok) but the body
+  // is HTML, causing res.json() to throw a cryptic "SyntaxError: Failed to
+  // parse JSON" with no hint of the real cause.
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    const body = await res.text().catch(() => "");
+    const isCaptcha = body.includes("sgcaptcha") || body.includes("/.well-known/");
+    if (isCaptcha) {
+      const ipMatch = body.match(/ipc:(\d+\.\d+\.\d+\.\d+)/);
+      const ip = ipMatch ? ipMatch[1] : "unknown";
+      throw new Error(
+        `SiteGround CAPTCHA blocked WP API (HTTP ${res.status}). ` +
+        `Whitelist Atlas IP ${ip} in SiteGround Security → Block/Allow IPs.`
+      );
+    }
+    throw new Error(
+      `WP API returned non-JSON (HTTP ${res.status}, ${ct || "no content-type"}): ` +
+      body.substring(0, 200)
+    );
+  }
+
   return res.json() as Promise<T>;
 }
 

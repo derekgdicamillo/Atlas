@@ -122,6 +122,7 @@ export async function forecastCounterfactual(
           `Conditional p50 final: ${conditional.p50[conditional.p50.length - 1].toFixed(0)}.`,
         maxTokens: 200,
         cacheSystem: true,
+        caller: "world-model",
       });
       reasoning = r.text.trim();
     } catch {

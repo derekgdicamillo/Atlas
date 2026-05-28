@@ -157,8 +157,17 @@ export async function startShadowServer(): Promise<void> {
 }
 
 if (import.meta.main) {
-  startShadowServer().catch((err) => {
-    console.error(`[shadow-atlas] failed to start: ${err}`);
-    process.exit(1);
-  });
+  if (process.env.SHADOW_ATLAS_ENABLED === "false") {
+    console.log("[shadow-atlas] disabled via SHADOW_ATLAS_ENABLED=false — running as no-op heartbeat");
+    // Keep the process alive without binding the named pipe, so PM2 doesn't
+    // restart-spam (max_restarts: 5 in ecosystem.config.cjs would otherwise eventually
+    // give up and report "crashed"). Re-enable: flip the env var to "true" and
+    // `pm2 restart shadow-atlas`. Tier 1 Fix #05B.
+    setInterval(() => {}, 60_000);
+  } else {
+    startShadowServer().catch((err) => {
+      console.error(`[shadow-atlas] failed to start: ${err}`);
+      process.exit(1);
+    });
+  }
 }

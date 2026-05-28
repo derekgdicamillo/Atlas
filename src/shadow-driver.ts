@@ -120,6 +120,7 @@ export async function scoreDrift(
         `### Primary response\n${primaryText}\n\n### Shadow response\n${shadowText}`,
       maxTokens: 200,
       cacheSystem: true,
+      caller: "shadow-drift-scorer",
     });
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return { distance: 0, reason: "scorer_no_json" };

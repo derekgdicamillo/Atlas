@@ -114,6 +114,7 @@ export async function rewriteSummary(
     userMessage,
     maxTokens: 600,
     cacheSystem: true,
+    caller: "memory-rewrite",
   });
   const newSummary = sanitizeRewrite(result.text);
 

@@ -65,6 +65,7 @@ export async function judgeShadowOutput(
     userMessage,
     maxTokens: 200,
     cacheSystem: true,
+    caller: "skill-shadow-judge",
   });
 
   let parsed: any;

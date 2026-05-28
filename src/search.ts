@@ -297,27 +297,44 @@ export async function getRelevantContext(
 
     // --- UNTRUSTED: gate through CaMeL Reader ---
 
-    if (documents.length > 0) {
-      const gatedLines: string[] = [];
-      for (const d of documents) {
-        const source = `ingest:${d.source_type || "doc"}:${d.source_id}`;
-        const safe = await gateChunk(d.content, source, callHaiku);
-        if (safe !== null) gatedLines.push(safe);
-      }
-      if (gatedLines.length > 0) {
-        parts.push("RELEVANT KNOWLEDGE BASE:\n" + gatedLines.join("\n---\n"));
-      }
-    }
+    // Combine both untrusted sources and gate in parallel — see Tier 1 Fix #04.
+    // The original two sequential for-loops (one per source) cost (N_docs + N_maa) × ~3.5s
+    // and routinely blew the 12s context-search deadline. Merging into one Promise.all
+    // collapses wall clock to ~3.5s for any realistic chunk count while preserving every
+    // security property: each chunk still passes through gateChunk (CaMeL Reader),
+    // null results are still dropped (fail-closed), trusted sources above are untouched.
+    const untrustedChunks: Array<{ content: string; source: string; section: "docs" | "maa" }> = [
+      ...documents.map((d) => ({
+        content: d.content,
+        source: `ingest:${d.source_type || "doc"}:${d.source_id}`,
+        section: "docs" as const,
+      })),
+      ...maaKnowledge.map((k) => ({
+        content: k.content,
+        source: `ingest:maa:${k.source_id}`,
+        section: "maa" as const,
+      })),
+    ];
 
-    if (maaKnowledge.length > 0) {
-      const gatedLines: string[] = [];
-      for (const k of maaKnowledge) {
-        const source = `ingest:maa:${k.source_id}`;
-        const safe = await gateChunk(k.content, source, callHaiku);
-        if (safe !== null) gatedLines.push(safe);
+    if (untrustedChunks.length > 0) {
+      const results = await Promise.all(
+        untrustedChunks.map((c) => gateChunk(c.content, c.source, callHaiku))
+      );
+
+      const docLines: string[] = [];
+      const maaLines: string[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r === null) continue;
+        if (untrustedChunks[i].section === "docs") docLines.push(r);
+        else maaLines.push(r);
       }
-      if (gatedLines.length > 0) {
-        parts.push("MAA REGULATORY/CLINICAL KNOWLEDGE:\n" + gatedLines.join("\n---\n"));
+
+      if (docLines.length > 0) {
+        parts.push("RELEVANT KNOWLEDGE BASE:\n" + docLines.join("\n---\n"));
+      }
+      if (maaLines.length > 0) {
+        parts.push("MAA REGULATORY/CLINICAL KNOWLEDGE:\n" + maaLines.join("\n---\n"));
       }
     }
 

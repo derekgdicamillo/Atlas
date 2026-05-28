@@ -78,7 +78,7 @@ export function isBrowserReady(): boolean {
     _browserReady = false;
   }
   if (!_browserReady) {
-    warn("browser", "agent-browser CLI not found. Install with: npm install -g agent-browser");
+    info("browser", "agent-browser CLI not installed — [BROWSE_*] tags disabled (optional). Install with: npm install -g agent-browser");
   }
   return _browserReady;
 }

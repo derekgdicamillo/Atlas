@@ -139,7 +139,7 @@ async function promptCritic(role: Role, action: Action): Promise<Vote> {
     JSON.stringify(action.args).slice(0, 800) +
     '\n\nOutput strict JSON only: {"vote":"approve"|"veto","reason":"...","confidence":0..1}';
   try {
-    const out = await callHaiku({ system: sys, userMessage, maxTokens: 200, cacheSystem: true });
+    const out = await callHaiku({ system: sys, userMessage, maxTokens: 200, cacheSystem: true, caller: "shadow-council" });
     const m = out.text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("no json");
     const parsed = JSON.parse(m[0]) as { vote: "approve" | "veto"; reason: string; confidence: number };

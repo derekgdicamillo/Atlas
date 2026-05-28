@@ -57,6 +57,7 @@ export async function scoreEntry(
     userMessage,
     maxTokens: 400,
     cacheSystem: true,
+    caller: "replay-judge",
   });
   let parsed: any;
   try {

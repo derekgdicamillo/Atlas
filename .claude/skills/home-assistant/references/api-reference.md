@@ -47,7 +47,8 @@ curl -s --connect-timeout 5 -X POST "<BASE_URL>/services/<domain>/<service>" -H 
 light, switch, sensor, binary_sensor, climate, lock, cover, fan, media_player, camera, automation, scene, input_boolean, person
 
 ## Climate (Thermostat)
-Entity: `climate.main_floor`. HVAC modes: heat, cool, heat_cool (auto), off, fan_only.
+Main thermostat: `climate.thermostat_thermostat`. HVAC modes: off, heat, cool.
+MiniSplit: `climate.derek_s_device`. HVAC modes: cool, heat, fan_only, dry, heat_cool, off.
 Temperature is Fahrenheit (Arizona, USA).
 
 ## History API

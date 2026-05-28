@@ -190,11 +190,11 @@ CANNOT:
 NOT APPLICABLE: IP-based rate-limit key normalization (OpenClaw pattern). Atlas is a Telegram bot, not an HTTP server. Telegram handles transport-layer identity.
 
 ## Midas Marketing Intelligence - Marketing analysis and attribution layer (src/marketing.ts)
-CAN: daily funnel conversion monitor (9 AM, compares against 7-day avg, alerts on >20% drops), daily ad performance digest (9:30 PM, trend detection, entity diversity scoring, threshold alerts), weekly full-funnel attribution report (Sunday 9 AM, Meta spend -> leads -> booked -> showed -> patient -> ROAS), content hooks memo (Tue/Fri 7 AM, Opus, 3 hook ideas with framework classification), competitor recon (Wed 8 AM, Opus, watchlist analysis, threat assessment, opportunity gaps), GBP content drafts (Mon/Thu 7:30 AM, Sonnet, adapts waterfall content, requires approval), monthly strategic brief (1st at 10 AM, Opus, full creative audit + next month campaign plan + playbook update), creative analysis through 5 layers: hook type, Hormozi Value Eq, Brunson HSO, Andromeda entity diversity, visual style, auto-pause ads exceeding CPL $100 for 5+ days (with alert to Derek)
-CANNOT: collect raw data (uses existing ad-tracker, lead-volume, show-rate crons), modify budgets or scale spend (recommend only, requires Derek approval), publish content or GBP posts (drafts only, requires approval), access GHL directly at runtime (reads from data/*.json files)
-RUNS: midas-funnel 9 AM daily, midas-digest 9:30 PM daily, midas-attribution Sun 9 AM, midas-hooks Tue/Fri 7 AM, midas-recon Wed 8 AM, midas-gbp Mon/Thu 7:30 AM, midas-monthly 1st 10 AM
-STATE: data/marketing-state.json (funnel history, 90-day retention). Outputs: memory/marketing/content-hooks/, memory/marketing/competitors/recon-*.md, memory/marketing/attribution/monthly-brief-*.md, data/content-drafts/gbp-*.md
-Agent file: .claude/agents/marketing.md (Opus). Knowledge base: memory/marketing/. Frameworks: Hormozi Value Equation, Brunson Hook-Story-Offer, Meta Andromeda Entity IDs.
+CAN: daily funnel conversion monitor (9 AM, compares against 7-day avg, alerts on >20% drops), daily ad performance digest (9:30 PM, trend detection, entity diversity scoring, threshold alerts), weekly full-funnel attribution report (Sunday 9 AM, Meta spend -> leads -> booked -> showed -> patient -> ROAS), content hooks memo (Tue/Fri 7 AM, Opus, 3 hook ideas with framework classification), competitor recon (Wed 8 AM, Opus, watchlist analysis, threat assessment, opportunity gaps), GBP content drafts (Mon/Thu 7:30 AM, Sonnet, adapts waterfall content, requires approval), monthly strategic brief (1st at 10 AM, Opus, full creative audit + next month campaign plan + playbook update), creative analysis through 5 layers: hook type, Hormozi Value Eq, Brunson HSO, Andromeda entity diversity, visual style, auto-pause ads exceeding CPL $100 for 5+ days (with alert to Derek), PV Knowledge Layer integration: every Opus/Sonnet prompt (hooks, recon, monthly, GBP) loads canonical voice guide, humanizer rules, anti-patterns, 4 avatars (Linda/Mike/Maggie/Sophie), Schwartz awareness stages, objections-fears-desires, 55-hook library, 9 Derek-named frameworks, and competitive synthesis from PV-Knowledge-Layer git repo. focus parameter selects relevant subset per call, nightly 3:45 AM git pull + re-ingest of PV-Knowledge-Layer (cron: pv-knowledge-pull). SHA-256 dedup means only changed files re-process
+CANNOT: collect raw data (uses existing ad-tracker, lead-volume, show-rate crons), modify budgets or scale spend (recommend only, requires Derek approval), publish content or GBP posts (drafts only, requires approval), access GHL directly at runtime (reads from data/*.json files), load knowledge layer if PV-Knowledge-Layer repo not cloned (degrades gracefully — Midas falls back to inline business-bible.md)
+RUNS: midas-funnel 9 AM daily, midas-digest 9:30 PM daily, midas-attribution Sun 9 AM, midas-hooks Tue/Fri 7 AM, midas-recon Wed 8 AM, midas-gbp Mon/Thu 7:30 AM, midas-monthly 1st 10 AM, pv-knowledge-pull 3:45 AM daily
+STATE: data/marketing-state.json (funnel history, 90-day retention). Outputs: memory/marketing/content-hooks/, memory/marketing/competitors/recon-*.md, memory/marketing/attribution/monthly-brief-*.md, data/content-drafts/gbp-*.md. Knowledge layer source: PV-Knowledge-Layer git repo (default ../PV-Knowledge-Layer/knowledge, override via PV_KNOWLEDGE_LAYER_DIR env). Ingested chunks under Supabase documents.source='pv-knowledge-layer'.
+Agent file: .claude/agents/marketing.md (Opus). Knowledge base: memory/marketing/ + PV-Knowledge-Layer git repo (canonical). Frameworks: Hormozi Value Equation, Brunson Hook-Story-Offer, Meta Andromeda Entity IDs, plus 9 Derek-named frameworks (5 Pillars / Vitality Tracker / Protein Paradox / Fuel Code / Calm Core / etc.) loaded via loadKnowledgeContext().
 
 ## TMAA Newsletter Automation - Two-tier newsletter system (free weekly + paid biweekly) via Brevo with Telegram approval gate
 CAN: draft free newsletter ('This Week at TMAA') from recent blog posts + SAGE trending data + rotating CTA, draft paid newsletter ('TMAA Insider') with blog recap, SAGE insights, partner spotlight, resource highlights, create Brevo campaign drafts and send test emails to Derek + Esther, send approved newsletters via Brevo campaign API, rotate partner spotlights from tmaa_partners Supabase table, rotate CTAs (Join TMAA, Try SAGE, Browse Resources) across free editions, handle /approve free and /approve paid commands
@@ -208,3 +208,182 @@ CAN: Tuesday 7 AM smart topic suggestion (blog + pillar rotation + trending news
 CANNOT: send newsletters directly (draft only, Derek sends from GHL), include images/diagrams (text content only, images added in GHL), modify GHL email template design (content only)
 TAGS: [PV_NEWSLETTER_TOPIC: topic | pillar=Name],[PV_NEWSLETTER_SECTION: name | content],[PV_NEWSLETTER_SUBJECT: subject],[PV_NEWSLETTER_PUSH],[PV_NEWSLETTER_RESET],[PV_NEWSLETTER_SKIP],[PV_NEWSLETTER_PREVIEW]
 Operates in dedicated Telegram topic thread. Env: PV_NEWSLETTER_TOPIC_ID
+
+## Atlas Prime - Ledger - Tamper-evident action log (ed25519-signed, SHA-256 chained)
+CAN: append tamper-evident actions to data/atlas-ledger/ (ed25519-signed, SHA-256 chained), verify full chain integrity, publish hourly Merkle root to data/atlas-ledger-roots.jsonl
+CANNOT: delete or mutate committed entries
+DEPENDS ON: crypto (built-in), ed25519 keys in data/atlas-ledger.{key,pub}
+
+## Atlas Prime - Tool Gate - Pre-dispatch invariant enforcement for externally-visible tool calls
+CAN: enforce atlas.spec invariants on every externally-visible tool call before dispatch, return { allowed, reason, matchedInvariant }
+CANNOT: modify atlas.spec at runtime (read-only; cached after first load)
+DEPENDS ON: js-yaml, atlas.spec (project root)
+
+## Atlas Prime - Staleness Sentinel - Staleness-axis classifier for user messages
+CAN: classify user messages on the staleness axis (timeless/slow/medium/fast/real_time), identify matched hot-domain + half-life, force freshness-cache lookup for 'fast' and 'real_time' questions
+CANNOT: modify hot-domains.json at runtime (updated by freshness-feed cron only)
+DEPENDS ON: haiku-client.ts, data/hot-domains.json
+
+## Atlas Prime - Freshness Feed - Nightly refresh of llms.txt / changelog for hot domains
+CAN: nightly (3 AM) refresh of llms.txt / changelog for hot domains, cache to data/fresh-knowledge/<domain>.json, expose readFresh(domain) for relay-side access
+CANNOT: trigger on-demand refresh during a user turn (relay does WebFetch for that)
+DEPENDS ON: data/hot-domains.json
+
+## Atlas Prime - Replay Harness - Claude-as-judge scorer over labeled past conversations. Produces groundedness, tool-correctness, and refusal-calibration scores. The fitness function every later sprint depends on.
+CAN: load labeled dataset from data/replay-dataset.jsonl, score entries with Haiku (3 axes: groundedness, tool-correctness, refusal-calibration), emit per-run JSON to data/replay-results/, grow dataset in-conversation via [LABEL_GOOD] / [LABEL_BAD: reason] tags, run nightly at 3:30 AM via cron 'replay-nightly'
+CANNOT: modify dataset without explicit LABEL tag or script run, score entries whose content exceeds 4000 chars (truncation applied)
+DEPENDS ON: haiku-client.ts, supabase
+
+## Atlas Prime - Trust Budget - Per-domain trust score with 30-day half-life decay. Visible to Derek via /trust. Below-threshold domains auto-escalate.
+CAN: compute per-domain trust from replay + ledger events, render /trust report for Telegram, flag below-threshold domains for auto-escalation via shouldEscalate()
+CANNOT: modify historical trust events (append-only log at data/trust-snapshots.jsonl)
+COMMANDS: /trust
+DEPENDS ON: replay-harness.ts, ledger.ts
+
+## Atlas Prime - Reader (CaMeL) - Tool-less Haiku extractor for untrusted content. Any ingested doc / webfetch / inbox body is extracted to a typed schema before the Planner sees it — raw bytes never reach a SEND tool.
+CAN: extract typed fields from untrusted content (PDF, email, web page, CRM message), gate search.ts getRelevantContext() documents through renderForPlanner(), fail closed on extraction error
+CANNOT: call tools (no tool access by design), echo raw untrusted content into Planner prompt, exceed READER_MAX_CHARS per chunk (default 40k)
+DEPENDS ON: haiku-client.ts
+
+## Atlas Prime - Post-Compact Hook - Formal hooks fired on PreCompact (snapshot writer) and SessionStart (re-orient reminder). Permanently fixes the re-orient failure class.
+CAN: write memory/compact-snapshot.md on PreCompact, emit re-orient instructions on SessionStart
+CANNOT: block Claude from responding (exit 0 advisory; behavior gate is prompt content)
+DEPENDS ON: scripts/pre-compact-snapshot.sh, scripts/post-compact-verify.sh
+
+## Atlas Prime - Cortex (7-tier stack + demotion) - Tier definitions over existing memory surfaces; attribution log; multi-signal weighted demotion (judge 0.5 + correction 1.0 + trust 0.7, threshold 3.0); inversion at depth ≤2.
+CAN: record (turn_id, memory_id) pairs to attribution_log on retrieval, increment demotion_pressure on failure signals, demote memories at threshold and write inverted hypotheses, promote 3+ episodic clusters into semantic rules nightly
+CANNOT: modify identity tier (SOUL.md / IDENTITY.md / USER.md) — human-edited only, exceed inversion depth 2 (alert fires for manual review)
+RUNS: episodic-cluster-nightly 2:30 AM, attribution-purge-nightly 4:00 AM, cortex-demote-nightly 0:30 AM
+DEPENDS ON: memory, attribution_log, haiku-client.ts
+
+## Atlas Prime - Procedural Memory - Hand-curated procedures with Beta(α,β) Bayesian posteriors. Retrieve by intent embedding + Thompson sampling. Slot-filled at use time.
+CAN: find top-k procedures for a given goal via Thompson sampling, record success/failure outcomes that update Beta posteriors, fill {slot} placeholders from a values map, seed/reseed from data/procedures-seed.yaml idempotently
+CANNOT: auto-generate new procedures from conversations (Sprint 6), execute action_sequence steps directly — slot-filler returns tag strings that go through tool-gate
+STATE: data/procedures-seed.yaml (10 starter procedures)
+DEPENDS ON: procedures table, procedure_outcomes table, OpenAI embeddings
+
+## Atlas Prime - Memory Rewriting (lazy-on-stale) - Living summaries. Rewrites trigger when a memory is stale (>7 days since last rewrite) AND frequently accessed (≥5 reads since last rewrite). Originals immutable.
+CAN: increment access_count_since_rewrite on every retrieval, rewrite summary via Haiku with hindsight (AT THE TIME / AS OF format), reject rewrites failing content-critic (score <0.7 or hallucination flag), cap 50 rewrites per nightly window
+CANNOT: modify original_content (frozen on backfill), rewrite memories with class='demoted'
+RUNS: memory-rewrite-nightly at 1:00 AM
+DEPENDS ON: memory.original_content, memory.summary, content-critic.ts, haiku-client.ts
+
+## Atlas Prime - Reranker + Contextual Chunking - Retrieval pipeline: embedding top-50 → reranker top-8. Local Transformers.js (zerank-1-small if accessible, else bge-reranker-base fallback). New ingestions get contextual preambles.
+CAN: rerank up to 50 candidates with cross-encoder relevance scores, log rerank_score to attribution_log for debugging, generate ≤80-token Haiku preamble per chunk during ingestion, backfill existing documents to chunked_strategy='contextual-v1', pre-warm model 30s after boot
+CANNOT: load zerank-1-small without HF_TOKEN + access (gated; fallback to bge automatic), retry inference on per-pair failure (returns score 0)
+DEPENDS ON: @xenova/transformers, OpenAI embeddings
+
+## Atlas Prime - Causal DAG - Explainable causal graph of business state. Three discovery paths (PC algo, LLM-proposed, natural-experiment). Derek-approval gate; falsification preserves audit history.
+CAN: find causes for a metric (findCauses), find effects from an action (findEffects), walk a reasoning chain between two nodes (walkPath), list pending hypothesized edges (pendingApprovals), approve / falsify edges via /dag commands, discover edges from intervention pre/post deltas (natural-experiment), discover statistical edges via PC algorithm + bootstrap stability, propose semantic edges via Opus (LLM-proposed) with evidence-pointer gate
+CANNOT: auto-execute or apply edges without Derek approval (except natural-experiment which lands status='observed' but still approved=false), run PC algorithm without Python + causaldag installed
+COMMANDS: /dag pending,/dag approve,/dag falsify,/dag walk,/dag stats
+RUNS: causal-natural-experiments daily 0:30, causal-pc-discovery weekly 1:30, causal-llm-propose Sundays 2:00
+DEPENDS ON: Supabase (causal_nodes/edges/observations), Python (causaldag), Opus, ledger
+
+## Atlas Prime - World Model - Foundation forecaster (Chronos-Bolt) + Causal-DAG action effects. Counterfactual forecasts cite specific DAG edges as audit chain.
+CAN: unconditional p05/p50/p95 forecasts from scorecard history (forecast), counterfactual forecasts conditioned on a DAG action (forecastCounterfactual), persist forecast rows for audit (world_model_forecasts), compose Haiku reasoning paragraph citing DAG edge IDs
+CANNOT: train custom Dreamer-style RL (uses pre-trained Chronos), forecast metrics not present in business_scorecard, apply unfounded action effects (only approved DAG edges)
+COMMANDS: /forecast
+STATE: world_model_forecasts table (audit cache)
+DEPENDS ON: Python chronos-forecasting, Causal DAG (findEffects)
+
+## Atlas Prime - Dream Engine - Two-phase nightly imagination. SWS replays high-salience episodes with counterfactual variants and emits semantic rules. REM simulates tomorrow scenarios from the uncertainty pool, scored by unprep_score.
+CAN: compute composite salience over memory (access + trust + incident + demotion), SWS counterfactual variant generation + abstract rule writing + DOUBT detection, REM tomorrow scenarios via Opus, validated by World Model forecasts, write nightly memory/dreams/YYYY-MM-DD-{sws,rem}.md narratives, embed dreams for retrieval; surface in next morning brief
+CANNOT: modify the original memories (immutable; rules emit as new semantic-class memory rows), execute actions or send messages -- dreams are reflective only
+COMMANDS: /dreams,/dreams sws,/dreams search <topic>
+RUNS: dream-sws-nightly 23:00, dream-rem-nightly 03:00
+STATE: memory/dreams/*.md (human readable) + dreams table (retrievable)
+DEPENDS ON: memory + attribution_log + procedures + trust + Causal DAG + World Model
+
+## Atlas Prime - Derek Twin - Stated/revealed preference model. Tracks gap between what users say they want and what they actually do. Morning predictions + evening self-score = implicit reward signal for Sprint 6 self-improvement.
+CAN: classify user followups as accept/rewrite_align/rewrite_diverge/reject, recompute divergence per preference per domain, alert on gap > 0.4 with sample_size >= 5, generate 3-5 morning predictions per user via Opus, score each prediction in evening via Haiku-as-judge against today's user turns, report 30-day rolling calibration
+CANNOT: modify stated preferences automatically -- only via /twin update, predict beyond ~5 items per morning
+COMMANDS: /twin,/twin predictions,/twin divergence,/twin reconcile,/twin update,/twin hold,/twin calibration
+RUNS: twin-update-nightly 22:30, twin-predict-morning 05:30, twin-score-evening 21:00
+STATE: twin_stated_preferences, twin_revealed_observations, twin_divergence, twin_predictions, data/twin-calibration.jsonl
+DEPENDS ON: messages + Opus + Haiku + USER.md (initial seed)
+
+## Git-Branched Blackboard - Literal git substrate for multi-agent deliberations. Bare repo + worktrees + signed commits chained to Merkle ledger.
+CAN: open deliberation branches (council, joint, marketplace, role-audit), commit signed contracts with ledger entry per commit, fork dissent branches, merge final memos via arbitrator, git blame any claim back to its commit, walk transcript via git log, GC resolved branches to compressed bundles
+CANNOT: garbage-collect open deliberations, operate without ledger.ts (commits fail closed if ledger sync fails)
+
+## Role Registry - 8 hand-curated named seats + 32 Opus-generated roles. ed25519-signed contracts. Hybrid auctioneer.
+CAN: list and load roles from data/roles/<id>/role.yaml, generate ed25519 keypairs, sign and verify contracts, auction 3-5 seats per action via mandatory floor + reputation-weighted ceiling, track per-domain Beta posterior reputation, approve/reject pending generated roles via /role command
+CANNOT: sign contracts for roles without keypairs (must run bootstrap-named-seats.ts first)
+
+## Shadow Council - 3 trust-weighted critics on every patient-facing send. Per-surface shadow/live mode.
+CAN: review actions across 8 patient-facing surface classes (outbound_email, brevo, cal_invite_external, ghl_patient_message, gbp_post, social_publish, wp_post_publish, newsletter_push), veto with trust-weighted tally (Beta_mean per role per domain), fail closed in live mode if <2 critics respond within 3s SLA, generate daily shadow-mode review reports for Derek, score votes vs Derek's eventual outcome to update role reputation, promote/demote per-surface mode via /council promote <surface>
+CANNOT: intercept actions that bypass the relay tag handlers (e.g., direct API calls)
+
+## Agent Marketplace - Skills + named subagents bid for tasks. Vow-cards routine + active bid novel. Beta posterior reputation with per-domain decay.
+CAN: register bidders with vow-cards, route tasks via reputation-weighted scoring (confidence × Beta_mean / cost), active-bid via Haiku for novel task types (sample_count < 50), synthesize bids from vow-cards for routine task types, decay per-domain reputation on nightly cron, report 95% CI on bidder reputations via betaSummary, promote per-task-type from shadow to live via /marketplace promote
+CANNOT: actually execute the winning task (returns winner_id; caller dispatches)
+
+## Joint Protocol - Atlas + Ishtar negotiation on shared-owner decisions. I3 hard-shortlist trigger + J3 sync/async + K3 transcript-as-memo.
+CAN: auto-fire on hire/fire, capex>$5K, calendar-conflict, brand-tone-change, [JOINT_DECISION:] tag, open literal-git branch per deliberation, post counter-proposals (up to 3 rounds), block synchronously for urgent (60s timeout) or run async with 2h deadline for routine, arbitrate via Opus reading full git log -p of branch, produce K3 dissent packet (majority + minority) when no convergence, promote per-trigger live status via /joint promote
+CANNOT: take action on the agreed memo (memo is advisory; Derek/Esther act)
+
+## Atlas Prime - DGM Fork - Nightly proposes variants of skill prompts, role prompts, behavioral fixes, heuristics, rules, and system prompts. Tiered scoring (build → test → 10-conv smoke → 50-conv full replay). Variants qualifying ≥+0.02 aggregate land on Derek's morning merge list. Excluded paths protect the trust substrate.
+CAN: propose mutations to src/+rules via Opus call (CLI subprocess, Max-plan OAuth), score variants on replay-harness with tiered budget (~$3/night cap), surface qualifying variants to Telegram with diff + delta + rationale + 3-button keyboard, merge approved variants with ledger-signed commits
+CANNOT: modify atlas.spec, ledger code/keys, migrations, claude.ts, haiku-client.ts, tool-gate.ts, package.json, or .env, auto-merge without explicit Derek approval
+COMMANDS: /dgm pending,/dgm review,/dgm merge,/dgm archive
+RUNS: dgm-fork-nightly 22:00, dgm-morning-review 08:00
+DEPENDS ON: agent_reputation (Sprint 5), replay-dataset.jsonl (Sprint 2), callClaude (CLI)
+
+## Atlas Prime - Skill Shadow-Routing - Continuous A/B test on candidate skill replacements. Every shadow-routed task fires a Haiku judge comparing baseline vs candidate output. 7/10 wins in a rolling window auto-promotes; 7/10 losses in 30d auto-demotes. Derek can veto individual wins.
+CAN: judge shadow outputs via Haiku (CLI subprocess), auto-promote candidates that meet the 7/10 threshold, auto-demote candidates that lose 7/10 of their post-promotion rolling window, let Derek veto individual shadow wins via /skills veto
+CANNOT: promote without 10 non-vetoed scores, modify the baseline skill — only the routing table changes
+COMMANDS: /skills shadow,/skills veto
+DEPENDS ON: marketplace (Sprint 5), haiku-client.ts
+
+## Atlas Prime - Self-Regenerating Skills - Opus reads the last 30 invocations of a skill + the current text, proposes a v2. The v2 enters the DGM scoring pipeline. Triggered nightly for struggling skills (β/(α+β) > 0.6 in agent_reputation) or on demand via /skill regenerate <name>.
+CAN: regenerate a skill's text via Opus (CLI subprocess), queue the v2 as a DGM variant for replay-harness scoring, trigger from /skill regenerate <name> for explicit refresh
+CANNOT: auto-apply v2 without going through DGM merge-list approval, modify excluded paths
+COMMANDS: /skill regenerate
+DEPENDS ON: callClaude (CLI), dgm-fork pipeline, agent_reputation
+
+## Atlas Prime - Soft-DPO - Collects (user turn, Atlas original, Derek-corrected) pairs from three sources: [LABEL_BAD:] tags, Haiku follow-up classifier, explicit [DPO:] tag. Pairs are embedded; nightly digest writes data/behavioral-soft-dpo.md. Data accumulates in dpo_pairs for future fine-tuning.
+CAN: capture pairs from 3 sources with OpenAI embeddings, match top-K pairs per turn by semantic similarity + domain filter, regenerate data/behavioral-soft-dpo.md digest nightly, export pairs to fine-tuning JSONL via scripts/export-dpo-jsonl.ts
+CANNOT: perform real LoRA / gradient training on Claude (no Anthropic fine-tuning API today), modify Atlas's response without going through the standard prompt → callClaude path
+COMMANDS: /dpo stats,/dpo digest
+RUNS: dpo-digest-nightly 23:30
+DEPENDS ON: dpo_pairs table (Sprint 6), OpenAI embeddings, label-tag (Sprint 2)
+
+## Atlas Prime - /why Introspection - Given any turn_id or Telegram message link from the last 30 days, reconstructs Atlas's state at the time (frozen memory.original_content + DAG edges approved before message_ts + council reviews) and contrasts it with today's state. Opus reasons over the delta and answers 'would I say it again?'
+CAN: resolve turn_id from UUID or Telegram message link, reconstruct time-then and time-now state, produce 3-section output (At the time / Today / Would I say it again), cite memory IDs, DAG edges, council review IDs, cache results 30 days (TTL purge nightly)
+CANNOT: reconstruct turns older than 30 days (returns archived-redirect message), verify ledger signatures (verification is at read time via ledger.ts)
+COMMANDS: /why
+RUNS: introspect-cache-purge 04:30
+DEPENDS ON: memory.original_content (Sprint 3), attribution_log (Sprint 3), causal_edges (Sprint 4), council_votes (Sprint 5)
+
+## Atlas Prime - Shadow-Atlas Divergence Monitor - Second Bun process with cold context replays every primary prompt over IPC. Haiku scorer compares responses; unexplained drift sets a freeze flag that blocks external-action tools until Derek runs /shadow resume. MemoryGraft-class slow compromise becomes detectable.
+CAN: fire shadow-Atlas on every primary turn (IPC fire-and-forget, 90s budget), score semantic distance via Haiku (cached system prompt), classify as benign/explained/suspicious/alarm based on distance + memory-write window, set freeze.flag on alarm-class drift; block SEND/CAL_ADD/GHL_WORKFLOW/WP_POST until cleared, auto-restart shadow process via watchdog cron
+CANNOT: freeze read-only tools (memory search, scorecard reads remain available), co-decide actions — shadow is monitor only, not voter, execute external tools (shadow runs with --allowedTools "")
+COMMANDS: /shadow status,/shadow resume,/shadow freeze
+RUNS: shadow-process-watchdog every 5 min
+DEPENDS ON: callClaude/callHaiku via CLI, ledger (Sprint 1), IPC socket/named pipe
+
+## Atlas Prime - Semantic-Entropy Probe - When a turn produces >=2 candidate tool tags (ambiguity), generate 5 samples via Haiku, cluster by semantic equivalence, compute entropy H = -Σ p log p. Above threshold → substitute a clarifying question for dispatch. Destructive/non-destructive mixes always clarify regardless of entropy.
+CAN: detect ambiguity from multi-tag responses, sample k=5 tool selections in parallel via Haiku, cluster samples deterministically (identical) or via Haiku judge (semantic), compute entropy in nats, substitute clarifying questions for high-entropy turns, log every probe to tool_entropy_probes for /entropy review
+CANNOT: fire on unambiguous (single-tag) turns, auto-dispatch on destructive/non-destructive sample mixes (always clarifies)
+COMMANDS: /entropy review
+DEPENDS ON: callHaiku via CLI
+
+## Atlas Prime - Signed Memory Entries - Per-session ed25519 keypair generated at relay startup. Private key stays in process. Public key registered in session_keys table and anchored to the global Merkle ledger. Every memory row signed on insert; verified on every load. Tampered rows are excluded from search results and logged to memory_verification_failures.
+CAN: generate per-session ed25519 keypair anchored to ledger, sign memory rows on insert with canonical-payload sha256, verify signatures on every load (~0.05 ms/row), exclude tampered rows from results + log failure, treat pre-Sprint-7 unsigned rows as 'legacy_pre_sprint7' (allowed; logged once)
+CANNOT: retroactively sign legacy rows (out of scope), verify without supabase session-key lookup (test mode supports inline pubkey)
+DEPENDS ON: Node crypto (ed25519, sha256), ledger.ts appendEntry, session_keys table
+
+## Atlas Prime - Weekly Knowledge Audit - Saturday 9 AM PHX. For each fast/real_time domain in hot-domains.json: pulls recent Atlas claims, WebFetches the authoritative source, scores drift via Haiku, proposes a new half_life_days. Proposals surface to Telegram with /audit apply / applyall buttons; approval writes to hot-domains.json + appends a ledger entry.
+CAN: audit fast/real_time domains weekly, fetch authoritative sources via WebFetch, score per-sample correctness via Haiku, propose new half-lives via Bayesian half-decay math (clipped to current × 1.5), surface proposals to Derek for approval, apply approved half-lives to hot-domains.json + ledger anchor
+CANNOT: auto-apply without Derek approval, audit timeless/slow/medium domains (out of scope)
+COMMANDS: /audit status,/audit apply <domain>,/audit applyall
+RUNS: knowledge-audit-weekly Saturday 9:00 PHX
+DEPENDS ON: callHaiku via CLI, WebFetch, ledger.ts, hot-domains.json
+
+## Atlas Prime - Public Transparency Beacon - Hourly publish of the Merkle ledger root to the public repo atlas-prime-beacon. Standing bounty (default $500) in BOUNTY.md invites external verification. Local cron + optional GitHub Actions workflow keep publishing resilient. Anyone can run scripts/verify-beacon.ts against a local snapshot to confirm match.
+CAN: export latest atlas-ledger-roots to data/beacon-repo/ in roots/YYYY-MM-DD.jsonl format, maintain roots/latest.json with the most recent published root, git commit + push to public mirror (idempotent — no-op when no changes), verify local chain matches published root via scripts/verify-beacon.ts (exit 0/1/2), host standing bounty for verifiable inconsistencies (BOUNTY.md in public repo)
+CANNOT: publish without a configured public-repo clone at data/beacon-repo, auto-pay bounty claims (manual Derek adjudication)
+COMMANDS: /beacon status,/beacon verify,/beacon bounty
+RUNS: beacon-roots-export every hour (top of hour)
+DEPENDS ON: Sprint 1 ledger.publishRoot, git CLI, public GitHub repo
