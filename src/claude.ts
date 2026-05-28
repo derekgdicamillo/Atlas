@@ -728,7 +728,7 @@ export async function callClaude(
 
   try {
     // ── Persistent process routing ──────────────────────────
-    if (shouldUsePersistent(options)) {
+    if (shouldUsePersistent(options) && selectEngine({ engine: (options as any)?.engine }) !== "sdk") {
       try {
         const session = await getSession(agentId, userId);
         const proc = processPool.get(agentId, modelTier);
@@ -841,7 +841,7 @@ export async function callClaude(
         const fallbackDepth = (options as any)?._fallbackDepth || 0;
         if ((isRateLimit || isModelError) && fallbackModel && fallbackDepth < 2) {
           warn("claude", `[${agentId}] SDK ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel} (depth ${fallbackDepth + 1})`);
-          return callClaude(prompt, { ...options, model: fallbackModel, skipLock: options?.skipLock ?? false, _isFallback: true, _fallbackDepth: fallbackDepth + 1 } as any);
+          return callClaude(prompt, { ...options, model: fallbackModel, skipLock: true, _isFallback: true, _fallbackDepth: fallbackDepth + 1 } as any);
         }
         if (isResuming && session.sessionId && !options?.isolated) {
           const oldSid = session.sessionId;
@@ -857,7 +857,7 @@ export async function callClaude(
         session.sessionId = result.sessionId; session.lastActivity = new Date().toISOString();
         await saveSessionState(agentId, userId, session);
       }
-      const sdkText = stripReasoningTags(result.text);
+      const sdkText = stripReasoningTags(result.text) || "No response generated.";
       return sdkText;
     }
     // ── End SDK engine path ──
