@@ -6,4 +6,8 @@ export interface EngineResult {
   outputTokens: number;
   isError: boolean;
   toolCallCount: number;
+  /** Set when isError: a short reason ("timeout" | "tool_call_loop" | "rate_limit" | "model_error" | "error"). */
+  errorReason?: string;
+  /** Raw error text/subtype from the SDK, used to classify rate-limit vs model-error for fallback. */
+  errorDetail?: string;
 }
