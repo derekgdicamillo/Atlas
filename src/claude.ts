@@ -24,6 +24,8 @@ import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PH
 import { addEntry, formatForPrompt } from "./conversation.ts";
 import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 import { processPool } from "./persistent-pool.ts";
+import { selectEngine } from "./engine/router.ts";
+import { runViaSdk } from "./engine/sdk-engine.ts";
 
 // ============================================================
 // CONFIGURATION
@@ -789,6 +791,56 @@ export async function callClaude(
     // ── End persistent process routing ──────────────────────
 
     const session = await getSession(agentId, userId);
+    // ── SDK engine path (flag-gated; CLI path below is unchanged) ──
+    if (selectEngine({ engine: (options as any)?.engine }) === "sdk") {
+      const startTimeSdk = Date.now();
+      const modelMultiplier = MODEL_TIMEOUT_MULTIPLIERS[modelTier] ?? 1.0;
+      const onEvent = (ev: StreamEvent) => {
+        if (ev.type === "thinking" || ev.type === "assistant") options?.onTyping?.();
+        if (ev.type === "text_delta" && ev.textDelta) options?.onTextDelta?.(ev.textDelta);
+        // TodoWrite interception: capture CODE_TASK entries from structured tool calls,
+        // mirroring the CLI path's mechanism (per-todo parse → single object or null).
+        if (ev.type === "assistant" && ev.toolName === "TodoWrite" && ev.toolInput?.todos && options?.onCodeTaskCaptured) {
+          const todos = ev.toolInput.todos as Array<{ content: string; status: string }>;
+          const captured: Array<{ cwd: string; prompt: string; timeoutMs?: number }> = [];
+          for (const todo of todos) {
+            if (typeof todo.content === "string" && todo.content.startsWith("CODE_TASK:")) {
+              const parsed = parseCodeTaskFromTodoContent(todo.content);
+              if (parsed) captured.push(parsed);
+            }
+          }
+          if (captured.length > 0) {
+            info("claude", `[${agentId}] TodoWrite interception (SDK): captured ${captured.length} code task(s)`);
+            options.onCodeTaskCaptured(captured);
+          }
+        }
+      };
+      const result = await runViaSdk(
+        prompt,
+        {
+          modelId,
+          resumeSessionId: options?.resume ? session.sessionId : null,
+          workspaceDir: options?.workspaceDir,
+          mcpIntentFlags: options?.mcpIntentFlags,
+          inactivityMs: Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier),
+          wallClockMs: Math.round(MAX_WALL_CLOCK_MS * modelMultiplier),
+        },
+        onEvent,
+      );
+      const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
+      const callCostUsd = (result.inputTokens * costRates.input + result.outputTokens * costRates.output) / 1_000_000;
+      trackClaudeCall(Date.now() - startTimeSdk, {
+        model: modelTier, inputTokens: result.inputTokens, outputTokens: result.outputTokens, costUsd: callCostUsd,
+      });
+      info("claude", `[${agentId}] SDK responded (${modelTier}) | ${result.inputTokens}in/${result.outputTokens}out | $${callCostUsd.toFixed(4)} | ${result.toolCallCount} tools`);
+      if (result.sessionId && !options?.isolated) {
+        session.sessionId = result.sessionId;
+        session.lastActivity = new Date().toISOString();
+        await saveSessionState(agentId, userId, session);
+      }
+      return stripReasoningTags(result.text);
+    }
+    // ── End SDK engine path ──
     // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
     const args = [CLAUDE_PATH, "-p"];
 
