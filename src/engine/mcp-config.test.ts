@@ -22,7 +22,13 @@ test("browser intent adds playwright", () => {
   expect(r.playwright).toBeDefined();
 });
 
-test("unknown server names in intent map are ignored safely", () => {
-  const r = filterMcpServers(ALL, { pipeline: true }); // pipeline -> ghl-crm
-  expect(Object.keys(r).sort()).toEqual(["atlas", "ghl-crm"]);
+test("intent-mapped server absent from `all` is skipped (not invented)", () => {
+  const allWithoutGhl = {
+    atlas: { command: "bun", args: ["x"] },
+    "google-suite": { command: "bun", args: ["g"] },
+    playwright: { command: "npx", args: ["p"] },
+  };
+  const r = filterMcpServers(allWithoutGhl, { pipeline: true }); // pipeline -> ghl-crm, which is absent
+  expect(Object.keys(r).sort()).toEqual(["atlas"]); // only core; ghl-crm not invented
+  expect(r["ghl-crm"]).toBeUndefined();
 });
