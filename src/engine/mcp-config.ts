@@ -19,12 +19,16 @@ export function filterMcpServers(
   all: Record<string, any>,
   intentFlags?: Record<string, boolean>,
 ): Record<string, any> {
-  const needed = new Set<string>(["atlas"]);
-  if (intentFlags) {
-    for (const [intent, servers] of Object.entries(INTENT_TO_MCP_SERVERS)) {
-      if (intentFlags[intent]) for (const s of servers) needed.add(s);
-    }
+  // CLI parity: no intent => full set.
+  if (!intentFlags) return { ...all };
+
+  const needed = new Set<string>(["atlas"]); // always include core
+  for (const [intent, servers] of Object.entries(INTENT_TO_MCP_SERVERS)) {
+    if (intentFlags[intent]) for (const s of servers) needed.add(s);
   }
+  // CLI parity: 5+ servers => full set (not worth filtering).
+  if (needed.size >= 5) return { ...all };
+
   const out: Record<string, any> = {};
   for (const name of needed) if (all[name]) out[name] = all[name];
   return out;
