@@ -26,6 +26,7 @@ import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 import { processPool } from "./persistent-pool.ts";
 import { selectEngine } from "./engine/router.ts";
 import { runViaSdk } from "./engine/sdk-engine.ts";
+import { classifyEngineError, friendlyErrorText } from "./engine/engine-errors.ts";
 
 // ============================================================
 // CONFIGURATION
@@ -795,6 +796,8 @@ export async function callClaude(
     if (selectEngine({ engine: (options as any)?.engine }) === "sdk") {
       const startTimeSdk = Date.now();
       const modelMultiplier = MODEL_TIMEOUT_MULTIPLIERS[modelTier] ?? 1.0;
+      const isResuming = !!(options?.resume && session.sessionId);
+      const RESUME_WALL_RATIO = 0.5;
       const onEvent = (ev: StreamEvent) => {
         if (ev.type === "thinking" || ev.type === "assistant") options?.onTyping?.();
         if (ev.type === "text_delta" && ev.textDelta) options?.onTextDelta?.(ev.textDelta);
@@ -823,22 +826,39 @@ export async function callClaude(
           workspaceDir: options?.workspaceDir,
           mcpIntentFlags: options?.mcpIntentFlags,
           inactivityMs: Math.round(INACTIVITY_TIMEOUT_MS * modelMultiplier),
-          wallClockMs: Math.round(MAX_WALL_CLOCK_MS * modelMultiplier),
+          wallClockMs: Math.round(MAX_WALL_CLOCK_MS * modelMultiplier * (isResuming ? RESUME_WALL_RATIO : 1)),
         },
         onEvent,
       );
       const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
       const callCostUsd = (result.inputTokens * costRates.input + result.outputTokens * costRates.output) / 1_000_000;
-      trackClaudeCall(Date.now() - startTimeSdk, {
-        model: modelTier, inputTokens: result.inputTokens, outputTokens: result.outputTokens, costUsd: callCostUsd,
-      });
-      info("claude", `[${agentId}] SDK responded (${modelTier}) | ${result.inputTokens}in/${result.outputTokens}out | $${callCostUsd.toFixed(4)} | ${result.toolCallCount} tools`);
+      trackClaudeCall(Date.now() - startTimeSdk, { model: modelTier, inputTokens: result.inputTokens, outputTokens: result.outputTokens, costUsd: callCostUsd });
+      info("claude", `[${agentId}] SDK responded (${modelTier}) | ${result.inputTokens}in/${result.outputTokens}out | $${callCostUsd.toFixed(4)} | ${result.toolCallCount} tools${result.isError ? ` | ERROR:${result.errorReason}` : ""}`);
+
+      if (result.isError) {
+        const { isRateLimit, isModelError } = classifyEngineError(result.errorDetail);
+        const fallbackModel = MODEL_FALLBACK[modelTier];
+        const fallbackDepth = (options as any)?._fallbackDepth || 0;
+        if ((isRateLimit || isModelError) && fallbackModel && fallbackDepth < 2) {
+          warn("claude", `[${agentId}] SDK ${modelTier} failed (${isRateLimit ? "rate limit" : "model error"}), falling back to ${fallbackModel} (depth ${fallbackDepth + 1})`);
+          return callClaude(prompt, { ...options, model: fallbackModel, skipLock: options?.skipLock ?? false, _isFallback: true, _fallbackDepth: fallbackDepth + 1 } as any);
+        }
+        if (isResuming && session.sessionId && !options?.isolated) {
+          const oldSid = session.sessionId;
+          warn("claude", `[${agentId}] Clearing session ${oldSid} after SDK error (${result.errorReason}).`);
+          session.sessionId = null; session.lastActivity = new Date().toISOString();
+          await saveSessionState(agentId, userId, session);
+          archiveSessionTranscript(oldSid, agentId, userId).catch(() => {});
+        }
+        return friendlyErrorText(result.errorReason, result.toolCallCount);
+      }
+
       if (result.sessionId && !options?.isolated) {
-        session.sessionId = result.sessionId;
-        session.lastActivity = new Date().toISOString();
+        session.sessionId = result.sessionId; session.lastActivity = new Date().toISOString();
         await saveSessionState(agentId, userId, session);
       }
-      return stripReasoningTags(result.text);
+      const sdkText = stripReasoningTags(result.text);
+      return sdkText;
     }
     // ── End SDK engine path ──
     // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
