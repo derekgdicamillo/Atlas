@@ -49,6 +49,11 @@ export async function runViaSdk(
         resume: opts.resumeSessionId || undefined,
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
+        // Do NOT inherit the host's ~/.claude settings (plugins/MCP servers). Atlas
+        // controls its own MCP set via mcpServers below. Without this, the SDK loads
+        // every plugin/connector on the machine, bloating the tool schema past the
+        // prompt-length limit ("Prompt is too long" 400) — fatal on tool-using turns.
+        settingSources: [],
         mcpServers: loadMcpServersForSdk(opts.mcpIntentFlags),
         cwd: opts.workspaceDir || process.env.PROJECT_DIR || process.cwd(),
         abortController: controller,

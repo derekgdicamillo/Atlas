@@ -833,7 +833,7 @@ export async function callClaude(
       const costRates = TOKEN_COSTS[modelTier] || TOKEN_COSTS.sonnet;
       const callCostUsd = (result.inputTokens * costRates.input + result.outputTokens * costRates.output) / 1_000_000;
       trackClaudeCall(Date.now() - startTimeSdk, { model: modelTier, inputTokens: result.inputTokens, outputTokens: result.outputTokens, costUsd: callCostUsd });
-      info("claude", `[${agentId}] SDK responded (${modelTier}) | ${result.inputTokens}in/${result.outputTokens}out | $${callCostUsd.toFixed(4)} | ${result.toolCallCount} tools${result.isError ? ` | ERROR:${result.errorReason}` : ""}`);
+      info("claude", `[${agentId}] SDK responded (${modelTier}) | ${result.inputTokens}in/${result.outputTokens}out | $${callCostUsd.toFixed(4)} | ${result.toolCallCount} tools${result.isError ? ` | ERROR:${result.errorReason}${result.errorDetail ? ` (${result.errorDetail})` : ""}` : ""}`);
 
       if (result.isError) {
         const { isRateLimit, isModelError } = classifyEngineError(result.errorDetail);
