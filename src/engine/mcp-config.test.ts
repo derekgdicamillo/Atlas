@@ -6,20 +6,33 @@ const ALL = {
   "ga4-analytics":{}, "pv-dashboard":{}, hevy:{}, playwright:{},
 } as Record<string, any>;
 
-test("no intent flags -> ALL servers (matches CLI full-config default)", () => {
-  expect(Object.keys(filterMcpServers(ALL)).sort()).toEqual(Object.keys(ALL).sort());
+const CORE = ["atlas", "ghl-crm", "pv-dashboard", "google-suite", "wordpress"].sort();
+
+test("no intent -> lean always-on core only (heavy servers NOT loaded)", () => {
+  const r = filterMcpServers(ALL);
+  expect(Object.keys(r).sort()).toEqual(CORE);
+  expect(r.playwright).toBeUndefined(); // heavy browser server gated out by default
+  expect(r["ga4-analytics"]).toBeUndefined();
 });
-test("single intent -> atlas core + that intent's servers (filtered subset)", () => {
-  const r = filterMcpServers(ALL, { google: true });
-  expect(Object.keys(r).sort()).toEqual(["atlas", "google-suite"]);
+
+test("browser intent adds playwright on top of core", () => {
+  const r = filterMcpServers(ALL, { browser: true });
+  expect(r.playwright).toBeDefined();
+  expect(Object.keys(r).sort()).toEqual([...CORE, "playwright"].sort());
 });
-test(">=5 servers needed -> ALL servers (matches CLI 'not worth filtering')", () => {
-  // marketing(pv-dashboard,ga4-analytics)+google(google-suite)+pipeline(ghl-crm)+reputation(gbp) = atlas+5 = 6 >=5
-  const r = filterMcpServers(ALL, { marketing: true, google: true, pipeline: true, reputation: true });
-  expect(Object.keys(r).sort()).toEqual(Object.keys(ALL).sort());
+
+test("reputation intent adds gbp on top of core", () => {
+  const r = filterMcpServers(ALL, { reputation: true });
+  expect(r.gbp).toBeDefined();
 });
-test("intent-mapped server absent from `all` is skipped", () => {
-  const allNoGhl = { atlas:{}, "google-suite":{}, playwright:{} } as Record<string, any>;
-  const r = filterMcpServers(allNoGhl, { pipeline: true });
-  expect(r["ghl-crm"]).toBeUndefined();
+
+test("ghl-crm is ALWAYS present (Derek's primary need), intent or not", () => {
+  expect(filterMcpServers(ALL)["ghl-crm"]).toBeDefined();
+  expect(filterMcpServers(ALL, { browser: true })["ghl-crm"]).toBeDefined();
+});
+
+test("intent-mapped server absent from `all` is skipped, not invented", () => {
+  const allNoPlaywright = { atlas:{}, "ghl-crm":{}, "pv-dashboard":{}, "google-suite":{}, wordpress:{} } as Record<string, any>;
+  const r = filterMcpServers(allNoPlaywright, { browser: true });
+  expect(r.playwright).toBeUndefined();
 });

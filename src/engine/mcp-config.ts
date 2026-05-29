@@ -14,21 +14,26 @@ const INTENT_TO_MCP_SERVERS: Record<string, string[]> = {
   todos:      [],
 };
 
-/** Pure: given the full server map + intent flags, return the subset (atlas core always included). */
+/**
+ * Lean daily-driver core, always loaded. The SDK respawns MCP servers EVERY turn
+ * (no warm pool like the CLI's persistent path), so loading all 9 each turn churns
+ * connections — notably GHL — in and out. Keep the per-turn set small, with GHL
+ * always present, and load heavy/occasional servers (playwright's browser, gbp,
+ * ga4-analytics, hevy) only when a turn's intent actually needs them.
+ */
+const ALWAYS_ON = ["atlas", "ghl-crm", "pv-dashboard", "google-suite", "wordpress"];
+
+/** Pure: given the full server map + intent flags, return the lean per-turn subset. */
 export function filterMcpServers(
   all: Record<string, any>,
   intentFlags?: Record<string, boolean>,
 ): Record<string, any> {
-  // CLI parity: no intent => full set.
-  if (!intentFlags) return { ...all };
-
-  const needed = new Set<string>(["atlas"]); // always include core
-  for (const [intent, servers] of Object.entries(INTENT_TO_MCP_SERVERS)) {
-    if (intentFlags[intent]) for (const s of servers) needed.add(s);
+  const needed = new Set<string>(ALWAYS_ON);
+  if (intentFlags) {
+    for (const [intent, servers] of Object.entries(INTENT_TO_MCP_SERVERS)) {
+      if (intentFlags[intent]) for (const s of servers) needed.add(s);
+    }
   }
-  // CLI parity: 5+ servers => full set (not worth filtering).
-  if (needed.size >= 5) return { ...all };
-
   const out: Record<string, any> = {};
   for (const name of needed) if (all[name]) out[name] = all[name];
   return out;
