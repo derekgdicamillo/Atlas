@@ -13,10 +13,20 @@
 import { spawn } from "bun";
 import { tmpdir } from "os";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { extractFirstAssistantText } from "./prompt-runner.ts";
 import { error as logError, warn } from "./logger.ts";
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
+// Resolve the npm .cmd shim to its underlying claude.exe and spawn directly,
+// sidestepping cmd.exe's mis-tokenizing of space-containing paths. This was the
+// root cause of the recurring "system cannot find the file specified" crashes
+// that silently disabled the entropy probe, twin-predict, and knowledge audit.
+// See claude-binary.ts for the full writeup.
+function buildSpawnArgs(extraArgs: string[]): string[] {
+  return buildClaudeSpawnArgs(CLAUDE_PATH, extraArgs);
+}
 
 // Run CLI from a neutral directory so it does NOT load the atlas project's
 // CLAUDE.md / rules / skills into the prompt. Each caller passes its own
@@ -96,15 +106,14 @@ async function callModel(model: string, params: HaikuMessage, logTag: string): P
       await new Promise((r) => setTimeout(r, backoffMs));
     }
 
-    const args = [
-      CLAUDE_PATH,
+    const args = buildSpawnArgs([
       "-p",
       "--model", model,
       "--system-prompt", params.system,
       "--output-format", "stream-json",
       "--verbose",
       "--allowedTools", "",
-    ];
+    ]);
 
     try {
       const proc = spawn(args, {
