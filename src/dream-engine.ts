@@ -177,14 +177,19 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
       const r = await callHaiku({
         system: SWS_VARIANT_SYSTEM,
         userMessage: `Episode (created ${(row as any).created_at}, tags: ${(row as any).tags?.join(", ") ?? ""}):\n\n${(row as any).summary}`,
-        maxTokens: 800,
+        maxTokens: 2000,
         cacheSystem: true,
         caller: "dream-sws-variant",
       });
       const text = r.text;
       const start = text.indexOf("[");
       const end = text.lastIndexOf("]");
-      variants = JSON.parse(text.slice(start, end + 1));
+      const jsonStr = text.slice(start, end + 1);
+      if (!jsonStr.trim().endsWith("]")) {
+        console.error(`[dream-sws] truncated JSON for ${s.memoryId}, skipping`);
+        continue;
+      }
+      variants = JSON.parse(jsonStr);
     } catch (err) {
       console.error(`[dream-sws] variants failed for ${s.memoryId}:`, err);
       continue;
@@ -460,7 +465,7 @@ export async function runREM(
         instructions: "Compose a tomorrow scenario in which this uncertainty becomes consequential.",
       });
       const resp = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: "claude-opus-4-8",
         max_tokens: 1500,
         system: REM_SYSTEM,
         messages: [{ role: "user", content: userMessage }],
