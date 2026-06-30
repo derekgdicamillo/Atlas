@@ -18,6 +18,7 @@ import { readUntrusted, renderForPlanner } from "./reader.ts";
 import { callHaiku as defaultCallHaiku } from "./haiku-client.ts";
 import { recordAttribution } from "./cortex.ts";
 import { rerank } from "./reranker.ts";
+import { supabaseBreaker } from "./circuit-breaker.ts";
 
 // ============================================================
 // TYPES
@@ -230,6 +231,10 @@ export async function getRelevantContext(
   opts?: RelevantContextOpts,
 ): Promise<string> {
   if (!supabase) return "";
+  if (supabaseBreaker.getState() === "open") {
+    warn("search", "Supabase circuit OPEN — skipping context search");
+    return "";
+  }
 
   const callHaiku = opts?.callHaikuOverride ?? defaultCallHaiku;
 
