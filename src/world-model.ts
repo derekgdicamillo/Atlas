@@ -18,9 +18,14 @@ export interface CounterfactualForecastResult {
 
 export type { CausalEdge } from "./causal-graph.ts";
 
+// Bare "python" resolves to the Microsoft Store alias on this machine (which
+// errors); PYTHON_PATH should point at the real install
+// (AppData/Local/Programs/Python/Python312/python.exe).
+const PYTHON = process.env.PYTHON_PATH || "python";
+
 async function runChronosSubprocess(history: number[], horizon: number): Promise<ForecastBands> {
   return new Promise((resolve, reject) => {
-    const py = spawn("python", ["scripts/chronos_forecast.py"]);
+    const py = spawn(PYTHON, ["scripts/chronos_forecast.py"]);
     let stdout = "";
     let stderr = "";
     py.stdout.on("data", (d) => (stdout += d.toString()));
