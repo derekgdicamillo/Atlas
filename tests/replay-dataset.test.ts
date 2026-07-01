@@ -64,4 +64,61 @@ describe("replay-dataset", () => {
       rmSync(bad);
     }
   });
+
+  test("normalizes 2026-06-28 seeded labeler schema", async () => {
+    const seeded = "data/replay-dataset-seeded.jsonl";
+    writeFileSync(
+      seeded,
+      JSON.stringify({
+        turn_id: "atlas-20260620-001",
+        agent: "atlas",
+        user_message: "You back",
+        atlas_response: "Yeah, back up.",
+        label: "bad",
+        confidence: 0.85,
+        reason: "Trailing open question appended to clean status update.",
+        source_date: "2026-06-20",
+        source: "atlas-ring-buffer[2]",
+      }) + "\n"
+    );
+    try {
+      const ds = await loadDataset(seeded);
+      expect(ds).toHaveLength(1);
+      expect(ds[0].id).toBe("atlas-20260620-001");
+      expect(ds[0].userTurn).toBe("You back");
+      expect(ds[0].atlasResponse).toBe("Yeah, back up.");
+      expect(ds[0].capturedAt).toBe("2026-06-20");
+      expect(ds[0].derekCorrection).toContain("Trailing open question");
+      expect(ds[0].tags).toEqual(["seeded"]);
+    } finally {
+      rmSync(seeded);
+    }
+  });
+
+  test("lenient mode skips invalid entries instead of throwing", async () => {
+    const mixed = "data/replay-dataset-mixed.jsonl";
+    writeFileSync(
+      mixed,
+      JSON.stringify({ id: "only-id" }) +
+        "\n{not-json\n" +
+        JSON.stringify({
+          id: "ok-1",
+          capturedAt: "2026-03-01T09:14:00.000Z",
+          agent: "atlas",
+          userTurn: "hi",
+          contextSummary: "ctx",
+          atlasResponse: "hello",
+          derekCorrection: null,
+          label: "good",
+          tags: [],
+        }) + "\n"
+    );
+    try {
+      const ds = await loadDataset(mixed, { strict: false });
+      expect(ds).toHaveLength(1);
+      expect(ds[0].id).toBe("ok-1");
+    } finally {
+      rmSync(mixed);
+    }
+  });
 });

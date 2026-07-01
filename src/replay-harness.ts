@@ -46,7 +46,8 @@ export async function runHarness(opts?: {
   const startedAt = new Date().toISOString();
   const runId = startedAt.replace(/[:.]/g, "-");
 
-  const entries = await loadDataset(datasetPath);
+  // Lenient load: skip bad rows instead of crashing the nightly run.
+  const entries = await loadDataset(datasetPath, { strict: false });
   const working = opts?.limit ? entries.slice(0, opts.limit) : entries;
 
   const perEntry: JudgeScore[] = [];
