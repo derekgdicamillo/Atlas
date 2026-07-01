@@ -20,6 +20,7 @@ import { EventEmitter } from "events";
 import { info, warn, error as logError, trackClaudeCall } from "./logger.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { fireHooks } from "./hooks.ts";
 import { acquireWorktree, releaseWorktree, cleanupStaleWorktrees, getWorktree } from "./worktree.ts";
 import { writeProgressNote, buildResumeContext } from "./progress-notes.ts";
@@ -422,8 +423,7 @@ export async function spawnSubagent(opts: {
   await mkdir(TASK_OUTPUT_DIR, { recursive: true });
 
   // Prompt piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
-  const args = [
-    CLAUDE_PATH,
+  const args = buildClaudeSpawnArgs(CLAUDE_PATH, [
     "-p",
     "--output-format",
     "stream-json",
@@ -431,7 +431,7 @@ export async function spawnSubagent(opts: {
     "--model",
     modelId,
     "--dangerously-skip-permissions",
-  ];
+  ]);
 
   // Granular tool policy: research agents get restricted tools (no Bash/Write/Edit)
   const researchPolicy = TOOL_POLICIES.research_agent;
@@ -2336,14 +2336,13 @@ export async function spawnCodeAgent(opts: CodeAgentOptions): Promise<void> {
     wrappedPrompt = wrapCodePrompt(opts.prompt, opts.depth ?? 0);
   }
 
-  const args = [
-    CLAUDE_PATH,
+  const args = buildClaudeSpawnArgs(CLAUDE_PATH, [
     "-p",
     "--output-format", "stream-json",
     "--verbose",
     "--model", modelId,
     "--dangerously-skip-permissions",
-  ];
+  ]);
 
   validateSpawnArgs(args);
 

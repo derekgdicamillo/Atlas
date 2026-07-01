@@ -20,6 +20,7 @@
 import { spawn, type Subprocess } from "bun";
 import { info, warn, error as logError } from "./logger.ts";
 import { createStreamParser, validateSpawnArgs, type StreamEvent } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 import {
   PERSISTENT_MAX_RESTART_ATTEMPTS,
@@ -494,15 +495,16 @@ export class PersistentProcess {
     if (this.status === "shutdown") return false;
     this.status = "spawning";
 
-    const args = [
-      this.config.claudePath,
+    // Windows-safe spawn: resolve npm .cmd shim to claude.exe so the space in
+    // the user path never reaches cmd.exe (see claude-binary.ts).
+    const args = buildClaudeSpawnArgs(this.config.claudePath, [
       "-p",
       "--input-format", "stream-json",
       "--output-format", "stream-json",
       "--verbose",
       "--model", this.config.modelId,
       "--dangerously-skip-permissions",
-    ];
+    ]);
 
     if (this.config.mcpConfigPath) {
       args.push("--mcp-config", this.config.mcpConfigPath);

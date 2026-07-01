@@ -14,6 +14,7 @@ import { join } from "path";
 import { createServer, type Socket } from "net";
 import { spawn } from "bun";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { extractFirstAssistantText } from "./prompt-runner.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
@@ -57,15 +58,14 @@ async function loadColdContextPath(): Promise<string> {
 
 async function shadowRespond(prompt: string, budgetMs: number): Promise<{ text: string }> {
   const systemPath = await loadColdContextPath();
-  const args = [
-    process.env.CLAUDE_PATH || "claude",
+  const args = buildClaudeSpawnArgs(process.env.CLAUDE_PATH || "claude", [
     "-p",
     "--model", process.env.SHADOW_ATLAS_MODEL || "sonnet",
     "--system-prompt-file", systemPath,
     "--output-format", "stream-json",
     "--verbose",
     "--allowedTools", "",
-  ];
+  ]);
   validateSpawnArgs(args);
   const proc = spawn(args, {
     stdin: "pipe",

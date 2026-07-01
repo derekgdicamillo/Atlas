@@ -24,6 +24,7 @@ import {
   EVOLUTION_PHASE_BUDGETS,
 } from "./constants.ts";
 import { sanitizedEnv, validateSpawnArgs } from "../claude.ts";
+import { buildClaudeSpawnArgs } from "../claude-binary.ts";
 import { registerCodeTask, type CodeAgentResult } from "../supervisor.ts";
 import { sendEmail } from "../google.ts";
 
@@ -79,7 +80,7 @@ export interface PipelineResult {
  */
 async function runPrompt(prompt: string, model?: string): Promise<string> {
   try {
-    const args = [CLAUDE_PATH, "-p", "--output-format", "json", "--dangerously-skip-permissions"];
+    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", "--output-format", "json", "--dangerously-skip-permissions"]);
     if (model) args.push("--model", model);
 
     // OpenClaw: Validate spawn args (reject CR/LF injection on Windows)

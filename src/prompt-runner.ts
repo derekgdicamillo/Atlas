@@ -12,19 +12,25 @@
  */
 import { spawn } from "bun";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 
 const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
 
+// Windows-safe spawn: resolves the npm .cmd shim to claude.exe so a space in
+// the install path never reaches cmd.exe (see claude-binary.ts).
+function buildRunArgs(extraArgs: string[]): string[] {
+  return buildClaudeSpawnArgs(CLAUDE_PATH, extraArgs);
+}
+
 /** Run an ad-hoc prompt via Claude CLI. Returns the first assistant turn's text. */
 export async function runPrompt(prompt: string, model?: string): Promise<string> {
   try {
-    const args = [
-      CLAUDE_PATH,
+    const args = buildRunArgs([
       "-p",
       "--output-format", "stream-json",
       "--verbose", // required by Claude CLI when using stream-json with -p
-    ];
+    ]);
     if (model) args.push("--model", model);
 
     // OpenClaw 2026.2.23: Validate spawn args (reject CR/LF injection on Windows)

@@ -330,7 +330,7 @@ async function runOpus(prompt: string, opts: { maxTokens?: number } = {}): Promi
     // SDK path (when running with a direct API key)
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-8",
       max_tokens: opts.maxTokens ?? 2000,
       messages: [{ role: "user", content: prompt }],
     });
@@ -344,20 +344,20 @@ async function runOpus(prompt: string, opts: { maxTokens?: number } = {}): Promi
   // CLI subprocess path (Max-plan OAuth — same pattern as haiku-client.ts)
   const { spawn } = await import("bun");
   const { sanitizedEnv, validateSpawnArgs } = await import("./claude.ts");
+  const { buildClaudeSpawnArgs } = await import("./claude-binary.ts");
   const { extractFirstAssistantText } = await import("./prompt-runner.ts");
   const { error: logError } = await import("./logger.ts");
 
   const claudePath = process.env.CLAUDE_PATH || "claude";
   const projectDir = process.env.PROJECT_DIR || process.cwd();
 
-  const args = [
-    claudePath,
+  const args = buildClaudeSpawnArgs(claudePath, [
     "-p",
     "--model", "opus",
     "--output-format", "stream-json",
     "--verbose",
     "--allowedTools", "",
-  ];
+  ]);
 
   validateSpawnArgs(args);
 
@@ -579,7 +579,12 @@ export async function sweepDeadlines(
     .eq("status", "pending")
     .lt("deadline_at", now);
 
-  if (error) throw new Error("sweepDeadlines select failed: " + error.message);
+  // Any DB error (connection pool saturation, transient network, bad URL) should
+  // skip this sweep rather than crash the cron — next run (30 min later) will catch up.
+  if (error) {
+    console.warn("[joint-deadline-sweeper] select failed (skipping):", error.message);
+    return { expired: 0 };
+  }
 
   let expired = 0;
   for (const p of pending ?? []) {

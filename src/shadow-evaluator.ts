@@ -10,6 +10,7 @@
 
 import { spawn } from "child_process";
 import { info, warn, error as logError } from "./logger.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { MODELS, type ModelTier } from "./constants.ts";
 import type { PatternDetector } from "./patterns.ts";
 
@@ -103,15 +104,15 @@ Score each dimension 0-10:
  */
 function runClaudeCli(prompt: string, model: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = [
+    const [cmd, ...args] = buildClaudeSpawnArgs(CLAUDE_PATH, [
       "-p",
       "--output-format", "text",
       "--model", model,
       "--max-turns", "1",
       "--dangerously-skip-permissions",
-    ];
+    ]);
 
-    const child = spawn(CLAUDE_PATH, args, {
+    const child = spawn(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env },
     });
