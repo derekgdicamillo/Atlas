@@ -231,15 +231,20 @@ export function createStreamingSession(ctx: StreamingContext): StreamingSession 
         return;
       }
 
+      // Compute once per delta: slice + fence-count on every branch adds up
+      // over thousands of deltas on long responses.
+      const pendingText = currentText();
+      const inCodeBlock = isInsideCodeBlock(pendingText);
+
       // Multi-message: current message full and not mid-code-block → rollover
-      if (currentText().length > STREAMING_CHUNK_THRESHOLD && !isInsideCodeBlock(currentText())) {
+      if (pendingText.length > STREAMING_CHUNK_THRESHOLD && !inCodeBlock) {
         transitioning = true;
         rollover().catch(() => { transitioning = false; });
         return;
       }
 
       // Defer edits while inside unclosed code blocks (prevents broken formatting)
-      if (isInsideCodeBlock(currentText())) {
+      if (inCodeBlock) {
         pendingEdit = true;
         return;
       }
@@ -266,7 +271,10 @@ export function createStreamingSession(ctx: StreamingContext): StreamingSession 
 
       // If the tail is still oversized (finish arrived before a rollover
       // could fire), keep rolling until the remainder fits one message.
-      while (currentText().length > TELEGRAM_HARD_LIMIT) {
+      // Iteration cap: a rollover whose sendMessage fails still advances
+      // flushedUpTo, but cap defensively so a pathological state can never
+      // spin forever (10 rollovers = 40K+ chars, far beyond any real turn).
+      for (let i = 0; i < 10 && currentText().length > TELEGRAM_HARD_LIMIT; i++) {
         transitioning = true;
         await rollover();
       }

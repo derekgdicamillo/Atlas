@@ -613,8 +613,9 @@ async function checkFinancialHealth(supabase: SupabaseClient): Promise<MonitorRe
         }
       }
     }
+    recordCheckSuccess("Financial health check");
   } catch (err) {
-    warn("monitor", `Financial health check failed: ${err}`);
+    recordCheckFailure("Financial health check", err);
   }
   return results;
 }

@@ -47,8 +47,16 @@ function save(alerts: PendingAlert[]): void {
   }
 }
 
+/**
+ * In-memory fast path: acknowledgeAll runs on EVERY inbound Derek message, so
+ * skip the file read when we already know nothing is pending. null = unknown
+ * (first call after boot reads the file once).
+ */
+let knownEmpty: boolean | null = null;
+
 /** Record a critical alert that was just delivered to Derek. */
 export function recordCriticalDelivery(message: string): void {
+  knownEmpty = false;
   const alerts = load().filter(
     (a) => Date.now() - new Date(a.sentAt).getTime() < PRUNE_MS
   );
@@ -67,9 +75,14 @@ export function recordCriticalDelivery(message: string): void {
  * nothing is pending (existsSync + empty check only).
  */
 export function acknowledgeAll(): void {
+  if (knownEmpty === true) return;
   const alerts = load();
-  if (alerts.length === 0) return;
+  if (alerts.length === 0) {
+    knownEmpty = true;
+    return;
+  }
   save([]);
+  knownEmpty = true;
   info("escalation", `Cleared ${alerts.length} pending critical alert(s) on user activity`);
 }
 
