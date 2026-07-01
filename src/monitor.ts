@@ -619,8 +619,48 @@ async function checkFinancialHealth(supabase: SupabaseClient): Promise<MonitorRe
   return results;
 }
 
+// ============================================================
+// PERSISTENT-FAILURE SUPPRESSION
+// A check that fails with the same config-class error every hour (e.g. the
+// GA4 "User does not have sufficient permissions" state that logged 48
+// warnings/day through June) gets silenced for 24h after 3 consecutive
+// failures. One final warn marks the suppression so the log shows WHY.
+// ============================================================
+const checkFailureState = new Map<string, { consecutive: number; suppressedUntil: number }>();
+const CHECK_SUPPRESS_AFTER = 3;
+const CHECK_SUPPRESS_MS = 24 * 60 * 60 * 1000;
+
+function checkSuppressed(name: string): boolean {
+  const st = checkFailureState.get(name);
+  return !!st && Date.now() < st.suppressedUntil;
+}
+
+function recordCheckFailure(name: string, err: unknown): void {
+  const st = checkFailureState.get(name) ?? { consecutive: 0, suppressedUntil: 0 };
+  st.consecutive++;
+  if (st.consecutive === CHECK_SUPPRESS_AFTER) {
+    st.suppressedUntil = Date.now() + CHECK_SUPPRESS_MS;
+    warn("monitor", `${name} failed ${st.consecutive}x consecutively — suppressing for 24h. Last error: ${err}`);
+  } else if (st.consecutive < CHECK_SUPPRESS_AFTER) {
+    warn("monitor", `${name} failed: ${err}`);
+  } else {
+    // Still failing after a suppression window expired: re-suppress quietly
+    st.suppressedUntil = Date.now() + CHECK_SUPPRESS_MS;
+  }
+  checkFailureState.set(name, st);
+}
+
+function recordCheckSuccess(name: string): void {
+  const st = checkFailureState.get(name);
+  if (st && st.consecutive >= CHECK_SUPPRESS_AFTER) {
+    warn("monitor", `${name} recovered after suppression.`);
+  }
+  checkFailureState.delete(name);
+}
+
 async function checkWebsiteTraffic(supabase: SupabaseClient): Promise<MonitorResult[]> {
   if (!isGA4Ready()) return [];
+  if (checkSuppressed("Website traffic check")) return [];
   const results: MonitorResult[] = [];
   try {
     const ga4: GA4Overview = await getGA4Overview(7);
@@ -653,14 +693,16 @@ async function checkWebsiteTraffic(supabase: SupabaseClient): Promise<MonitorRes
         });
       }
     }
+    recordCheckSuccess("Website traffic check");
   } catch (err) {
-    warn("monitor", `Website traffic check failed: ${err}`);
+    recordCheckFailure("Website traffic check", err);
   }
   return results;
 }
 
 async function checkWebsiteConversionRate(supabase: SupabaseClient): Promise<MonitorResult[]> {
   if (!isGA4Ready()) return [];
+  if (checkSuppressed("Website CVR check")) return [];
   const results: MonitorResult[] = [];
   try {
     const ga4: GA4Overview = await getGA4Overview(7);
@@ -688,8 +730,9 @@ async function checkWebsiteConversionRate(supabase: SupabaseClient): Promise<Mon
         metadata: { cvr, sessions: ga4.sessions, conversions: ga4.conversions },
       });
     }
+    recordCheckSuccess("Website CVR check");
   } catch (err) {
-    warn("monitor", `Website CVR check failed: ${err}`);
+    recordCheckFailure("Website CVR check", err);
   }
   return results;
 }

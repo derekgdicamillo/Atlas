@@ -27,6 +27,7 @@ import { withLock } from "./supervisor-lock.ts";
 import { checkScheduledMessages } from "./scheduled.ts";
 import { runConsolidation, checkTimeTriggers } from "./cognitive.ts";
 import { callClaude, sessionKey, sanitizedEnv } from "./claude.ts";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { addEntry } from "./conversation.ts";
 import { publishRoot } from "./ledger.ts";
 import { refreshAll as refreshFreshness } from "./freshness-feed.ts";
@@ -41,6 +42,7 @@ import { runPharmacyInvoiceProcessor, formatPharmacySummary } from "./pharmacy-i
 import { fireHooks } from "./hooks.ts";
 import { sendEmail } from "./google.ts";
 import { emit as emitAlert, deliver as deliverAlerts } from "./alerts.ts";
+import { recordCriticalDelivery, sweepEscalations } from "./alert-escalation.ts";
 import { checkAppointmentReminders, cleanupStaleReminderTags, getShowRateDigest } from "./show-rate.ts";
 import { isEffectivelyPaused, shouldSuppressAnnouncement, recordSuppressedTask } from "./automation-pause.ts";
 import { critiqueContent, formatCriticReport } from "./content-critic.ts";
@@ -382,7 +384,7 @@ function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promis
 /** Run a Claude Code skill via CLI with optional model selection */
 async function runSkill(skill: string, model?: string): Promise<string> {
   try {
-    const args = [CLAUDE_PATH, "-p", `/${skill}`, "--output-format", "json"];
+    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", `/${skill}`, "--output-format", "json"]);
     if (model) args.push("--model", model);
 
     const proc = spawn(args, {
@@ -1535,6 +1537,7 @@ jobs.push(
   CronJob.from({
     cronTime: "*/30 * * * *",
     onTick: safeTick("joint-deadline-sweeper", async () => {
+      if (!supabase) { log("joint-deadline-sweeper", "skipped: supabase not initialized"); return; }
       const mod = await import("./joint-protocol.ts");
       const result = await mod.sweepDeadlines(supabase);
       if (result.expired > 0) {
@@ -2019,12 +2022,36 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           const messages = await deliverAlerts(supabase);
           for (const msg of messages) {
             await sendTelegramMessage(DEREK_CHAT_ID, msg);
+            // Track criticals for Esther escalation if Derek goes quiet
+            if (msg.includes("[!!!]")) recordCriticalDelivery(msg);
           }
           if (messages.length > 0) log("alert-deliver", `Delivered ${messages.length} alert group(s)`);
         }),
         timeZone: TIMEZONE,
       })
     );
+
+    // Escalation sweep: forward unacknowledged criticals to Esther via Ishtar
+    const ISHTAR_TOKEN = process.env.ISHTAR_BOT_TOKEN || "";
+    const ESTHER_CHAT_ID = process.env.ESTHER_CHAT_ID || "8340057348"; // ishtar allowedUserIds[0]
+    if (ISHTAR_TOKEN && ESTHER_CHAT_ID) {
+      jobs.push(
+        CronJob.from({
+          cronTime: "*/15 7-22 * * *",
+          onTick: safeTick("alert-escalation", async () => {
+            await sweepEscalations(async (text) => {
+              const res = await fetch(`https://api.telegram.org/bot${ISHTAR_TOKEN}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: ESTHER_CHAT_ID, text }),
+              });
+              if (!res.ok) throw new Error(`Ishtar sendMessage ${res.status}`);
+            });
+          }),
+          timeZone: TIMEZONE,
+        })
+      );
+    }
   }
 
   // ============================================================

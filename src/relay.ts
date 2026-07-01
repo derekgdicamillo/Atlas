@@ -39,6 +39,7 @@ import { DEFAULT_MODEL, MODELS, AUTOMATION_CATEGORIES, SENTINEL_TAG_PATTERNS, VE
 import { loadOrCreate, writeAheadUpdate, updateTaskFromTurn, deepUpdate, saveWorkingMemory, archiveWorkingMemory, formatForPrompt as formatWMForPrompt } from "./working-memory.ts";
 import { getBreakerSummary, getAllBreakerStats } from "./circuit-breaker.ts";
 import { callClaude, getSession, saveSessionState, setRuntimeTimeout, getEffectiveTimeout, archiveSessionTranscript, cleanupSession, checkIdleReset, acquireSessionLock, sessionKey, isClaudeCallActive, killActiveProcess, sanitizedEnv } from "./claude.ts";
+import * as intake from "./fb-intake-lane.ts";
 import { classify as classifyStaleness } from "./staleness-sentinel.ts";
 import { readFresh } from "./freshness-feed.ts";
 import { processPool } from "./persistent-pool.ts";
@@ -69,7 +70,9 @@ import {
   processTMAAIntents,
 } from "./tmaa.ts";
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
-import { createStreamingSession, type StreamingSession } from "./streaming.ts";
+import { createStreamingSession, splitForTelegram, type StreamingSession } from "./streaming.ts";
+import { sanitizeOutbound, isRepeatErrorForChat } from "./output-sanitizer.ts";
+import { acknowledgeAll } from "./alert-escalation.ts";
 import { detectFeedback, saveFeedback, getLessonsLearned, inferTaskType } from "./feedback.ts";
 import {
   detectEpisodeStart, startEpisode, addEpisodeAction, getActiveEpisode,
@@ -1172,6 +1175,37 @@ bot.api.config.use((prev, method, payload, signal) => {
 
 const BOT_START_TIME = Date.now();
 
+// ── FB intake auto-flush ──────────────────────────────────────────────────────
+// After the last screenshot lands, debounce briefly, then extract + report
+// automatically — no manual /upload needed. Each new screenshot resets the timer,
+// so a burst is collected as one batch. /upload still forces it immediately.
+const FB_INTAKE_DRY_RUN = false; // LIVE: writes new contacts to Brevo. Verified 6/6 extraction 2026-06-29. Set true to preview without writing.
+const FB_INTAKE_AUTOFLUSH_MS = 15_000;
+const fbIntakeFlushTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearIntakeFlushTimer(chatId: string): void {
+  const t = fbIntakeFlushTimers.get(chatId);
+  if (t) { clearTimeout(t); fbIntakeFlushTimers.delete(chatId); }
+}
+
+async function runIntakeFlush(api: Context["api"], chatId: string): Promise<void> {
+  clearIntakeFlushTimer(chatId);
+  if (!intake.isArmed(chatId)) return; // already flushed or cancelled
+  try {
+    await api.sendChatAction(Number(chatId), "typing").catch(() => {});
+    const summary = await intake.flushLane(chatId, { dryRun: FB_INTAKE_DRY_RUN });
+    await api.sendMessage(Number(chatId), summary ? intake.formatReport(summary) : "Nothing stashed to upload.");
+  } catch (e) {
+    await api.sendMessage(Number(chatId), `FB intake upload failed: ${e}`);
+  }
+}
+
+function scheduleIntakeFlush(api: Context["api"], chatId: string): void {
+  clearIntakeFlushTimer(chatId);
+  const t = setTimeout(() => { void runIntakeFlush(api, chatId); }, FB_INTAKE_AUTOFLUSH_MS);
+  fbIntakeFlushTimers.set(chatId, t);
+}
+
 async function handleCommand(ctx: Context, text: string, userId: string): Promise<boolean> {
   const lower = text.toLowerCase().trim();
 
@@ -1223,6 +1257,34 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
   const agentId = agent?.config.id || "atlas";
 
   switch (cmd) {
+    case "/fbintake": {
+      await intake.armLane(cmdChatId);
+      await ctx.reply("📥 FB intake armed — send the screenshots. I'll extract them automatically ~15s after the last one arrives. /upload to process now, /cancel to abort.");
+      return true;
+    }
+    case "/upload": {
+      if (!intake.isArmed(cmdChatId)) {
+        await ctx.reply("No FB intake batch is active. Start one with /fbintake.");
+        return true;
+      }
+      // Manual trigger: cancel any pending auto-flush and process now.
+      clearIntakeFlushTimer(cmdChatId);
+      await ctx.replyWithChatAction("typing");
+      try {
+        const summary = await intake.flushLane(cmdChatId, { dryRun: FB_INTAKE_DRY_RUN });
+        await ctx.reply(summary ? intake.formatReport(summary) : "Nothing stashed to upload.");
+      } catch (e) {
+        await ctx.reply(`FB intake upload failed: ${e}`);
+      }
+      return true;
+    }
+    case "/cancel": {
+      clearIntakeFlushTimer(cmdChatId);
+      const { count } = await intake.cancelLane(cmdChatId);
+      await ctx.reply(`🗑️ FB intake cancelled — discarded ${count} screenshot(s).`);
+      return true;
+    }
+
     case "/restart": {
       await ctx.reply("Restarting in 2 seconds...");
       info("command", `Restart requested by ${userId}`);
@@ -3579,8 +3641,8 @@ function planContextSources(
  * we never exceed this even if all sources return maximum content.
  *
  * 25K chars ~ 6K tokens. Plenty for any response, keeps costs sane.
- * At opus pricing ($15/MTok input), 6K tokens = $0.09/message input cost.
- * Compare to unbounded 55K chars (14K tokens) = $0.21/message.
+ * At opus pricing ($5/MTok input), 6K tokens = $0.03/message input cost.
+ * Compare to unbounded 55K chars (14K tokens) = $0.07/message.
  */
 const MAX_PROMPT_CHARS = 25_000;
 
@@ -3606,6 +3668,46 @@ function chunkMessage(text: string, maxLen = 4000): string[] {
 
 function charCount(text: string | undefined): number {
   return text?.length || 0;
+}
+
+/**
+ * Structural post-reset re-orientation. behavioral-fixes.md documents 30+
+ * instances (2026-03-12 → 2026-06-27) of the model responding after an idle
+ * reset without reading memory/compact-snapshot.md, despite the rule being
+ * written into three different rule files. Advisory hooks failed; this makes
+ * it structural: the relay reads the snapshot + today's journal itself and
+ * injects the content directly into the prompt. No model discretion involved.
+ */
+async function buildReorientationContext(): Promise<string> {
+  const projectDir = process.env.PROJECT_DIR || process.cwd();
+  const parts: string[] = [];
+  try {
+    const snapPath = join(projectDir, "memory", "compact-snapshot.md");
+    if (existsSync(snapPath)) {
+      const snap = await readFile(snapPath, "utf-8");
+      if (snap.trim()) parts.push(`--- memory/compact-snapshot.md ---\n${trimToFit(snap, 3000)}`);
+    }
+  } catch {}
+  try {
+    // en-CA locale gives YYYY-MM-DD, matching journal filenames
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: USER_TIMEZONE });
+    const journalPath = join(projectDir, "memory", `${today}.md`);
+    if (existsSync(journalPath)) {
+      const journal = await readFile(journalPath, "utf-8");
+      // Tail = most recent entries, which is what re-orientation needs
+      const tail = journal.length > 2500 ? `[...earlier entries omitted]\n${journal.slice(-2500)}` : journal;
+      if (journal.trim()) parts.push(`--- memory/${today}.md ---\n${tail}`);
+    }
+  } catch {}
+  if (parts.length === 0) return "";
+  return (
+    `SESSION RESET RE-ORIENTATION (auto-loaded state — read before responding)\n` +
+    `Your session was reset after an idle period. The state below was loaded for you.\n` +
+    `Use it silently: do NOT ask the user what you were working on, do NOT mention this reload, ` +
+    `do NOT narrate re-orientation. If the user's message continues a topic below, pick it up where it left off. ` +
+    `If a NEW patient/person name appears that conflicts with active clinical context below, briefly confirm whether it's a new case.\n\n` +
+    parts.join("\n\n")
+  );
 }
 
 /**
@@ -3843,6 +3945,10 @@ async function handleUserMessage(
   const isGroupAgent = !!agent?.config.groupChatEnv; // dedicated group agent (e.g. toxtray)
   const key = sessionKey(agentId, userId);
 
+  // Any inbound Derek message acknowledges pending critical alerts,
+  // canceling the Esther escalation timer (alert-escalation.ts).
+  if (agentId === "atlas") acknowledgeAll();
+
   // Atlas Prime Sprint 3: track previous turn_id for LABEL tag attribution.
   const previousTurnId = lastTurnIdByUser.get(userId);
   lastTurnIdByUser.set(userId, turn_id);
@@ -3891,6 +3997,7 @@ async function handleUserMessage(
 
   // 3b. Check for idle session reset (before lock, so we don't reset mid-conversation)
   const wasIdleReset = await checkIdleReset(agentId, userId);
+  let reorientationContext = "";
   if (wasIdleReset) {
     // Phase 2: Session was auto-reset — clear tiered context state
     try { processPool.get(agentId).resetTurnCount(); } catch {}
@@ -3898,6 +4005,12 @@ async function handleUserMessage(
     // CMA: Archive stale working memory on idle reset
     if (CMA_ENABLED) {
       archiveWorkingMemory(agentId, userId, supabase).catch(() => {});
+    }
+    // Structural re-orientation: inject snapshot + journal content directly
+    // into the prompt instead of advising the model to go read them.
+    reorientationContext = await buildReorientationContext().catch(() => "");
+    if (reorientationContext) {
+      info("reorient", `Injected re-orientation context (${reorientationContext.length} chars) after idle reset for ${key}`);
     }
   }
 
@@ -4265,6 +4378,7 @@ async function handleUserMessage(
             ]).then((parts) => parts.filter(Boolean).join("\n\n"))
           : "",
         freshnessContext,
+        reorientationContext,
       },
       turnContext,
     );
@@ -5010,17 +5124,35 @@ async function handleUserMessage(
     // Tag processing may have modified the response, so we need to update what the user sees.
     // Otherwise fall back to batch delivery.
     if (streaming && streaming.hasContent && streaming.messageIds.length > 0) {
-      const clean = stripSentinels(response);
-      if (clean && clean.trim()) {
-        // Edit last streamed message with final processed text (truncate to Telegram limit)
-        const lastMsgId = streaming.messageIds[streaming.messageIds.length - 1];
-        try {
-          await ctx.api.editMessageText(Number(chatId), lastMsgId, clean.slice(-4096));
-        } catch (err: any) {
-          if (err?.error_code !== 400) {
-            warn("streaming", `Final edit failed: ${err?.message || err}`);
+      const { text: clean, errorKey } = sanitizeOutbound(stripSentinels(response));
+      const suppress = errorKey && isRepeatErrorForChat(String(chatId), errorKey);
+      if (clean && clean.trim() && !suppress) {
+        // Reconcile ALL streamed messages against the final processed text.
+        // The old single-edit `.slice(-4096)` tail-cut lost or duplicated
+        // content whenever the response spanned messages or tag processing
+        // changed the length (behavioral-fixes.md truncation entries).
+        const chunks = splitForTelegram(clean, 4000);
+        const ids = streaming.messageIds;
+        for (let i = 0; i < Math.max(chunks.length, ids.length); i++) {
+          try {
+            if (i < ids.length && i < chunks.length) {
+              await ctx.api.editMessageText(Number(chatId), ids[i], chunks[i]);
+            } else if (i >= ids.length) {
+              // Final text needs more messages than were streamed
+              await ctx.reply(chunks[i], (messageThreadId ? { message_thread_id: messageThreadId } : {}) as any);
+            } else {
+              // Fewer final chunks than streamed messages (content shrank)
+              await ctx.api.editMessageText(Number(chatId), ids[i], "…");
+            }
+          } catch (err: any) {
+            // 400 = "message is not modified" (content already correct) — fine
+            if (err?.error_code !== 400) {
+              warn("streaming", `Final reconcile failed for message ${i}: ${err?.message || err}`);
+            }
           }
         }
+      } else if (suppress) {
+        info("send", `Suppressed repeat ${errorKey} error to chat ${chatId}`);
       }
     } else {
       try {
@@ -5320,6 +5452,21 @@ handlers.on("message:photo", async (ctx) => {
     }
 
     const imageBuffer = Buffer.from(buffer);
+
+    // FB intake lane: if this chat armed /fbintake, stash the screenshot to disk and do
+    // NOT feed it to the model (no screening, no context burn). Cleared on /upload or /cancel.
+    const intakeChatId = String(ctx.chat?.id || "");
+    if (intake.isArmed(intakeChatId)) {
+      const { count } = await intake.stashIntakePhoto(intakeChatId, imageBuffer);
+      await ctx.react("👍").catch(() => {});
+      info("fb-intake", `Stashed screenshot ${count} for chat ${intakeChatId}`);
+      // Auto-extract: (re)arm the debounce so the batch processes itself once
+      // screenshots stop arriving. No manual /upload required.
+      scheduleIntakeFlush(ctx.api, intakeChatId);
+      await saveLastUpdateId(updateId, botIdFromCtx(ctx));
+      return;
+    }
+
     await writeFile(filePath, imageBuffer);
     verifyTempFile(filePath, UPLOADS_DIR);
     info("image", `Saved image to ${filePath} (${buffer.byteLength} bytes)`);
@@ -5609,6 +5756,7 @@ function buildPrompt(
     toxTrayContext?: string;
     wmContext?: string;
     freshnessContext?: string;
+    reorientationContext?: string;
   },
   turnContext?: TurnContext,
 ): string {
@@ -5674,6 +5822,12 @@ function buildPrompt(
     "AUTO-PERSIST RULE: When you complete a significant action (set up tracking, create/rename/delete ads, configure an integration, change a workflow, update a landing page, or any operational change), emit a [REMEMBER:] tag summarizing what was done. This prevents you from forgetting work you just did as the conversation grows. Keep it factual and brief, e.g. [REMEMBER: GTM tracking (GTM-5SHBBKD) installed on telehealth landing page 2026-03-07. Meta Pixel + GA4 + Google Ads conversion all fire via GTM.]";
 
   parts.push(addSection("behavioral_rules", behavioralRules));
+
+  // ── P0: Post-reset re-orientation (structural, replaces advisory hook) ──
+  // Injected right after identity/rules so it's read before any user content.
+  if (contexts.reorientationContext) {
+    parts.push(addSection("reorientation", `\n${contexts.reorientationContext}`));
+  }
 
   // Image observation rule: separate section so base behavioral_rules stays deterministic
   if (imageObservationOnly) {
@@ -5944,6 +6098,18 @@ async function sendResponse(ctx: Context, response: string, threadId?: number | 
   // Sentinel suppression: strip ALL internal tags + verbose gating before delivery
   response = stripSentinels(response);
 
+  // Outbound sanitizer: deliberation leaks, raw error strings, em dashes.
+  // Enforces in code what behavioral-fixes.md kept documenting as failures.
+  const { text: sanitized, errorKey } = sanitizeOutbound(response);
+  response = sanitized;
+  if (errorKey) {
+    const chatKey = String(ctx.chat?.id ?? "unknown");
+    if (isRepeatErrorForChat(chatKey, errorKey)) {
+      info("send", `Suppressed repeat ${errorKey} error to chat ${chatKey}`);
+      return;
+    }
+  }
+
   // Guard against empty responses (Telegram rejects empty message text)
   if (!response || !response.trim()) {
     warn("send", "Skipping empty response (would cause Telegram 400 error)");
@@ -5963,25 +6129,8 @@ async function sendResponse(ctx: Context, response: string, threadId?: number | 
   if (response.length <= MAX_LENGTH) {
     await ctxReply(response);
   } else {
-    const chunks = [];
-    let remaining = response;
-
-    while (remaining.length > 0) {
-      if (remaining.length <= MAX_LENGTH) {
-        chunks.push(remaining);
-        break;
-      }
-
-      let splitIndex = remaining.lastIndexOf("\n\n", MAX_LENGTH);
-      if (splitIndex === -1) splitIndex = remaining.lastIndexOf("\n", MAX_LENGTH);
-      if (splitIndex === -1) splitIndex = remaining.lastIndexOf(" ", MAX_LENGTH);
-      if (splitIndex === -1) splitIndex = MAX_LENGTH;
-
-      chunks.push(remaining.substring(0, splitIndex));
-      remaining = remaining.substring(splitIndex).trim();
-    }
-
-    for (const chunk of chunks) {
+    // Shared splitter (streaming.ts) — same boundaries as the streaming path.
+    for (const chunk of splitForTelegram(response, MAX_LENGTH)) {
       await ctxReply(chunk);
     }
   }
@@ -6035,6 +6184,7 @@ bot.catch((err) => {
 // Rotate logs from previous session into archive before we start writing new ones
 await rotateLogs();
 await cleanupOldArchives();
+await intake.loadLaneState();
 
 info("startup", "Starting Atlas Telegram Relay...");
 if (agentsLoaded) {
@@ -6082,6 +6232,9 @@ const botCommands = [
   { command: "runs", description: "View cron job run history" },
   { command: "hooks", description: "View lifecycle hooks status" },
   { command: "agents", description: "View registered agents" },
+  { command: "fbintake", description: "Start FB lead screenshot intake" },
+  { command: "upload", description: "Upload stashed FB intake screenshots" },
+  { command: "cancel", description: "Cancel the active FB intake batch" },
   { command: "stop", description: "Stop current response (like Escape in Claude Code)" },
   { command: "restart", description: "Restart the bot" },
   { command: "help", description: "List all commands" },
@@ -6090,8 +6243,13 @@ if (botCommands.length > 100) {
   warn("startup", `${botCommands.length} commands exceeds Telegram's 100 limit. Truncating.`);
   botCommands.length = 100;
 }
-bot.api.setMyCommands(botCommands)
-  .catch((err) => warn("startup", `Could not register commands: ${err}`));
+// Register the command menu on EVERY active bot (atlas, ishtar, coach, …),
+// not just the primary atlas bot. Each Telegram bot has its own command menu,
+// so Esther's Ishtar bot needs setMyCommands too or her "/" menu is empty.
+for (const b of allBots) {
+  b.api.setMyCommands(botCommands)
+    .catch((err) => warn("startup", `Could not register commands on a bot: ${err}`));
+}
 
 // Load persisted dedup cache (survive restarts without losing dedup state)
 loadDedupCache();
