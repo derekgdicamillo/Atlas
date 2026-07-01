@@ -141,3 +141,9 @@ data/dpo-export-*.jsonl
 data/shadow-atlas/
 data/beacon-repo/
 data/beacon-publisher.key
+
+# Local/session artifacts (2026-07-01 triage)
+.claude/settings.local.json
+.claude/worktrees/
+.playwright-mcp/
+tmp/
