@@ -1,9 +1,10 @@
 import { describe, test, expect, beforeEach, afterAll } from "bun:test";
 import { rmSync, existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { join, resolve } from "path";
 
-// Point the module at a temp state file BEFORE import
-const TEST_DIR = join(process.cwd(), "data");
+// The module resolves its state file from resolve(PROJECT_DIR || cwd) —
+// mirror that exactly so the test reads/writes the same file regardless of cwd.
+const TEST_DIR = join(resolve(process.env.PROJECT_DIR || process.cwd()), "data");
 const STATE_FILE = join(TEST_DIR, "pending-critical-alerts.json");
 
 const { recordCriticalDelivery, acknowledgeAll, sweepEscalations } = await import(

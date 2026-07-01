@@ -55,7 +55,7 @@ let cachedSpec: AtlasSpec | null = null;
 
 export function loadSpec(specPath?: string): AtlasSpec {
   if (cachedSpec) return cachedSpec;
-  const path = specPath || join(process.cwd(), "atlas.spec");
+  const path = specPath || join(process.env.PROJECT_DIR || process.cwd(), "atlas.spec");
   const raw = readFileSync(path, "utf-8");
   cachedSpec = YAML.load(raw) as AtlasSpec;
   return cachedSpec;

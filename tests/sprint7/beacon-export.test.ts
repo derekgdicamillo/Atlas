@@ -44,7 +44,7 @@ describe("beacon-export — workflow YAML round-trip", () => {
   it("publish-beacon.yml parses as valid YAML", async () => {
     const yaml = await import("js-yaml");
     const text = readFileSync(
-      "templates/atlas-prime-beacon/.github/workflows/publish-beacon.yml",
+      join(import.meta.dir, "..", "..", "templates/atlas-prime-beacon/.github/workflows/publish-beacon.yml"),
       "utf-8"
     );
     const parsed = yaml.load(text) as any;

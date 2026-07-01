@@ -32,7 +32,7 @@ export interface PendingRole {
   role: Omit<Role, "id">;
 }
 
-const DEFAULT_ROLES_ROOT = join(process.cwd(), "data/roles");
+const DEFAULT_ROLES_ROOT = join(process.env.PROJECT_DIR || process.cwd(), "data/roles");
 function rolesRoot(root?: string): string { return root ?? DEFAULT_ROLES_ROOT; }
 function roleDir(roleId: string, root?: string): string { return join(rolesRoot(root), roleId); }
 function privKeyPath(roleId: string, root?: string): string { return join(roleDir(roleId, root), "key.priv"); }

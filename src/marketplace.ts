@@ -182,7 +182,7 @@ export async function recordOutcome(
 let routingCache: Record<string, string> | null = null;
 function loadRouting(): Record<string, string> {
   if (routingCache) return routingCache;
-  const path = join(process.cwd(), "data/marketplace-current-routing.json");
+  const path = join(process.env.PROJECT_DIR || process.cwd(), "data/marketplace-current-routing.json");
   routingCache = JSON.parse(readFileSync(path, "utf-8")) as Record<string, string>;
   return routingCache;
 }

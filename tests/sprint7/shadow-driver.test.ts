@@ -1,6 +1,12 @@
 // tests/sprint7/shadow-driver.test.ts
 import { describe, it, expect } from "bun:test";
 
+// Pin the drift threshold BEFORE shadow-driver.ts is imported: the module
+// reads SHADOW_DRIFT_THRESHOLD at load time, and a .env override (loaded by
+// the test runner) silently changes the classification boundaries this
+// suite asserts against.
+process.env.SHADOW_DRIFT_THRESHOLD = "0.45";
+
 describe("shadow-atlas — IPC contract", () => {
   it("module loads without errors", async () => {
     const mod = await import("../../src/shadow-atlas.ts");

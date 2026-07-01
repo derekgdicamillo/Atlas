@@ -49,7 +49,9 @@ const HAS_SUPABASE = !!(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVIC
 // ============================================================
 
 function loadFixtures(dir: string): { name: string; fixture: Record<string, unknown> }[] {
-  const root = join(process.cwd(), dir);
+  // Resolve from the repo root (via this file's location) so the suite passes
+  // regardless of cwd (workaround for the repo-root bun test segfault).
+  const root = join(import.meta.dir, "..", "..", dir);
   return readdirSync(root)
     .filter((f) => f.endsWith(".json"))
     .sort()

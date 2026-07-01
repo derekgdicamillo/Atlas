@@ -54,7 +54,7 @@ export { TranscriptCommit };
 export const ROUTINE_DEADLINE_MS = 2 * 3_600_000;   // 2 hours
 export const URGENT_TIMEOUT_MS = 60_000;             // 60 seconds
 
-const WORKTREES_ROOT = join(process.cwd(), "data", "blackboard-worktrees");
+const WORKTREES_ROOT = join(process.env.PROJECT_DIR || process.cwd(), "data", "blackboard-worktrees");
 
 // ============================================================
 // PATH HELPER (mirrors blackboard-git.branchToDir — safe for branches ≤ 80 chars)
@@ -409,7 +409,7 @@ export async function arbitrate(
   if (!row) throw new Error("deliberation not found: " + deliberationId);
 
   // 2. Build full transcript via git log -p
-  const repoPath = join(process.cwd(), "data", "atlas-blackboard.git");
+  const repoPath = join(process.env.PROJECT_DIR || process.cwd(), "data", "atlas-blackboard.git");
   let transcript: string;
   try {
     // Use quoted git-dir path; branch name must not contain spaces (safe for joint/ names)

@@ -45,7 +45,7 @@ export interface TranscriptCommit {
 // CONSTANTS
 // ============================================================
 
-const DEFAULT_ROOT = join(process.cwd(), "data");
+const DEFAULT_ROOT = join(process.env.PROJECT_DIR || process.cwd(), "data");
 const LOCK_TTL_MS = 5000;
 const MAX_LOCK_RETRIES = 3;
 const BRANCH_MAX_LEN = 60;

@@ -228,10 +228,12 @@ export function formatTwinReport(opts: {
 // generateMorningPredictions / scoreEveningPredictions / rollingCalibration
 // ---------------------------------------------------------------------------
 
-import { callOpus } from "./haiku-client.ts";
+import { callOpus as defaultCallOpus } from "./haiku-client.ts";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface MorningPredictOpts {}
+interface MorningPredictOpts {
+  /** Test injection point — the SDK-client `client` opt died in the CLI refactor. */
+  callOpus?: typeof defaultCallOpus;
+}
 
 const PREDICT_SYSTEM = `You predict 3-5 things the user is likely to ask Atlas about today, given context.
 
@@ -266,6 +268,7 @@ export async function generateMorningPredictions(
 
   const userMessage = `Build 3-5 predictions for what ${user_id} will ask about today.\n\nCONTEXT:\n${JSON.stringify(context, null, 2)}`;
 
+  const callOpus = opts.callOpus ?? defaultCallOpus;
   const resp = await callOpus({
     system: PREDICT_SYSTEM,
     userMessage,

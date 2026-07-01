@@ -25,10 +25,10 @@ import {
 // Read at call-time so tests can set process.env.LEDGER_DIR in beforeAll/afterAll
 // without hitting the module-level-constant-is-cached-once bun test pitfall.
 function getLedgerDir(): string {
-  return process.env.LEDGER_DIR || join(process.cwd(), "data", "atlas-ledger");
+  return process.env.LEDGER_DIR || join(process.env.PROJECT_DIR || process.cwd(), "data", "atlas-ledger");
 }
-const KEY_FILE = join(process.cwd(), "data", "atlas-ledger.key");
-const PUBKEY_FILE = join(process.cwd(), "data", "atlas-ledger.pub");
+const KEY_FILE = join(process.env.PROJECT_DIR || process.cwd(), "data", "atlas-ledger.key");
+const PUBKEY_FILE = join(process.env.PROJECT_DIR || process.cwd(), "data", "atlas-ledger.pub");
 
 // ============================================================
 // TYPES
@@ -75,7 +75,7 @@ async function ensureKeys(): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const priv = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
   const pub = publicKey.export({ type: "spki", format: "pem" }).toString();
-  await mkdir(join(process.cwd(), "data"), { recursive: true });
+  await mkdir(join(process.env.PROJECT_DIR || process.cwd(), "data"), { recursive: true });
   await Bun.write(KEY_FILE, priv);
   await Bun.write(PUBKEY_FILE, pub);
 }
@@ -222,7 +222,7 @@ export async function computeRoot(): Promise<{ root: string; entries: number }> 
 export async function publishRoot(): Promise<{ ts: string; root: string; entries: number }> {
   const { root, entries } = await computeRoot();
   const record = { ts: new Date().toISOString(), root, entries };
-  const path = join(process.cwd(), "data", "atlas-ledger-roots.jsonl");
+  const path = join(process.env.PROJECT_DIR || process.cwd(), "data", "atlas-ledger-roots.jsonl");
   await appendFile(path, JSON.stringify(record) + "\n");
   return record;
 }

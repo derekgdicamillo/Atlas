@@ -11,10 +11,12 @@
  * State lives in data/pending-critical-alerts.json (tiny, survives restarts).
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { info, warn } from "./logger.ts";
 
-const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
+// resolve(): PROJECT_DIR may be relative (e.g. ".." from the test runner) and
+// recursive mkdir on a ..-containing path fails with EEXIST on Windows.
+const PROJECT_DIR = resolve(process.env.PROJECT_DIR || process.cwd());
 const STATE_FILE = join(PROJECT_DIR, "data", "pending-critical-alerts.json");
 
 const ESCALATION_HOURS = Number(process.env.ALERT_ESCALATION_HOURS || 3);

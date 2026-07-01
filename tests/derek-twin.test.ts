@@ -186,22 +186,17 @@ describe("derek-twin generateMorningPredictions", () => {
         return {};
       },
     } as any;
-    const fakeClient = {
-      messages: {
-        create: async () => ({
-          content: [
-            {
-              text: JSON.stringify([
-                { prediction: "ad performance", confidence: 0.7, basis: "calendar", basis_refs: { event_id: "e1" } },
-                { prediction: "esther review", confidence: 0.6, basis: "open-thread", basis_refs: { turn_id: "t1" } },
-                { prediction: "PDO inventory", confidence: 0.45, basis: "day-of-week-pattern", basis_refs: null },
-              ]),
-            },
-          ],
-        }),
-      },
-    } as any;
-    const out = await generateMorningPredictions(fakeSupabase, "derek", "2026-04-29", { client: fakeClient });
+    // Inject callOpus directly — the old SDK-client `client` opt died in the
+    // CLI refactor, which left this test making a REAL 5s Opus call.
+    const fakeCallOpus = async () => ({
+      text: JSON.stringify([
+        { prediction: "ad performance", confidence: 0.7, basis: "calendar", basis_refs: { event_id: "e1" } },
+        { prediction: "esther review", confidence: 0.6, basis: "open-thread", basis_refs: { turn_id: "t1" } },
+        { prediction: "PDO inventory", confidence: 0.45, basis: "day-of-week-pattern", basis_refs: null },
+      ]),
+      usage: { input_tokens: 0, output_tokens: 0 },
+    });
+    const out = await generateMorningPredictions(fakeSupabase, "derek", "2026-04-29", { callOpus: fakeCallOpus as any });
     expect(out.length).toBe(3);
     expect(inserted.length).toBe(3);
     expect(out[0].prediction).toBe("ad performance");
