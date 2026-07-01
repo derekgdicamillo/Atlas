@@ -3,19 +3,22 @@
  */
 
 export const MODELS = {
-  opus: "claude-opus-4-6",
+  fable: "claude-fable-5",
+  opus: "claude-opus-4-8",
   sonnet: "claude-sonnet-4-6",
   haiku: "claude-haiku-4-5-20251001",
 } as const;
 
 export type ModelTier = keyof typeof MODELS;
-export const DEFAULT_MODEL: ModelTier = "opus";
+export const DEFAULT_MODEL: ModelTier = "fable";
 
-// Cost per million tokens (USD) — updated Feb 2026
+// Cost per million tokens (USD) — updated May 2026
 // https://docs.anthropic.com/en/docs/about-claude/models
+// Opus 4 (claude-opus-4-8): $5.00/$25.00 (was $15/$75 — that was Claude 3 Opus pricing, 3x too high)
 // Haiku 4.5: $1.00/$5.00 (not $0.80/$4.00 — that was Haiku 3.5 pricing)
 export const TOKEN_COSTS: Record<ModelTier, { input: number; output: number }> = {
-  opus:   { input: 15.00, output: 75.00 },
+  fable:  { input: 10.00, output: 50.00 },
+  opus:   { input: 5.00,  output: 25.00 },
   sonnet: { input: 3.00,  output: 15.00 },
   haiku:  { input: 1.00,  output: 5.00 },
 };

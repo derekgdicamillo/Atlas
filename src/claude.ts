@@ -12,6 +12,7 @@
 import { spawn } from "bun";
 import { writeFile, readFile, appendFile, mkdir, rename } from "fs/promises";
 import { join, dirname } from "path";
+import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { randomBytes } from "crypto";
 import {
   info,
@@ -21,18 +22,26 @@ import {
   trackTimeout,
 } from "./logger.ts";
 import { MODELS, DEFAULT_MODEL, TOKEN_COSTS, MAX_TOOL_CALLS_PER_REQUEST, TOOL_PHASE_NAMES, SESSION_IDLE_RESET_MS, PERSISTENT_PROCESS_ENABLED, type ModelTier } from "./constants.ts";
+import { isAuthFailure, shouldForwardOAuthToken } from "./claude-auth.ts";
 import { addEntry, formatForPrompt } from "./conversation.ts";
 import { parseCodeTaskFromTodoContent } from "./supervisor.ts";
 import { processPool } from "./persistent-pool.ts";
 import { selectEngine } from "./engine/router.ts";
 import { runViaSdk } from "./engine/sdk-engine.ts";
-import { classifyEngineError, friendlyErrorText } from "./engine/engine-errors.ts";
+import { classifyEngineError, friendlyErrorText, isPersistentTurnUnusable } from "./engine/engine-errors.ts";
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
+// Resolve the npm .cmd shim to its underlying claude.exe and spawn directly.
+// Avoids cmd.exe mis-tokenizing a CLAUDE_PATH that contains spaces (see
+// claude-binary.ts for the full root-cause writeup).
+function buildClaudeArgs(extraArgs: string[]): string[] {
+  return buildClaudeSpawnArgs(CLAUDE_PATH, extraArgs);
+}
 
 // ============================================================
 // MCP SERVER CONFIGURATION
@@ -152,6 +161,7 @@ const MODEL_TIMEOUT_MULTIPLIERS: Record<string, number> = {
 
 // Fallback chain: if a model fails with rate-limit or unavailability, try next
 const MODEL_FALLBACK: Record<string, ModelTier | null> = {
+  fable: "opus",   // Fable 5 refusal/rate-limit/error -> Opus 4.8 (health/bio/chem safety classifiers)
   opus: "sonnet",
   sonnet: "haiku",
   haiku: null, // nowhere to fall back to
@@ -275,13 +285,21 @@ export function sanitizedEnv(): Record<string, string | undefined> {
     delete env.ANTHROPIC_API_KEY;
   }
 
-  // Always drop CLAUDE_CODE_OAUTH_TOKEN. pm2 captures env at process launch
-  // and never refreshes; access tokens rotate every ~24h. If we forward the
-  // env var, the CLI uses the stale token and 401s. Without it, the CLI
-  // reads ~/.claude/.credentials.json on every spawn and auto-refreshes via
-  // the long-lived refreshToken. This is what makes Atlas survive token
-  // rotation without manual `pm2 restart --update-env`.
-  delete env.CLAUDE_CODE_OAUTH_TOKEN;
+  // CLAUDE_CODE_OAUTH_TOKEN policy:
+  //   - Non-empty value = a long-lived `claude setup-token` token. Forward it so
+  //     the CLI authenticates with it directly: no per-spawn OAuth refresh, so
+  //     no refresh-token rotation race. (That race was the 2026-06-19 outage —
+  //     concurrent crons all refreshed credentials.json at once, rotation wiped
+  //     the refreshToken, and every call 401'd thereafter.)
+  //   - Empty/unset = drop it so the CLI falls back to ~/.claude/.credentials.json.
+  //     pm2 can forward a blank var; a blank token makes the CLI 401 instead of
+  //     using OAuth, so it must be removed.
+  // Long-lived tokens don't rotate every ~24h, so the old "stale at pm2 launch"
+  // concern no longer applies; refresh by re-running `claude setup-token`,
+  // updating .env, then `pm2 restart --update-env atlas`.
+  if (!shouldForwardOAuthToken(env.CLAUDE_CODE_OAUTH_TOKEN)) {
+    delete env.CLAUDE_CODE_OAUTH_TOKEN;
+  }
 
   return env;
 }
@@ -763,19 +781,31 @@ export async function callClaude(
           `${turnResult.inputTokens}in/${turnResult.outputTokens}out | $${callCostUsd.toFixed(4)} | ${turnResult.toolCallCount} tools`
         );
 
-        // Update session state with the persistent session ID
-        if (turnResult.sessionId && !options?.isolated) {
+        // Persist the session id only from a CLEAN turn. After an error the CLI's in-memory
+        // conversation still holds the bad assistant turn (e.g. a thinking block that fails
+        // signature replay), so resuming it would just re-trigger the same 400.
+        if (turnResult.sessionId && !turnResult.isError && !options?.isolated) {
           session.sessionId = turnResult.sessionId;
           session.lastActivity = new Date().toISOString();
           await saveSessionState(agentId, userId, session);
         }
 
-        // Fall back to one-shot if persistent returned no usable text
+        // Never deliver an errored or empty persistent turn to the user. The persistent CLI
+        // can intermittently corrupt its own thinking-block signatures during interleaved-
+        // thinking + multi-tool turns and surface the raw 400 ("thinking blocks cannot be
+        // modified") as result text. Recycle the process to drop the now-poisoned
+        // conversation, drop resume, and fall through to the clean one-shot path below.
         const persistentText = stripReasoningTags(turnResult.text);
-        if (!persistentText.trim()) {
-          // Empty text: could be error, tool-only response, or thinking-dominated.
-          // Fall through to one-shot which captures full output including tool results.
-          warn("claude", `[${agentId}] Persistent returned no text (isError=${turnResult.isError}, tools=${turnResult.toolCallCount}, tokens=${turnResult.outputTokens}). Falling back to one-shot.`);
+        if (isPersistentTurnUnusable({ isError: turnResult.isError, text: persistentText })) {
+          warn("claude", `[${agentId}] Persistent turn unusable (isError=${turnResult.isError}, info="${turnResult.errorInfo}", tools=${turnResult.toolCallCount}, tokens=${turnResult.outputTokens}). Recycling + falling back to one-shot.`);
+          if (turnResult.isError) {
+            if (!options?.isolated) {
+              session.sessionId = null;
+              session.lastActivity = new Date().toISOString();
+              await saveSessionState(agentId, userId, session);
+            }
+            await processPool.restartAgent(agentId).catch(() => {});
+          }
           if (options) (options as any).resume = false;
           // Fall through to one-shot path below
         } else {
@@ -862,7 +892,7 @@ export async function callClaude(
     }
     // ── End SDK engine path ──
     // Prompt is piped via stdin to avoid Windows ENAMETOOLONG (~32K char limit).
-    const args = [CLAUDE_PATH, "-p"];
+    const args = buildClaudeArgs(["-p"]);
 
     if (options?.resume && session.sessionId) {
       args.push("--resume", session.sessionId);
@@ -1381,6 +1411,17 @@ export async function callClaude(
           resume: false,  // Force fresh session
           skipLock: options?.skipLock ?? false,
         });
+      }
+
+      // A 401 prints "Failed to authenticate. API Error: 401 Invalid
+      // authentication credentials" to stdout and exits non-zero. The
+      // completed-with-errors heuristic below would mistake that 73-char string
+      // for a real answer (the 2026-06-19 silent-masking bug). Catch it first
+      // and surface it as an error the relay shows, instead of serving the auth
+      // message to the user as Atlas's reply.
+      if (isAuthFailure(resultText) || isAuthFailure(stderr)) {
+        logError("claude", `[${agentId}] AUTH FAILURE (exit ${exitCode}): ${(resultText || stderr).trim()}`);
+        return `Error (${modelTier}): Claude CLI authentication failed (401). Re-run \`claude setup-token\`, update CLAUDE_CODE_OAUTH_TOKEN in .env, then \`pm2 restart --update-env atlas\`.`;
       }
 
       // OpenClaw #18425: Non-zero exit with captured output = completed-with-errors.

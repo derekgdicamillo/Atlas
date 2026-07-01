@@ -468,6 +468,13 @@ export async function cleanupStaleWorktrees(skipTaskIds?: Set<string>): Promise<
     const age = now - new Date(entry.createdAt).getTime();
     if (age > WORKTREE_MAX_AGE_MS) {
       warn("worktree", `Worktree for ${entry.taskId} expired (age: ${Math.round(age / 60_000)}m). Removing without merge.`);
+      // If the repoDir no longer exists (e.g. it was itself a worktree that got cleaned),
+      // we can't run git commands against it — just mark as removed directly.
+      if (!existsSync(entry.repoDir)) {
+        entry.removed = true;
+        cleaned++;
+        continue;
+      }
       try {
         await forceRemoveWorktree(entry.repoDir, entry.worktreePath, entry.branch);
         entry.removed = true;

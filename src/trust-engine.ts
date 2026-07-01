@@ -97,7 +97,15 @@ export async function loadEvents(path = DEFAULT_SNAPSHOT_PATH): Promise<TrustEve
   return raw
     .split("\n")
     .filter((l) => l.trim().length)
-    .map((l) => JSON.parse(l) as TrustEvent);
+    .map((l) => {
+      try { return JSON.parse(l); } catch { return null; }
+    })
+    .filter((ev): ev is TrustEvent =>
+      ev !== null &&
+      typeof ev.domain === "string" &&
+      typeof ev.delta === "number" &&
+      typeof ev.ts === "string"
+    );
 }
 
 export function formatTrustReport(

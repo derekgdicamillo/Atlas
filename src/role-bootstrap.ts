@@ -44,13 +44,13 @@ For each role output YAML with: id (kebab-case), name (Title Case), description 
 Output a YAML array of exactly 32 cards. No commentary, no markdown fences, just YAML.`;
 
 /**
- * Thin wrapper: call claude-opus-4-6 directly via the Anthropic SDK.
+ * Thin wrapper: call claude-opus-4-8 directly via the Anthropic SDK.
  * Returns the text content of the first message block.
  */
 async function runOpus(prompt: string, opts: { maxTokens?: number } = {}): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const response = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-opus-4-8",
     max_tokens: opts.maxTokens ?? 16000,
     messages: [{ role: "user", content: prompt }],
   });

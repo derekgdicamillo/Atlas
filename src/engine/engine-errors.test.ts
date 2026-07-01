@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { classifyEngineError, friendlyErrorText } from "./engine-errors.ts";
+import { classifyEngineError, friendlyErrorText, isPersistentTurnUnusable } from "./engine-errors.ts";
 
 test("detects rate limit / overload", () => {
   expect(classifyEngineError("Error: 429 rate limit exceeded")).toEqual({ isRateLimit: true, isModelError: false });
@@ -22,4 +22,20 @@ test("friendly text matches CLI wording", () => {
   expect(friendlyErrorText("tool_call_loop", 312)).toContain("Hit the tool call limit (312 calls)");
   expect(friendlyErrorText("timeout", 0)).toContain("took too long");
   expect(friendlyErrorText("error", 0)).toBeTruthy();
+});
+
+test("errored persistent turn is unusable even with non-empty text", () => {
+  // Regression (2026-05-30): the persistent CLI returned `400 messages.1.content.3:
+  // thinking ... blocks cannot be modified` as non-empty result text, and the persistent
+  // path delivered it to the user as the answer because it only checked for empty text,
+  // never isError. An errored turn must never be returned to the user.
+  const r = { isError: true, text: "API Error: 400 messages.1.content.3: `thinking` or `redacted_thinking` blocks in the latest assistant message cannot be modified." };
+  expect(isPersistentTurnUnusable(r)).toBe(true);
+});
+test("persistent turn with empty / whitespace text is unusable", () => {
+  expect(isPersistentTurnUnusable({ isError: false, text: "" })).toBe(true);
+  expect(isPersistentTurnUnusable({ isError: false, text: "   \n" })).toBe(true);
+});
+test("clean successful persistent turn is usable", () => {
+  expect(isPersistentTurnUnusable({ isError: false, text: "Yes, I still have dashboard access." })).toBe(false);
 });

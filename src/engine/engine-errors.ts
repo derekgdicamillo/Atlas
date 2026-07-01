@@ -10,6 +10,17 @@ export function classifyEngineError(detail?: string): { isRateLimit: boolean; is
   return { isRateLimit, isModelError };
 }
 
+/**
+ * A persistent-process turn must NOT be delivered to the user if it errored or produced
+ * no usable text. The persistent CLI can return a raw API 400 as non-empty result text —
+ * e.g. interleaved-thinking signature replay ("thinking blocks cannot be modified") during
+ * a multi-tool turn — which is an error, not an answer. Callers pass `text` already stripped
+ * of reasoning tags. When this returns true, recycle the process and fall back to one-shot.
+ */
+export function isPersistentTurnUnusable(turnResult: { isError: boolean; text: string }): boolean {
+  return turnResult.isError || turnResult.text.trim().length === 0;
+}
+
 /** Mirror of the CLI's user-facing strings. */
 export function friendlyErrorText(reason: string | undefined, toolCallCount: number): string {
   if (reason === "tool_call_loop") {

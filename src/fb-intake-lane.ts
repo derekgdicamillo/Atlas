@@ -126,7 +126,11 @@ export function parseExtraction(raw: string, sourceImage: string): IntakeContact
 export async function extractContacts(imagePaths: string[]): Promise<IntakeContact[]> {
   const { callClaude } = await import("./claude.ts");
   const out: IntakeContact[] = [];
-  const BATCH = 6;
+  // Concurrency is bounded because each call cold-spawns a full Claude CLI
+  // process (one-shot, isolated). 3-at-a-time keeps the machine from being
+  // hammered by simultaneous spawns while still finishing a 6-shot batch in
+  // two quick rounds.
+  const BATCH = 3;
   for (let i = 0; i < imagePaths.length; i += BATCH) {
     const slice = imagePaths.slice(i, i + BATCH);
     const results = await Promise.all(
@@ -138,6 +142,13 @@ export async function extractContacts(imagePaths: string[]): Promise<IntakeConta
             imageMimeType: "image/jpeg",
             model: "haiku",
             isolated: true,
+            // CRITICAL: a UNIQUE session key per image. Concurrent calls that
+            // share a key contend for one session lock — with lockBehavior:"skip"
+            // only the first acquires it and the rest return "" (→ "unparseable
+            // extraction", no email). isolated:true does NOT bypass the lock, so
+            // the key itself must differ per image. basename is unique within a batch.
+            agentId: "fb-intake",
+            userId: `intake-${basename(p)}`,
             lockBehavior: "skip",
           });
           return parseExtraction(raw, basename(p));
@@ -188,7 +199,7 @@ export function formatReport(s: FlushSummary): string {
   lines.push(
     `Added ${s.added} | Updated ${s.updated} | Already on a list ${s.alreadyOnTarget + s.alreadyFreeMember + s.alreadyProMember} | No email ${s.noEmail} | Errors ${s.errors.length}`
   );
-  if (s.fbGroupLeadsTotal != null) lines.push(`**FB Group Leads total: ${s.fbGroupLeadsTotal}**`);
+  if (s.fbGroupLeadsTotal != null) lines.push(`FB Group Leads total: ${s.fbGroupLeadsTotal}`);
   lines.push("");
   lines.push("Captured:");
   for (const c of s.contacts) lines.push(`• ${c.name || "(no name)"} — ${c.email ?? "⚠️ NO EMAIL"}`);

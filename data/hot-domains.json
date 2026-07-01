@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-27T10:00:42.957Z",
+  "updated_at": "2026-07-01T10:00:43.830Z",
   "domains": {
     "gohighlevel": {
       "half_life_days": 30,
@@ -10,7 +10,7 @@
       ],
       "llms_txt": null,
       "changelog_url": "https://help.gohighlevel.com/support/solutions/articles/155000001341",
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "fast",
       "triggers": [
         "ghl",
@@ -26,7 +26,7 @@
       ],
       "llms_txt": null,
       "changelog_url": "https://developers.facebook.com/docs/graph-api/changelog",
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "fast",
       "triggers": [
         "meta ads",
@@ -42,7 +42,7 @@
       ],
       "llms_txt": null,
       "changelog_url": null,
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "medium",
       "triggers": [
         "wordpress",
@@ -58,7 +58,7 @@
       ],
       "llms_txt": null,
       "changelog_url": "https://developers.brevo.com/changelog",
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "fast",
       "triggers": [
         "brevo",
@@ -73,7 +73,7 @@
       ],
       "llms_txt": "https://code.claude.com/llms.txt",
       "changelog_url": "https://code.claude.com/docs/en/changelog",
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "fast",
       "triggers": [
         "claude code",
@@ -90,7 +90,7 @@
       ],
       "llms_txt": "https://platform.claude.com/llms.txt",
       "changelog_url": null,
-      "last_refresh": "2026-05-26T10:07:26.310Z",
+      "last_refresh": "2026-06-29T10:07:23.154Z",
       "tier": "fast",
       "triggers": [
         "anthropic api",

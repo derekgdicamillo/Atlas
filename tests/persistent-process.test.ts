@@ -11,7 +11,7 @@ import { PersistentProcess, type PersistentProcessConfig } from "../src/persiste
 function makeConfig(overrides?: Partial<PersistentProcessConfig>): PersistentProcessConfig {
   return {
     agentId: "test-agent",
-    modelId: "claude-opus-4-6",
+    modelId: "claude-opus-4-8",
     claudePath: "claude",
     cwd: process.cwd(),
     env: {},

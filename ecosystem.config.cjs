@@ -7,6 +7,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         TTS_VOICE: "onyx",
+        CLAUDE_PATH: "C:\\Users\\Derek DiCamillo\\AppData\\Roaming\\npm\\claude.cmd",
       },
       // Restart policies
       autorestart: true,
