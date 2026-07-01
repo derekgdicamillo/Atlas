@@ -33,6 +33,36 @@ Derek's corrections, if present, are strong negative signal on the axis they men
 
 Output ONLY the JSON object. No preamble, no markdown fences.`;
 
+/**
+ * Parse the judge's JSON robustly: direct parse → brace-slice (markdown
+ * fences / preamble) → numeric-field salvage (output truncated mid-rationale;
+ * the three scores always precede the rationale so they survive truncation).
+ * Returns null only when no scores are recoverable.
+ */
+export function parseJudgeOutput(text: string): any | null {
+  try { return JSON.parse(text); } catch {}
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  const num = (key: string): number | null => {
+    const m = text.match(new RegExp(`"${key}"\\s*:\\s*([0-9.]+)`));
+    return m ? Number(m[1]) : null;
+  };
+  const g = num("groundedness");
+  const t = num("tool_correctness");
+  const r = num("refusal_calibration");
+  if (g === null && t === null && r === null) return null;
+  const rat = text.match(/"rationale"\s*:\s*"([^"]*)/);
+  return {
+    groundedness: g ?? 0,
+    tool_correctness: t ?? 0,
+    refusal_calibration: r ?? 0,
+    rationale: (rat?.[1] ?? "") + " [salvaged from truncated judge output]",
+  };
+}
+
 function clamp01(n: unknown): number {
   const x = typeof n === "number" ? n : Number(n);
   if (!Number.isFinite(x)) return 0;
@@ -55,14 +85,12 @@ export async function scoreEntry(
   const result = await callHaiku({
     system: SYSTEM,
     userMessage,
-    maxTokens: 400,
+    maxTokens: 800, // 400 truncated mid-rationale → invalid JSON (2026-07-01)
     cacheSystem: true,
     caller: "replay-judge",
   });
-  let parsed: any;
-  try {
-    parsed = JSON.parse(result.text);
-  } catch (err) {
+  const parsed: any = parseJudgeOutput(result.text);
+  if (!parsed) {
     throw new Error(`replay-judge: failed to parse judge output: ${result.text.slice(0, 200)}`);
   }
   const g = clamp01(parsed.groundedness);
