@@ -243,8 +243,13 @@ export async function getRelevantContext(
   const FINAL_TOPK = 8;
 
   try {
+    // "memory" included so attribution_log receives ACTUAL memory-table UUIDs.
+    // Before 2026-07-01 this list excluded memory, so recordAttribution +
+    // memory_increment_access ran against message/doc UUIDs — a permanent
+    // no-op that starved Dream Engine salience to 0.00 (see
+    // data/task-output/dream-engine-sws-investigation.md).
     const rawCandidates = await search(supabase, query, {
-      tables: ["messages", "summaries", "documents", "maa_knowledge"],
+      tables: ["messages", "summaries", "documents", "maa_knowledge", "memory"],
       mode: "hybrid",
       matchCount: FETCH_LIMIT,
       ftsWeight: 1.0,
@@ -281,6 +286,7 @@ export async function getRelevantContext(
     const summaries = results.filter((r) => r.source_table === "summaries");
     const documents = results.filter((r) => r.source_table === "documents");
     const maaKnowledge = results.filter((r) => r.source_table === "maa_knowledge");
+    const memories = results.filter((r) => r.source_table === "memory");
 
     const parts: string[] = [];
 
@@ -297,6 +303,13 @@ export async function getRelevantContext(
       parts.push(
         "RELEVANT CONVERSATION SUMMARIES:\n" +
           summaries.map((s) => s.content).join("\n")
+      );
+    }
+
+    if (memories.length > 0) {
+      parts.push(
+        "RELEVANT LONG-TERM MEMORIES:\n" +
+          memories.map((m) => m.content).join("\n")
       );
     }
 
@@ -346,8 +359,13 @@ export async function getRelevantContext(
     // --- ATTRIBUTION LOG (fire-and-forget; must not block retrieval) ---
     if (opts?.turn_id && opts?.user_id) {
       try {
+        // ONLY memory-table rows: attribution_log.memory_id and the
+        // memory_increment_access RPC both key on memory.id. Logging
+        // message/doc UUIDs here (pre-2026-07-01 behavior) made both a no-op.
         const memoriesForAttribution = results
-          .filter((r) => typeof r.source_id === "string" && r.source_id.length > 0)
+          .filter((r) => r.source_table === "memory"
+                       && typeof r.source_id === "string"
+                       && r.source_id.length > 0)
           .map((r, i) => ({
             id: r.source_id,
             rank: i,

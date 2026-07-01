@@ -119,9 +119,14 @@ export async function topSalient(
     .limit(200);
 
   const ids = (rows ?? []).map((r: any) => r.id);
+  // Bounded parallelism: sequential scoring of a full 200-id pool (2-3
+  // Supabase queries each) ran past the 300s cron wall clock. Batches of 8
+  // keep total time under ~15s without hammering the connection pool.
+  const CONCURRENCY = 8;
   const out: SalienceResult[] = [];
-  for (const id of ids) {
-    out.push(await computeSalience(supabase, id, weights));
+  for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    const batch = ids.slice(i, i + CONCURRENCY);
+    out.push(...(await Promise.all(batch.map((id) => computeSalience(supabase, id, weights)))));
   }
   return out.sort((a, b) => b.score - a.score).slice(0, k);
 }
@@ -167,16 +172,22 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
   for (const s of top) {
     const { data: row } = await supabase
       .from("memory")
-      .select("id, summary, tags, created_at")
+      .select("id, summary, content, tags, created_at")
       .eq("id", s.memoryId)
       .single();
     if (!row) continue;
+
+    const episodeText = (row as any).summary ?? (row as any).content ?? "(no episode content)";
+    if (!episodeText || episodeText === "(no episode content)") {
+      console.error(`[dream-sws] skipping ${s.memoryId}: no summary or content`);
+      continue;
+    }
 
     let variants: any[] = [];
     try {
       const r = await callHaiku({
         system: SWS_VARIANT_SYSTEM,
-        userMessage: `Episode (created ${(row as any).created_at}, tags: ${(row as any).tags?.join(", ") ?? ""}):\n\n${(row as any).summary}`,
+        userMessage: `Episode (created ${(row as any).created_at}, tags: ${(row as any).tags?.join(", ") ?? ""}):\n\n${episodeText}`,
         maxTokens: 2000,
         cacheSystem: true,
         caller: "dream-sws-variant",
