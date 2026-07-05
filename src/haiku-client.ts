@@ -12,12 +12,23 @@
  */
 import { spawn } from "bun";
 import { tmpdir } from "os";
+import { join, dirname } from "path";
 import { sanitizedEnv, validateSpawnArgs } from "./claude.ts";
 import { buildClaudeSpawnArgs } from "./claude-binary.ts";
 import { extractFirstAssistantText } from "./prompt-runner.ts";
 import { error as logError, warn } from "./logger.ts";
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+
+// Empty MCP config prevents Atlas's 9 MCP servers from starting during haiku
+// subprocess spawns. Without this, the subprocess (which inherits or discovers
+// the Atlas project root) tries to start all servers including npx-based ones
+// (hevy, playwright) that can take 30-60s each — blowing the 60s killTimer
+// and producing exit 143 on every call. See: 2026-07-05 haiku crash investigation.
+const HAIKU_MCP_CONFIG = join(
+  process.env.PROJECT_DIR || dirname(dirname(import.meta.path)),
+  "mcp-servers", "haiku-empty.json"
+);
 
 // Resolve the npm .cmd shim to its underlying claude.exe and spawn directly,
 // sidestepping cmd.exe's mis-tokenizing of space-containing paths. This was the
@@ -113,6 +124,7 @@ async function callModel(model: string, params: HaikuMessage, logTag: string): P
       "--output-format", "stream-json",
       "--verbose",
       "--allowedTools", "",
+      "--mcp-config", HAIKU_MCP_CONFIG,
     ]);
 
     try {
