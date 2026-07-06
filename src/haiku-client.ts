@@ -125,6 +125,12 @@ async function callModel(model: string, params: HaikuMessage, logTag: string): P
       "--verbose",
       "--allowedTools", "",
       "--mcp-config", HAIKU_MCP_CONFIG,
+      // Prevent Atlas project hooks (SessionStart/PreCompact) and CLAUDE.md from
+      // loading. Without this, the subprocess discovers .claude/settings.json via
+      // project-dir walk and fires both hooks before the API call — adding 5-60s of
+      // overhead that blows the killTimer (exit 143). Credentials (OAuth) are in
+      // ~/.claude/.credentials.json which is separate from settings sources.
+      "--setting-sources", "",
     ]);
 
     try {
