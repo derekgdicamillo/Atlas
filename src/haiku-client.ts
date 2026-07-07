@@ -47,7 +47,7 @@ const NEUTRAL_CWD = tmpdir();
 
 // Timeouts per model tier (haiku is fast; opus can take longer for complex prompts)
 const CALL_TIMEOUTS: Record<string, number> = {
-  haiku: 60_000,   // 60s — classification calls should be fast
+  haiku: 90_000,   // 90s — was 60s; API variance at peak hours (11 PM) pushed past 60s on dream-sws calls
   sonnet: 120_000, // 2 min
   opus: 180_000,   // 3 min — prediction generation with Supabase context
 };
