@@ -249,7 +249,9 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "council-shadow-review": 5 * 60 * 1000, //  5 min — LLM summary + file write
   "blackboard-gc":   2 * 60 * 1000,       //  2 min — git bundle + file writes
   "joint-deadline-sweeper": 60 * 1000,    //  1 min — quick Supabase sweep
-  "default":         5 * 60 * 1000, //  5 min catch-all
+  "dream-sws-nightly": 15 * 60 * 1000, // 15 min — 3 haiku calls/memory × up to 90s each; processes top-5 salient memories
+  "dream-rem-nightly": 10 * 60 * 1000, // 10 min — REM scenario generation via Opus
+  "default":           5 * 60 * 1000,  //  5 min catch-all
 };
 
 // Sentinel used to distinguish wall-clock timeouts from regular errors
