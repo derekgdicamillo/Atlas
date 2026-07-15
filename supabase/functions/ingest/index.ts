@@ -15,7 +15,16 @@
  *   }
  *
  * Returns:
- *   { chunks_created: number, chunks_skipped: number, document_hash: string }
+ *   { chunks_created: number, chunks_skipped: number, chunks_deleted: number, document_hash: string }
+ *
+ * Re-ingest / self-heal behavior:
+ *   When a source_path is provided, (source, source_path) identifies one
+ *   logical document. On re-ingest we (a) skip if the current content is
+ *   already present unchanged, and (b) delete any prior chunks for the same
+ *   (source, source_path) whose content_hash differs — so editing a file
+ *   REPLACES its chunks instead of orphaning the old version. Path-less
+ *   ingests (source_path null, e.g. "manual") keep the original global
+ *   content-hash dedup with no deletion.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -47,49 +56,71 @@ Deno.serve(async (req) => {
     // Content hash for deduplication
     const contentHash = await sha256(content);
 
-    // Check if this exact document was already ingested
-    const { data: existing } = await supabase
+    // Is the CURRENT content already present? Scope the check to
+    // (source, source_path) when a path is given so distinct documents
+    // that happen to share content don't shadow each other; fall back to
+    // the original global content-hash check for path-less ingests.
+    let existingQuery = supabase
       .from("documents")
       .select("id")
       .eq("content_hash", contentHash)
       .eq("chunk_index", 0)
       .limit(1);
+    if (source_path) {
+      existingQuery = existingQuery.eq("source", source).eq("source_path", source_path);
+    }
+    const { data: existing } = await existingQuery;
+    const unchanged = !!(existing && existing.length > 0);
 
-    if (existing && existing.length > 0) {
-      return json({
-        chunks_created: 0,
-        chunks_skipped: 1,
-        document_hash: contentHash,
-        message: "Document already ingested (matching content hash)",
-      });
+    // Chunk + insert only when the current content isn't already stored.
+    let chunksCreated = 0;
+    if (!unchanged) {
+      const chunks = recursiveChunk(content, TARGET_CHUNK_CHARS, OVERLAP_CHARS);
+      const rows = chunks.map((chunk, index) => ({
+        source,
+        source_path: source_path || null,
+        title: title || null,
+        content: chunk,
+        chunk_index: index,
+        chunk_count: chunks.length,
+        content_hash: contentHash,
+        token_count: Math.ceil(chunk.length / 4),
+        metadata,
+      }));
+
+      const { error } = await supabase.from("documents").insert(rows);
+      if (error) {
+        return json({ error: `Insert failed: ${error.message}` }, 500);
+      }
+      chunksCreated = chunks.length;
     }
 
-    // Chunk the document
-    const chunks = recursiveChunk(content, TARGET_CHUNK_CHARS, OVERLAP_CHARS);
-
-    // Insert all chunks
-    const rows = chunks.map((chunk, index) => ({
-      source,
-      source_path: source_path || null,
-      title: title || null,
-      content: chunk,
-      chunk_index: index,
-      chunk_count: chunks.length,
-      content_hash: contentHash,
-      token_count: Math.ceil(chunk.length / 4),
-      metadata,
-    }));
-
-    const { error } = await supabase.from("documents").insert(rows);
-
-    if (error) {
-      return json({ error: `Insert failed: ${error.message}` }, 500);
+    // Self-heal: remove any PRIOR chunks for this logical document
+    // (same source + source_path) whose content differs from the version
+    // we just confirmed/inserted. Runs on both changed and unchanged paths
+    // so pre-existing orphans get cleaned up too. Insert-before-delete means
+    // there is never a moment with zero current chunks for a changed doc.
+    let chunksDeleted = 0;
+    if (source_path) {
+      const { data: deleted, error: delError } = await supabase
+        .from("documents")
+        .delete()
+        .eq("source", source)
+        .eq("source_path", source_path)
+        .neq("content_hash", contentHash)
+        .select("id");
+      if (delError) {
+        return json({ error: `Stale-chunk cleanup failed: ${delError.message}` }, 500);
+      }
+      chunksDeleted = deleted ? deleted.length : 0;
     }
 
     return json({
-      chunks_created: chunks.length,
-      chunks_skipped: 0,
+      chunks_created: chunksCreated,
+      chunks_skipped: unchanged ? 1 : 0,
+      chunks_deleted: chunksDeleted,
       document_hash: contentHash,
+      ...(unchanged ? { message: "Document already ingested (matching content hash)" } : {}),
     });
   } catch (error) {
     return json({ error: String(error) }, 500);
