@@ -1,0 +1,2647 @@
+# Transcript: 05-gut-health
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\Week 7 - Gut Health & Protocols for Healing\video1860620349.mp4
+# Duration: 104.5 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:30] I hope y'all are warm and dry where you are.
+[00:55] It hasn't been warm and dry here in South Mississippi.
+[00:59] We are expecting a tropical storm, Arthur, to come in tonight.
+[01:04] So hopefully we won't float away, but if you have questions while we wait, feel free to
+[01:12] unmute yourself.
+[01:13] I did just look at a couple things in community and make a couple comments.
+[01:18] So if you want to ask questions or chime in about those, feel free to unmute yourself.
+[01:23] Hi, this is Amethyst.
+[01:27] I know you talked about the ferritin.
+[01:31] What do you think about the metformin issue she was having when we increased?
+[01:35] Yeah, so it depends on how you increased it, first of all.
+[01:41] But if she's hesitant after they have gut issues, it's hard to convince them.
+[01:46] I normally increase metformin 250 milligrams at a time every two-ish weeks.
+[01:52] And so the way I start metformin is I do 250 milligrams every other day for two weeks,
+[01:57] and then 250 BID for two weeks, or 250 every day for two weeks, then 250 BID for two weeks,
+[02:05] and then I just keep adding the 250 over time.
+[02:10] So if they're still having trouble or they hit that problem with the gut stuff, one,
+[02:17] you can back down on the dose and just stay there a while, or you can offer to switch
+[02:22] to XR.
+[02:23] That's a perfectly appropriate response and approach.
+[02:28] Some patients are like, no, this was terrible.
+[02:29] I'm never taking it again.
+[02:31] And so you can switch them to berberine.
+[02:34] It works in the same pathway.
+[02:36] Eighty-four percent of people prescribed metformin will have a gut response, and it's not good.
+[02:43] Her response actually wasn't gut, though.
+[02:45] It was more like dizziness and vision issues.
+[02:48] So a lot of times that's glucose falling.
+[02:51] That's what I was kind of thinking.
+[02:53] Metformin doesn't directly lower glucose, but if she's using any other products to help,
+[02:59] the synergistic effect often will lower glucose.
+[03:03] The other thing is if she's also dropping carbs, if she's also cutting grains, that
+[03:08] is also very effective.
+[03:10] And so the synergistic effect of metformin plus anything else will contribute to some
+[03:17] mild glucose drops.
+[03:19] The only way to know is monitor CGM if she wants.
+[03:25] They're over the counter for those that don't justify the cost for their insurer.
+[03:31] But if she's having issues, just switch to some berberine.
+[03:35] That's the easiest thing to do.
+[03:37] Okay.
+[03:38] Thank you.
+[03:39] About four percent of people on berberine will also have that stuff because berberine
+[03:44] works like an antimicrobial.
+[03:45] We're actually going to talk about berberine as a gut thing tonight.
+[03:50] So they can still have issues with berberine because it works very similarly to
+[03:56] metformin.
+[03:57] So just let her be aware that this is milder, but it might cause some issues.
+[04:03] And I still gradually increase.
+[04:05] I don't just put them on the thousand berberine, BID most of the time.
+[04:10] I have them increase it.
+[04:11] Yeah, she was tolerating 500 twice a day really nicely.
+[04:15] And then we increased it to a thousand twice a day.
+[04:17] And after like two months, she was complaining of some of the dizziness and
+[04:19] things like that.
+[04:20] So I told her to back it back down to the 500 and her numbers are coming down.
+[04:25] So maybe we'll just stay at the 500 twice a day for an animal.
+[04:27] Yeah, if she's good with staying there, that's perfectly okay.
+[04:30] It's just not going to work as well.
+[04:32] But if she's doing the things, the plan, she won't need the extra doses long.
+[04:40] And then we're going to have more of a plan now that I know more because like
+[04:43] I started treating her diabetes before I took a bunch of these courses.
+[04:46] So this next appointment will be bigger.
+[04:50] Good.
+[04:51] Good, good, good.
+[04:52] Thank you.
+[04:56] All right.
+[04:57] Any other questions before we dive in tonight?
+[04:59] Tonight is usually one of our favorite topics, to be honest.
+[05:05] Gut health drives all other health.
+[05:07] Y'all know that better than anyone.
+[05:12] So we're going to talk about gut stuff tonight.
+[05:14] Yes, Tracy.
+[05:15] How are you?
+[05:15] I'm good.
+[05:16] How are you doing?
+[05:17] Good.
+[05:18] So I have an update and have a question real quick if we have time.
+[05:22] But my AFib lady, she's now back in sinus rhythm.
+[05:25] Nice.
+[05:26] So she's feeling much better.
+[05:29] Good.
+[05:29] So we're just playing the course for now, you know, and seeing how things, see how
+[05:35] she maintains, recheck her labs, you know, in a couple of months or give or take,
+[05:40] whatever we're doing there.
+[05:42] But she is feeling better and she is back in sinus rhythm, which I was very
+[05:45] helpful.
+[05:45] I was very thankful for your help because just your encouragement helped me feel
+[05:50] comfortable keeping her in-house.
+[05:52] Awesome.
+[05:54] So I really appreciate that.
+[05:56] And it proved to me that we can do it, right?
+[06:01] We can do it.
+[06:02] We can do it.
+[06:03] So I just I just I just really wanted to tell you I really do appreciate it.
+[06:08] You're very welcome.
+[06:09] I'm not leaving.
+[06:10] I need some lotion.
+[06:13] I feel you.
+[06:17] And then the other thing I had an interesting one come in today and
+[06:21] we're on the gut.
+[06:22] So it might help but she kind of she has very active history as far as like
+[06:30] exercise and Wellness and all that and she came in today for some I've
+[06:34] ever seen her unexpected weight loss like around 15 pounds not trying.
+[06:41] She's having hives and she's having all these reactions to if we don't even
+[06:47] really know but she thinks it's connected to possibly an inflammatory
+[06:52] response because she got sea lice like a year ago and she said ever since
+[06:57] then she's had problems with her skin.
+[06:58] I have never even heard of sea lice before so I had to look it up either.
+[07:04] Yeah, but she's also like of course very fatigued and you know, kind
+[07:11] of the normal things she's getting like kind of swelling in her lips
+[07:16] and different things like that and I'm sure it's got I just I'm, you
+[07:21] know ordered of course a full lab panel and since she dropped so much
+[07:24] weight, of course, I'm going to do the basic labs, but I also threw on
+[07:27] a thyroid panel and ferritin and B12 and vitamin D and but I was
+[07:32] wondering what is it called?
+[07:34] Is it like a trip not a trip 10 tears?
+[07:38] The one you check for like mast cell activation.
+[07:41] And then there's another one.
+[07:45] It's a urine.
+[07:46] It's a I'd have to Google it.
+[07:50] I never remember what it is, but it's a urine test.
+[07:54] If you look up, I'm cas testing usually the first one or two of the
+[08:03] places you can see a s evaluation or testing or something usually
+[08:11] or mca yeah and then teen year old and then there's usually a
+[08:17] page on on the website that will tell you what to test.
+[08:21] It's like a some kind of pk pb2.
+[08:28] It's some kind of prostaglandin.
+[08:30] I don't remember the exact name, but it's a urine test and I usually
+[08:37] do that with it, but often times the CDC will be really wacky.
+[08:47] So that's what I told her is that we're going to look at that, but
+[08:54] I was kind of curious because she has a 17 year old that got mono
+[08:58] about six months ago.
+[08:59] So I was going to check like for Epstein bar or something.
+[09:04] Do you think yeah, I think that would be the idea.
+[09:06] Oh, I found it.
+[09:09] Yeah, the mca urine test elevated levels of mast cell mediators
+[09:14] which released during episodes of mast cell.
+[09:17] Yeah, should tell you or you can do or ask chat GPT or Claude
+[09:24] to you know, what test should you run?
+[09:27] I mean it'll give you some suggestions maybe more than you
+[09:30] need but the two I normally do besides my normal panel are that
+[09:36] urine prostaglandin test and the triptase and even if they're
+[09:41] negative that doesn't mean she doesn't have him cast.
+[09:45] They're not a hundred percent.
+[09:47] Yeah.
+[09:49] Most of the time you will have wacky CBC's when MCAS is present.
+[09:58] But if those are negative then I would try to maybe chase down
+[10:02] ANA's more more of your weird other weird things to chase but
+[10:09] yeah holler if you need.
+[10:10] Yeah, I did the CRP now this this prostaglandin test.
+[10:15] I see it at Quest now.
+[10:16] I see the code and everything.
+[10:17] So I'm going to add it because it's into the order yet.
+[10:19] But is it is this a 24-hour test or is it just one can
+[10:23] be or it can be random.
+[10:25] I usually do the random one because it's hard to do anything.
+[10:29] Yeah, because I'm like, I don't know if she could do 24.
+[10:32] She doesn't have insurance too.
+[10:33] So yeah, so okay.
+[10:35] Well, I'm going to add that safe.
+[10:37] I know it'd be good to ask you.
+[10:38] Thank you.
+[10:38] Yeah, I probably would be considered an MCAS specialist.
+[10:45] I've had five patients with it and I think that would qualify
+[10:49] me as a specialist.
+[10:50] I'm not I don't know enough anywhere near.
+[10:53] But most providers don't see one or two cases their whole
+[10:59] careers.
+[11:01] And I've had I've diagnosed two of them.
+[11:03] Three of them came already diagnosed.
+[11:06] Well, do you think it's reasonable with her symptoms to
+[11:09] do it?
+[11:10] Yeah, absolutely.
+[11:11] Yeah, okay.
+[11:12] Yeah, okay.
+[11:13] I mean if it's negative you just you've closed that door
+[11:16] mostly and you can explore some other things.
+[11:20] If it looks like a duck walks like a duck sounds like a
+[11:23] duck is probably a duck.
+[11:25] No matter what the test shows, you know, I mean, yeah,
+[11:28] she's got hives and sores and I mean, it's fine.
+[11:32] One of the reasons MCAS is so common is our poor immune
+[11:36] systems.
+[11:37] Yeah, we have no immune system to battle and fight for
+[11:41] us because of low proteins, low irons, poor iodine intake,
+[11:46] poor fat intake, like low vitamin D like all the things
+[11:51] that leads me to actually the most important thing.
+[11:54] I didn't tell you up until about three months ago.
+[11:56] She's been a vegetarian for three years.
+[11:58] Oh, well, that's her problem right there.
+[12:01] Like I said, that's the most important thing.
+[12:03] I was going to tell you that's the root of everything
+[12:06] right there for for most people that go vegetarian
+[12:09] that becomes a real problem.
+[12:11] Some people can manage and do all right because they
+[12:14] look up what they're going to be deficient in.
+[12:16] I find out the deficiencies they replace those either
+[12:19] with supplements or try to cover them with some of the
+[12:22] foods, but if they are not very well educated in vegetarian
+[12:30] eating, they will have significant deficits within
+[12:33] about two years.
+[12:34] Yeah, she's been about three.
+[12:36] Do you think because now she's reintroduced like some
+[12:39] chicken?
+[12:42] That's basically kind of the gist of it is chicken at
+[12:45] this point.
+[12:46] Do you think she could just be reacting to the protein?
+[12:50] Maybe, maybe or like it I mean it could be anything
+[12:57] but really there's not a real way to know till we get
+[13:00] some labs, but I would be interested to see her CBC for
+[13:03] sure.
+[13:04] I've been getting some weird ones, haven't I?
+[13:07] We go girl, we're going to fix the world.
+[13:11] No, no, no, no, if I can fix one, I'm good.
+[13:15] No, three times three bucks.
+[13:18] What you got today?
+[13:22] Hi, so I actually saw a new patient today.
+[13:27] She was coming in for concerns about her gut health.
+[13:30] She's got a history of diverticulitis.
+[13:32] She's had three attacks this year, but she also has
+[13:37] a severe constipation when she was 19.
+[13:40] She had a pretty large polyp removed from her
+[13:43] sigmoid colon and ever since then she started having
+[13:46] issues with her gut with floating and pain and just
+[13:49] discomfort.
+[13:51] And in 2022, she had a partial sigmoid resection
+[13:57] and she said really since then like the constipation
+[14:00] has been really bad.
+[14:02] She's taking pretty laxatives pretty regularly just
+[14:05] so she can move and she's also they prescribed her
+[14:08] Linzess and Truliance, but she doesn't really like that
+[14:13] because she's having really bad constipation.
+[14:16] So I did a full workup on her.
+[14:20] Her labs half of them are still pending but from what
+[14:23] I see so far her ferritin is 18.
+[14:26] So she's going to need some of that.
+[14:28] I'm waiting for the rest of the things to come back.
+[14:31] But I just I wanted to know is there with the low dose
+[14:36] naltrexone, is there any benefit for someone like her
+[14:40] or someone like dealing with a lot of this gut issues
+[14:43] to work on the inflammation?
+[14:45] Maybe but it really depends on what your lab show.
+[14:49] So I would start there but tonight's session is just
+[14:52] for you Kidella.
+[14:53] Yes, I know.
+[14:55] So I would highly encourage her to consider some of these
+[14:59] treatments.
+[15:01] You may want to consider even getting her to do a GI map
+[15:07] if you do a few of the assessments and go through some
+[15:10] of the stuff we're going to talk about tonight and you're
+[15:12] still like I don't know what to do here.
+[15:17] Anytime you don't know what to do.
+[15:19] The next thing is a test of some sort like either lab
+[15:22] work stool urine like move to the next progressive test
+[15:27] like what what should I do next?
+[15:29] Yeah, and so we're going to talk about some of those
+[15:31] tests tonight.
+[15:32] So this session may be very beneficial and enlightening.
+[15:36] Yeah, so I did mention to her about the GI map.
+[15:39] We talked about it.
+[15:40] She was going to talk to her husband and see but I guess
+[15:43] she's just feeling a little bit discouraged because
+[15:44] she's worked with a couple different like functional
+[15:47] providers or Eastern medicine and she just felt like
+[15:51] they've just been pushing supplements and none of
+[15:53] them are really helping.
+[15:54] So we're going to talk about function tonight.
+[15:57] Remember the GI track is a stack a tube of muscles
+[16:04] from the mouth all the way through so muscle function
+[16:08] is key here.
+[16:09] What makes muscles work?
+[16:12] That's the key.
+[16:15] So that's that's where it starts and so we're going
+[16:18] to talk about some of those as we go through.
+[16:21] So pay good attention tonight and you'll have a lot
+[16:24] of information to help her with and then I'll post
+[16:26] her case after I get her labs.
+[16:29] Yeah, I was here her labs, but yeah, her ferritin is
+[16:33] absolutely terrible.
+[16:35] However, remember ferritin sub iron supplementation
+[16:39] is often constipating especially for patients
+[16:42] already constipated and so she's probably going
+[16:45] to need a whole bunch of vitamin C to make sure
+[16:47] that does not happen and she gets formed stool
+[16:50] instead of watery or no stool.
+[16:53] So I was going with 2000 twice a day on the light
+[16:57] and you're not having to continue to increase that
+[17:01] until they find a diarrhea when they find that back
+[17:04] off one or two tablets.
+[17:05] Usually that's around 10 or 12,000 milligrams of
+[17:08] see a day.
+[17:09] Okay.
+[17:12] And for some people it's much more.
+[17:15] But we're going to talk about gut emptying here
+[17:18] in just a second.
+[17:19] She really needs a complete emptying.
+[17:21] So like I don't know what she's been using for laxatives,
+[17:23] but she's probably using just enough to make her go.
+[17:26] She needs a complete colon cleanse.
+[17:29] She needs everything empty and we're going to talk
+[17:31] about that here.
+[17:31] Just a minute.
+[17:32] When you do your C, do you prefer the tablet themselves
+[17:37] or what about like the liquid liposomal C?
+[17:40] Yeah, liposomal is not liposomal is great.
+[17:44] But with liposomal vitamin C, you will not get
+[17:47] the gut response that we're looking for in this
+[17:49] particular case.
+[17:52] Liposomal C is for patients who are having overreaction
+[17:58] of stomach hyperstimulation.
+[18:02] So they're winding up with almost any amount of vitamin
+[18:06] C giving them loose stool diarrhea.
+[18:10] So liposomal C is designed to bypass stomach breakdown
+[18:16] and move into small intestinal breakdown.
+[18:19] So it stays whole in the stomach and doesn't break
+[18:23] down until it is in the small intestine and therefore
+[18:26] it doesn't cause loose stool or diarrhea for most people.
+[18:30] Every now and then you're going to have somebody
+[18:31] that's exactly the opposite.
+[18:33] But for the most part, high doses of ascorbic acid
+[18:38] will cause good solid bowel movements regularly when
+[18:43] they find the dose that works for them.
+[18:46] Yeah.
+[18:49] But it can be a little bit of a challenge because
+[18:52] you're slowly increasing until you have the loose
+[18:54] stool and then, oh, I don't need 12,000.
+[18:57] Let's try 10 and you just hang out there for a while.
+[19:01] The high-dose vitamin C, it doesn't have to be taken
+[19:05] like with iron.
+[19:05] It can just be taken throughout the day.
+[19:07] All through the day.
+[19:08] Yes, and it's better like that.
+[19:09] Like your salt, your hydration supplements, just like
+[19:15] that because vitamin C is water soluble.
+[19:19] It is used up very rapidly.
+[19:22] Remember that vitamin C works kind of like the trash
+[19:25] guy.
+[19:25] So it picks up the reactive oxidative molecules that
+[19:30] are floating around and it takes them out through
+[19:34] elimination, usually through urine.
+[19:36] So if you have a patient with really high inflammation
+[19:39] markers, you really do best by getting them to take
+[19:44] their vitamin C several times a day.
+[19:47] I usually do start them.
+[19:48] I think Hidela was saying 2000 BID, that's a great
+[19:51] place to start, but have them increase every week,
+[19:57] three or four days, whatever works for them, works
+[20:00] for you. Have them increase that by a thousand
+[20:03] or two until they are on 10 or 12, 15, until
+[20:08] they find that loose watery stool.
+[20:12] And once they find that, if they get to like 15
+[20:15] or 16, just have them back off to 13 or 14 because
+[20:19] that dose will maintain a nice form stool without
+[20:22] generally causing the loose stool diarrhea.
+[20:24] If the 13 is still causing the problem, then back
+[20:27] off to 10.
+[20:28] Like figure out where the balance is for each patient.
+[20:32] Sometimes patients get anxious and they're like,
+[20:34] let me just take a whole bunch and I'll find it.
+[20:36] And I'm, you know, that's not a great idea because
+[20:40] I will find loose stool and diarrhea, but then
+[20:43] they won't know how much less they need.
+[20:45] If they gradually increase it over a few weeks,
+[20:49] then they'll find that 10 worked great.
+[20:52] But when I added that 11 or 12, that's where
+[20:55] I had the gut problem.
+[20:56] So we're going to go back to 10.
+[20:58] So it's easier to back off than it is that way
+[21:01] than it is to start with 10 or 12, 15.
+[21:04] And then it suddenly calls a massive laxative
+[21:07] effect and then they're not going to want to
+[21:10] take it anymore.
+[21:10] Kind of like with metformin, you take metformin
+[21:13] too high, too fast, it causes a gut problem, too.
+[21:18] Yeah, so slow increases start low, go slow every
+[21:21] time. That's the main mantra for all of functional
+[21:24] care. It should be the mantra for mainstream
+[21:27] and they say it is, but that's not really how
+[21:29] they live in their world.
+[21:32] Okay, any other quick questions before we move
+[21:35] on to our PowerPoint?
+[21:41] Okay, all right.
+[21:42] Let me share my screen.
+[21:43] I did post a new gut PowerPoint.
+[21:48] I updated a few things.
+[21:49] So if you got it before 3 o'clock this afternoon,
+[21:53] you may want to go back over into community
+[21:56] and get this particular updated version.
+[22:03] Where are we not clicking?
+[22:04] There we go.
+[22:06] Because this has a few little different things
+[22:08] in it.
+[22:09] And if you don't want to fool with getting it
+[22:11] now, you can later.
+[22:12] You don't have to do it now.
+[22:15] But we're going to talk about some basic review.
+[22:19] Not that you need this, but I try to throw
+[22:23] in a couple things as we talk about basic
+[22:25] digestion that help you think more functionally.
+[22:28] So keep in mind that digestive system.
+[22:35] The digestive system works because it's one
+[22:38] tube from mouth to bottom.
+[22:41] Okay.
+[22:44] Food that we swallow only goes from their mouth
+[22:51] to their bottom.
+[22:53] It doesn't disappear anywhere else.
+[22:55] So many people, many lay people honestly think
+[23:00] that food goes other places.
+[23:02] They don't understand that.
+[23:05] Chewing this food moves it all the way through
+[23:10] one tube.
+[23:11] When I tell that to some patients, patients are often
+[23:14] like, huh?
+[23:18] They don't understand the one tube thing.
+[23:20] They really don't.
+[23:21] So if we can help them understand the basic
+[23:24] function of the gut, they'll begin to take
+[23:28] better care of their gut.
+[23:30] So digestion starts in the mouth when we start
+[23:33] chewing.
+[23:34] Remember that liquid calories, liquid energy.
+[23:37] I don't like the word calories, but when we drink
+[23:41] our food, mastication does not occur.
+[23:45] Chewing does not occur.
+[23:47] And if we don't chew, then we don't have normal
+[23:52] leptin and ghrelin saliva released appropriately.
+[23:57] And so things don't start breaking down in the
+[24:01] mouth where they're supposed to.
+[24:03] So make sure your patients are number one chewing
+[24:06] the majority of their food and energy that they're
+[24:08] not drinking their calories.
+[24:10] There are very few legitimate reasons for having
+[24:14] patients use protein shakes.
+[24:16] One of the only reasons I encourage protein shakes
+[24:20] is very significant malnutrition and then only
+[24:24] for a very short period of time, like two to
+[24:27] three, six months while they are working on
+[24:30] improving their meat intake.
+[24:34] So keep in mind that proteins from plants are
+[24:38] absorbed at about one third of the comparable
+[24:42] meat protein, which is about 98% absorbed.
+[24:46] So all of that matters when it comes to food
+[24:50] moving through digestion.
+[24:51] So make sure they're chewing.
+[24:52] Well, I remember as a kid, there were various
+[24:57] you supposed to brush your hair a hundred times
+[24:59] every morning, every night, you're supposed to
+[25:01] chew your food 32 bites every time, like all those
+[25:04] kinds of things float around populations, especially
+[25:10] kids, and you don't have to chew 32 times.
+[25:12] But the point behind that was that we should
+[25:15] chew our food.
+[25:17] Well, much better than many of us do, especially
+[25:21] us nurses, especially shift workers, police
+[25:26] officers, EMS people, like anybody that's eating
+[25:30] on the run is very likely to chew poorly because
+[25:34] they're eating quickly.
+[25:36] Floor nurses are one of the worst eaters on
+[25:39] the planet.
+[25:40] Number one, they'll skip meals when they're
+[25:41] starving and they're stressed and they're working
+[25:45] 12-hour shifts back to back.
+[25:47] That creates terrible gut dysfunction.
+[25:49] And so when they do eat, they are wolfing
+[25:53] down food in five or ten minutes in between
+[25:55] patient care and charting and all the things and
+[25:58] that's not healthy for digestion.
+[25:59] So when we assess patients, when we talk to
+[26:02] them about what they're eating, sometimes it's
+[26:05] helpful if we talk to them about how they're
+[26:07] eating, like tell me a little bit about how
+[26:10] the environment is when you sit down and eat.
+[26:12] Are you always eating on the run or are you
+[26:15] able to sit down at a table and focus on just
+[26:18] your food?
+[26:18] Are they watching TV, listening to a ball game,
+[26:21] chasing children?
+[26:22] Like what are all the things going on
+[26:25] around them while they're trying to eat?
+[26:26] Because all of those things are creating
+[26:28] stressful situations and all of those are
+[26:30] signaling terrible digestion.
+[26:35] Make sure when they swallow that they are
+[26:37] swallowing small bites, not huge chunks,
+[26:40] because when food passes the epiglottis,
+[26:43] that's a choke hazard.
+[26:45] And so anybody that's telling you they're
+[26:46] choking frequently, that's a person you want
+[26:49] to say, hey, tell me a little bit more
+[26:50] about what it's like when you eat.
+[26:53] Talk to them about that methodology of how
+[26:56] food is getting in their system.
+[26:58] Remember the esophageal sphincter is
+[26:59] supposed to sit below the diaphragm,
+[27:03] not above.
+[27:04] And so when the esophageal sphincter or
+[27:06] any other of the stomach tissue comes up,
+[27:09] that becomes a hernia.
+[27:11] That's what is called or known as a
+[27:12] hiatal hernia.
+[27:14] This is the diaphragm.
+[27:15] This is your esophagus or the sphincter
+[27:18] coming up into the esophagus that is
+[27:20] supposed to stay down here.
+[27:22] Not push through the diaphragm.
+[27:24] When it pushes through the diaphragm,
+[27:25] we now have a hiatal hernia.
+[27:28] So it's important that hiatal hernias
+[27:30] be addressed.
+[27:31] The most common cause of a hiatal
+[27:33] hernia is constipated stool.
+[27:37] Yes, you heard me right.
+[27:39] The most common cause of reflux,
+[27:41] heartburn, and digestion is
+[27:43] constipated stool.
+[27:45] So we're going to talk about that
+[27:47] some more.
+[27:48] Look at the stomach.
+[27:50] Are they supplying enough chloride
+[27:53] from their salt intake to make
+[27:55] appropriate hydrochloric acid?
+[27:58] People that eat low salt don't have
+[28:00] good acid production.
+[28:02] Many of them and their GI docs will
+[28:06] also tell them they're making
+[28:09] too much acid when in fact,
+[28:11] that's not the truth at all.
+[28:12] They're actually not making enough acid
+[28:15] because sodium chloride is what
+[28:18] helps contribute to hydrochloric acid
+[28:20] production.
+[28:21] So remember your chemistry.
+[28:23] Sodium is a positive ion.
+[28:25] Chloride is negative and when we
+[28:29] consume salt as a combined molecule,
+[28:32] it gets digested and separated.
+[28:34] Sodium goes over here and does
+[28:36] work with mussels and potassium
+[28:38] and all kinds of other things.
+[28:39] Chloride goes off on its way to
+[28:42] work to produce hydrochloric acid.
+[28:45] And so mixed with the food that
+[28:48] hydrochloric acid begins to form
+[28:49] the kind ball that is then moved
+[28:52] when we swallow and mussels begin
+[28:55] to contract, moving that through
+[28:58] into the small intestine.
+[29:01] So in the small intestines,
+[29:02] lots of absorption is happening.
+[29:05] In the large intestines,
+[29:07] mostly what you're absorbing is
+[29:08] water.
+[29:09] There's a few ingredients that
+[29:11] continue to be absorbed
+[29:12] nutritionally, but the majority
+[29:14] of the time, large intestines
+[29:15] are just absorbing water.
+[29:17] So watery stool literally enters
+[29:21] the large intestine near your
+[29:22] appendix at the bottom right.
+[29:25] If you're looking at the screen,
+[29:26] it's on the left side because
+[29:27] you're facing the body, but
+[29:29] it's on your physical right
+[29:31] side near your leg.
+[29:33] You're growing on the right
+[29:34] side where your appendix is,
+[29:36] is where watery stool from the
+[29:38] small intestine enters the
+[29:39] large intestine.
+[29:42] Miraculously,
+[29:44] this works perfectly when it
+[29:47] works well.
+[29:49] So watery stool begins to flow
+[29:52] upward through the ascending
+[29:54] colon while water is being
+[29:58] resorbed, recirculated, sent
+[30:00] around to other parts of the
+[30:02] body to do its job.
+[30:05] As that stool is pushed upward,
+[30:10] the body begins to form
+[30:12] stool. All these little
+[30:15] pockets all along the colon
+[30:17] begin to absorb.
+[30:19] They're sucking up the waste
+[30:21] into these little pockets all
+[30:23] along the gut, and then
+[30:24] eventually those muscular
+[30:29] pockets are going to push waste
+[30:31] on up and across the transverse
+[30:34] colon and then down into the
+[30:36] sigmoid colon and out into
+[30:37] the toilet.
+[30:39] That is how good
+[30:41] muscles are supposed to work.
+[30:43] If that's not happening,
+[30:45] we need to figure out why.
+[30:47] Okay,
+[30:49] so think about all of those
+[30:51] things when you have a patient
+[30:53] that's talking to you about
+[30:55] gut health.
+[30:57] So number one, what should
+[30:58] waste look like? Get you a
+[31:00] Bristol stool form scale.
+[31:01] There's PDF documents all over
+[31:03] the internet.
+[31:04] You can get cute ones for
+[31:06] little kids, plain ones for
+[31:09] older people and adults,
+[31:12] but have them chart what their
+[31:14] poop looks like every day for
+[31:16] four weeks or every week or
+[31:17] whatever. If they are skipping
+[31:19] multiple days a week, they are
+[31:20] constipated.
+[31:22] They should have logs that are
+[31:24] shaped mostly like a snake.
+[31:27] If they are having hard balls
+[31:30] in the midst of their poop,
+[31:32] that is constipated stool.
+[31:34] Those are the little hard balls
+[31:36] are forming when the water is
+[31:38] absorbed as the waste is pulled
+[31:42] up into the pockets and it
+[31:43] literally gets stuck there.
+[31:45] Those balls of poop literally
+[31:47] get stuck inside those pockets
+[31:49] and they're not moving through
+[31:50] appropriately.
+[31:51] If they're having watery
+[31:52] stool, that is not appropriate
+[31:54] either.
+[31:55] Nobody should have watery
+[31:56] stool.
+[31:56] Nobody should have hard ball
+[31:57] stool.
+[31:58] If they're straining, if
+[32:00] they're pushing, if they
+[32:03] are skipping days, all of
+[32:05] that is not healthy.
+[32:07] Typically, four is your perfect
+[32:10] stool form on the Bristol scale.
+[32:12] It's snake-like.
+[32:15] You can have some threes and
+[32:17] some fives and still have fairly
+[32:20] normal healthy digestion.
+[32:22] But if your patient is
+[32:23] reporting ones and twos or
+[32:25] sixes and sevens on the Bristol
+[32:26] scale, they have some gut work
+[32:28] to do and so that's going to
+[32:30] be something that we have to
+[32:32] look into.
+[32:34] In my gut protocol that I've
+[32:36] posted in your week seven
+[32:39] course, these are the questions
+[32:42] that go through that.
+[32:44] I send that gut protocol to
+[32:45] every patient that I see, every
+[32:47] new patient that I see gets a
+[32:49] copy of that gut protocol and
+[32:51] they are supposed to go
+[32:52] through it and evaluate
+[32:54] themselves.
+[32:54] Do you have more than one day
+[32:55] a week you don't poop?
+[32:57] If so, you are constipated.
+[32:59] Do you have watery stools?
+[33:00] You are constipated.
+[33:01] Do you have hard balls for
+[33:02] poop?
+[33:03] You are constipated.
+[33:04] Do you ever have explosive
+[33:06] diarrhea?
+[33:06] You are constipated.
+[33:08] If you ever have tiny smears of
+[33:09] blood on tissue when you're
+[33:11] pooping, that's probably from a
+[33:12] hemorrhoid.
+[33:13] That's probably from
+[33:14] constipation.
+[33:15] Do you ever sit there or strain
+[33:17] and push every time or
+[33:19] sometimes when you're trying to
+[33:21] poop?
+[33:22] You should not have to strain.
+[33:24] You shouldn't have to sit on
+[33:25] the potty more than about eight
+[33:26] or ten minutes.
+[33:28] If you're sitting there that
+[33:28] long, you have a gut
+[33:29] dysfunction and you need to
+[33:31] figure out why.
+[33:33] You're only supposed to be
+[33:34] emptying from the descending
+[33:37] and the sigmoid colon.
+[33:39] So if you're trying to empty
+[33:40] your whole colon, that's not
+[33:42] appropriate.
+[33:43] Number one, it's not moving
+[33:44] that fast.
+[33:47] And so you should not have to
+[33:48] strain or sit there for a long
+[33:49] long time.
+[33:50] Do you ever feel like you go
+[33:52] to the bathroom and you sit
+[33:53] there and you're pooping and
+[33:54] you think, I think there's
+[33:55] some more.
+[33:56] I think I need to go some
+[33:57] more, but you just it just
+[33:59] won't happen.
+[34:00] That is incomplete emptying and
+[34:02] that is gut dysfunction.
+[34:03] So if the patient has two
+[34:05] yeses out of any of these
+[34:08] questions, here's the rest of
+[34:09] them, any two from both pages
+[34:12] two at all, there's gut
+[34:14] dysfunction, mostly
+[34:16] constipation and they need to
+[34:17] work on it.
+[34:19] Do you ever feel like there's
+[34:20] more poop inside that should
+[34:21] be emptying similar to the
+[34:23] previous question?
+[34:24] Do you ever have lower
+[34:25] abdominal pains and cramping?
+[34:28] That should not happen.
+[34:29] Do you ever feel bloated and
+[34:31] overly full, even short of
+[34:32] breath? Remember the transverse
+[34:35] colon is sitting literally
+[34:37] just under the diaphragm.
+[34:39] What's above the diaphragm?
+[34:40] Your lungs.
+[34:41] So if there is poop sitting
+[34:43] in that transverse colon,
+[34:45] people will report shortness
+[34:47] of breath and even
+[34:48] palpitations.
+[34:49] It will irritate their heart
+[34:51] muscle sometimes.
+[34:53] Do you suffer with reflux,
+[34:54] indigestion or heartburn?
+[34:56] Probably constipation.
+[34:58] Have you reported
+[35:00] diverticulosis or
+[35:01] polyps? They are two different
+[35:03] things, but have you seen
+[35:07] diverticulosis or polyps
+[35:11] on imaging or colonoscopy?
+[35:12] That is evidence of chronic
+[35:14] constipation.
+[35:15] Poop is sitting too long and
+[35:17] causing those pockets to swell
+[35:20] and enlarge.
+[35:21] And so if you answer yes to
+[35:23] two or more of any of these
+[35:25] questions, the problem is
+[35:26] almost always chronic
+[35:28] constipation.
+[35:29] It can be subtle and you can
+[35:31] still be pooping most days
+[35:33] and have some sluggish gut
+[35:35] motility.
+[35:36] Maybe not full-blown
+[35:37] constipation, but constipation
+[35:39] gut function is on a spectrum
+[35:41] that kind of is describing
+[35:44] the Bristol stool form scale.
+[35:46] It goes from very thick and
+[35:48] hard ball all the way to
+[35:50] watery, not solid at all.
+[35:52] So that's kind of a spectrum.
+[35:54] And so that's one reason
+[35:55] we ask patients to work on
+[35:57] the Bristol stool form scale
+[35:59] and bring it back to clinic
+[36:00] and let's take a look at it
+[36:02] and see what is coming out
+[36:04] because that will tell you
+[36:05] what's happening along the
+[36:06] track.
+[36:08] Look at the entire digestive
+[36:10] track.
+[36:10] Are your patients actually
+[36:12] chewing?
+[36:14] Think about the function of
+[36:15] each part of the digestive
+[36:17] track.
+[36:17] If they say they have a
+[36:18] hiatal hernia, you don't
+[36:19] have to do much else.
+[36:20] You need to address gut
+[36:21] health.
+[36:22] But where is their symptom
+[36:23] and why is it present?
+[36:24] That's what we need to look
+[36:25] at. Those are the main
+[36:26] questions when we talk about
+[36:28] gut health.
+[36:31] So some absorption factors.
+[36:35] Look at their salt intake
+[36:36] because if their sodium
+[36:38] number is 135, I can promise
+[36:40] you their chloride is probably
+[36:42] low as well and their stomach
+[36:44] acid is not appropriately
+[36:46] produced.
+[36:48] Look at their fat intake.
+[36:49] Fats help cells heal and
+[36:52] repair and if their gut is
+[36:53] destroyed from SIBO or leaky
+[36:56] gut or whatever, their mucosal
+[37:00] lining along the GI track is
+[37:02] probably also damaged and it
+[37:04] needs some healing.
+[37:05] Vitamin A and fats are two of
+[37:06] the best ingredients for
+[37:08] healing that tissue.
+[37:10] Are they using PPIs and H2
+[37:12] blockers?
+[37:13] Many patients are using them
+[37:14] over the counter for many
+[37:15] weeks, many years, a long,
+[37:17] long, long time and then
+[37:19] they come to us and we
+[37:20] wonder why their cell
+[37:21] malnourished, their liver
+[37:22] enzymes are all low, their
+[37:23] iron and ferritin, their
+[37:24] proteins are all low, their
+[37:26] vitamin D is 14.
+[37:28] Why? Because these PPIs and
+[37:30] H2 blockers actually block
+[37:32] normal digestion.
+[37:35] They're stopping acid
+[37:36] production.
+[37:37] If you stop acid production,
+[37:40] how can you break down the
+[37:43] food consumed for absorption in
+[37:45] the small intestine?
+[37:47] It can't.
+[37:48] So patients that are on these
+[37:50] have known and mainstream knows
+[37:52] this, like boatloads of
+[37:54] articles have come out.
+[37:55] This is one of the reasons why
+[37:57] PPIs and H2 blockers have
+[37:59] black box warnings and are
+[38:02] no longer recommended for
+[38:03] long-term prescribing.
+[38:05] They're meant for short-term
+[38:06] use, like for H. pylori,
+[38:09] for instance, something
+[38:10] short-term, let's fix the
+[38:11] problem, let's find the real
+[38:13] reason you're having issues.
+[38:15] Use these medicines while
+[38:16] we're fixing the problem,
+[38:17] but then you shouldn't use
+[38:18] them anymore, but patients
+[38:19] continue to use them because
+[38:20] now they're easy to get.
+[38:21] They're all over the
+[38:22] counter.
+[38:23] And so lots of times these
+[38:26] PPIs and H2 blockers wind up
+[38:28] causing way more problems
+[38:30] because the patients don't
+[38:31] realize they shouldn't be
+[38:32] using the long-term.
+[38:33] I think it's probably two of
+[38:35] the classes of medicine that
+[38:37] should have never gone over
+[38:38] the counter, honestly.
+[38:41] But that's a whole other
+[38:41] showbox.
+[38:42] Make sure they're chewing,
+[38:43] make sure they're drinking
+[38:45] plenty of fluids and make
+[38:46] sure it's mostly water.
+[38:49] Remember that caffeine will
+[38:51] block some nutrition
+[38:52] absorption, especially iron.
+[38:54] And so we don't want them
+[38:55] drinking tons of tea or
+[38:57] caffeine, especially at the
+[38:59] same time they're consuming
+[39:00] food that can create some
+[39:02] poor nutrient absorption.
+[39:04] Make sure their gut is moving.
+[39:07] One of the big problems with
+[39:08] GLP-1s today is it slows
+[39:12] gut motility big time.
+[39:13] It almost stops at like
+[39:15] 98%.
+[39:17] So that means the gut muscles
+[39:18] are not contracting, that
+[39:20] peristalsis is not happening.
+[39:22] And so gut muscles are becoming
+[39:25] lazier and lazier.
+[39:27] And it's more sluggish and
+[39:28] that allows for poop to sit
+[39:30] inside those pockets and not
+[39:32] flow through the system
+[39:34] appropriately.
+[39:35] When that happens, the bottom
+[39:38] part of the digestive track
+[39:40] is slow.
+[39:41] And so where does that go?
+[39:43] It begins to back up and
+[39:45] back up and back up.
+[39:46] And that is why we see
+[39:47] reflux, heartburn, and
+[39:48] indigestion with slow gut
+[39:50] motility and constipation.
+[39:53] We also see problems with
+[39:54] microbiome health.
+[39:56] Patients are unaware that
+[39:58] that round of antibiotics
+[39:59] they took for their
+[40:00] cellulitis, their otitis,
+[40:02] their sinusitis completely
+[40:04] killed off all the healthy
+[40:05] bacteria in their gut.
+[40:07] And some of them are told
+[40:09] you need to take a probiotic
+[40:11] when you finish this or
+[40:12] while you're taking this.
+[40:14] So they go by something
+[40:15] over-the-counter from
+[40:17] the local grocery store that
+[40:19] has one strain of bacteria
+[40:21] and they think they're doing
+[40:21] a great job to fix their gut.
+[40:24] The gut is full of hundreds
+[40:25] of strains of bacteria.
+[40:27] So taking one strain is not
+[40:29] likely to help repair that
+[40:30] damage that the antibiotic did.
+[40:33] I typically recommend a bare
+[40:34] minimum of seven strains of
+[40:36] bacteria in any probiotic
+[40:38] that I recommend generally.
+[40:41] There's a couple things that
+[40:42] I do use that don't have
+[40:45] that in there, but they're
+[40:46] for specific reasons and
+[40:48] we'll talk about a few of
+[40:48] those as we go through here.
+[40:52] Then in addition to just
+[40:54] normal malfunctions of digestion,
+[40:58] we have all these medications
+[41:00] and illnesses.
+[41:02] So diabetes often alters
+[41:04] gut motility as do all of
+[41:06] these other diseases.
+[41:09] And then the medications we
+[41:10] use for all of these almost
+[41:12] always cause gut dysfunction.
+[41:13] Most of them include
+[41:14] constipation as a side effect
+[41:18] except for usually metformin.
+[41:19] Metformin comes with diarrhea.
+[41:21] But I have seen
+[41:23] metformin cause constipation as well.
+[41:26] So keep in mind that not only
+[41:28] does the gut have dysfunction
+[41:31] for reasons only related to
+[41:34] cellular gut health,
+[41:36] but diseases that patients
+[41:39] have, chronic conditions that
+[41:41] patients develop, and the
+[41:43] medications for these will
+[41:45] contribute to constipation.
+[41:48] So if you have a patient on
+[41:50] multiple drugs, look up
+[41:52] the side effects and count
+[41:54] how many of them list
+[41:56] constipation as a side effect.
+[41:58] I've had patients on five
+[41:59] or six meds from other providers
+[42:03] and when they come to me,
+[42:04] I'm looking at them and
+[42:05] they're telling me they go
+[42:07] to the bathroom for bowel
+[42:08] movements once a week.
+[42:11] And then when I look at the
+[42:12] med list, I'm like, no
+[42:12] wonder you're going once a week.
+[42:14] You're taking five
+[42:14] anticholinergic drugs.
+[42:16] And so it literally dries the
+[42:18] gut out and nobody told them
+[42:20] they needed to work on
+[42:21] improving their water intake,
+[42:23] their electrolyte intake.
+[42:24] So think about it.
+[42:25] These are not just the only
+[42:27] co-morbidities of digestive
+[42:28] health. These are some of
+[42:30] the most common that we see.
+[42:34] SIBO is Small Intestinal
+[42:36] Bacterial Overgrowth.
+[42:38] It is a booger to heal and
+[42:40] clean up.
+[42:42] We do have treatment options.
+[42:44] Ziphaxin, Rifaximin is
+[42:47] typically $600 to $1,000 for
+[42:49] a month of it and 30 days is
+[42:51] the typical prescription
+[42:53] recommendation.
+[42:55] So that can really wreak havoc
+[42:58] with people's financial state
+[43:00] and their pocketbook.
+[43:01] So that can be really
+[43:03] challenging to get a hold of.
+[43:05] Sometimes metronidazole or
+[43:08] flagellomycin is sometimes
+[43:10] prescribed for it instead.
+[43:12] They are much less effective.
+[43:15] But my favorite, if I got to
+[43:16] use a treatment option and
+[43:18] the patient can't afford
+[43:19] ziphaxin, I typically will use
+[43:20] metronidazole along with some
+[43:24] of the functional agents.
+[43:27] Garlic is a great antibiotic
+[43:30] for SIBO.
+[43:32] You can use neem.
+[43:33] You can also get them on a
+[43:35] low-carb or low-fodmap AIP
+[43:38] eating plan.
+[43:40] Those all reduce the risk
+[43:43] that the grains specifically
+[43:46] are going to ferment in the
+[43:47] gut during that sluggish time
+[43:51] that the food is sitting there
+[43:52] inside the colon not going
+[43:54] anywhere.
+[43:55] So all of these things can help.
+[43:58] If we have Candida, Candida
+[44:00] is probably the most common gut
+[44:02] problem we see.
+[44:03] Why?
+[44:04] Anybody want to guess why Candida
+[44:06] is probably the most common?
+[44:15] Who wants to take a guess?
+[44:16] It's really simple.
+[44:18] You're going to slap yourself
+[44:19] if you don't get it right off
+[44:20] the bat because you'll be like,
+[44:21] Oh my God, I did that.
+[44:24] Why would you think Candida
+[44:26] might be the most common
+[44:28] gut dysfunction?
+[44:33] Yeah, it's the sugar.
+[44:35] It's the high-carb intake.
+[44:37] Carbs, think about yeast.
+[44:39] Think about the overgrowth
+[44:40] of yeast.
+[44:41] Where does that occur?
+[44:43] What do we feed yeast?
+[44:44] If we're going to make bread,
+[44:45] we're going to go in the kitchen.
+[44:46] We're going to make some bread.
+[44:47] What do we do?
+[44:48] We mix yeast with sugar and we
+[44:50] let it sit there for a little
+[44:51] while until it foams and bubbles
+[44:52] and then we mix up our bread.
+[44:54] So what do you think is happening
+[44:55] inside our gut?
+[44:57] Most every Candida patient
+[45:00] will tell you they have,
+[45:01] they won't know they have yeast,
+[45:03] but they will tell you and
+[45:04] you'll be like,
+[45:05] Oh my God, I know what's
+[45:06] wrong with you.
+[45:07] They will tell you that
+[45:08] every time they eat,
+[45:09] they feel bloated.
+[45:11] They feel full.
+[45:12] They get nauseous because it's
+[45:13] just like everything's expanding.
+[45:16] And so you'll be like,
+[45:18] Oh, that's bloating is when yeast
+[45:21] overgrow and they are producing
+[45:22] extra gas and extra agents
+[45:27] that make the gut stretch
+[45:29] and feel uncomfortable.
+[45:31] And so it's very common in your
+[45:33] patients with insulin resistance
+[45:34] diabetes and even in your high
+[45:36] alcohol intake patients.
+[45:39] So some of the treatment options
+[45:41] for Candida, my favorite are
+[45:44] caprylic acid Saccharomyces
+[45:47] boulardii and this is the one
+[45:48] time when I recommend a specific
+[45:52] probiotic.
+[45:52] It's a I forget.
+[45:54] It's an ancient nutrition product.
+[45:56] I think called SBO and it has
+[46:00] a little bit of three different
+[46:03] products.
+[46:04] One is Saccharomyces boulardii
+[46:06] and so I like it for patients
+[46:09] that have some mild Candida.
+[46:11] And so we'll use it for a few
+[46:12] months and then we'll transition
+[46:16] to another type of probiotic more
+[46:18] long-term that will put healthy
+[46:19] bacteria in but Saccharomyces
+[46:21] boulardii is great for high-carb
+[46:24] eating and Candida overgrowth
+[46:27] because it really does help
+[46:29] kill off those yeast.
+[46:30] Oil of oregano is a great supplement
+[46:33] for fighting Candida and sometimes
+[46:35] you can get some of these in
+[46:37] combinations and while I remind
+[46:39] you I do not make anything by
+[46:41] telling y'all about these products.
+[46:44] I just want to make sure y'all
+[46:45] understand I'm not making money
+[46:47] or anything off of telling you
+[46:49] about this but some of the good
+[46:51] combinations in Fullscript are
+[46:53] the GI Synergy SM.
+[46:56] The Candid X Candicidal Mycosyme
+[47:00] there's four or five of them.
+[47:01] There may be a few others.
+[47:05] Any of them are fine to use.
+[47:08] They have combinations of
+[47:09] various ones in this list in
+[47:12] addition to some other ingredients
+[47:14] but they are very good at helping
+[47:16] Candida counts go down.
+[47:19] The big problem though is of
+[47:21] course convincing people not to
+[47:23] continue feeding the yeast as
+[47:25] long as they continue feeding
+[47:26] the yeast no matter what you
+[47:28] give them they're not going to
+[47:29] get fixed so this is what makes
+[47:33] gut dysfunction so very
+[47:36] challenging to heal.
+[47:39] None of this is going to heal
+[47:41] fast and it's going to be
+[47:43] completely dependent upon their
+[47:45] ability to follow directions.
+[47:50] So if you have the need to use
+[47:54] prescriptions my choice is
+[47:57] fluconazole weekly times six
+[47:59] weeks or so you can do eight
+[48:01] weeks people don't like having
+[48:04] to take something three times a
+[48:05] day for six weeks.
+[48:06] They don't like doing it for
+[48:07] 10 days for an antibiotic.
+[48:09] So it's really hard to get
+[48:11] patients to take anything three
+[48:14] times a day but nystatin is
+[48:15] really safe.
+[48:16] We give it to our babies for
+[48:18] yeast infections and diaper
+[48:20] rash.
+[48:20] So it's a pretty safe drug
+[48:22] overall but it is a challenge to
+[48:25] get enough of it in the system.
+[48:27] And so if your patient has
+[48:29] really bad Candida you may
+[48:31] want to start with
+[48:32] fluconazole or nystatin
+[48:33] prescription for six weeks and
+[48:35] then transition to one of your
+[48:37] supplements which is often
+[48:40] what I do if they are reporting
+[48:42] you know frequent vaginal
+[48:43] infections skin folds that keep
+[48:46] breaking out those are really
+[48:49] bad overgrowth of yeast.
+[48:51] They're not just in the skin
+[48:52] they're starting in the gut
+[48:53] and the yeast are finding other
+[48:56] places that are warm dark and
+[48:57] moist to live.
+[48:59] Yes standard fluconazole
+[49:01] dosing garlic dosing.
+[49:04] I don't know off the top of
+[49:05] my head.
+[49:05] I usually just go by one of the
+[49:08] products in full script.
+[49:09] I'm like oh, this looks like a
+[49:10] good product.
+[49:11] I have a few in my favorites
+[49:13] and my my favorite combo is
+[49:18] the is the can can let me go
+[49:22] back and look which one was it
+[49:24] these product names always mess
+[49:26] my brain up the combo that I
+[49:28] usually use it the Candidex and
+[49:31] the GI synergy SM are the two
+[49:33] I use most often.
+[49:35] And so those have some of the
+[49:36] doses together.
+[49:38] You can always consider separate
+[49:41] products if you want to use
+[49:44] you know, you know a certain
+[49:46] dose of caprylic acid a certain
+[49:48] dose of oregano and a certain
+[49:49] dose of garlic alicillin.
+[49:53] So you could put them on three
+[49:54] different products.
+[49:55] I just find it's more
+[49:56] economical for them to buy one
+[49:58] of the combos and I typically
+[50:01] just dose it according to the
+[50:03] label directions most of the
+[50:04] time question.
+[50:14] Yeah, so that's a good question
+[50:16] amethyst.
+[50:16] Yes, mostly symptoms, but we're
+[50:19] going to talk about testing in
+[50:20] just a minute.
+[50:20] We're going to look at some
+[50:21] tests that you can use like I
+[50:27] mentioned get people off of
+[50:28] the carbs and the sugars if at
+[50:30] all possible because you're
+[50:32] not going to you're going to
+[50:33] hit beat your head against the
+[50:34] wall if you don't the carbs
+[50:38] are literally feeding that
+[50:39] yeast increase butyrate
+[50:41] hydroxybutyrate is a great
+[50:42] ketone body that healthy
+[50:45] bacteria producing the gut on
+[50:47] purpose, but we can add that
+[50:50] by simple simply increasing
+[50:52] butter butter gets its name from
+[50:55] the ketone body hydroxybutyrate.
+[50:59] So if you want better gut
+[51:00] health have more butter.
+[51:03] I typically encourage patients
+[51:05] to put two tablespoons of
+[51:06] butter on every plate no
+[51:07] matter how much they cooked with
+[51:09] what gets cooked into food in
+[51:11] the skillet or the pot never
+[51:13] gets on the plate.
+[51:15] How many times do you literally
+[51:16] pick up the boiler and scrape
+[51:18] everything in it out onto your
+[51:19] plate?
+[51:20] You don't do that.
+[51:21] You pick up with a spoon and
+[51:22] you put it on your plate.
+[51:24] So all of the fat you cooked
+[51:25] with is probably or most of
+[51:27] it is still over there in the
+[51:28] in the skillet or the boiler.
+[51:30] So increase butter put it on
+[51:32] the plate directly not just
+[51:34] cook with it cooking with
+[51:35] it's great.
+[51:36] That's not a problem but you
+[51:37] can't count on that because
+[51:39] that's usually for the whole
+[51:40] family if you're cooking for
+[51:42] you know two adults and two
+[51:43] kids two adults and four kids
+[51:46] five kids like all of the
+[51:48] butter that's in that is
+[51:49] divided amongst all the people
+[51:52] you're not going to get
+[51:53] enough butter two tablespoons
+[51:55] of butter on two plates a day
+[51:58] bare minimum will give you
+[51:59] approximately 50 grams of
+[52:01] fat. That's not a lot of fat.
+[52:04] It's not over eating fat.
+[52:07] It's bare minimum for the day
+[52:09] so you can still have other
+[52:10] fats and not have any problems
+[52:13] be very careful very careful
+[52:17] if you start with a probiotic
+[52:21] patients that have significant
+[52:23] yeast infections in the gut
+[52:26] who start a strong enough
+[52:28] probiotic can actually faint
+[52:31] and have sinkable spells because
+[52:33] of die-off the heart's reaction
+[52:35] is really severe and some of
+[52:36] these people ask me how I know
+[52:38] it happened to me.
+[52:40] I had patients calling me and
+[52:42] emailing me and saying I did
+[52:44] this and this is what happened.
+[52:46] So I no longer tell people to
+[52:48] treat Candida with probiotics
+[52:50] directly.
+[52:51] We use various things to kill
+[52:53] off at least some of the
+[52:55] Candida before we talk about
+[52:57] adding the probiotics in.
+[53:01] As far as parasites.
+[53:03] This is one that is
+[53:05] pretty controversial in the
+[53:07] world today.
+[53:07] It's all over tick-tock.
+[53:09] Everybody has parasites, right?
+[53:10] No, they really don't.
+[53:11] It's not as common as social
+[53:13] media would have you believe
+[53:14] although it is out there.
+[53:18] I typically
+[53:19] when I when I see patients
+[53:22] that think they have parasites
+[53:23] first off.
+[53:23] I ask them why do you think
+[53:25] you have parasites tell me a
+[53:26] little bit about what that
+[53:27] looks like most many of them
+[53:29] will say well, I don't have
+[53:29] any symptoms.
+[53:30] Well, what makes you think you
+[53:31] have it don't oh, I I heard
+[53:32] somebody on TikTok talking
+[53:33] about it.
+[53:34] Okay.
+[53:35] Well, if you have parasites,
+[53:36] you're going to have symptoms.
+[53:38] Number one, the CBC is almost
+[53:39] always going to pop up with
+[53:41] eosinophils and or basophils.
+[53:43] So if they're not elevated,
+[53:44] they probably don't have
+[53:45] parasites.
+[53:47] Not a guarantee, but they're
+[53:49] probably not going to have
+[53:50] parasites.
+[53:52] Have they traveled out of the
+[53:53] country?
+[53:54] Have they been somewhere where
+[53:56] food preparation where
+[53:59] vegetables where meats are
+[54:01] handled kind of uncleanly
+[54:03] third-world countries mostly
+[54:05] have they been on a mission
+[54:05] trip for instance, like those
+[54:08] kinds of questions can help
+[54:10] you determine clinically
+[54:13] logically did that patient
+[54:15] probably run across some
+[54:17] parasites on that trip.
+[54:20] In America, we don't have a
+[54:22] ton of parasites on our food,
+[54:24] but we do have some.
+[54:26] So if patients don't wash their
+[54:29] lettuce or their fresh
+[54:31] vegetables, well, I typically
+[54:33] recommend washing in a vinegar
+[54:35] water mixture.
+[54:36] There used to be a product you
+[54:37] could spray on your vegetables.
+[54:39] It was real popular for a
+[54:40] while.
+[54:41] I don't even think they make
+[54:42] it anymore, but it was
+[54:43] basically vinegar and water
+[54:45] and bought it in the produce
+[54:47] section at the grocery store
+[54:50] and you go home and spray it
+[54:51] on your food and then rinse
+[54:52] it off and the vinegar action
+[54:54] really did help minimize germs
+[54:58] and stuff that would be on
+[54:59] your vegetables.
+[55:01] The salad spinner was really
+[55:03] popular back in the day and
+[55:05] that was a great way to use
+[55:06] the spray spray it in the
+[55:07] salad spinner and then spin all
+[55:08] that off and then rinse it
+[55:09] and spill it spin it again.
+[55:12] Like whatever you got to do
+[55:13] to clean your fruits and
+[55:13] vegetables is really
+[55:14] important, but many patients
+[55:16] take it right out of the bag
+[55:17] right out of the box and
+[55:18] pour it in the bowl and eat
+[55:19] it and so if they aren't
+[55:21] washing their produce, then
+[55:24] yes, we do have parasites in
+[55:26] America because of that
+[55:28] problem.
+[55:28] So ask patients how they're
+[55:29] prepping their food and kind
+[55:31] of be logical about it.
+[55:33] If if they have symptoms and
+[55:36] they have risks.
+[55:39] I'm probably not going to do
+[55:40] much testing.
+[55:40] I'm probably just going to
+[55:41] offer to treat them again.
+[55:43] You can use supplements.
+[55:45] You can use any of your
+[55:46] Azoles ivermectin.
+[55:49] Usually just about three doses
+[55:51] of ivermectin is all it
+[55:52] takes to kill off parasites.
+[55:53] So that's not really a big
+[55:55] deal.
+[55:57] I'm not a huge fan of most of
+[55:59] the Azoles.
+[56:00] They can be a little bit liver
+[56:03] toxic and so I'm not a huge
+[56:05] fan of using many of those
+[56:07] ivermectin works really
+[56:08] well and is pretty safe and
+[56:09] very low dose and the doses
+[56:11] 4.4 milligrams per kilogram
+[56:13] per day for one to three
+[56:16] doses.
+[56:16] So that's minimal and not very
+[56:20] risky.
+[56:21] Parasite forte and or GI
+[56:23] Synergy.
+[56:23] I misspelled Synergy.
+[56:24] There's no D in the word.
+[56:27] But those are very good
+[56:30] against yeast parasites and
+[56:32] a little bit of SIBO.
+[56:33] So you could just pick you
+[56:35] one of those and use them a
+[56:36] lot.
+[56:37] So if you suspect Helicobacter
+[56:40] Pylori, avoid blood testing.
+[56:43] When I was a new MP, I
+[56:46] worked at a place.
+[56:48] I came into a job.
+[56:49] I was the only MP there but
+[56:51] the person before me had done
+[56:53] a lot of inappropriate testing.
+[56:55] She was doing blood testing
+[56:57] for herpes simplex and had
+[56:59] told a bunch of people mostly
+[57:01] teenagers, young adults that
+[57:03] they had herpes because they
+[57:06] she ran this blood test and
+[57:07] it popped positive.
+[57:09] You don't test herpes with a
+[57:11] blood test.
+[57:12] You test herpes with a lesion
+[57:14] culture or visualization of
+[57:16] the lesion.
+[57:18] And so she had upset a lot of
+[57:20] marriages.
+[57:21] A lot of teenagers were
+[57:22] petrified because they still
+[57:24] claimed to be virgins and
+[57:25] there's no way they could have
+[57:26] like they had all the reasons.
+[57:28] And so after I dug into it
+[57:30] and I realized what was going
+[57:31] on, it became a whole thing.
+[57:33] It was a big chain of
+[57:36] rural health clinics that I
+[57:37] worked for, family FQHCs.
+[57:41] And so because I found this
+[57:44] and reported it to my boss
+[57:45] and her boss, they changed
+[57:49] their whole testing format.
+[57:51] But they had been doing it
+[57:53] this way for a long time and
+[57:55] they had been messing up lots
+[57:56] of people, not just in the
+[57:57] office where I was.
+[57:58] So after I figured out and
+[58:00] did some research and I'm like
+[58:02] none of this is making sense.
+[58:03] It was too many people like
+[58:05] I didn't believe all the
+[58:06] stories.
+[58:06] You know, like we're we're
+[58:08] skeptical when they come and
+[58:09] say I'm still a virgin and
+[58:10] this can't be but when you
+[58:13] have five, six, eight of
+[58:14] them like over three or four
+[58:17] weeks, all of these people
+[58:18] coming back saying I need my
+[58:20] prescription refilled.
+[58:21] I'm like, why are why does
+[58:23] everybody up here have herpes
+[58:25] like and they really didn't.
+[58:27] And so you begin to get
+[58:28] skeptical.
+[58:29] You begin to investigate and
+[58:30] that's when all of this
+[58:31] came out.
+[58:32] So order the right test for
+[58:34] the right thing is my point.
+[58:37] And H. Pylori does not do
+[58:39] well with blood testing.
+[58:41] Most of the time the blood
+[58:42] testing for H. Pylori is an
+[58:43] antibody.
+[58:44] If you've had H. Pylori,
+[58:46] guess what's going to be
+[58:47] positive?
+[58:48] Your antibody, your body will
+[58:50] keep those around so that if
+[58:52] the germ shows up again, your
+[58:53] body is aware of it.
+[58:55] So use a breath or stool.
+[58:56] Those are your two better
+[58:58] tests.
+[58:59] You can do a GI map to look for
+[59:02] H. Pylori.
+[59:04] Now probiotics have been shown
+[59:06] to help get rid of H. Pylori,
+[59:08] but it takes a lot of strains
+[59:10] as you see here.
+[59:12] Saccharomyces boulardii is
+[59:14] another good one for this
+[59:17] instance, but it takes all of
+[59:19] these together and so it can
+[59:21] be challenging to find bacteria,
+[59:24] all of these bacteria in one
+[59:25] product.
+[59:27] There is a product called H. P.
+[59:29] L. R. in full script and it
+[59:31] includes all of these that are
+[59:32] listed here in italics on the
+[59:34] right.
+[59:36] And so I've used that a couple
+[59:37] times with patients to
+[59:39] eliminate H. Pylori.
+[59:43] If you have a patient that you
+[59:45] suspect celiac disease, of
+[59:46] course you want to get your
+[59:47] labs.
+[59:48] You want to look for those
+[59:49] markers, get that calprotectin,
+[59:52] find out what's going on.
+[59:54] You want to refer them to the GI
+[59:55] folks, but in general they're
+[59:57] not going to do anything better
+[59:58] for them that you are.
+[59:59] It's mostly just dotting your
+[60:01] eyes and covering your tail.
+[60:03] You want to send them over
+[60:04] there.
+[60:05] You want to look for nutrient
+[60:08] deficiencies.
+[60:10] Many of our patients have iron
+[60:13] and electrolyte deficiencies
+[60:15] because of celiac.
+[60:20] Amy, I on the H. Pylori page,
+[60:23] let me go back to that.
+[60:25] I thought I did put it up there.
+[60:29] Yeah.
+[60:31] Oh, I didn't.
+[60:32] I thought I did.
+[60:33] I need to add that.
+[60:34] But yes, you can definitely use
+[60:36] your normal mainstream
+[60:39] Tri-pack, four-pack
+[60:41] with your
+[60:44] amoxicillin, your clindamycin,
+[60:46] your, it's three or four,
+[60:48] your PPI.
+[60:49] Yeah, you can definitely do that.
+[60:51] It depends on how severe the
+[60:53] problem is.
+[60:54] If it's GI map and it's not
+[60:56] screaming high, then I'm probably
+[60:58] not going to put them on
+[60:59] antibiotics and PPIs because
+[61:03] they're going to cause more
+[61:03] gut problems that we got to
+[61:04] then fix.
+[61:06] If they do a breath or stool
+[61:08] test and it's screaming positive,
+[61:10] they're probably going to get
+[61:12] mainstream treatment first and
+[61:13] then we're going to work on
+[61:14] recolonizing the gut with healthy
+[61:16] bacteria.
+[61:17] Good question.
+[61:18] I need to change my sheet because
+[61:20] I, I do mainstream treatment
+[61:23] for H. pylori sometimes.
+[61:27] Mastic gum is another one that
+[61:29] works okay with H. pylori.
+[61:32] I have not looked into the T
+[61:35] at all.
+[61:36] I've seen some people talk about
+[61:38] it, but it's not one that I see
+[61:40] mentioned a lot in functional
+[61:42] medicine.
+[61:43] So I don't know.
+[61:46] So something to think about.
+[61:48] Your gluten-free diet is not
+[61:51] the same as grain-free.
+[61:52] So make sure that patients
+[61:53] understand just because they're
+[61:55] gluten-free doesn't mean they're
+[61:56] getting rid of all the
+[61:57] inflammation and it depends on
+[61:59] what they want to accomplish,
+[62:02] what their health goals are,
+[62:03] whether they choose gluten-free
+[62:05] or grain-free, but help them
+[62:06] understand that grain-free is
+[62:09] going to improve their minerals
+[62:11] and electrolytes.
+[62:12] Yes, Amy.
+[62:16] Oh, okay.
+[62:18] Help them replenish nutrients
+[62:20] and work to getting rid of the
+[62:26] unhealthy inflammatory stuff.
+[62:28] Yes, mastic gum is in a lot of
+[62:31] our gut supplements.
+[62:32] I think it's in a couple of the
+[62:34] combo products I've mentioned.
+[62:36] And yes, it can be very helpful
+[62:38] with reflux symptoms.
+[62:41] For digestive enzymes,
+[62:43] I'm not a huge fan except in a
+[62:46] couple cases.
+[62:48] So digestive enzymes can be great
+[62:50] temporary agents.
+[62:52] Many patients feel like when
+[62:54] they start them, they have to
+[62:56] use them forever.
+[62:57] The only people that probably
+[62:59] need them forever are going to
+[63:02] be your patients without a
+[63:03] gallbladder.
+[63:04] Remember the job of the gall
+[63:06] bladder was to hold enzymes at
+[63:09] the ready so that when kind
+[63:13] moved from the stomach into the
+[63:15] small intestine, boom, it spits
+[63:19] out enzymes to break down those
+[63:21] proteins and fats.
+[63:23] Okay.
+[63:25] So gallbladder held them up,
+[63:27] held the enzymes at the ready.
+[63:29] Now the gallbladder has been
+[63:30] removed.
+[63:30] They're not sitting at the
+[63:31] ready, but the gallbladder did
+[63:32] not produce those enzymes.
+[63:35] Okay, that's what patients
+[63:36] don't understand.
+[63:38] The gallbladder only holds
+[63:40] them.
+[63:41] The liver still produces all of
+[63:44] those digestive enzymes.
+[63:45] Amylase, lipase, protease, all
+[63:48] of them, but liver still
+[63:50] produces, amylase is mostly in
+[63:52] the mouth, but all of the
+[63:54] digestive enzymes that are
+[63:56] released into the small
+[63:57] intestine are still produced by
+[63:59] the liver.
+[64:00] They're just not sitting at
+[64:01] the ready.
+[64:03] And so some people are able to
+[64:06] teach their gut, their liver,
+[64:08] when they start to eat to
+[64:10] release those enzymes.
+[64:11] Some people have a hard time
+[64:13] teaching that or the body just
+[64:14] doesn't respond like that.
+[64:17] So for those people that are
+[64:18] struggling with gallbladder
+[64:22] dumping syndrome, digestive
+[64:25] enzymes might be very helpful.
+[64:27] I typically encourage them to
+[64:28] have them about 15 minutes
+[64:30] before their food.
+[64:31] That poses a little challenge
+[64:33] because sometimes people don't
+[64:34] know they're going to eat till
+[64:36] right when it's time to eat.
+[64:38] So that can be a little bit
+[64:39] challenging sometimes, but the
+[64:41] best time to take digestive
+[64:42] enzymes is literally 15
+[64:44] minutes before their food.
+[64:47] Get some repair in the gut,
+[64:49] the butyrate, the collagen,
+[64:50] probiotics, whatever you got to
+[64:52] do to help fix the gut.
+[64:55] That's going to be really
+[64:56] key.
+[64:59] These are the basic labs for
+[65:00] no matter what we do at first.
+[65:03] So keep that in mind.
+[65:04] And then we're going to look
+[65:06] at some other testing.
+[65:07] So do we need an
+[65:10] over-system parasite test?
+[65:11] If you have somebody that you
+[65:12] really doubt has parasites,
+[65:16] send them for over-system
+[65:17] parasite test
+[65:20] and let the test tell the tale.
+[65:24] Depending on what you believe
+[65:25] or what you think,
+[65:27] what your response is to the
+[65:28] test and the patient's symptoms,
+[65:30] you can treat or not treat.
+[65:32] It's totally your choice as a
+[65:33] clinical decision-maker.
+[65:36] Sometimes we need to order
+[65:37] a culture and sensitivity,
+[65:39] especially if we suspect C. diff.
+[65:42] So you can get different cultures,
+[65:44] different testing done.
+[65:45] You can look for giardia.
+[65:47] You can look for a whole bunch
+[65:49] of different gut germs.
+[65:52] Consider a fit test.
+[65:54] You can order fecal calprotectin.
+[65:56] You can order lactoferrin.
+[65:58] You can get secretory IgA,
+[65:59] get a zonulin level.
+[66:01] You can do GI map,
+[66:02] doctor's data, or genova nutrient
+[66:05] testing and see what's happening.
+[66:08] But all combined together,
+[66:11] look at your symptoms,
+[66:12] look at your labs.
+[66:13] If you see low protein numbers,
+[66:15] low globulin,
+[66:17] you've got low globulin,
+[66:18] low iron,
+[66:21] high insulin,
+[66:22] high CRP.
+[66:24] We know this person is at
+[66:26] high risk for candida
+[66:27] right off the bat.
+[66:28] So like let's address the candida
+[66:31] and then see if we need to
+[66:33] do anything else as time goes on.
+[66:35] It's perfectly appropriate not
+[66:37] to treat everything today.
+[66:39] Do the best you can with what
+[66:41] you have today.
+[66:43] Have them work on something
+[66:44] for two to four months
+[66:45] and then have them come back
+[66:46] and let's reevaluate their symptoms.
+[66:49] Reevaluate whatever labs
+[66:50] you need to look at.
+[66:52] Add the GI map at that time.
+[66:54] Let's say, well,
+[66:55] you did a lot of the right things
+[66:57] and we're not seeing any improvement.
+[66:58] Let's go ahead and start this GI map
+[67:01] or doctor's data process
+[67:02] and let's see where we go.
+[67:05] So if we just have dysbiosis
+[67:07] that we can't figure out,
+[67:09] you can use some of these same
+[67:11] combo products we've already mentioned.
+[67:12] There's a few others you could use
+[67:14] but oregano is a great
+[67:16] anti-viral agent.
+[67:18] Barberry is a great antibacterial agent.
+[67:21] Golden Seal does a little bit of both.
+[67:25] Garlic is a great antibacterial agent.
+[67:28] Echinacea is great for bacteria.
+[67:31] But all of these are intended
+[67:33] to be used like an antibiotic
+[67:35] or an antiviral.
+[67:36] We use them for a couple weeks.
+[67:39] Maybe a month,
+[67:40] but we don't take these things long-term.
+[67:42] They're not intended to be months
+[67:45] and months and months of use
+[67:47] for these products.
+[67:49] If these don't fix the problem,
+[67:51] we need to re-evaluate symptoms
+[67:53] and problems and figure out
+[67:55] what we're going to do.
+[67:56] If you order odd tests
+[67:59] like a GI map or doctor's data,
+[68:00] Genova options,
+[68:03] most of them will let you schedule
+[68:05] a consult.
+[68:06] Usually, it's a 30-minute consult
+[68:08] and their professional prescribers
+[68:11] will evaluate your test with you
+[68:13] and help you interpret it.
+[68:15] It comes with a narrative
+[68:17] and it explains all the things.
+[68:19] But sometimes when you're new
+[68:20] at learning these tests,
+[68:22] you can get lost in the tiny details.
+[68:26] But if you take a step back,
+[68:28] you'll see that some of those results
+[68:31] are skewed because of the high-carb eating
+[68:34] and the yeast.
+[68:35] If you just treat the biggest problems,
+[68:38] you almost always will also address
+[68:40] the smaller problems.
+[68:42] So you don't have to take each problem
+[68:44] that pops up on the test result
+[68:46] and treat it.
+[68:47] If you do that,
+[68:48] you're going to wind up sending your patient
+[68:50] 25 different supplements
+[68:51] and that's inappropriate.
+[68:53] So pick the two or three biggest things,
+[68:56] treat that first,
+[68:57] and then see if the gut
+[68:59] will start to fall back
+[69:00] into a healthy state.
+[69:03] Look at the overall picture.
+[69:05] Don't get lost in the tiny details.
+[69:08] Recommend the fewest supplements
+[69:10] that you can,
+[69:10] that you think will fix the problems.
+[69:13] Use medications when needed,
+[69:15] use supplements when you can.
+[69:17] But continue to ask patients
+[69:19] what the life impact is.
+[69:21] If they start a medicine
+[69:23] or a supplement or a treatment plan
+[69:25] and they're having diarrhea
+[69:26] every single morning and night
+[69:28] and all day,
+[69:28] they can't even go anywhere,
+[69:30] something is definitely wrong
+[69:31] with their gut.
+[69:33] But they should be able to call you
+[69:35] and say,
+[69:35] this is happening when I did this,
+[69:37] what do we need to do now?
+[69:40] And so you have to take a back up,
+[69:43] a step back
+[69:44] and readjust your plan a little bit,
+[69:47] maybe a little bit less vitamin C,
+[69:49] a little bit more fat or less fat.
+[69:52] Remember your gallbladder patients
+[69:55] can't tolerate tons of fatty intake
+[69:57] right off the bat.
+[69:58] And so increasing their fats slowly
+[70:01] might be much more beneficial for them.
+[70:03] And so make sure you're aware of
+[70:06] all of those little things that can make
+[70:09] digestion work better or worse.
+[70:12] All right.
+[70:15] That is that.
+[70:16] Now we're going to look at.
+[70:20] Let me get out of there.
+[70:22] Now we're going to look at the gut protocol.
+[70:25] And I don't think I pulled that up for y'all.
+[70:27] Let me find that.
+[70:28] I put the gut protocol for y'all in
+[70:36] the course.
+[70:42] And so I'm going to open it up
+[70:44] and we're going to take a look at it.
+[70:48] So if everybody that I see gets a copy of this,
+[70:53] so they're able to evaluate
+[70:58] on their own.
+[71:01] I don't always work through a gut thing
+[71:03] with every patient.
+[71:04] I send this.
+[71:05] I let them read through it and decide
+[71:09] what they think is most appropriate
+[71:11] for their health.
+[71:13] And then they do the gut protocol.
+[71:17] So sometimes at the next visit they'll
+[71:19] ask about part of the steps or this,
+[71:22] you know, they'll report symptoms
+[71:24] when they got to this part or that part.
+[71:27] So definitely can trigger some questions
+[71:33] and some issues, but I don't normally
+[71:36] go through this protocol by itself
+[71:39] unless they're having major issues.
+[71:43] And so I've highlight things.
+[71:48] I have things in larger brands.
+[71:51] Try not to yell at them with all caps,
+[71:54] but changing fonts helps grab their attention.
+[71:58] Highlighting things grabs their attention.
+[72:01] You and I all know that the foundation
+[72:03] of functional medicine is their gut health.
+[72:06] And so if their gut isn't working,
+[72:08] right, they're not going to absorb nutrition
+[72:11] and they are going to have symptoms.
+[72:12] And so the first thing that I always
+[72:15] encourage is a complete gut emptying.
+[72:18] No matter what gut problem they think
+[72:20] they have, start with an emptying
+[72:23] and then go from there.
+[72:26] If you have a full garbage can in your
+[72:29] kitchen, how are you going to throw waste
+[72:31] away when you're cooking supper tonight?
+[72:34] You can't, there's nowhere to put it.
+[72:36] If your garbage can is chugging full,
+[72:38] it's going to overflow and it's going
+[72:40] to start to smell and it's going
+[72:42] to grow germs everywhere.
+[72:43] So your gut is the same way.
+[72:46] You can't keep putting stuff in over
+[72:48] and over and over again and it not
+[72:49] empty appropriately.
+[72:51] So emptying your gut is absolutely crucial.
+[72:56] So the other thing is the whole gut protocol
+[73:00] as I've written it is intended for
+[73:02] somebody with pretty severe gut dysfunction
+[73:05] like IBS or Crohn's.
+[73:09] So if they have really bad gut health,
+[73:15] they may need to do this whole protocol.
+[73:17] The whole protocol takes 9 to 12 months.
+[73:20] That's how long it takes to really
+[73:21] heal a gut.
+[73:24] If they don't have severe gut problems,
+[73:26] they just have some constipation.
+[73:28] They've got some absorption issues
+[73:30] like they probably only need the
+[73:32] first two or three steps and we're
+[73:34] going to talk about trying to figure
+[73:36] that out.
+[73:37] But that's why I send this whole
+[73:38] thing to the patient and let the
+[73:40] patient evaluate.
+[73:40] They know themselves way better than
+[73:43] I do, especially at a first appointment.
+[73:46] If we're at a first or second appointment,
+[73:49] I don't know all their bowel habits
+[73:51] and they may not want to tell me them
+[73:53] all because that's a little personal
+[73:56] in TMI and patients don't like to
+[73:58] talk about poop.
+[73:59] At several of the jobs where I've
+[74:01] worked, I was known as the Queen of
+[74:03] FOS.
+[74:05] Full of, yeah, because I talked to
+[74:09] everybody about poop.
+[74:10] That's where help begins.
+[74:12] If we aren't eating properly and
+[74:15] wasting properly, bad things happen.
+[74:18] And so it's really important that
+[74:20] patients understand
+[74:23] gut health.
+[74:24] So here's the list of questions
+[74:25] that we went over earlier in our
+[74:27] session.
+[74:28] And so the most common cause of
+[74:31] chronic constipation is the way we
+[74:32] eat.
+[74:35] And so then we move on down through
+[74:36] here and diarrhea you will find
+[74:39] is one of the most common symptoms
+[74:40] of chronic constipation.
+[74:42] If patients are stopped up, only
+[74:43] watery stuff from the small intestine
+[74:45] is able to make its way through.
+[74:47] The hardballs sitting in the pockets
+[74:50] all along the gut are not emptying.
+[74:54] Mold is a little different amethyst,
+[74:56] but yes, it's a decent place to start
+[74:59] for sure.
+[75:00] It's a decent place to start.
+[75:05] And so my first step is emptying
+[75:09] everything out.
+[75:11] So laxative,
+[75:13] or cleansing, colon cleanse,
+[75:15] whatever you want to call it,
+[75:18] is your first step.
+[75:19] No matter what your gut problem is,
+[75:22] emptying your gut is never a bad idea.
+[75:24] Many times patients will come to me
+[75:27] in a follow-up visit or whatever
+[75:28] and they'll be like,
+[75:29] oh, I had this problem.
+[75:32] I started having reflux,
+[75:33] I went on this trio,
+[75:35] whatever happened.
+[75:36] And I'll be like,
+[75:36] well, did you try a laxative
+[75:38] to see if that fixed the problem?
+[75:39] No, I didn't.
+[75:42] That should be always our first step.
+[75:43] As a functional provider,
+[75:46] the function is key here.
+[75:48] Guts don't work if they're not emptying.
+[75:51] Guts have symptoms,
+[75:53] heartburn, indigestion, reflux, diarrhea,
+[75:56] constipation, belly aching,
+[75:58] belly pains,
+[75:59] diverticulosis,
+[76:01] where the pockets are enlarging,
+[76:03] diverticulitis,
+[76:04] where those same pockets are now
+[76:06] not only enlarged,
+[76:07] but they're inflamed and infected.
+[76:10] And so all of those start
+[76:12] with sluggish gut motility
+[76:14] in most cases.
+[76:16] And so the easiest thing to do
+[76:17] is a test.
+[76:19] Rather than sending them
+[76:20] to do a bunch of GI tests,
+[76:22] you need a colonoscopy.
+[76:23] Well, that's going to fix the problem,
+[76:25] right?
+[76:26] Because they're going to empty everything,
+[76:27] but that's a massive traumatic
+[76:29] experience for most people.
+[76:31] So try to convince them
+[76:34] to use a mild laxative
+[76:37] of their choice.
+[76:38] There are several great,
+[76:39] easy ones to use.
+[76:41] The cheapest one is probably milk
+[76:43] of magnesia or liquid magsitrate.
+[76:45] Both of those work well.
+[76:47] Keep in mind that magnesium
+[76:50] as laxative can worsen kidney damage
+[76:53] or damage kidneys period.
+[76:56] So make sure you have healthy kidneys
+[76:57] before you put people on magnesium laxatives.
+[77:01] Other laxatives are high,
+[77:02] high doses of vitamin C.
+[77:04] Remember, we already said take massive doses
+[77:06] for different problems.
+[77:08] But if you need a laxative,
+[77:11] vitamin C is a great one.
+[77:13] Take 10 or 12, 15,000 milligrams of C
+[77:15] and you'll be in the bathroom
+[77:16] in just a little while.
+[77:18] Magnesium normally works
+[77:20] in about four to six hours.
+[77:21] So it's not fast acting,
+[77:23] but it's not slow acting either.
+[77:25] MiraLax is probably the absolute worst
+[77:27] product on the market.
+[77:28] I've seen it cause severe malnutrition
+[77:31] because even on the label,
+[77:33] it will say,
+[77:34] MiraLax may take up to two weeks to work.
+[77:38] If it's going to take two weeks to work,
+[77:40] it is not what we need
+[77:41] to empty the colon tonight.
+[77:42] Okay.
+[77:44] Fiber is a bulking agent.
+[77:47] So I don't recommend fiber supplements either.
+[77:50] It will take up to two weeks
+[77:52] for fiber supplements to literally bulk up
+[77:54] and completely overwhelm and fill the gut
+[77:57] so that nothing else can stretch
+[77:59] and then it finally is forced out
+[78:02] that can result in obstructions
+[78:03] and perforations.
+[78:05] So I don't want that risk for my patient.
+[78:08] So I don't ever recommend fiber products.
+[78:10] They can increase fiber intake,
+[78:13] but often that just makes the gut worse,
+[78:16] not better.
+[78:16] So fiber is not typically of good benefit.
+[78:22] People want something natural.
+[78:24] A natural laxative can be your vitamin C,
+[78:27] high doses of coconut oil,
+[78:29] and or CINA.
+[78:31] CINA is a laxative fiber
+[78:33] and is less hazardous
+[78:35] than most of your psyllium products
+[78:37] because it is a laxative.
+[78:39] So there's two sets of directions
+[78:41] usually on a CINA product.
+[78:43] One is for a daily dose
+[78:45] and it's really low,
+[78:48] but there's usually a set of instructions
+[78:51] for more rapid relief.
+[78:54] You could use this amount
+[78:56] and it's usually double or triple the daily dose
+[78:59] and so that can help empty more overnight.
+[79:04] I like broth,
+[79:07] prefer brawn broth, bone broth,
+[79:09] but I don't like bone broth.
+[79:11] So I don't tell everybody
+[79:12] they got to have it.
+[79:12] You just want some kind of broth.
+[79:14] You can use chicken broth,
+[79:16] vegetable broth, beef broth.
+[79:18] It doesn't matter.
+[79:19] I like it.
+[79:20] If you're going to use something
+[79:22] other than bone broth,
+[79:23] you need to add collagen to it.
+[79:25] Collagen is a great agent
+[79:28] for gut health and healing.
+[79:30] And so put a little collagen powder
+[79:32] over in your broth
+[79:34] and or in your coffee.
+[79:36] Broth is nourishing,
+[79:37] coffee is not.
+[79:39] So you can have collagen in your coffee.
+[79:41] That's normally how I get my collagen.
+[79:43] But when you're working on a gut thing,
+[79:45] broth is helpful because it only
+[79:48] not only has your broth in it,
+[79:50] the liquid,
+[79:51] it contains more salt to make it flavorful.
+[79:54] It contains a lot of butter usually
+[79:56] and butter is helpful for gut healing.
+[79:58] And then we add the collagen to it
+[80:00] unless it's bone broth,
+[80:01] which is loaded with good collagen.
+[80:04] So any of those can be really good.
+[80:06] But you anytime you start working
+[80:08] on your gut, increasing broth
+[80:11] intake is very helpful.
+[80:12] How much? It depends.
+[80:13] How much water do you drink a day?
+[80:15] All of it can be broth.
+[80:16] That gets expensive if you're buying
+[80:19] broth or it's a little bit challenging
+[80:22] if you're making that much broth.
+[80:25] If you're making your own bone broth.
+[80:27] So it depends on how much you can access,
+[80:30] but there's no real requirement.
+[80:33] However much you need is however much you need.
+[80:36] So you can drink whatever amount you want.
+[80:38] You just do want to drink plenty.
+[80:40] You are not fasting and you are not skipping
+[80:42] meals during this protocol
+[80:43] unless you just choose to do so.
+[80:45] The gut protocol is not about food.
+[80:47] It's about function.
+[80:55] I usually use vital proteins amethyst.
+[80:59] It's a good quality protein that is it contains
+[81:02] all the types of protein.
+[81:03] I mean all the types of collagen.
+[81:05] So yeah, that's my favorite.
+[81:07] But there are several collagens on full script.
+[81:10] Dr. Amy Myers has a good collagen product
+[81:12] that she sells through full script.
+[81:16] Is it Myers or Beard?
+[81:17] There's two dots that I follow
+[81:18] and they're both Amy's doctor.
+[81:20] I think it might be Dr. Beard.
+[81:23] But anyway, you can find collagen products
+[81:26] in full script real easy.
+[81:29] And just make sure they're not like random types
+[81:33] like you want to make sure they're covering
+[81:35] lots of good systems.
+[81:38] So after you empty everything out,
+[81:40] whether that takes one day or two or three days,
+[81:44] it shouldn't take longer than five.
+[81:47] Then you want to start the GI synergy.
+[81:49] If you think the person of your patient
+[81:52] has Candida and or SIBO,
+[81:55] you can definitely start the GI synergy.
+[81:59] That's typically the first thing.
+[82:01] I typically have patients take it
+[82:03] for at least one full month to get benefits from it.
+[82:08] It does come in a 90-day kit.
+[82:11] It's got little two or three peels
+[82:13] in each little packet.
+[82:14] And so it does come in a 90-day pack.
+[82:18] Some people will want to use all of it
+[82:20] because it is a little pricey.
+[82:21] They certainly can.
+[82:22] You can do it four to six weeks, three months.
+[82:25] However long it takes.
+[82:27] One problem that I did find early on
+[82:30] when I started recommending GI synergy
+[82:32] is some of the ingredients
+[82:34] do cause a little bit of constipation.
+[82:37] I thought that's what we were trying to fix, Jenny.
+[82:39] It is.
+[82:40] But patients that don't follow all the instructions,
+[82:43] like they're not drinking enough water,
+[82:44] they're drinking coffee all day,
+[82:46] they're still contributing to part
+[82:48] of the constipation problem.
+[82:50] And so some of the ingredients
+[82:53] impact different people different ways.
+[82:55] And so I had to add this little part
+[82:58] and make sure you're increasing water,
+[82:59] salt, and butter enough to keep pooping every day
+[83:02] and never skip more than three days of pooping.
+[83:04] And so that reminds them to go back and empty again.
+[83:10] Step three is a binder.
+[83:13] Not everyone needs a binder.
+[83:16] The people that need a binder
+[83:17] are the people that think they have
+[83:20] a lot of heavy metal toxicity
+[83:23] or chemical toxicity,
+[83:25] people that may think they have a GAD toxicity
+[83:29] from CT MRI contrast.
+[83:33] So binders can be really helpful.
+[83:35] The universal toxin binder
+[83:36] is a combination of charcoal and zeolite clay.
+[83:41] And so both products attach to waste products
+[83:45] moving through the gut.
+[83:47] And so some people will do the binder.
+[83:51] It's not fun.
+[83:53] It's gross.
+[83:54] But keep your binders well away from food
+[83:58] or medicine or any vitamins.
+[84:01] Some people I have even told
+[84:03] just don't take any of your supplements
+[84:04] for the two weeks or four months
+[84:07] or four weeks that you're on the binder.
+[84:11] So however long they're on the binder,
+[84:12] they just skip all the supplements.
+[84:13] So they minimize wasting it.
+[84:15] You don't want to waste your supplements
+[84:18] because the binder is binding to it
+[84:20] and taking it out.
+[84:21] The binder will literally take
+[84:23] lots of things right out of the system.
+[84:32] So maybe three, maybe step three,
+[84:35] maybe a binder depends,
+[84:37] but always after a gut emptying
+[84:39] or any gut insult,
+[84:40] you want to start some probiotics.
+[84:43] I used to use a product called Trust Your Gut.
+[84:45] I don't think it's available anymore.
+[84:47] So I do need to update my gut protocol.
+[84:50] I now recommend something called Orthobiotic.
+[84:52] I think it's from Orthomolecular
+[84:54] and it has a long list of bacteria in there.
+[85:00] Whatever brand of probiotic you like,
+[85:03] just make sure it has a lot of strains.
+[85:05] The more strains, the better.
+[85:08] Some people think if it's not refrigerated,
+[85:10] it's not healthy or not as good.
+[85:13] Okay, so pick your refrigerated strain
+[85:16] but probiotics just make sure
+[85:18] there's a lot of particular ingredients.
+[85:21] We don't count the billions of numbers that says
+[85:23] five billion colonies.
+[85:26] We don't care about colonies.
+[85:28] I want to know how many strains are listed on the back.
+[85:31] Is there bacillus?
+[85:33] Is there rhamnosus?
+[85:34] Is there lacto?
+[85:36] Like what is listed as the bacterial name?
+[85:39] That's where we want to make sure
+[85:41] we have lots of guys named.
+[85:45] If patients report they think they have leaky gut,
+[85:49] that's a really other difficult, challenging,
+[85:52] and there's not much we do for leaky gut except this.
+[85:57] If they think they have leaky gut,
+[85:58] they're going to need to make sure they do
+[86:00] the biofilm step and the glutamine step.
+[86:03] So they're going to need to go all the way through
+[86:05] the whole protocol.
+[86:06] Leaky gut is very challenging to heal
+[86:09] because it's where the mucous membrane
+[86:11] in the digestive tract has been damaged,
+[86:14] usually from inflammatory foods,
+[86:17] moving through people that are vegetarian,
+[86:20] high grain intake, lots of broccoli, lots of salad,
+[86:24] oftentimes are damaging the biofilm,
+[86:27] the mucous membrane inside the colon,
+[86:31] inside the small intestine.
+[86:33] And so that damages and allows for particles
+[86:36] to leak out of the digestive tract
+[86:38] into the peritoneal cavity, and that's not healthy.
+[86:42] And so that's, it prevents the body
+[86:44] from absorbing that nutrition appropriately.
+[86:46] It's leaking out, now it's looked at as a foreign body.
+[86:49] And so L-glutamine and a biofilm,
+[86:52] along with your collagen and broth are really helpful.
+[86:55] So all through these steps,
+[86:57] the patient is still drinking their broth,
+[86:59] still drinking their broth every day, over and over,
+[87:02] drinking their salty water and their hydration,
+[87:04] mixed water, and their broth over and over and over.
+[87:08] So you can add berberine at any point in this gut protocol.
+[87:17] If you think there's SIBO, there's bacterial overgrowth,
+[87:21] you're gonna use it for insulin resistance.
+[87:24] Whatever reason you want to add berberine for,
+[87:26] you can add it most anywhere in here,
+[87:28] except for the binder, of course.
+[87:31] And that will help with gut issues
+[87:32] and your insulin resistance, PCOS, PMOS now.
+[87:37] But you eat normally, you just try to get rid of grains.
+[87:41] You try to get rid of inflammation
+[87:42] because meat and butter will heal the gut
+[87:45] way better than anything else.
+[87:47] So hopefully that helps.
+[87:49] But y'all have access to this whole protocol.
+[87:52] You are welcome to send this out to your patients
+[87:55] or take it, reword it and make it your own.
+[88:01] Make it your own.
+[88:02] Like you can fix it a way that maybe you don't like
+[88:05] having the binder in it.
+[88:07] And so you want to take the binder out
+[88:08] or you don't really understand what it does, take it out.
+[88:12] You can re-fix it the way you want
+[88:15] and make it your own kind of gut protocol.
+[88:25] Vitamin C in your coffee,
+[88:28] probably would not taste very good.
+[88:32] Vitamin C is very strong, citricy flavored and acidic.
+[88:37] And I don't think that would taste very good in coffee.
+[88:42] I don't do gut protocols while breastfeeding
+[88:44] or during pregnancy.
+[88:46] There are several of the supplements included
+[88:49] that can be a little bit unknown toxicity wise to the baby.
+[88:55] However, an easy gut protocol for a mommy breastfeeding
+[88:59] or pregnant is simply a gut cleansing.
+[89:02] High doses of vitamin C, coconut oil.
+[89:05] You can use smoke or mag in pregnancy and breastfeeding,
+[89:08] but pregnancy in and of itself causes terrible constipation.
+[89:11] Our moms always get pregnant.
+[89:13] Where do you think they get such terrible hemorrhoids for?
+[89:15] That baby is really pushing on the gut tissue
+[89:19] and muscles just don't work normal
+[89:21] because that baby is taking up all that space.
+[89:23] So you can definitely do a colon cleanse.
+[89:26] You can do an emptying,
+[89:27] but I would stick to your more natural laxatives,
+[89:30] not commercial products.
+[89:35] All right.
+[89:36] That was a whirlwind of gut stuff.
+[89:38] Other questions y'all have tonight.
+[89:45] Hey, Jenny.
+[89:46] Yeah.
+[89:47] Hey, I just thought I'd get back to you
+[89:48] and tell you that test we were talking about earlier
+[89:51] for the urine, for the MCA's.
+[89:54] I messaged Rupa Fullscript while we've been on here
+[89:57] because I couldn't find it.
+[89:58] And they actually messaged me back and said
+[90:00] it's not even in their catalog.
+[90:02] Oh, yikes.
+[90:04] Well, I usually send it to Quest or LabCorp
+[90:07] because my patients.
+[90:08] I'm just going to have to order it separate
+[90:09] straight through Quest, I guess.
+[90:12] I thought it was interesting that it's not even in there.
+[90:14] Yeah.
+[90:15] That's interesting.
+[90:16] Maybe that will prompt them to add it.
+[90:19] They did send me a link with a request to submit, you know,
+[90:23] to submit a request for them to add it.
+[90:26] Good.
+[90:27] Coconut oil, however much it takes.
+[90:29] Usually it's a couple tablespoons.
+[90:32] You can also, if they like coffee,
+[90:35] you can have them mix up coffee,
+[90:36] which is a natural laxative,
+[90:38] with some coconut oil, with some butter.
+[90:41] Whip that up with your hand blender or your frother
+[90:44] and drink that.
+[90:46] If it's really strong coffee,
+[90:47] coconut oil and butter added and mixed all together,
+[90:50] it can be a great natural laxative.
+[90:52] And so that works really well to empty the duct.
+[90:55] Kiedella?
+[90:59] If we have like a GI map for a client case,
+[91:02] do you want us to include it?
+[91:04] You certainly could.
+[91:05] You certainly could.
+[91:08] I would love just a brief discussion about,
+[91:11] I've been,
+[91:12] I've gone on and off of ordering GI maps because I feel like I order
+[91:15] them trying to dig in deeper.
+[91:17] I do the GI map consult and I feel at the end of the day,
+[91:20] it's like we're working through the same stuff,
+[91:22] whether we find stuff on the GI map or not.
+[91:24] Yep.
+[91:25] Exactly.
+[91:26] We support that.
+[91:27] And I think that's a good point.
+[91:28] Yeah.
+[91:29] Yeah.
+[91:30] Yeah.
+[91:31] Yeah.
+[91:32] Yeah.
+[91:33] Yeah.
+[91:34] Yeah.
+[91:35] Yeah.
+[91:36] Exactly.
+[91:37] I don't know.
+[91:38] So we're adding in, you know,
+[91:40] like an FBI protect product and then some type of herbs to calm
+[91:43] things down.
+[91:44] And I just, I'm kind of go back and forth whether it's worth it.
+[91:46] So I'm curious what you're seeing.
+[91:48] Cause it seems like you're maybe ordering a few more lately.
+[91:51] I've probably,
+[91:52] I've probably ordered two GI maps my whole career.
+[91:56] Oh, okay.
+[91:58] I'm just not finding them super helpful.
+[92:00] Go ahead.
+[92:01] Yeah.
+[92:02] Most of the time you can tell, uh, like I said, bloating,
+[92:05] like feeling full, um, it's almost always Candida.
+[92:10] Almost always.
+[92:12] Um, very rarely would it be SIBO.
+[92:14] And this is why SIBO is in the small intestine.
+[92:16] You don't blow it in the small intestine.
+[92:18] You blow it in the colon.
+[92:21] Okay.
+[92:22] So think about the function and the work of each section of the
+[92:26] track and, um, figure out what symptoms you would see.
+[92:30] If they're having watery diarrhea, they're constipated.
+[92:34] So they may have multiple issues,
+[92:37] but constipation is the result.
+[92:41] And so if we can empty everything out,
+[92:43] they may be able to come off their PPI or their HD blocker because now
+[92:48] those medicines aren't causing the constipation,
+[92:51] but we have steady movements now.
+[92:54] If they get their water, their salt,
+[92:57] and their butter every day appropriately,
+[93:00] they should be able to keep normal bowel movements moving through.
+[93:04] Now, if they're on medications that cause constipation again,
+[93:08] then it's just around Robin, the empty, they're on the medicines.
+[93:13] They get dried out.
+[93:14] Um, so, uh, it's crucial that we help them understand the medicines,
+[93:18] maybe the chronic root cause of their constipation and sluggish cut.
+[93:22] And so, uh, getting them to understand that,
+[93:26] not that they need to stop their medicine.
+[93:28] They just need to overcome the effect of the medicine by more water,
+[93:32] more salt, more butter, or using more magnesium.
+[93:36] I don't ever recommend magnesium citrate routinely,
+[93:40] but any of the types of magnesiums at higher doses will eventually
+[93:46] cause some mildly loose stool.
+[93:48] They can increase their vitamin C intake and get some mildly loose stool.
+[93:52] So coconut oil, coffee,
+[93:54] they can add those things to get more bowel movement.
+[93:59] That's stable and normal log shaped rather than, uh,
+[94:03] going from type one to type seven on the scale.
+[94:11] Can I ask a question? Sure.
+[94:14] So that patient that I was talking to you about earlier when we started
+[94:18] with the diverticulitis,
+[94:21] she was telling me that, um,
+[94:23] with one of her previous functional doctors that they noted some Candida as
+[94:28] well, but she was never fully treated for that. Um,
+[94:32] now she's still having, like you said,
+[94:34] the bloating and like depending on what she, what she doesn't eat,
+[94:37] she still has the bloating. Now that you've mentioned it,
+[94:40] it really does sound like she probably does have it.
+[94:43] And my question is because she's got this really extensive GI history,
+[94:49] would it be better to just give her the,
+[94:52] the guys who can or follow the herbs?
+[94:57] Yeah. With, with her having such symptomatic issues,
+[95:02] I probably would offer her the six weeks of fluconazole and then move
+[95:06] directly into some of the supplements to help support her healthier gut.
+[95:11] Once these guys are gone, I probably would. Um, okay.
+[95:17] Yeah. This is one of those instances where you just have to be smart,
+[95:21] savvy, figure out what's the next best step.
+[95:24] You don't have to order a test to be able to know what a patient is telling
+[95:28] you. Like if you have a patient with high blood pressure,
+[95:34] multiple times they come in with high blood pressure,
+[95:37] you're going to assess that you're going to dig into that.
+[95:39] You're going to treat that. You're not just going to let it ride.
+[95:42] And so this is the same thing. Like you have a gut issue.
+[95:45] There's got symptoms, there's got problems.
+[95:48] And now you have some tools in your,
+[95:51] in your toolbox that help you distinguish some of the symptoms.
+[95:55] Usually H Pylori and SIBO come with more diarrhea.
+[96:01] Candida typically comes with more bloating and constipation.
+[96:06] Not everybody's going to be the same,
+[96:08] but if you can elicit some of that information from them,
+[96:13] it kind of narrows down your pool of choices and you can start.
+[96:18] Remember that gut function is also a lot of educated guesswork.
+[96:23] You have now some knowledge, but even the next, you know,
+[96:27] 10 or 12, 15 people that you see with gut problems,
+[96:32] you're still going to be guessing.
+[96:35] And so sometimes we'll get it right.
+[96:37] And every now and then we'll get it wrong,
+[96:39] but we don't have to tell the patients we got it wrong.
+[96:42] We can just say, well, that does not appear to be working for you.
+[96:45] Let's try this treatment and move on.
+[96:48] Like you don't have to beat yourself up because you were wrong.
+[96:52] I don't like being wrong.
+[96:55] So I mean,
+[96:58] I will tell patients I don't know in a heartbeat and I'll be like,
+[97:02] I don't know. Let's look that up. Let's see what we can figure it out.
+[97:05] But I don't like telling them I was wrong.
+[97:08] So I try to word it. So I don't look that wrong.
+[97:12] Does that make sense?
+[97:15] Definitely.
+[97:17] And one follow-up question regarding the high dose vitamin C,
+[97:21] how long would you keep someone on that?
+[97:24] And then is there concern for like, you know,
+[97:27] kidney stones or any kind of adverse reaction to being on like
+[97:32] five or 10,000 of vitamin C every day for an extended period of time?
+[97:37] So every now and then you'll run across somebody that swears high doses
+[97:41] of vitamin C gave me my kidney stones.
+[97:43] I had a patient just a couple of weeks ago that said that.
+[97:46] I'm like, not likely.
+[97:50] The problem is mainstream believes it.
+[97:54] And so that's what they'll go out there and they'll tell their patients.
+[97:57] You can't do that because it's going to give you kidney stones. No.
+[98:01] So it's chemical reactions.
+[98:03] So.
+[98:07] Like.
+[98:09] If you have a patient that is prone to kidney stones,
+[98:13] what is their kidney stone? Is it calcium citrate, calcium oxalate?
+[98:19] What's the chemical composition of their stone?
+[98:23] So if they have calcium citrate stones,
+[98:27] then vitamin C might not be the best bet for them.
+[98:31] But typically.
+[98:33] Even at 10 or 12,000 milligrams of vitamin C a day,
+[98:37] it's not enough vitamin C.
+[98:40] To contribute to calcium citrate stones.
+[98:44] Okay.
+[98:46] If you have a patient with kidney stones,
+[98:48] one of the things that I do put those patients on to prevent future
+[98:53] stones.
+[98:55] Two things. One is Shanka Pedro.
+[98:57] Shanka Pedro is a stone breaking.
+[99:01] Or stone preventing supplement.
+[99:04] Shanka.
+[99:05] I'll type it over here in the chat for y'all.
+[99:08] Because it looks funny when you spell it.
+[99:11] Shanka.
+[99:13] I think I spelled it right.
+[99:15] My husband takes it to help prevent his gout flares.
+[99:18] I talk about that some when we talk about his gout.
+[99:24] And then the other thing that we will use is small doses of calcium
+[99:30] citrate.
+[99:32] Two or three times a day.
+[99:37] But low doses, like 150, 100, 150 milligrams of mag citrate.
+[99:43] In pill form, not the liquid form.
+[99:45] The liquid form is more of a laxative.
+[99:49] The low doses of mag citrate will help the body manage the formation
+[99:57] of kidney stones much better.
+[100:00] And so mag citrate is a really good benefit for that problem.
+[100:05] If patients believe that the C is causing their stones or going
+[100:10] to, fine, just tell them to use other agents or to keep their
+[100:15] vitamin C doses low.
+[100:17] Have them take 500 twice a day.
+[100:19] Okay, that's not great.
+[100:21] But especially if they're having iron issues, they need some.
+[100:25] And so we're just going to use a low dose for you to try to minimize
+[100:29] that problem for you.
+[100:30] And then we'll add a couple of these other anti-inflammatories
+[100:33] if that's not adequate.
+[100:35] And then you could do something like turmeric curcumin.
+[100:38] You could add some garlic for a little while.
+[100:41] Omega 3s are great anti-inflammatory agents.
+[100:44] So you can do some other things.
+[100:46] Rather than to see if they are really worried about it causing problems.
+[100:55] All right.
+[100:56] What else?
+[101:04] Any other questions?
+[101:05] We'll see.
+[101:06] There's a question over here in the chat.
+[101:09] Is having thin stringy stool a sign of constipation also?
+[101:12] Yes, absolutely.
+[101:14] Because if it's thin and stringy,
+[101:16] that means that pockets are full and all that can make it through is
+[101:20] the thin little bitty ribbon.
+[101:22] Yep.
+[101:23] Absolutely.
+[101:25] Anything that's not a solid looking log.
+[101:32] It should be a solid looking log.
+[101:34] It should be soft.
+[101:35] It should be, you know,
+[101:37] it looks like a snake as it leaves the body and lands in the potty.
+[101:43] But it, it shouldn't be thin and ribbon like if it is, yes,
+[101:48] there is stuck stool all in those pockets all along the way.
+[101:53] So good question.
+[101:55] All right.
+[101:56] So next week we are going to talk about.
+[102:02] Oops.
+[102:03] That's not the right list.
+[102:05] Let me find the list.
+[102:07] I think it's chronic kidney disease is our next topic.
+[102:13] Okay.
+[102:16] Mentorship outline.
+[102:18] Week eight. Yep.
+[102:20] Chronic kidney disease is our next session.
+[102:22] So we may wind up talking about oxalates and kidney stones all over
+[102:26] again.
+[102:27] Some gout all over again, but that's quite all right.
+[102:32] Hopefully you'll have other questions as we move through here.
+[102:36] But chronic kidney disease is often a shorter topic.
+[102:40] So if you have another topic that you want us to touch on,
+[102:43] that's not on our outline.
+[102:45] Feel free to send me a message or.
+[102:48] Email text me and we'll see if we can.
+[102:56] Cover that.
+[102:58] Oh, good question.
+[103:00] Leonie.
+[103:01] So in.
+[103:03] One of the chat.
+[103:06] Facebook groups. I don't remember which one it was.
+[103:09] I don't remember which one it was.
+[103:11] I don't remember which one it was.
+[103:13] I don't remember which one it was.
+[103:15] So I offered to do a zoom with Opta mantra.
+[103:19] And so I'm probably going to set that up for.
+[103:22] Probably Friday.
+[103:28] So I watch for posts.
+[103:30] I'll put it in Opta mantra groups and in my NP case studies group.
+[103:34] And I'll try to post it in elite.
+[103:36] And if you want to join that you're more than welcome.
+[103:38] And I'll try to do that.
+[103:39] And I'll try to do that.
+[103:40] And I'll try to do that.
+[103:41] Which I do a thing.
+[103:47] A lot of things that other people don't do.
+[103:49] And I don't do some of the things lots of other people do.
+[103:52] But several people were having similar questions on this one thread.
+[103:56] And I was like, this is terrible.
+[103:59] This is people are struggling.
+[104:01] So I offered to do a zoom and I've just got to figure out when that's
+[104:04] going to be, but it's probably going to be Friday.
+[104:05] So watch social media the next couple of days.
+[104:07] And I'll try to do that.
+[104:08] And I'll try to do that.
+[104:09] And I'll try to do that.
+[104:10] And I'll try to do that.
+[104:11] And I'll try to do that.
+[104:12] And I'll try to do that.
+[104:13] And I'll try to get them to join that if you wish. It's free.
+[104:15] It's just, I wanted to help.
+[104:16] All right. So thanks, Amy.
+[104:18] I'm glad it was very helpful.
+[104:20] Be sure you download the PowerPoint and the gut protocol and use it.
+[104:23] How you see fit in your practice.
+[104:25] Good luck with it.
+[104:26] Don't hesitate to reach out.
+[104:27] If you have questions.
+[104:28] See y'all next week with kidneys.

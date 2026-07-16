@@ -1,0 +1,1403 @@
+# Transcript: 07-ckd-nafld-sleep
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\Week 8 - Chronic Kidney Disease, NAFLD, & Sleep Optimization\recording.mp4
+# Duration: 105.6 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:30] How is everybody today?
+[00:45] I'm Jenny Gallagher, good to see y'all again.
+[00:51] We are going to try to cover a boatload of information tonight.
+[00:55] There are three PowerPoints posted for y'all.
+[00:59] Time to see if my mic is in use or if it's just my computer.
+[01:14] Can y'all hear me okay?
+[01:18] Thanks Amy.
+[01:27] Looks like it's just my regular.
+[01:34] Oh wait.
+[01:39] I think it just changed. Did it sound change at all?
+[01:44] Okay, is it better or worse?
+[01:48] I think it's a little bit better. Okay, we'll try the microphone.
+[01:56] Alright, thanks Amy. That helps a little bit.
+[01:59] Anyway, we have three PowerPoints. We're going to try to cover our regularly
+[02:03] scheduled session tonight. It was going to be on
+[02:06] chronic kidney disease, but somebody asked for an additional
+[02:12] topic at some point, so I thought, well, this is a good time to do
+[02:15] sleep optimization. We do touch on it when we do hormones because
+[02:20] it's so crucial with hormone management, hot sweats,
+[02:24] estrogen dominance, progesterone deficiencies, all that,
+[02:28] but I've not ever put together just a session on sleep, and so all of our
+[02:34] patients are not women, and so I thought it might be handy to
+[02:39] do a little bit of a session on sleep optimization, so I
+[02:43] threw that together for y'all, and then I realized that we also
+[02:50] talk about fatty liver off and on throughout the whole mentorship, but I've
+[02:53] never put together a session for that, so if we have time,
+[02:58] we will add fatty liver in our discussion tonight.
+[03:01] All three PowerPoints are posted for you. You can feel free to
+[03:05] access and download those and keep those, but if we don't get to fatty liver
+[03:10] tonight, we will add it at some point when we have more time. I
+[03:14] just don't want to overload y'all and sit here for two or three hours,
+[03:17] covering a bunch of topics that are crucial
+[03:20] for y'all, but I want to let you out of here at a decent time so you can have
+[03:26] supper and family and work and all the other things, so
+[03:30] hope that helps, but we're going to try to do three topics
+[03:33] if we can, and if we can't, we're not going to panic about it,
+[03:38] because I promise we'll cover it all, okay? If y'all have questions or anything
+[03:43] while we're waiting, feel free to unmute yourself and ask away.
+[03:50] It's just now five, so people are just now getting logged on and set up, so
+[03:55] feel free to chime in if you have questions or
+[03:58] things I can help you with. I did just comment
+[04:02] on a couple of the cases that y'all posted earlier today,
+[04:05] so there's some good stuff in there to look at and consider.
+[04:11] So y'all can take a look at those. I have a question for you, Jenny,
+[04:17] and I posted, this is what I posted in the community, and it's just, it's more
+[04:20] of like a, it's about prescribing the, well I'm using
+[04:23] terzepatide right now, and sourcing it, and I feel like I'm
+[04:27] kind of overthinking this, but like ethically I feel a little bad
+[04:32] doing the clinic pay rate and then marking up the med so I can make money on
+[04:36] it, but after I, but I think that's how
+[04:40] most practitioners are doing it. I'm, and
+[04:44] after I did the math, I can either have the pharmacy bill me
+[04:49] or bill the patient. When they bill the patient, they mark it up like
+[04:52] $70. So if I just have it clinic pay, I am making that for my time.
+[04:59] The patient pays the same, so it's like why wouldn't I do that, but it just feels a
+[05:02] little kind of ethically off, but I know everyone else is doing it. Do you have
+[05:05] thoughts on that? So when you go to Walmart and you buy
+[05:13] groceries, do you feel guilty paying the price they're asking versus the
+[05:19] price the wholesaler paid? Okay, no, like
+[05:27] look at it this way Amy. We aren't marking it up to make more
+[05:31] money. We're marking it up to cover the time it takes for us to
+[05:36] manage their care. So like I have patients on compound drugs,
+[05:44] the pharmacy runs my card when they fill the prescription,
+[05:48] but when the patient is either in my office visit or
+[05:55] outside the visit and they talk about that medicine that requires my time
+[06:00] and often when they send refills or questions that goes to my nurse
+[06:05] who I have to pay to handle that question, that refill, the whole
+[06:11] conversation about is the dose effective because we
+[06:16] don't just refill willy-nilly. We always say well do you think this is this dose
+[06:20] is working for you. We reassess in between visits or at the
+[06:24] visit. So we reassess and decide if this is the
+[06:28] appropriate dose or if we need to go up or down.
+[06:31] And so you're asking the patient to pay for that expertise and that time
+[06:36] because it's not the same thing as sending a
+[06:41] script to the pharmacy that goes to CVS or Walmart or Walgreens or
+[06:45] wherever because that's a quick instantaneous
+[06:49] send. When we do compound formulas or specialty things we have to
+[06:55] spend extra time populating that script, refilling that
+[06:58] script, chasing down patients to make sure we're
+[07:01] using the right dose, the right medicine, the right everything.
+[07:08] And so that requires a little bit of extra time.
+[07:11] If it makes you feel guilty then don't charge much
+[07:15] extra for that. But you are worth the time and that effort
+[07:22] to get reimbursed for that. So can I ask are you doing that for
+[07:27] most compounded medications? Is that how you're doing it?
+[07:30] Yes. And so do you primarily work with one compounding pharmacy or do you have a
+[07:35] couple different ones and you do it that way with all of them that you work
+[07:38] with? So I have two main ones that I do that
+[07:42] with. So one of them is local and
+[07:48] she's licensed in four or five states and so it works great
+[07:52] because I can send lots of things through her
+[07:56] and that is good for me and it's good for her.
+[08:01] The other one is South Lake in Florida. They're national and they ship to most
+[08:05] states. They don't ship to a handful and so that helps but they don't
+[08:11] always have the same thing. It's like Katsu doesn't carry
+[08:14] terzepatite or any GLP ones. South Lake carries the GLP ones. So
+[08:21] it really depends on who carries what as to where I send the script.
+[08:25] Does that help? Yeah it does. That's exactly how I have it set up right now
+[08:30] is I have exactly like that with a couple different
+[08:33] pharmacies. So then are you are you individually like
+[08:38] telling the patient this is how much this medication is going to be for you or do
+[08:41] you have a standard like for? Yeah it's all in my dot phrase.
+[08:46] So like I don't know I'm just blowing numbers right off the top of my head.
+[08:50] It's close but I can't promise you it's exact.
+[08:53] My terzepatite I get from South Lake. I make patients by two vials because
+[08:58] it's going to last them a long long time and so they think they're getting a
+[09:02] very good value for their money when that happens especially the first
+[09:05] couple of fields because two vials will last them
+[09:11] 90 to 120 days easily because they're only dosing
+[09:14] micro dosing especially at first it's really low
+[09:17] and then every two to three weeks they bump the dose up a little bit
+[09:20] and so the the faster or higher they titrate of course
+[09:25] the faster they run out and so part of the
+[09:28] control is in their hands and so I I have a
+[09:32] dot phrase a macro that spells out week one
+[09:35] you know five to seven units week two I don't remember exactly eight to
+[09:40] twelve units or whatever it is and they pay I think it's 375 385 whatever
+[09:47] for the two vials and it lasts as long as it lasts and when they get close to
+[09:50] running out they're supposed to reach out and let
+[09:54] us know they want a refill and when they do we send them
+[09:57] either an invoice or run their card we have lots of cards on file now that's
+[10:04] become our more standard operating procedure
+[10:08] and so when they tell us they need a refill we ask do you want us to run
+[10:12] that on the card on file and most say yes
+[10:15] and if not they send me paypal or venmo sometimes
+[10:19] the thing is if you're using social media just tell them don't use any
+[10:22] words like don't use words that's not a
+[10:25] great idea if you're running this big scaled business
+[10:28] because it's too hard to track but I have a very small practice
+[10:33] and so it's easy when Donna sends me you know 375 and I had a visit with her
+[10:39] you know yesterday or day before I I'm like oh
+[10:42] this is who sent it and this is the dot phrase she got
+[10:45] so this and we text and we email we call we verify that this is the
+[10:50] medicine she is expecting and then we send that to the pharmacy
+[10:53] and my nurse handles the majority of that
+[10:57] great thank you very much does that help yeah very helpful
+[11:00] yes thanks yeah
+[11:05] um yeah uh in the chat amethyst says she's using scripts
+[11:10] and empower and hollandale there's a bunch of
+[11:14] uh the pharmacies out there there's one in idaho
+[11:17] that is using I can't remember what they're called pure
+[11:21] script pure I don't remember pure something
+[11:25] um they now have micro dosing GLP ones I think it's terseptide
+[11:31] in a pin so they get to dispense a pin much like mainstream
+[11:38] dispenses pins for the GLP ones for some patients that's very
+[11:44] convenient because there's no drawing up or
+[11:47] counting units or anything like that so you can look them up online they are
+[11:54] not licensed in many states they're mostly in the west and
+[11:57] midwest but somewhere I have the guy's name I've
+[12:02] talked to him on the phone a couple times and he's a great guy I just he's
+[12:06] limited in so many states that in some of the states I'm not licensed in
+[12:10] so I'm like well when you get some more licensed states maybe I'll
+[12:14] buy into the the pin but I we provide a lot of support and
+[12:20] education I even have a youtube video on how to
+[12:24] give yourself a shot that I made because I couldn't find
+[12:27] one that was right several years ago back during COVID
+[12:30] I'm like they're waving and blowing and I'm like no you don't do that for a
+[12:34] shot stop so I made my own video giving myself a
+[12:39] I think it was a b12 shot which I know that I am
+[12:42] but the procedure is basically the same and then Carly or I usually talk the
+[12:46] patients through the first dose to help them make sure they get it
+[12:50] right so lots of support that we provide
+[12:54] hope that helps anybody else got questions before we dive in there are
+[12:58] three power points posted in this week's lesson if y'all
+[13:04] want to grab that we may or may not get to all three
+[13:08] of them but we have them ready to go anybody else
+[13:13] with questions
+[13:18] okay I don't see anybody unmuting or timing in so I'm going to share my
+[13:23] screen and move over to
+[13:28] chronic kidney disease this is a really um
+[13:32] shorter um power point it's not very long I don't talk a lot
+[13:38] about it
+[13:42] it's pretty basic because most of what we're talking about
+[13:46] in this
+[13:50] session is directly related to everything else we've been talking about
+[13:56] maximizing our lab values optimizing hormones optimizing insulin
+[14:03] and so if any of those things are out of
+[14:06] kilter then kidney disease is a known likely complication of their problem so
+[14:12] tonight we're going to look at major causes of ckd insulin resistance
+[14:16] related to ckd metabolic mechanisms we're going to talk about five major
+[14:21] functional strategies that covers a boatload of stuff like one
+[14:25] two three four five have a lot of stuff in each one so there's a whole bunch of
+[14:28] stuff and all of them are really about
+[14:31] lifestyle interventions for the most part so one thing that is surprising
+[14:36] to most functional providers is finding out that ckd is so
+[14:42] prevalent it affects over 37 million Americans
+[14:46] and the number is rising why is the number rising the number is
+[14:50] rising because insulin resistance is rampant
+[14:52] we're epidemically uh struggling with 90 percent of the
+[14:57] population give or take depending on which data you read
+[15:00] with insulin resistance diabetes PCOS um hormone imbalances all of that is
+[15:06] impacted by insulin resistance and so all of that turns into
+[15:09] chronic kidney disease over time and so that's the leading cause of course of
+[15:14] dialysis and or transplant from our perspective we know that
+[15:19] chronic kidney disease didn't develop last week
+[15:22] or even last month chronic kidney disease develops over many months
+[15:27] many years the same way insulin resistance
+[15:30] precedes diabetes type two it takes years
+[15:34] and decades often for ckd to become a parent
+[15:39] and as you see here it's often silence silent until its advanced stages
+[15:46] most of us are familiar with mainstream causes of
+[15:49] ckd we all are familiar with type 2 diabetes and hypertension
+[15:54] those are the two big things out there that we know
+[15:57] cause chronic kidney disease many people are unaware of how impactful
+[16:03] obesity and insulin resistance are to kidney
+[16:06] health but they they do damage many autoimmune diseases and or the
+[16:11] medications for the autoimmune diseases will also contribute to ckd kidney stones
+[16:16] will contribute as well if they're chronic
+[16:19] and not well managed smoking has always been associated with kidney
+[16:23] disease and then of course we know medications are
+[16:25] nephrotoxic in many cases many of us forget to look
+[16:29] that up so i really encourage you as you become
+[16:32] more functionally minded that you look at medications
+[16:36] if there is a renal or hepatic dose adjustment that means that you're
+[16:42] causing either renal or liver damage so look at that
+[16:46] when you look your medicines up why does it matter
+[16:52] if insulin resistance is part of the problem
+[16:55] well insulin resistance
+[16:59] is this big kind of balloon so if you will imagine this big
+[17:07] vin diagram and insulin resistance is in the middle
+[17:10] and then all around it you have these overlapping pieces like
+[17:15] hyperfiltration in the glomerular function lots of salt being retained
+[17:22] remember when insulin goes up sodium begins to fall and so then
+[17:28] by nature the body says oh we're losing sodium let me keep some
+[17:33] and so it triggers sodium retention and so that results in swelling it results in
+[17:38] albumin functions that are sort of kind of
+[17:43] displaced or become problematic patients have higher and
+[17:50] higher blood pressure of course sometimes they go the other
+[17:53] way we wind up with hypo tension instead of hyper sometimes
+[17:57] because of poor water poor salt intake all of these things will also
+[18:01] contribute to damage to the inside of arteries and
+[18:05] blood vessels and so then you have oxidative stress
+[18:08] and that includes some chronic inflammation so that
+[18:12] results in progressive kidney injury so it's a downward spiral and this is
+[18:17] just another way to look at it
+[18:21] so our functional recommendation number one is reverse the insulin resistance it's
+[18:26] easy to reverse it in theory it's harder to convince patients to do the things
+[18:32] to reverse insulin resistance but look at their specific medications if
+[18:37] they are on meds for type 2 diabetes for
+[18:42] instance let's say they're on some glipizide and metformin
+[18:46] both of those are nephrotoxic maybe reduce their doses
+[18:49] or get them off of metformin and replace that with berberine
+[18:53] they work in the same pathways but berberine is less toxic
+[18:57] so there are always things you can do to move medications around
+[19:04] yes your aces and arbs are considered kidney supportive
+[19:09] but they're also nephrotoxic so depending on the stage of their kidney
+[19:14] disease you want to be careful putting them on
+[19:18] aces or arps so just be aware look it up look at the
+[19:22] creatinine clearance look at the dose adjustment that may be needed
+[19:27] sometimes we do even in functional care sometimes i will put patients on
+[19:32] losartan or lisinopril for kidney protection if their kidneys aren't
+[19:37] looking great and they're not a hundred percent on
+[19:40] board with functional stuff you have to kind of be a hybrid person
+[19:45] sometimes you have to do functional stuff but you also have to include
+[19:48] mainstream stuff some of the time so depending on each situation
+[19:52] you may want to use medications as well as functional recommendations
+[19:57] get patients to reduce or eliminate their grains refined carbs
+[20:02] that processed food is actually the worst thing they can do for their
+[20:05] kidneys getting rid of beverages like sugary stuff
+[20:11] sodas carbonation energy drinks
+[20:16] even tea sugary tea is dangerous to kidneys
+[20:21] so make sure patients are aware of what things are safer
+[20:25] for their kidneys i have a ckd dot phrase that
+[20:29] i put in my patient's chart when they start having
+[20:32] changes to their labs that indicate some mild kidney problems
+[20:37] and so it talks about drinking more water getting more electrolytes many of
+[20:40] your patients will drink tons of water but they're not
+[20:43] getting electrolytes well they're flushing all their sodium
+[20:46] potassium magnesium chloride right out the
+[20:49] into the toilet and that impacts the kidney tissue
+[20:56] it packs water balance it impacts albumin
+[20:59] and electrical muscle function so like the
+[21:02] the vin diagram keeps growing and overlapping
+[21:06] if you if you start looking at it that way help patients understand that
+[21:11] when they cut grains you're not asking them to increase protein
+[21:14] they're all familiar with high protein is kidney damage because mainstream pushes
+[21:19] that when mainstream thinks of low carb they
+[21:22] think it is automatically high protein we do not encourage high protein unless
+[21:26] they are in an athletic kind of competition
+[21:30] are trying to grow muscle most of your patients with kidney disease are not
+[21:34] trying to grow muscle and they're not athletes
+[21:36] so this does not apply to them so moderate protein
+[21:40] is what we encourage for specific numbers i encourage you to
+[21:47] go to my website joyfulhearthousecalls.com
+[21:51] if somebody wants to stick it in the chat while we're talking that'd be
+[21:54] great and in my blog
+[21:57] search for the
+[22:03] search for the
+[22:08] what's the keyword i use oh do the math do the math
+[22:11] do the math do the math and my article will come right up
+[22:16] and you'll be able to see the formula i even have a chart where it's already
+[22:22] calculated so your ideal body weight
+[22:26] is listed there and that's how we use um the calculation to decide moderate
+[22:32] protein we don't want you to weigh that that's
+[22:35] just the calculation we use if you are this height or this height
+[22:40] so if somebody will put that link in the chat that'd be great
+[22:46] but the article is called do them um
+[22:51] did kiedela did the audio change for better or worse
+[22:58] or worse it's not necessarily feedback but it's like a hollow
+[23:03] kind of sounding okay is that better
+[23:11] yes that's clear yeah we'll we'll do this yes it's joyfulhearthousecalls.com
+[23:16] no spaces no in anything in between and then
+[23:19] at the little mic microscopic microscopic whatever that whole thing is
+[23:25] like magnifying glass lord i'm having trouble
+[23:28] thinking tonight
+[23:32] you can type the words and do the math and that article will come right up and
+[23:35] the chart will be right there um but that is moderate protein that's
+[23:40] the base amount of protein um and so that should be helpful
+[23:45] um if you're trying to help with um
+[23:50] patients understanding yes deborah that's the correct website and then the
+[23:55] in the blog you'll find do the math um if you'll search that
+[24:02] so um this is where i like to tell this story
+[24:05] so um we're going to stop sharing where i can see y'all a little bit um
+[24:11] when i was in mississippi i worked in a little clinic
+[24:18] in a little town in north north central mississippi
+[24:22] and it was a satellite for a large
+[24:28] fqhc company i was the only practitioner in the office where i was
+[24:34] but i i took this practice over and when i did
+[24:40] the practice had not had anybody in there for quite some time
+[24:44] and when i started there weren't many patients there
+[24:48] well i had previously worked in the same town but in different practice my very
+[24:53] first mp job was in an internal medicine practice not far
+[24:59] from there and so um when that
+[25:05] physician found out that i was back in town
+[25:09] she had closed her practice since i left she had hired me to run the practice
+[25:14] and then i took another job that was more appealing
+[25:17] and um she closed the practice because she couldn't find anybody
+[25:20] well she couldn't find anybody because she didn't pay worth flip
+[25:23] um and so um she wound up closing she she wanted to be the hospitalist and
+[25:30] so she did that and then i was supposed to run the clinic
+[25:32] well when i left i went and did something else for a couple years
+[25:36] and then wound up taking this job uh in an adjacent
+[25:42] area of town uh about a mile away and so she found out i was in town she
+[25:48] called me and said hey i hear you're practicing do you want me to send you
+[25:52] all my patients and i was like yes ma'am so um that's how much she trusted
+[25:56] me and that's remarkable for internal medicine most of y'all are aware
+[25:59] internal medicine is very anti-np in most cases
+[26:03] it's very rare for internal medicine to be
+[26:06] np friendly most of the time there are always exceptions to the rule
+[26:13] but this couple was very supportive of nps
+[26:17] they just didn't want to pay very well um but she taught me a lot of the lab
+[26:21] stuff that i know and that i now teach y'all
+[26:23] and so i'm very grateful to her but she was great because she
+[26:27] put signs up she sent letters out she um continued to use her staff to
+[26:33] connect with the patients to let them know where i was
+[26:36] um and so i wound up with a very uh good practice
+[26:40] right away well one of those guys was a patient that i had seen a time or two
+[26:46] back then and so when he found out i was there he
+[26:49] came in for his checkup it was time for him to have his diabetes checkup
+[26:54] he came in i sent him for the labs and um we got his lab back well he had
+[27:02] stage two kidney disease that somebody else had already diagnosed he already
+[27:07] knew it well when he came back and we sat down
+[27:09] and reviewed his labs uh we talked about um did you know
+[27:15] that you might be able to postpone your dialysis
+[27:19] they were already talking about you know sending him to the
+[27:23] uh kidney folks the kidney folks that already talked to him about
+[27:28] placing the shunts well he he didn't dive into my idea right away
+[27:35] he's um he and his wife are not very well off um
+[27:42] and he couldn't get medicaid because he still drove a bus trying to work
+[27:47] and but the unhealthier he got the harder it was to keep
+[27:52] doing his job and so he finally got frustrated one day and he came back in and
+[27:56] he said you know you talked about me not being
+[28:00] able to have dialysis right now is there how do i do that
+[28:03] show me teach me what to do so he and his wife came back they sat down in the
+[28:07] office and we talked about low carving and cutting out all the inflammatory
+[28:11] stuff and so we his kidney disease by the
+[28:14] end had progressed to almost stage four and so he was
+[28:19] scheduled to see the kidney folks again they were talking about this time when
+[28:25] we were going to schedule the shot it was getting that close
+[28:28] and so um
+[28:32] he went back for his next kidney follow-up a few months later
+[28:36] and the kidney doc wrote me a letter i wish i'd have kept it
+[28:40] um but he wrote me a letter back it wound up in his chart
+[28:45] but the kidney doctor wrote me and said you have done something amazing that i've
+[28:50] never seen done before because uh his his his stage almost stage
+[28:56] four kidney damage is now stage two i've never
+[29:00] seen it go backwards what did you do and so he wound up sending me lots of
+[29:04] other patients over time because i would i would send
+[29:08] patients home with good information on how to reverse their diabetes how to
+[29:12] reverse their chronic kidney disease and they would come back not having to
+[29:16] get their shots now um not having to depend on dialysis now
+[29:22] the sad part of the story is um about two years into that practice
+[29:28] um he gave up because i left i moved to alaska and he didn't have
+[29:35] the support every visit reminding him of the things he could
+[29:38] eat and not eat um and so he went downhill really fast
+[29:42] and wound up on dialysis just probably six months after
+[29:46] i left the practice and moved out of state um
+[29:50] but that just goes to show y'all how important
+[29:54] our support and motivation can be for patients
+[29:57] and so i really encourage you to help guide your patients
+[30:00] as best you can we can't care more than they care
+[30:04] like at first he wasn't interested in cutting carbs
+[30:07] he liked his carbs we are all carb addicts if we think about it
+[30:11] and so he did not like the idea of of leaving that kind of food out of his
+[30:16] diet plan he didn't he wasn't familiar with that idea
+[30:21] um and it was hard for him to give up the rice and the beans and the cornbread
+[30:25] and like mississippi is full of carbs every time there's a plate fixed
+[30:29] and so it was really tough for him and his family to change
+[30:33] eating plans but even his daughter came to see me and said i can't believe my
+[30:37] daddy feels this much better um so uh just just just a word to the
+[30:44] wise because you can do it um uh it helps patients remarkably
+[30:50] and patients and their families are very um
+[30:53] very helpful uh grateful all right let me get back over here to my slide
+[30:58] um it went back to the beginning i'm sorry
+[31:04] um oops functional recommendation number two so healthy weight loss
+[31:12] so uh glp ones might be a great option for some of your patients
+[31:17] berberine andositol metformin are great options to consider
+[31:20] keep in mind that metformin and berberine work very similarly
+[31:25] i've never seen lactic acid build up from berberine but because of how they
+[31:29] work that is a possibility because of that
+[31:31] possibility i don't put people on metformin and berberine there was a
+[31:36] small study uh a few years ago that showed it was
+[31:40] fine to use them both but i i mean to me it sounds like
+[31:46] you know overdosing of medicine you're using the same thing
+[31:50] in two different ways or two different products
+[31:53] and so we we don't typically do that in medicine
+[31:56] so i'm not i'm not a fan of using them together
+[32:00] you can use metformin with inositol you can use metformin
+[32:04] with glp ones um but i don't use it with berberine you can use inositol with
+[32:10] glp ones and metformin um and uh or you can use inositol with
+[32:15] berberine you just can't use berberine at the same time
+[32:19] as your metformin get that blood pressure down get their insulin more
+[32:22] sensitive uh inositol we've talked about before
+[32:26] helps with insulin resistance not glucose
+[32:29] same with berberine and metformin they don't lower glucose they lower
+[32:33] insulin they work in the liver mostly and so
+[32:37] um uh when you add them to each other they do become synergistic and
+[32:44] hypoglycemia might then become a little bit of a concern
+[32:48] but individually they do not pose a glucose issue
+[32:53] yes berberines are great with glp ones absolutely
+[32:57] um get inflammation down get insulin down get weight down
+[33:01] patients will feel way better and they'll they'll they'll save their
+[33:05] kidneys so what about inflammation get rid of
+[33:09] inflammation watch and monitor that crp remember most
+[33:13] of your inflammation markers don't need to be checked but about
+[33:16] every eight to nine ten months every year
+[33:19] inflammation does not change rapidly so if you saw them
+[33:24] in june this month there's no point in drawing an inflammation marker until
+[33:29] next april or may uh drawing it in september will not
+[33:33] give you any good information and it'll make everybody frustrated because you
+[33:36] won't see big changes most of the time there's always an
+[33:40] exception to the rule somebody will always draw it later
+[33:42] you know two or three months later and it dropped way back
+[33:45] okay that was not the norm that's good but it doesn't usually happen like that
+[33:54] um uric acid uh we're going to talk a little bit more about that
+[33:58] in just a little bit but uric acid is crucial for understanding
+[34:02] inflammatory processes homocysteine is sometimes an mthfr genetic
+[34:08] problem but it's also an inflammation marker
+[34:10] so it's crucial that you get these on your patients
+[34:13] ferritin may or may not be considered an inflammation marker
+[34:17] it depends on how high it is relative to your iron number
+[34:20] if ferritin is much higher than iron like one and a half to two times higher
+[34:26] than your iron number it's an inflammatory marker it is no
+[34:30] longer an iron marker because it can't move around
+[34:34] appropriately it is inflammation are they using omega-3s or not
+[34:39] omega-3s are great anti-inflammatory agents
+[34:42] and beneficial for insulin resistance and diabetes
+[34:47] what about their gut how messed up is their gut health
+[34:51] have they been on antibiotics off and on their whole life
+[34:56] have they recently had general anesthetic where they were put under
+[35:01] um colonoscopy any kinds of things that have happened like that are always
+[35:06] considered gut insults and that poses hazards to good gut health
+[35:10] so what are we do we've used anti-inflammatory supplements your number
+[35:14] two top priority high dose vitamin c and d with its
+[35:17] co-factors those are your two best thing to see my fingers
+[35:22] two best options for anti-inflammatory supplements you can also consider
+[35:28] various others omega-3s are great turmeric curcumin
+[35:33] chlorella resveratrol co-cutin lots of other anti-inflammatory agents can
+[35:39] be very helpful why is sleep optimization listed here
+[35:43] because if people are not sleeping their body is not resting
+[35:46] if their body is not resting they are becoming
+[35:50] inflamed it's a vicious cycle i just uh had chat gpt create me a new
+[35:55] little um sleep pattern um graphic i think i posted it today it might be
+[36:01] scheduled for tomorrow um but watch my business page joyful
+[36:05] heart health care it's a cute little graphic about how
+[36:08] poor sleep drives poor metabolic function
+[36:11] and poor metabolic function drives poor sleep
+[36:14] um so that's crucial that patients understand
+[36:18] getting good sleep is crucial to improving inflammation status
+[36:24] number four optimized blood pressure i've told you all before
+[36:28] that in many cases high blood pressure is the absolute
+[36:32] first clinical indicator of insulin resistance that we can measure and see
+[36:38] um so get insulin down improve their magnesium status most people with high
+[36:42] blood pressure are known to have low magnesium levels a
+[36:46] lower magnesium levels it's hard to get good mag levels i think we talked about
+[36:51] this in the lab section a session that we did but remember
+[36:55] magnesium calcium many of our trace minerals and
+[37:00] electrolytes communicate with the bone really well
+[37:03] so they're not going to have overt deficiencies in your blood levels
+[37:10] because when the blood falls the bone just says here i'll share with you
+[37:14] if there's excess in the blood the bone says here let me sponge that up for me
+[37:17] i'll just soak it all over here and store it in the bone for you
+[37:21] so the bone and blood communicate really well
+[37:24] so it's really hard to see much of a magnesium deficit in the bloodstream
+[37:28] unless they're overtly malnourished or maybe alcoholic
+[37:33] um that happens uh sometimes exercise is crucial people don't have to join the
+[37:39] gym or buy fancy equipment simply walking
+[37:44] um carrying hand weights or using those bags of
+[37:47] beans that they can no longer eat can be their weights in their hands i can
+[37:51] carry a can of tomatoes in each hand um to give
+[37:55] them away they don't have to buy anything fancy to get some more
+[37:58] exercise purposeful movement is something to i
+[38:02] really encourage use extra movements when you're doing
+[38:05] daily activities like if you are struggling to get activity in
+[38:11] when you go to the store don't look for the front parking spot park all the way
+[38:14] at the end and then when you get in the store take
+[38:17] the longest route around shop all the way around the store
+[38:21] backwards and forwards go to each corner diagonally a couple times like
+[38:25] make yourself move more than you normally would
+[38:29] when you're vacuuming squat a couple of times squat all the way down
+[38:33] and then pull yourself up women that do not exercise or move
+[38:38] well age fast that muscle movement is crucial communication to the thyroid
+[38:45] gland and for metabolic function so don't have to exercise they just have to
+[38:50] move okay so encourage purposeful movement
+[38:53] however that looks um stress management is
+[38:57] absolutely ideal if they're stressed their cortisol is going up their glucose is
+[39:01] going to shoot up from that and then they're going to have insulin
+[39:04] resistance and gain more weight so again weight reduction is crucial
+[39:11] preserve muscle build muscle just like i said purposeful movement drives better
+[39:15] muscle function and then it in turn improves insulin
+[39:18] sensitivity mitochondrial health gets better
+[39:21] remember mitochondria are the powerhouse of the cell
+[39:25] you can't produce energy if you have sick weak
+[39:28] suffering mitochondrial cells or organelles so pay attention to
+[39:35] what people are telling you as far as symptoms because that'll help you
+[39:38] understand what their mitochondria are doing
+[39:42] when patients work on better movement and better muscle use
+[39:46] their metabolic flexibility improves people that eat low carb or ketogenic
+[39:53] eating plans are more likely to have a more flexible metabolism
+[39:57] than someone on a high carb high processed food diet
+[40:03] people that are on high carb high grain high processed food diet
+[40:07] are glucose burners only their body is not flexible enough to run
+[40:11] on ketones or other molecules protein or or ketones
+[40:17] they're only driven by glucose their glucose falls
+[40:20] within two hours of eating those carbs and they get weak they get headaches
+[40:25] they get shaky and they say oh my god i'm going to die because
+[40:27] my glucose is falling they can tell it's a it's a glucose thing
+[40:31] and that's why the standard nutrition advice is to eat every two hours
+[40:35] so you feed that glucose cycle to get off of that roller coaster
+[40:39] of up and down glucose issue you have to improve metabolic
+[40:45] flexibility you have to learn to eat less often
+[40:48] with higher quality nutrient dense food like protein and fat
+[40:53] resistance training is great for anyone trying to maintain and preserve
+[40:58] muscle again it doesn't have to be fancy
+[41:02] equipment you can use cans out of the pantry
+[41:06] whatever pick them up and lift them two or three times a day
+[41:11] do 10 or 15 reps several times a week like do whatever it takes to keep your
+[41:16] muscles functioning and working joints and muscles are meant to work if you
+[41:20] are sitting in a chair your patient is sitting in a chair 24 seven and not
+[41:24] using those muscles they are going to get sicker and
+[41:26] sicker it's just a given so helpful supplements
+[41:31] um i'm not going to go through each of these this is a great list
+[41:36] to save once you get the powerpoint but this is
+[41:40] a great list for you to consider using with your patients patients don't
+[41:45] need all of these pick you two or three of these and let
+[41:49] them become your formulary this is this is what you typically
+[41:52] recommend keep the rest of them in on the back burner
+[41:56] and when patients have issues with one or two of these you can say oh well
+[42:00] let's try this one instead if the berberine gave you a little gi
+[42:04] upset let's switch to anositol um if patients have really wacky
+[42:11] cholesterol handles and you're worried about it make sure you include
+[42:14] their fat uh omega 3 fatty acids as a recommendation
+[42:17] so like keep these in mind um and use them when you're when necessary
+[42:23] so how do we know if somebody's got kidney disease well we use labs
+[42:27] um creatinine is age or gender specific typically
+[42:31] you want creatinine to be within the normal range
+[42:35] um if it's just above or just below oftentimes they're either
+[42:42] over watered or underwater they're either dehydrated from not drinking
+[42:45] enough water before their labs like overnight maybe
+[42:49] they didn't drink any any water in the morning of the lab
+[42:52] and so they were dry from like 5 30 6 o'clock when they had dinner
+[42:57] they have anything all night and now it's 10 30 and they're at the lab dry
+[43:02] as a bone and so uh the creatinine is crucial to
+[43:07] make sure you watch the upper or lower numbers
+[43:10] um so don't panic if it's just outside range if it starts really climbing
+[43:17] then it's something to worry about if a creatinine and a bun
+[43:21] or the egfr is out of range then if two of three
+[43:25] two of the three markers are out of range then you might better pay
+[43:28] attention because there might be some kidney problems
+[43:32] um bun ideally is about 15 to 18 um but if it goes up
+[43:40] dehydration can also be part of what's wrong
+[43:43] so make sure you to ask your bun is 21 how much water did you have the morning
+[43:48] of the lab and people say oh i didn't have any water
+[43:51] was i supposed to have water yes ma'am you're supposed to have some water
+[43:54] how much it kind of depends you see it from the time you wake till the time
+[43:57] you get to the near the lab um and so i've had
+[44:01] patients tell me they drink 60 ounces of water on the way of the lab
+[44:06] i'm like i don't know what makes you think that that was a good idea
+[44:11] i don't understand uh some labs now have estimated glomerular filtration
+[44:18] rates listed normally as above 90 some still list it as about 60
+[44:23] so it kind of depends on the lab reference you are given
+[44:27] on your uh results um but ideally we want it above 90
+[44:32] if it's around 60 ish um that's not great um so really uh look into that see if
+[44:39] it's just they're dry they're not getting their electrolytes
+[44:42] maybe they're taking um diuretics for some reason and it's making them drier
+[44:46] than they think i've never drawn us a statin C level
+[44:50] but lower is better you can always consider doing that especially if you
+[44:54] have somebody that you suspect has kidney damage uric acid uh less than
+[44:59] five is ideal but if uric acid is over five
+[45:03] we know uric acid that's higher is associated with hypertension
+[45:07] insulin resistance and CKD progression as well as your
+[45:11] cardiovascular disease so uric acid is a crucial number to get
+[45:16] if you have not been getting that i really encourage you to do that
+[45:20] check urine labs um a microalbumin should be negative
+[45:24] if it is not negative then you've got kidney problems if you are just doing a
+[45:31] dip or a regular urine um then that albumin should be less than
+[45:37] 30 it should not be higher than that normally you should have a negative
+[45:42] protein urea and you should never have blood protein
+[45:45] cast or glucose in a typical urine unless there's a reason
+[45:49] like infection or stones or something like that so watch
+[45:53] those
+[45:55] a couple of clinical pearls uh just with insulin resistance
+[45:59] and diabetes the disease actually begins way before you see the
+[46:03] levels in the labs so it's crucial that we help patients understand that
+[46:08] other labs like fasting insulin um play a role in kidney disease
+[46:13] development and so the same way insulin might be
+[46:17] abnormal before the glucose becomes abnormal
+[46:20] we have kidney disease becoming a problem before creatinine or BUN rises
+[46:26] the microalbuminuria is a standard test for diabetic patients
+[46:31] we typically want that done at least once a year
+[46:35] if it's positive you can always run that extra
+[46:38] like every six months or so um but again this is one of those markers
+[46:43] that's not going to change real rapidly
+[46:45] if they are going to reverse kidney disease it's a very long
+[46:49] slow drawn-out process so be patient and then
+[46:53] recheck it when it's appropriate the earlier we can intervene of course the
+[46:57] better off the patient is
+[47:02] um so our take-home messages regarding CKD
+[47:06] it's often a metabolic disease or a result of a metabolic disease so it's
+[47:09] definitely related insulin resistance and or weight gain is a major driver
+[47:14] of kidney damage the larger patients become
+[47:20] the more work the kidneys have to do to filter the blood
+[47:27] so keep that in mind the the more tissue we are storing
+[47:31] as adipose the more fluids created within the body and the
+[47:38] more kidneys have to work muscle building improves metabolic
+[47:44] health and improves weight loss which turns around
+[47:47] into better outcomes look up your meds um i just noticed i
+[47:52] something the other day epocrates is now charging
+[47:55] for you to use it more than a handful of times a week or a month or something
+[48:00] um so i'm not a huge fan of that anymore everybody's
+[48:03] starting to charge so um drugs.com is a website you can use rxlist.com is
+[48:09] another one you can look up side effects
+[48:11] and um kidney impacts on all of those websites treat the
+[48:17] metabolism to protect the kidneys if you have a patient with hypertension
+[48:23] or hypothyroid fix those problems and the kidneys will
+[48:27] respond they may not heal 100 but they'll get
+[48:30] better you'll get um kidney disease from stage three to
+[48:34] stage two or stage two to stage one um uh it will get better and so there's a
+[48:40] boatload of references here that y'all can take a look at
+[48:47] um so we're going to do sleep next i'm going to look and see if we got any
+[48:52] questions over here so yes ebv is one of our topics for let
+[48:58] me see when it is
+[49:01] we cover Lyme disease and
+[49:06] epsin bar and long-haul COVID at some point let me find
+[49:14] um hey jenny it's jacie i'm just asking because of course
+[49:20] i have a patient with active epsin bar that i just found
+[49:24] of course i've been getting all the crazies lately it's not crazy but
+[49:28] yeah she feels she feels terrible everything else is
+[49:31] normal on her though but she's got uh it's it just says high
+[49:36] so we know it's pretty high yeah no sore throat
+[49:41] no fever just profound profound like serious fatigue
+[49:47] yeah
+[49:50] all right so let me see here's our mentorship outline
+[49:55] so we cover Lyme and epsin bar
+[50:07] week 14 so it's about six weeks from tonight
+[50:11] so what labs did you did you have on her i don't have it pulled up but of course i
+[50:16] did the standards plus i added on you know the ferritin the thyroid um
+[50:21] and i did uh a Lyme test the Epstein bar a urinalysis
+[50:28] uh i can't i can't remember i everything that i ran though came back
+[50:34] normal with the exception of the Epstein bar virus
+[50:37] so let me let me see if i can try to think
+[50:44] i looked in full script and they do have a like i've some drops in there
+[50:47] there's a whole bunch of stuff you can do so let me pull up this and i'll show
+[50:51] you a couple of things okay um i just need a jumping off point
+[50:57] with her because right yeah i mean i think it's just gonna
+[51:01] take time oh i i did find though that she's
+[51:04] very malnourished she is horrible absolutely that's usually the biggest
+[51:08] problem um she uh and then uh today when i
+[51:12] talked to her because i called her to tell her about her results she did tell
+[51:15] me that she had been vegetarian for three years
+[51:18] oh well yeah that's another one that's been vegetarian i'm like man
+[51:22] because it's it's so out there yeah but she's i mean like incredibly
+[51:28] malnourished you want to catch some of these screenshots i'll pull this up for
+[51:32] you but we do cover this in about six weeks
+[51:34] if you just give me a jumping point that'd be great so it's a bunch of
+[51:38] information okay so um when we talk about
+[51:42] fc bar um or or line disease in today's
+[51:49] health care
+[51:54] environment
+[51:56] we also have to really consider that long-haul covet is probably part of the
+[52:01] problem oh so do you think a spread that spike
+[52:07] protein detox that's out there do you do you think that would work on the
+[52:11] proteins for fc bar too no no work on the long-haul covet spike
+[52:16] protein but i'm not it depends on which ones you're talking
+[52:19] about there are some that have some good i found one with this company called
+[52:24] the wellness company yeah i don't know about that one yeah
+[52:28] but um but it also said antivirals weren't recommended but you think
+[52:32] well it's because like it depends so fc bar is bacterial
+[52:39] so i mean viral by right line is bacterial
+[52:43] so it depends on which of the problems that you see
+[52:48] um remember that covet is viral but not always responsive to normal
+[52:55] antiviral things like fc bar is so there are a few things and so if you
+[53:00] want to grab a couple of these screenshots here's one right we're doing
+[53:03] it yep thank you here's another one okay
+[53:08] and the list is long the the thing is there's not a set
+[53:12] one that works you have to kind of take every patient's symptoms
+[53:19] and problems their labs and try to figure out the
+[53:23] top things you think will help the most and start there
+[53:28] and what i typically recommend is every eight to twelve weeks you rate
+[53:32] rotate treatments so have them use something for six or eight ten weeks
+[53:36] and then when they come back for their two or three month checkup
+[53:40] let's get some different products in and attack some other information markers
+[53:44] because there's not a set plan she's the one i mentioned to you last
+[53:48] week let me shot that that um was having all the skin problems
+[53:53] oh yeah yeah and um she was fine as far as like mass sale
+[53:57] goes her her crp is okay um esr uric acid all that stuff was
+[54:03] fine she's just so far all i've gotten back is
+[54:06] you know some suboptimal vitamin d did you do all of these tests
+[54:12] epp i did the nuclear antigen okay so that's only going to show you if
+[54:20] she had up same bar
+[54:25] yes i didn't do the igm yeah but it's so high though that whenever i did the
+[54:30] because it just says high it basically is there is either like a
+[54:34] recent infection or a reactivated or yeah so okay usually that is a recent
+[54:40] flare um or a recent illness so yeah but to be
+[54:47] able to best interpret whether or not this patient
+[54:51] is having up seen bar flaring now is to have all of these markers
+[54:56] yeah i see that i might i might send her for
+[55:00] lab core spike protein um for coven and see if that's what's
+[55:06] driving most of this well that's not a bad idea actually um
+[55:11] because she seems to think she got what she calls sea lice
+[55:15] i i don't know i don't know she's she's but this gives me a good jumping off
+[55:21] here's another on the screenshot okay oh these are the spike proteins right to
+[55:27] get tested for so west does not do a quantitative
+[55:32] number it's either going to be positive or negative
+[55:35] oh lab core has a spike number and so if it's in the thousands
+[55:40] it's long-haul covet it's not Epstein bar Epstein bar
+[55:44] yeah so if she might have Epstein bar flare i'm not saying she doesn't
+[55:48] why long-haul covet may be the why so she may have both problems and covet either
+[55:56] the vaccine or the illness can contribute so we'll
+[56:00] talk about that more yeah i'll ask her i didn't actually think
+[56:03] about the covet so i will ask her about that
+[56:06] so okay that gives me a jumping point so i appreciate it
+[56:09] yeah so Valentina the spike protein is the viral
+[56:16] component of covet 19 it is the covet 19 germ and so we'll talk about that more in
+[56:23] week 14 for sure um but we are going to
+[56:29] anybody else have questions before we move to sleep i know we're going to get
+[56:32] sleep in i don't know if we'll get fatty liver ant tonight
+[56:35] but anybody got questions before we talk about
+[56:41] sleep
+[56:46] okay we're going to share and go to sleep not really not really go to sleep but
+[56:57] talk about sleep that didn't come out right did it
+[57:01] all right um i saw somebody what is your take on prescribing
+[57:08] sglt two ones uh for i don't like them uh in fact at one clinic i worked at in
+[57:15] alaska the team voted to not prescribe them to
+[57:20] anyone whatsoever um because of the high risk of side
+[57:24] effects so i don't normally prescribe them i
+[57:27] think i have one diabetic that's on it and he was on it when he came to me
+[57:31] and so he's continued it because he doesn't change his diet
+[57:36] um but yes i don't normally prescribe those drugs all right so sleep
+[57:43] optimization um is not a hard topic to cover either
+[57:48] so i know we'll get through this one um let me find the beginning
+[57:56] because i goofed and didn't start it at the beginning okay here we go
+[58:00] why does sleep matter sleep matters for a whole bunch of reasons
+[58:05] um
+[58:08] making sure i got all the comments uh in the chat
+[58:15] um uh uh sleep matters because cortisol regulation is
+[58:20] closely tied to insulin resistance immune dysfunction cognition hormones weight
+[58:27] management cardiovascular health brain function like head to toe every
+[58:30] single thing your body has to get sleep and so i
+[58:34] am a huge advocate for apple watches fit bits
+[58:38] aura rings anything that you can use any of the little devices that will help you
+[58:44] understand sleep patterns better um uh so keep that in mind uh poor
+[58:51] sleep can mimic or be caused by hypothyroidism
+[58:56] hyperthyroidism anxiety depression attention deficit problems
+[59:02] chronic fatigue why are they chronically tired
+[59:05] because they're not sleeping it's just this vicious cycle like i told you all
+[59:10] about earlier and then of course um estrogen dominance or testosterone
+[59:15] imbalances both of those drive energy if those are high-ish then
+[59:20] bodies can't come down when it's time to go to bed
+[59:24] because that drives progesterone low when estrogen and testosterone are high
+[59:28] so we prescribe just uh progesterone those levels start to fall and
+[59:32] patients go to sleep and they they feel better
+[59:36] so this is a screen that is real helpful uh it kind of
+[59:40] puts most of your optimal lab values in one little
+[59:43] graphic for you um and helps uh with your learning
+[59:48] what values you're aiming for and so this can be a real helpful graphic for
+[59:52] y'all before you just tell a patient oh
+[59:56] you're having trouble sleeping take melatonin i don't ever use melatonin
+[60:01] um but don't just willy-nilly recommend something for sleep
+[60:07] sleep doesn't get disrupted just because
+[60:10] sleep is disrupted for various reasons um it's
+[60:14] important that we understand nutrition plays a huge role in
+[60:18] cortisol and circadian rhythm so does insulin management weight uh gain will
+[60:25] play a huge role in poor sleep because the body
+[60:29] habitus is now struggling with the excess weight
+[60:33] on that body positions are more uncomfortable
+[60:37] hips hurt knees hurt backs hurt um trying to find a comfortable position
+[60:44] requires often multiple pillows or supportive agents
+[60:48] to help patients get in a comfortable supported position
+[60:51] so they can actually rest um and so think about all of those things
+[60:56] when you're looking at reasons that sleep is
+[60:59] disruptive is the patient suffering pain if you've got a
+[61:04] perimenopausal menopausal woman and she tells you she's got hip pain every night
+[61:08] when she's sleeping she's estrogen problematic
+[61:11] right there like you've already found part of the problem
+[61:13] um estrogen deficits almost always contribute to sleep hip pain
+[61:19] it's typically referred to as luteal tendinopathy
+[61:22] very common in your perimenopausal low estrogen
+[61:25] level women menopausal women if your patients have had
+[61:29] surgical hysterectomies and have surgical menopause
+[61:34] they're almost always going to report hip pain at some point
+[61:38] um and so you want to address that and help them get better estrogen levels
+[61:43] alcohol use will drive a lot of problems of sleep even though it is a
+[61:48] depressant um and helps bring things down some
+[61:51] people will sometimes self-medicate sleep patterns with alcohol because it
+[61:56] does help people fall asleep the problem is it doesn't last and so
+[61:59] then they have tossing and turning all night long and they don't rest
+[62:03] so they wake up in the morning not well rested
+[62:07] and they don't feel well consider various questionnaires thyroid
+[62:10] questionnaires clinical profiles that assess a wide
+[62:14] variety of systems um use the stop bang to assess for
+[62:18] sleep apnea use your wearables look at hormone levels
+[62:22] cgm data will sometimes be really helpful if you can convince patients to
+[62:26] use one because if their glucose is dropping
+[62:29] in the middle of the night that will cause sleep disruptions as well
+[62:40] um
+[62:43] looking to see what over here um in the chat um
+[62:52] sleep hygiene i'm not going to go into this a lot but it really plays a huge
+[62:56] role um if people are on their phones watching
+[63:00] tv's playing on their computers until late at night the blue light from the
+[63:05] screens are going to trigger rods and
+[63:08] cones in the eyeball and be very
+[63:12] stimulating and so that will create a lot of
+[63:15] problems with bedtime and wake time and falling
+[63:18] asleep staying asleep um uh data shows us that the perfect
+[63:23] temperature for sleep is about 65 degrees
+[63:26] winter or summer and so keeping your rooms very cool at night allows for
+[63:31] people to cover up and to be cuddly under covers
+[63:35] um uh and comfortable um so keep that in mind some people can't
+[63:40] tolerate it quite that cool but the data does show 65 is your best
+[63:45] temperature for sleeping so if people talk about needing a fan ask
+[63:49] what their thermometer their thermostat is set on for their home air
+[63:53] conditioning or heating system because if it's too warm the body will not
+[63:58] settle down and will not sleep um uh think about all the things you're
+[64:03] eating drinking all day long address some of those things
+[64:07] reading listening to books listening to scripture
+[64:11] listening to poems um all those kinds of things can help
+[64:15] bring things down a little bit look for those overnight glucose swings when
+[64:20] you're using a cgm somewhere between two and four is often related to poor
+[64:25] glucose management it's also associated with poor progesterone
+[64:30] um and so if women start telling me they are waking every night at three a.m my
+[64:35] first thing is let's put you on some progesterone and see how
+[64:37] we do on that um and so i'll put them on micronized
+[64:41] progesterone 200 milligrams p ohs and we'll see how they do for a while
+[64:45] patients that are reporting night sweats palpitations vivid dreams
+[64:49] um hot flashes all that kind of stuff is definitely driven by hormone
+[64:53] imbalances and that needs to be addressed
+[64:56] have patients have a protein rich dinner not a high carb dinner patients
+[64:59] that have lots of refined carbohydrates or sugars at
+[65:03] supper time or snacking after supper time
+[65:07] drive energy that creates glucose spikes and then falls
+[65:12] and then when that glucose falls it triggers hunger so then people wake up
+[65:16] that two-hour glucose cycle is not healthy no matter how you're looking at
+[65:20] it and so helping patients understand that
+[65:23] that two-hour glucose cycle is driving some of their nighttime awakening and
+[65:28] poor sleep patterns will help them understand why it's
+[65:31] important for them to keep working to give that stuff up
+[65:38] this is um a chart i show a lot um in clinic i will screen share with
+[65:45] patients during appointments often to show this little chart about
+[65:48] cholesterol becoming hormones because this pathway is crucial for us as
+[65:52] providers to understand but patients need to understand this too
+[65:56] because if they think that they are needing testosterone or estrogen
+[66:02] then why is it because their cholesterol is out of balance
+[66:06] are they not making dha or pregnant alone are their adrenal glands
+[66:10] their ovaries their breast tissue not working like where the hormones
+[66:14] start is driving the end products so we don't always need to prescribe an
+[66:21] end product we may need to get the ingredients that make the end products
+[66:27] better off in that person's body progesterone will help gaba activity
+[66:33] within the brain remember that gaba is produced in the gut
+[66:39] for the most part um and so if they have gut dysfunction
+[66:43] they're not going to sleep very well um so think about that
+[66:46] sometimes you can put people on gaba itself
+[66:50] in addition to some progesterone while you're working on better gut health and
+[66:54] stuff i also like ltheanine to help with this
+[66:57] process and so gaba and ltheanine are two great
+[67:01] supplements we'll talk about shortly but gaba and progesterone both help with
+[67:06] relaxation calming things down they don't really make most people real
+[67:10] drowsy or real sleepy they just kind of take things down a notch and
+[67:15] get an awe kind of feeling i can rest now um kind of thing um so think about
+[67:22] that um uh with any of your patients that are
+[67:25] especially women that are reporting insomnia or anxiety pms symptoms
+[67:29] usually those are driven by estrogen dominance
+[67:35] um like i said i typically prescribe micronized progesterone 100 to 200
+[67:40] milligrams pohs i typically prescribe the 100s
+[67:44] and i write the sig two tablets two caps pohs
+[67:49] because some patients won't need the 200 that will make them really drowsy
+[67:53] and the 100 works perfect um some women like to cycle they'll take 100
+[67:58] a couple weeks a month and 200 a couple weeks a month um
+[68:01] some people like to have that option to take more or less
+[68:06] um every now and then i tell patients will just take 300 for this week
+[68:09] every night instead of your 200 um so uh varying that ability helps patients
+[68:16] feel more in control um and and gives them that better uh
+[68:20] medical autonomy uh progesterone helps improve sleep
+[68:24] quality not just the fact that it helps them fall asleep but they usually get
+[68:27] better rim sleep better um deep sleep it helps with improving
+[68:32] mood and uh remember that estrogen and
+[68:36] testosterone are both energy drivers so if they are overly
+[68:41] medicated or overly dosed from their natural body
+[68:46] with estrogen or testosterone that mild roid rage begins to develop and so
+[68:52] that drives a lot of that irritability the mood issues
+[68:57] um uh women will snap at the least little thing
+[69:00] often and then realize i don't know why i did that like
+[69:03] i'm not angry but why am i so temperamental like
+[69:07] patients start to realize that sometimes husbands or children spouses
+[69:12] um family members will call them on it and they'll say why are you so irritable
+[69:16] this week um you know jokingly we women have always
+[69:19] said is this your pms week like that's how we uh
+[69:23] chalk it up to life to life and situations
+[69:26] um so think about that but progesterone often
+[69:30] tucks that down a notch so women feel better
+[69:33] and then of course progesterone does help with some of the vasomotor symptoms
+[69:37] it usually doesn't fix them all but it usually gives you a good decent
+[69:41] start to improving that
+[69:44] um magnesium glycinate or l3 and 8 are both
+[69:49] two great forms of magnesium that i like
+[69:52] glycinate specifically supports gaba signaling
+[69:56] and muscle relaxation l3 and 8 typically uh support some gaba signaling and much
+[70:03] nervous system regulation um so typical dose is somewhere between
+[70:07] two to four hundred milligrams bedtime you can take this in the morning
+[70:12] it doesn't normally make people real sleepy but it does keep
+[70:15] the body relaxed and less stressed and so patients that are having
+[70:19] really high stress work days stressful family days things going on in
+[70:24] life um oftentimes can use daytime
+[70:28] magnesium as well as nighttime some patients will use glycinate in the
+[70:32] morning three and eight at night or vice versa
+[70:34] there's not a real set way that you have to use mag
+[70:37] but i encourage lots of patients to use magnesium
+[70:44] um
+[70:53] glycine i don't oops i don't use a lot um it is in some of the combo products that
+[70:58] i recommend to my patients for rest and
+[71:03] relaxation and sleep but glycine has some data behind it
+[71:08] that does help improve your sleep depth and quality helps your body
+[71:12] temperature regulate better it also helps support collagen synthesis
+[71:16] um the typical dose is two or three grams pohs
+[71:21] i don't use it specifically but like i said it is in some of the
+[71:24] sleep aids and relaxation products that i recommend
+[71:28] i love ltheanine if i'm going to have a patient
+[71:32] that is using sfris and wants to wean off
+[71:36] of them gaba and ltheanine are my two favorite things to put patients on
+[71:41] because it really does help balance brain chemistry out while we
+[71:44] are trying to reduce and wean off of SSRIs or SNRIs
+[71:52] but ltheanine is great for relaxation without sedation it
+[71:56] helps with stress response it's a great adaptogen although it's not really
+[72:00] classified as one it works to calm the adrenal glands
+[72:03] down really well and stabilize cortisol typically we dose
+[72:08] it 100 to 400 milligrams before bed so you could start with a 100 milligram
+[72:13] dose and if the patients aren't getting a good
+[72:15] response you can double it triple it um or whatever till it gets till we get it
+[72:19] fixed i mentioned earlier i don't recommend
+[72:23] melatonin much too many people have vivid
+[72:27] nightmares vivid dreams uh lots of side effects come with melatonin and truly
+[72:34] none of the studies actually show it really helps us sleep
+[72:38] it does provide some circadian rhythm support
+[72:41] it's helpful for people with shift work and jet lag but that's most of your
+[72:45] that's where most of the studies were done
+[72:48] typically the dose is 0.3 to 3 milligrams but
+[72:51] you can dose up to about 20 milligrams uh
+[72:56] qd any sleep aid that i recommend except for gaba and ltheanine
+[73:02] i typically encourage people to only use it five or six nights in a row
+[73:06] and then be off of it or use something else for one or two nights
+[73:11] um so that we don't build tolerances it's really easy to build tolerances to
+[73:15] sleep aids um but lots of people don't do well
+[73:19] with melatonin of course melatonin high doses of melatonin were
+[73:22] recommended during covid and lots of people had terrible reactions
+[73:26] to that i was one of them i felt i i woke up
+[73:31] feeling satan standing in the room touching my arm and i'm like i'm not
+[73:35] taking this anymore so uh be careful with melatonin not a
+[73:38] huge fan so this is the chart i was mentioning
+[73:42] earlier that i had chat gpt make for me whoops
+[73:46] um uh it's it's just a cycle of poor sleep you have sleep one night
+[73:53] because you're stressed and then whatever caused the stress is now
+[73:59] driving a little more stress and so now you're sleeping less
+[74:03] and then you get more stressed and then you have glucose that goes up and then
+[74:08] it falls really bad and then it goes up and then it falls really bad
+[74:11] like all of these are just kind of round robins and so you have to find
+[74:17] root causes you have to start addressing all of these things
+[74:20] at once um it it's hard sometimes when we see all these labs and we tell
+[74:26] patients so you have insulin resistance and estrogen dominance and
+[74:29] hypothyroidism and low iron and high triglycerides
+[74:33] you have all these things and and they're just like oh my god
+[74:37] like what do i do the thing is we're using the same
+[74:40] treatment plan to fix all of these things
+[74:43] so if patients will grasp that we're not doing
+[74:47] one treatment for insulin resistance and something completely different for their
+[74:50] hypothyroidism the medicines are different the
+[74:53] supplements are different but they may not need all the supplements
+[74:56] that we list or teach them about they get to pick
+[75:00] many of my supplement recommendations to patients are eight or nine
+[75:05] ten twelve supplements long that doesn't mean i expect them to buy
+[75:09] all of them i expect them to read their treatment
+[75:12] summary and prioritize two or three things they want to work on
+[75:16] and get better and pick the appropriate supplements to go
+[75:19] with iron c and d are always
+[75:24] the best things you can optimize because nothing else is going to get better if
+[75:29] they're out of balance so always prioritize iron over
+[75:33] everything iron drives your heart muscle and so if
+[75:37] iron gets out of ferritin especially gets out of balance
+[75:40] they are going to struggle with every single thing
+[75:43] and so it's crucial that we understand iron d and c are the
+[75:46] top three things but everything else is sort of dependent on what they want to
+[75:50] do but we got to stop this this poor sleep
+[75:53] pattern
+[75:57] so what do we do well optimize sleep hygiene find one or two things the
+[76:00] patient can do with sleep hygiene that will help them
+[76:04] work better at falling asleep maybe they need
+[76:07] blue light walkers they have a screen setting
+[76:10] most phones have a screen setting that can change so it
+[76:14] looks more yellow in the evening unless blue
+[76:18] turn screens off put them far away from the bed
+[76:21] far away from the tv take a screen freedom
+[76:24] hour or two like get off the screens don't watch the tv
+[76:29] listen to a book read a book do something different
+[76:32] that tells your body it's time to calm down
+[76:35] turn the lights down low use lights or candles rather than big
+[76:40] overhead bright lights that you see behind me and my zealand
+[76:44] um get sugar stabilized get that glucose
+[76:48] under control patients that have worked shift work in the past
+[76:53] have a real hard time with circadian rhythm
+[76:57] it can be a booger to get these people falling back to sleep
+[77:01] if they're still working nights it's really really hard
+[77:04] um but help them understand that when we tell them to take something in the
+[77:07] morning that's not the calendar clock that we're talking about their
+[77:12] morning is whenever they wake up to get ready to go to work
+[77:15] so if it's at three o'clock in the afternoon that is their morning
+[77:18] if they are waking at ten o'clock to go to a midnight shift
+[77:21] ten o'clock is there more ten pm is their morning so make sure that
+[77:25] when you're prescribing thyroid medicine especially
+[77:28] they're taking their lio in their early part of the day
+[77:33] not on the schedule by normal regular rest of the world okay
+[77:40] they need their thyroid medicine to give them energy for
+[77:43] their daytime so sometimes we get in the habits of saying the wrong words
+[77:48] but it's important that we help patients understand
+[77:52] and most of the time they're pretty good at saying so do i need to take this in
+[77:55] the morning or when i get up to go to work
+[77:57] and you have to clarify oh i forgot you're a shift worker
+[78:00] so you need to take this medicine for your daytime
+[78:05] you want to start it whenever you get up in the morning or in the afternoon
+[78:08] whatever time of day that is that's your morning
+[78:10] and so you take it different than what i tell everybody else okay
+[78:14] um get their stress level down use whatever means necessary
+[78:18] soaking in a hot epsom salt tub at night for two weeks straight every
+[78:23] single night does wonders at reducing cortisol
+[78:27] challenge you to try it it'll work consider progesterone it's one of the
+[78:30] first things i prescribe most of my women
+[78:33] and then whatever targeted supplementation you want to use whatever things you like
+[78:37] the best
+[78:40] whoops inositol is a great anti-stress agent
+[78:44] we used it for stress and sleep long before we knew it was good for insulin
+[78:48] resistance um and hormone management so
+[78:52] definitely consider inositol ashwagandha is a great rest agent
+[78:58] adaptogen calming agent um i have a lot of patients
+[79:02] taking ashwagandha morning and night um and so those can be really helpful
+[79:07] taurine or magnesium taurate um can be used magnesium taurate will
+[79:13] separate into magnesium and taurine if you
+[79:16] are using that um so optimize your labs whoops i keep
+[79:21] pumping the button optimize your labs uh focus on
+[79:25] hormones and inflammation getting nutrition balanced
+[79:28] and patients will feel better and then lots of references for you
+[79:35] all right so we whizz through that questions
+[79:38] comments how are you checking cortisol and what's optimal number i normally do
+[79:42] blood um you can do saliva sometimes i'll do
+[79:47] the dutch cortisol test on a few folks i
+[79:50] don't do very many but a morning cortisol serum morning cortisol should be
+[79:57] around 15 to 18 that's the upper part of the
+[80:01] range but not all the way at the tippy top
+[80:06] um and the cortisol pattern if you're doing saliva
+[80:12] not a fan of but if you're doing it or you're doing dutch it should be highest
+[80:16] in the morning and then fall off the rest of the day
+[80:20] because when we wake we are suddenly stimulated to get up and get
+[80:25] moving and we're we're hyper-simulated literally
+[80:28] and so um that that can be helpful yes ashwagandha isn't recommended in
+[80:36] pregnancy or nursing um my nacital is okay because it's a B
+[80:39] vitamin it's just one of the B vitamins um so
+[80:43] definitely consider using that if you have
+[80:47] patients pregnant berberine is often used in place of metformin
+[80:52] and are pregnant or lactating women even though there's not a lot of data
+[80:57] but they work in the same pathways but berberine works just like metformin
+[81:01] and metformin is often used in pregnancy or
+[81:04] lactating women so i do have a few people that will use it
+[81:11] um i probably would use lower doses of inositol or berberine than i
+[81:16] normally use just because we don't have a ton of data
+[81:20] about pregnancy or lactating women
+[81:28] all right i don't think we're going to have enough time because
+[81:31] fatty labor is a little bit longer there's a lot more to talk about
+[81:35] um with fatty labor than there is with sleep
+[81:38] or kidney disease so we'll save it and add it to another session here in a
+[81:44] few weeks um but any questions y'all have anything
+[81:48] else i can help y'all i have a question about progesterone um
+[81:53] i've heard some people saying use it vaginally or rectally
+[81:56] to bypass the liver so you're not so groggy the next day like some people if
+[82:00] they take like 200 milligrams they might be groggy in the morning
+[82:03] do your thoughts on that yeah some people can um
+[82:07] it's just not very well systemically absorbed anything that's
+[82:10] vaginally inserted is not systemically used um
+[82:16] so if you're using progesterone for sleep inserting it vaginally or rectally is
+[82:21] not going to help very much with sleep um same with estradiol if you're using
+[82:26] estrogen creams to help with vaginal dryness that's
+[82:29] about the only benefit you're going to get
+[82:31] so keep in keep that in mind if they're having trouble being groggy in
+[82:35] the morning then i typically reduce the dose
+[82:38] um i have a few people using a 50 milligram compounded progesterone
+[82:42] instead of the 100 to 200 but if they start on 200 and they can't tolerate it
+[82:46] then we try first off i'm going to 100s and if they still
+[82:51] don't tolerate that number one i'm going to say hmm
+[82:54] maybe we have a real cortisol adrenal gland problem
+[82:57] uh and so then i'm probably going to probably going to go all the way back
+[83:02] to pregnant alone because that's the real precursor follow
+[83:06] the chart back um and maybe if they really want the
+[83:11] um progesterone for various benefits or they need it for their estrogen
+[83:17] protection um then i might send a 50 milligram
+[83:21] or even 30 milligram compounded you can have them take the progesterone
+[83:27] earlier many patients will wait till like 11 o'clock at night and take it
+[83:31] well no no no they're waking up groggy at six
+[83:34] o'clock in the morning so sometimes it's more of a common sense
+[83:38] kind of thing like that that they've not thought about they didn't realize
+[83:42] we said take it at bedtime and they get in bed at 11 well what we really mean
+[83:45] when we say bedtime dosing is that we want it working when they go to bed
+[83:52] so i often will clarify that with patients and have them take it at
+[83:55] supper so like five or six o'clock so that by
+[83:58] the time eight or nine o'clock rolls around they're starting to feel relaxed
+[84:02] mellow and maybe i'll go to bed now and i'll get a good night's rest
+[84:08] and do you see that too low of a dose can cause anxiety in some patients instead
+[84:11] of helping their anxiety i have not seen that if they're having
+[84:14] anxiety on progesterone they got a cortisol problem
+[84:17] it's time to back up and regroup
+[84:21] yeah thank you yeah uh and that does happen
+[84:26] it's not real common but it's also not real rare
+[84:29] it does happen
+[84:35] any other questions
+[84:49] so next week is week nine it's one of our more fun
+[84:54] sessions we're going to talk about methylene blue
+[84:57] ivermectin and low dose naltrexone um so three real popular
+[85:05] um treatments um for patients um so
+[85:13] kidella what you want to know i've commented the important stuff
+[85:18] she's asking about her case she posted
+[85:28] so
+[85:42] i didn't have anything in particular but i just i went back in
+[85:46] and responded to some of your questions that you were asking okay
+[85:53] so for the one lady with um that i just wrote case review
+[85:58] okay the 54 year old um that's on the topical estradiol you're asking how
+[86:05] because the estrogen level is low like how she was taking it
+[86:09] okay she's taking it very vaginally right now
+[86:13] and she's doing a full two milligrams daily
+[86:16] so i was already planning on adjusting her hormones but i think my main
+[86:22] concern was the thyroid and well i guess
+[86:26] probably the increasing the estrogen will also help with the joint pain too so
+[86:30] maybe it's not all thyroid related so which patient is this which one
+[86:37] um the 54 year old 54 year old i'm trying to get to the labs here
+[86:41] yep let's see so um yeah the ferritin is 18
+[86:48] you don't have any other focus but that ferritin that's it
+[86:52] that is absolutely that's the 70 year old so that's the ferritin of 18
+[87:00] oh okay wait let me find it i thought that was the 54 year old
+[87:04] my i scroll too far my bad i see a 30 year old
+[87:11] there's a 54 year old
+[87:15] after the 30 year old
+[87:30] oh here it is i found it okay so um
+[87:37] so the free t3 is 7.5
+[87:44] so she took these labs after she took her thyroid medicine
+[87:49] yeah then they're pretty invalidated they're not useful
+[87:54] so i you can't really tell her what she needs to do to her medicine
+[87:58] her iron and ferritin are decent um uh if she's still fatigued
+[88:03] then she i mean she probably needs some more lio but we don't know what it is
+[88:08] without the medicine on board so it's too hard to
+[88:11] it's pretty unsafe to tell somebody with a 7.5 free t3 to take more lio
+[88:16] um but her crp is way high her uric acid is a little high
+[88:20] homocysteine is high uh she's significantly inflamed
+[88:24] um her glucose is high her insulin is high
+[88:28] so lots of stuff she can work on to help fix the problem
+[88:31] herself um but uh yeah she needs to be reminded very carefully to
+[88:39] make sure she's not taking medicine in the morning of
+[88:42] the lab draw because now her number is skewed high
+[88:45] and anyone else that sees these results beside you was going to freak out
+[88:49] because she's hyper thyroid now no she's not she just took her medicine
+[88:55] um but yeah her estradiol level is real low her
+[89:00] butter testosterone is not terrible compared to estradiol so one of the
+[89:03] things that we'll talk about in our hormone
+[89:05] session is relationships between estrogens and
+[89:11] testosterone ideally we want those numbers to be pretty
+[89:14] close so she has a decent hormone balance
+[89:18] she's just low um so what what let's see where is her
+[89:26] where is her thing
+[89:30] um you said she had some estrogen somewhere
+[89:36] she's yeah she's taking two oh she's doing
+[89:41] it magically so anything yeah um that's never going to help joint
+[89:46] pain it's not systemically absorbed no data
+[89:50] shows that it is
+[89:53] so she's kind of topical either a patch or a cream
+[90:04] now so when what is the best place that you found
+[90:08] for them to apply the topical cream like in our thigh area
+[90:12] any fatty spot um you can do the flab of the arm you can do um anywhere
+[90:20] on the shoulder the upper shoulder area where you can
+[90:23] pinch up flabby skin anywhere along the back that's flabby the
+[90:28] side uh belly um the front belly uh all the way around
+[90:33] their thighs i had a chart let me see if i can bond it
+[90:37] see if i can put it in the chat maybe for y'all
+[90:40] let me get over here i put pictures in the chat
+[90:46] maybe
+[90:53] file here we go oh it won't let me i'll put it in um in your
+[91:01] thing let me um get back over here too
+[91:06] let me get back over to the community and i'll just put it for everybody to see
+[91:13] it so they won't have to hunt through your
+[91:15] post um
+[91:20] hrt application so i made a graphic i took somebody's
+[91:25] chart and created a little um monday tuesday wednesday friday kind
+[91:32] of chart i think i can find it here um so that every
+[91:38] monday you put it in the same spot every tuesday you put in the same spot
+[91:42] but not every day you are rotating the sites around
+[91:45] just like with insulin injections you don't want to keep using the same spots
+[91:49] over and over and over you want to rotate those around
+[92:00] i'm gonna have to email it to myself because i don't see it here
+[92:05] but i will do that for y'all
+[92:08] and my other case the 70 year old with the ferritin of 18
+[92:16] she's the one that we spoke about last week
+[92:19] that has the recurrent diverticulitis flare she's on like three for the for the
+[92:25] year already yeah and she just can't move her bowels
+[92:28] she's super constipated she called me as i was waiting for her labs again she
+[92:33] called me yesterday saying that you know her primary
+[92:36] care did a ct and she's all full in the in the colon so she was
+[92:41] taking laxatives to try to get something to go because she was feeling
+[92:45] terrible well she used it with her laxative
+[92:48] so well no she was using merilac so i advised her
+[92:52] again absolutely that that'll take two weeks or
+[92:56] and i did tell her to take a dose of the milk of mag but i am
+[93:00] a little bit concerned because she is older she's 70 you know so
+[93:05] yeah so for older folks senna makes a great
+[93:08] laxative it's not kidney toxic at all um they just have to take really high
+[93:13] doses of it you could have her drink a huge pot of
+[93:17] really are a big cup of coffee in the morning with some butter and two
+[93:21] tablespoons of coconut oil blended up frost up in the coffee makes a great
+[93:26] natural laxative that's not toxic at all um or mix up a really
+[93:32] strong eight ounces of water with a big old
+[93:35] tablespoon or two of salt if she can stomach it she will poop
+[93:40] um or um take five or six thousand milligrams of vitamin c
+[93:45] every couple hours till she goes like all of those are great natural
+[93:49] laxatives and will make her go for sure okay so then um my plan is to
+[93:56] get her moving more regularly before starting the iron
+[94:00] because i'm concerned that is slowly without even should only take one or two
+[94:04] days we're not talking weeks on the end like
+[94:07] she needs a thorough complete emptying asap that's not something you work on
+[94:12] weeks and days um she needs to empty today or tomorrow
+[94:17] like that's fast so yeah you don't want her
+[94:20] doing vitamin c for like a month till you start iron iron put
+[94:24] that iron of that ferritin of 18 is really putting her cardiac muscle at
+[94:28] risk and at her age she could easily have a
+[94:32] heart attack or a stroke just because there's not enough
+[94:35] box of donation
+[94:39] so that's absolute priority yeah
+[94:43] make sense yes okay thank you you're welcome
+[94:49] all right i think i found the picture and i can put it in here for y'all
+[94:58] um
+[95:09] all right so here's the picture and
+[95:16] i'm gonna save it
+[95:20] and then i can post it
+[95:24] all right so now go back to
+[95:34] community
+[95:38] and
+[95:43] let's see if we find it this time
+[95:48] yep here we go yeah oh shoot it's done
+[95:53] well that kind of file let me do this again
+[95:57] hodia can be rather persnickety as to what it wants where
+[96:05] all right so that's not a work doing it this way
+[96:11] all right so the hrt places is what um i'm talking about with the graphic
+[96:19] let me see if i can pull it up and share my screen so you can actually see
+[96:23] it um
+[96:27] real quick before we go share
+[96:33] um here we go so this is what it looks like
+[96:38] so it's just uh uh like a wound care kind of picture
+[96:44] um and so the back of the arm or the front of the arm could be monday
+[96:49] on the right the left front arm could be tuesday
+[96:52] weansy is the front of the thigh thirsty is the front of the other thigh
+[96:57] friday is upper butt one side or the other and then
+[97:01] saturday and sunday you can do inner thighs
+[97:05] or rotate it around however you like uh inner thighs could be monday tuesday
+[97:09] weansy thirsty friday saturday sunday like you can do it however it works for
+[97:13] you or your patients
+[97:17] um let's see a couple comments
+[97:25] yeah the major contraindications with progesterone or side effects are peanut
+[97:29] allergies because commercially prepared uh
+[97:32] micronized progesterone is prepared with peanut oil
+[97:35] so if they have a known peanut allergy then
+[97:38] you want to use a compounded version for sure
+[97:42] um breast tenderness is one of the most common side effects because it's
+[97:46] starts rocking the hormone boat um what happens when we put people on
+[97:51] birth control pills they get bread tenderness
+[97:54] um it rocks the hormone boat and so um
+[97:59] just be aware help people find the right dose that's going to work for them
+[98:03] without the side effects usually they can drop the dose down or skip it a day
+[98:06] or two and go back on it and they're fine it doesn't cause a
+[98:09] problem um
+[98:13] yeah so you don't need a dea to write progesterone or estrogen you only need to
+[98:17] dea dea for testosterone
+[98:23] yeah don't be afraid don't be afraid like people feel better when we address
+[98:28] things kidella you got your hand up
+[98:34] might be it might be a silly question but no silly with the
+[98:37] over the topical estradiol is it the same kind of precautions
+[98:41] like you would with the topical testosterone with
+[98:44] transference to children and not really um and it
+[98:50] testosterone is a bigger deal for sure because
+[98:54] if especially if you have a female child you don't want to transfer
+[98:58] much of that to the female child but um honestly you're not going to
+[99:03] transfer much of that most people cover the places with clothes
+[99:07] and so not many people run around nude holding their children so uh i think
+[99:13] there's more of a big deal made of it than really needs to be in most cases
+[99:19] um uh but one of the things i do discourage
+[99:23] is putting testosterone on your hands like most of your applicators that come
+[99:31] let me grab one i'll show y'all if you don't know
+[99:38] uh
+[99:43] most of your applicators are going to come in a device like this
+[99:48] and so it is a little clicker thing and so there's a you take the lid off
+[99:56] comes with the lid on it we pop this little lid off
+[99:59] and there's a little bitty dot right there and so
+[100:03] um i'm going to put that little bit of it
+[100:06] on my flabby arm and so that's all that's there
+[100:10] is almost nothing and so if you click it i don't know if you can
+[100:17] it spits out so that was three clicks so that's a dose
+[100:20] one to two clicks is typical if you want to
+[100:24] tell your patient to increase then they might use three clicks one week and
+[100:28] then four clicks one week i'm just going to rub it on my belly so i
+[100:31] don't waste it but i don't normally dose it
+[100:34] this time of day but the clicks are what guide
+[100:38] how much of it they use okay
+[100:44] does that help
+[100:51] yes yeah because sometimes it trying to imagine that in your mind is like i don't
+[100:56] know what they talk about when they mean clicks
+[100:58] i didn't know um so uh but if you're using a patch
+[101:04] like it's the same principle i have a dot phrase that i use
+[101:09] with my patients if i put them on a patch and i tell them you're in the
+[101:13] visit yes i know the label on the patch says
+[101:15] don't cut it into pieces use it whole but
+[101:20] if i think somebody is going to need more than the lowest dose we're starting
+[101:24] on i'm going to teach them to cut their patch
+[101:28] into halves or thirds or quarters and add that
+[101:32] over the next few weeks um so i typically have them use one dose for at
+[101:36] least two weeks before they bump it up and all this is written out in my dot
+[101:40] phrase so that the patients know what to do um and i tell them we're
+[101:46] not going to use it cut forever we're just going to find a
+[101:49] dose that you think works better and then i'm going to increase your
+[101:52] concentration you can tell them to do the clicks the
+[101:55] same way or increase the patches that way and so
+[101:59] once you maybe they'll get up to two full patches
+[102:02] and they say i think this is it i found my sweet spot
+[102:06] then you can write them for a 0.05 instead of the 0.25
+[102:11] so then you just find the right concentration
+[102:14] but it's not hard it's not anything to be afraid of or to worry about
+[102:19] like people we need our hormones we were made for hormone function
+[102:30] all right any other questions comments i think i've answered all the
+[102:35] questions in the chat but if i'm missing you know if you miss it or not i have to
+[102:40] apologize i know you see like progesterone for
+[102:42] the women what what is your favorite go-to first
+[102:46] favorite one or two go-tos for men pregnant alone
+[102:50] okay uh go back to the precursor pregnant alone and bhea
+[102:54] i most often put me in on dhe dhe plus it's a specific product i think it's
+[103:00] 25 dhe and 25 pregnant alone um but it gives them the precursors to
+[103:06] all of that yes the patches are in short supply
+[103:11] especially the changing twice a week but the weekly ones are
+[103:15] plenty so just put them on the weekly for a while and when
+[103:18] when they get some back it's because what happened a yearish ago
+[103:23] this report came out that said hormone therapy is great so guess what
+[103:27] everybody's getting hormone therapy now which is a great thing but supplies got
+[103:31] to catch up to the prescriptions so everybody's getting
+[103:35] twice a week patches and now they're running out
+[103:38] so just prescribe on the weekly patch for a while or bump them up or down
+[103:42] based on whatever they're using um and have them keep in touch with
+[103:46] their pharmacy so when they get some more in
+[103:49] they can get the prescription correctly filled later
+[103:53] but yeah it it's it's common everywhere i see patients remember in multiple
+[103:58] states florida washington idaho iowa everywhere it's the same
+[104:05] problem everywhere so yeah just be creative and think
+[104:09] outside the box or switch them to a compounded cream
+[104:13] like it's hot tub and pool season in most places
+[104:16] so water babies have a real hard time keeping their patches on anyway
+[104:19] switch them to a cream for a while yeah lots of options all right guys we
+[104:26] are over an hour and a half in so good job
+[104:30] we got two of our three in we will work on fatty labor
+[104:33] in one of our upcoming sessions as we work through we'll add it wherever it
+[104:36] fits but i promise we'll take care of it the
+[104:39] powerpoint is posted i'm not going to take it down
+[104:42] it's already there so if you have somebody with fatty liver it's already
+[104:45] there but again most of the treatments for all
+[104:49] of the things we're talking about are still your grain-free low inflammation
+[104:53] aip kinds of eating patterns and supporting with supplements to fix
+[104:59] and optimize all these labs so we still want to focus on iron
+[105:02] focus on cortisol focus on glucose insulin thyroid all of those things to
+[105:09] help patients get better all right next week we'll talk about
+[105:13] methylene blue it's one of my favorite things that we added for my husband's
+[105:18] heart condition and a lot of athletes like it too so
+[105:23] we'll talk about methylene blue and ivermectin
+[105:26] and low dose naltrexone big time have a great week y'all bye

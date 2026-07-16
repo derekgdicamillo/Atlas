@@ -1,0 +1,3364 @@
+# Transcript: 04-hypothyroid-mthfra
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\VIDEO discussion regarding MTHFR and hypothyroidism-\recording_1.mp4
+# Duration: 123.7 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:00] Good afternoon.
+[00:07] Hi, Jenny.
+[00:15] How are you?
+[00:26] I'm good. How are you?
+[00:32] Good.
+[00:35] Tonight is one of our most favorite topics.
+[00:41] Although it's also often called the most complex.
+[00:46] We're going to talk about that thyroid thing.
+[00:49] There is a really good case that Kidela posted yesterday or before,
+[00:57] a couple of days ago.
+[00:59] So when we get through with our thyroid discussion,
+[01:03] we're going to go look at that case and see what kinds of things we see
+[01:07] after we have our little session.
+[01:11] Because it's going to look different then than it does now.
+[01:15] So feel free to go check that case out.
+[01:18] Take a look at that.
+[01:20] And we will talk about it some more in just a few.
+[01:24] There is a PowerPoint for tonight.
+[01:26] I hope I opened the right one.
+[01:29] Like I was looking everywhere.
+[01:31] I thought I had it saved in our folder,
+[01:33] but I had to go look elsewhere.
+[01:35] So I hope the one I have is the same one I posted for y'all.
+[01:39] So we'll see here shortly.
+[01:45] Anybody have questions while we're waiting for everybody to get logged in?
+[01:49] It's just now five.
+[01:51] So if y'all got a question or something,
+[01:54] you can unmute and chime away.
+[01:59] I have a question about progesterone.
+[02:02] I had people just kind of an influx of people wanting to optimize fertility.
+[02:09] So we kind of get to this point where they're like, okay,
+[02:11] I've either had a miscarriage.
+[02:13] I'm really nervous to get pregnant again.
+[02:15] What kind of progesterone should we put them on?
+[02:17] And then they're nervous that once I put them on progesterone,
+[02:20] if they get pregnant, who continues to prescribe it?
+[02:24] Because like I just had one in yesterday and she said she went to her OB
+[02:26] and her OB was like, get off your progesterone.
+[02:28] You don't need it.
+[02:29] And she didn't want to.
+[02:30] So she's like, can you step in and keep me on it?
+[02:33] Would that just be oral,
+[02:34] micronized or switch them to that point or what?
+[02:37] Yeah.
+[02:38] So most of your fertility,
+[02:42] OBs will keep them on their progesterone and may add vaginal progesterone.
+[02:48] And that's okay.
+[02:52] Most of them will tell them to take their progesterone up to about 12,
+[02:57] 14 weeks, sometimes a little longer.
+[03:00] But typically when I prescribe progesterone,
+[03:03] I prescribe 90 days with three refills.
+[03:05] I don't want to have to touch progesterone for a year.
+[03:09] Makes things really simple.
+[03:11] So then they can just stay on it.
+[03:12] And so like this, uh, girls on two, not girls,
+[03:15] but female is on 200 just the second half of her cycle.
+[03:18] Cause that's how she likes it.
+[03:20] And also there's this theory that she keeps,
+[03:22] we really shouldn't have him on straight progesterone or it's going to
+[03:24] be hard for them to ovulate.
+[03:25] I mean, if they're taking it every day,
+[03:27] that should not be how they're using it.
+[03:29] No.
+[03:30] So, uh, the best, uh,
+[03:33] data we have regarding progesterone for fertility is daily, not cycling.
+[03:38] Because what happens when you cycle it, um,
+[03:42] most of the time these patients that are struggling with fertility have
+[03:46] a really high estrogen levels most of the time.
+[03:49] Um, and so while they're on progesterone,
+[03:53] progesterone is suppressing that estrogen a little bit.
+[03:56] And then you stop that for two weeks.
+[03:58] And then they don't get pregnant with it because of the.
+[04:04] The estrogen clines, they proliferate this big fat endometrium lining.
+[04:09] But then they don't get pregnant because there's too much
+[04:13] estrogen lining. So you think like it really imbalances the whole,
+[04:17] uh, reproductive system.
+[04:19] So I typically have my fertility patients and my menopausal
+[04:23] patients.
+[04:26] The only time we cycle it is when they're having normal healthy cycles and they're not trying
+[04:32] to get pregnant.
+[04:33] Yeah.
+[04:34] Because it doesn't matter if they get pregnant.
+[04:37] Okay.
+[04:38] What do you mix that with Jenny?
+[04:41] What do you mean?
+[04:45] Not not the peanut.
+[04:48] I prescribe commercial progesterone from CVS, Walmart, Walgreens, whatever.
+[04:52] So yes, it is with peanut oil.
+[04:54] Now, if somebody has a peanut allergy, then it has to be compounded and you can mix it
+[04:59] with whatever the compound pharmacy prefers.
+[05:01] I don't care.
+[05:05] The other thing that has come up with that is a handful of my patients are presenting
+[05:10] more PMDD than just simple PMS, like really extreme.
+[05:15] And I have heard and read that the micronized progesterone orally can worsen those symptoms.
+[05:21] And if so, then maybe other firms are better either like sustained release or trochees.
+[05:25] Do you know anything like try compounding to just try a different, you know, like I probably
+[05:32] have one or two patients on compounded progesterone out of the hundreds that I see.
+[05:39] I really don't compound it.
+[05:43] I don't see much of a need to do that for most people unless they do have a peanut
+[05:48] allergy.
+[05:50] You certainly can, but I don't have a like whatever patients want, however they want to
+[05:56] correct their imbalance is perfectly fine.
+[06:02] Our job is to help them navigate, to educate and teach and help them understand these changes
+[06:09] and optimizations.
+[06:13] Most of the time I see progesterone help with PMDD and PMS.
+[06:18] The problem is estrogen dominance is the general major contributor to PMS and PMDD.
+[06:27] So progesterone then logically will lower that and reduce those symptoms.
+[06:33] Occasionally you'll have a patient with PMDD or PMS that responds adversely, reversely.
+[06:42] You give them progesterone and they have anxiety instead of calm.
+[06:47] Those people need a cortisol workup.
+[06:49] You need to address their stress, their sleep.
+[06:52] All of those patterns are crucial to address because those are either contributing to or
+[07:02] a result of those PMDD imbalances.
+[07:07] Most of the time it goes all the way back to root cause of insulin resistance and or
+[07:12] hypothyroidism.
+[07:14] So if either one of those two things exist, you're not going to make headway with their
+[07:18] PMDD or their fertility until they get insulin resistance and thyroid better managed.
+[07:25] Does that make sense?
+[07:29] Thank you very much.
+[07:32] Would you say this is the case Jenny for anyone that's getting anxious on progesterone
+[07:38] looking at the cortisol and the sleep or is it just not enough progesterone dose?
+[07:44] Well, sometimes it is not enough progesterone, but it's hard to keep going up.
+[07:49] Like, where do you stop?
+[07:50] Like, do you go to 300, 500, 600, like how do you, there, we don't have much data with
+[07:56] those higher doses of progesterone.
+[07:58] And so, you have to stop and think, well, if progesterone, which is normally a calming
+[08:06] agent, is causing anxiety and insomnia, we got something else going on.
+[08:13] And so addressing that first, taking them off the progesterone and saying, wait a
+[08:20] minute, your adrenals are not happy adding this medication right now.
+[08:24] Let's back up a step or two and see if we can identify some of the root causes,
+[08:31] some of the other contributors to this anxiety and stress, because most of the
+[08:37] time, if you'll talk to them a little bit, collect more history, you'll start to
+[08:45] see that their anxiety, their insomnia, whatever it is that the progesterone is
+[08:50] causing existed long ago.
+[08:53] Like it goes way back, not just a couple of months, not just even a year or two
+[08:58] since menopause began or perimenopause began, you'll start to realize this
+[09:04] started in adolescence, college, young adulthood, way before right now, it can
+[09:12] go back decades, and so learning to question them better from our standpoint
+[09:20] and then listening to what they're saying and then adjusting our plan and
+[09:26] pivoting to handle the anxiety without progesterone can be helpful.
+[09:32] Keep in mind all of the hormones that are produced in the adrenal glands.
+[09:38] And so if there is one of them out of balance, they're likely all out of
+[09:44] balance, and so it can be a little bit of a challenge to try to figure out and
+[09:51] navigate that for a handful.
+[09:54] Those are not real common.
+[09:57] I've probably had three or four of them in the hundreds of patients that I've seen.
+[10:03] So that's not a real common issue.
+[10:10] Bloating and constipation on progesterone, not really.
+[10:13] I get more of that with estrogen dominance or high doses of estradiol.
+[10:20] If they tell me they have bloating or constipation issues, the first thing I'm
+[10:23] going to do is tell them to have a thorough colon cleanse.
+[10:26] Take milk of mag every night for two or three, four nights and empty the
+[10:30] entire gut, very similar to your colonoscopy prep, only you don't have to
+[10:38] do it in 15, 18 hours.
+[10:41] It can be done over a few days' time to empty everything out.
+[10:44] Remember the function and structure of your GI tract.
+[10:48] You have the ascending colon that starts in the lower right groin,
+[10:53] goes up, so you got to force poop up against gravity.
+[10:58] And then it has to go across that transverse colon, and then it starts
+[11:03] following gravity down the descending colon where it's more easily
+[11:08] released and emptied.
+[11:10] So sometimes one dose of a laxative vitamin C high doses or solace,
+[11:17] high doses of saltwater, milk of mag, whatever your choice of laxative
+[11:22] is, will stimulate that descending colon really well.
+[11:26] You'll get good emptying from there, but it won't always go up and
+[11:31] across very well.
+[11:33] That can take a little more effort.
+[11:34] So oftentimes I do have patients do their laxative for two or three
+[11:40] bedtimes in a row.
+[11:42] Sometimes patients are busy, they have a wacky crazy life, and so they
+[11:47] could do two doses Friday night and Saturday night, like every
+[11:54] week for two or three weeks.
+[11:57] The next week, do Friday and Saturday night again until they
+[12:01] get everything emptied.
+[12:04] It's ideal to do it all at once for sure, but people have lives
+[12:09] y'all, and it's really hard when they have to live in the
+[12:12] bathroom.
+[12:14] Milk of mag is my favorite cheap laxative because it's cheap, it's
+[12:22] very effective.
+[12:23] Usually it works within about six hours, and so within an hour or
+[12:28] two, they're done, and so they can get on with their day in
+[12:31] general.
+[12:32] It's very rare that you have prolonged impacts for hours
+[12:36] through the day when they use the milk of mag.
+[12:39] So, but the other part of your question is yes, patients can
+[12:46] use progesterone intravaginally, they just don't like to most of
+[12:51] the time, so it certainly can be useful.
+[12:58] Estrogen in excess becomes inflammatory.
+[13:03] What's excess?
+[13:04] We don't know, like because what I mean is in some women, you'll
+[13:09] have an estradiol level of 95, and she'll feel great and not be
+[13:16] bloated or have constipation.
+[13:18] Everything is hunky dory, and then patient B over here has
+[13:21] the same exact estradiol level at 95, and she's bloated and
+[13:26] fat and feels pregnant.
+[13:28] She's not fat, her belly is fat, protruding, she feels
+[13:32] bloated and full and not right, so we don't know what levels are
+[13:39] what, but in some women, that excess estrogen is a bit
+[13:47] inflammatory.
+[13:50] So generally, adding progesterone is very helpful for
+[13:53] those women, but again, anytime a patient tells me they
+[13:56] got bloating and constipation from something they've added
+[14:00] medication or supplement wise, the first thing I'd go back and
+[14:03] do is let's look at your gut, let's empty everything, let's
+[14:07] maybe try a laxative for a couple days, re-address their insulin
+[14:13] resistance, maybe consider some metformin or inositol or
+[14:18] berberine, those can all also trigger some mild gut
+[14:23] stimulation, so they may counteract the hormone problem
+[14:29] and keep things moving through the system pretty well.
+[14:34] Does that help a little bit?
+[14:36] Yeah, this patient is basically on, she's been on GOP forever
+[14:40] with me, and on hormones with another provider, and she was
+[14:46] changed from duovee, because she had vaginal bleeding and a
+[14:49] breast lump, it was like a whole thing, to now again,
+[14:52] the patch and oral progesterone, and then yeah, she has
+[14:56] the symptoms like you're mentioning, feeling like she's
+[14:58] pregnant, and she's overall a thin female in her 50s, she's
+[15:01] not obese or anything like that, but it's just obviously you
+[15:05] feel when you're bloated, you don't have to be overweight to
+[15:08] be like, oh, I'm bloated, and she just swears that it is
+[15:12] the patch, and I believe her provider has her in half of a
+[15:16] 0.05, I want to say, so she's like, I'm going to cut it in
+[15:19] a third, she's a nurse, so she's like, I'm going to cut
+[15:21] it in a third, because I swear to you, and she started
+[15:24] the progesterone and estrogen at the same time, so in my
+[15:27] mind, I mean, I've always heard about the progesterone slowing
+[15:29] everything down, and it can cause muscle relaxation, so I'm
+[15:34] like, your gut, it's just slowed down, and her thyroid is a
+[15:38] mess, so I'm sure that's leading to her constipation as
+[15:42] well, which is not on treatment for thyroid, the free T3 is
+[15:45] super low, and all of that. So yeah, so definitely look at
+[15:49] the thyroid, because that could definitely cause some
+[15:55] slow gut motility. Remember, GLP ones are going to cause
+[15:58] slow gut motility also. Yeah, no, you have a bunch of
+[16:01] factors, at least to this, but obviously, the HRT I'm
+[16:04] trying now, she might switch to me, so I'm trying to, you
+[16:07] know, we'd order a GI map, we're waiting for that, it's
+[16:09] like, you know, they won the results yesterday, and I'm
+[16:11] aware you got to be eating well, drinking water and
+[16:14] sitting on the toilet and exercising, do all the things
+[16:16] and sleep and, you know, so GLP ones are great tools in
+[16:20] the toolbox, but they come with a lot of work. They
+[16:23] really do. And many patients do not take that into
+[16:28] consideration. Oh, it's a quick and easy weekly shot.
+[16:30] That's great. I can do that and live my life. No, you've
+[16:33] got to pay attention to bodily functions, and what's
+[16:37] happening otherwise. So yeah. Yeah. Somebody commented,
+[16:44] some people, some prescribers are also adding E when
+[16:47] they don't need it. So that's the problem with a lot
+[16:50] of your GYNs who don't believe in using lab work, they
+[16:54] use just their symptoms. And so they'll, women with
+[16:59] high estrogen levels will have hot flashes
+[17:02] sometimes. And then they add more estrogen to stop
+[17:05] the hot flashes. Well, they didn't get a level, so
+[17:10] they don't know. And now they come to one of us
+[17:13] with an estradiol level of 500 because it was 400
+[17:17] before they added a patch. And now it's screaming
+[17:20] huh, higher. And so they get bloated, they have
+[17:25] more trouble. So yeah, when they don't know what
+[17:29] they're doing, or they don't do the labs, like, it
+[17:32] just really complicates things. And so helping
+[17:34] people understand some of the chemistry, some of
+[17:38] where the inflammation is coming from, you know,
+[17:40] just because a lot of HRT clinics are opening up
+[17:44] and, and they're, you know, on every street corner
+[17:47] across from the Baptist churches, they, they aren't
+[17:53] always real knowledgeable in where the
+[17:57] inflammation is coming from that's driving some
+[17:59] of the HRT symptoms, the hormone symptoms. They
+[18:04] don't pay any attention to insulin resistance. Well,
+[18:08] that's the major driver of most of these
+[18:10] imbalances. And so a lot of things begin to
+[18:16] fall through the cracks on these people. And
+[18:18] that's why they end up seeking out people like us
+[18:21] that are going to look at their whole person,
+[18:22] not just their hormones. We're going to look at
+[18:25] their thyroid, not just their diabetes, we're
+[18:28] going to look at everything, not just pieces and
+[18:32] parcels of their chemistry and their health. And
+[18:36] so keep that all in mind, too. Natalie says I
+[18:45] have some clients who are put on estrogen cream
+[18:48] for dryness. They do not need to be on
+[18:51] progesterone. Vaginal estrogen is very poorly
+[18:55] absorbed anywhere else. It's useful in the
+[18:58] pelvic cavity and that's it. It won't get enough
+[19:01] of it will not transmit to the circulation. It
+[19:05] helps with your interstitial cystitis patients a
+[19:08] lot. And it helps with that vaginal dryness,
+[19:11] but it's not beneficial to any of the vasomotor
+[19:14] symptoms, the brain, cognition, bone health, any
+[19:17] of the other systemic uses for estrogen. So good
+[19:22] questions tonight. All right. So let's go over
+[19:27] to where's my share button. We're going to talk
+[19:32] about thyroid tonight. This is one of our most
+[19:35] popular topics. But it's also one of the most
+[19:42] confusing and most complex. So I apologize for
+[19:45] that right off the bat. But we're going to
+[19:50] cover it in detail. And the cool thing about
+[19:55] it is this is week three of our 16 week
+[19:59] sessions. We are going to repeat this
+[20:02] information almost weekly as we review your
+[20:06] cases, as we add more information to the
+[20:10] chemistry, to the labs, when we're talking
+[20:12] about patients and cases, when we're talking
+[20:15] about insulin resistance, we'll mention some of
+[20:18] the thyroid stuff. When we talk about
+[20:21] inflammation, we'll talk about thyroid stuff,
+[20:23] like we're going to continue to drive this in
+[20:27] over and over and over the 16 weeks. And then
+[20:30] as you continue to get labs passed here, you're
+[20:35] going to continue to build your knowledge and
+[20:38] mastery of this topic. So don't panic.
+[20:41] One more question about estrogen patch. So if
+[20:47] they're using the patch and the vaginal cream,
+[20:50] the patch is typically twice a week. That's been
+[20:53] out nationwide in many pharmacies for the last
+[20:57] two or three months. So I've been going to the
+[21:00] weekly patch. But estradiol cream is typically
+[21:05] prescribed daily for 10 to 14 days and then
+[21:07] twice a week vaginally. So I usually teach
+[21:12] patients to move the estrogen vaginally once
+[21:15] they're off that two week stint to move their
+[21:19] two week, two times a week vaginally to days
+[21:22] when they think they might be sexually active
+[21:25] because that provides a better moisture and
+[21:30] function for the vaginal canal. So if they, you
+[21:34] know, many women, many couples are in routines.
+[21:39] And so a lot of times they'll know what days
+[21:42] they're more likely to have the availability.
+[21:45] And so it makes for ease in management.
+[21:53] So we're going to talk a little bit about thyroid
+[21:57] health. Many people, most in fact, many
+[22:02] endocrinologists, this baffles me, don't
+[22:04] consider thyroid dysfunction part of metabolic
+[22:06] dysfunction, but consider metabolic dysfunction
+[22:09] as those glucose diabetes kinds of problems.
+[22:16] However, insulin levels will influence thyroid
+[22:20] hormone. Thyroid is recognized kind of to be
+[22:24] the umbrella, the boss, it's up here and the
+[22:27] thyroid manages and directs metabolism all
+[22:32] through the rest of the body, the chemistry.
+[22:35] So keep in mind that thyroid is sort of your
+[22:38] boss hormone until insulin starts pushing and
+[22:43] making its way up there and says, I want to be
+[22:45] the boss. And so always get a full thyroid
+[22:50] panel, TSH, free T3, free T4, reverse T3, and
+[22:54] both antibodies. Remember that TPO and
+[22:58] thyroglobulin antibodies can independently show
+[23:02] Hashimoto's. You do not have to have both of
+[23:05] them positive. So many prescribers will only
+[23:10] order a TPO and they will miss Hashimoto's if
+[23:15] it's just showing up in the thyroglobulin
+[23:18] antibodies. So I typically get these. And then
+[23:21] follow up labs, you likely only need a free T3,
+[23:24] free T4, and reverse T3. If it's the first
+[23:27] follow up after you've diagnosed their
+[23:29] hypothyroidism, I do typically add the TSH to
+[23:33] that one. But after they're on LIO, LIO is
+[23:37] going to suppress the TSH. There's plenty of
+[23:40] molecules of free T3. And so the body says,
+[23:44] well, I don't need to make any more TSH. So
+[23:47] I'm not, I mean, I don't need to make any
+[23:49] more T3. So the stimulation stops. So the
+[23:53] pituitary gland does not continue to release
+[23:55] TSH. And so it will drop, it will drop to
+[23:58] unrecognizably low levels. Many of your other
+[24:02] prescribers will totally freak out because
+[24:05] they perceive that as being hypothyroid. But
+[24:09] your symptoms and your patients do not match
+[24:11] that. So there is more here than just
+[24:17] seeing a lab and labeling a patient. So keep
+[24:20] that in mind. There is a chat up here. How
+[24:34] long after estrogen application do they need
+[24:38] to wait for interforce? I don't know the
+[24:40] time frame. So keep in mind that when we're
+[24:50] talking and teaching our patients about
+[24:52] inflammation, which is our next week's topic,
+[24:56] we have to make sure they understand that if
+[25:00] they are on T3, whether it is in their
+[25:04] armor, NP, or lio-thyronine, cytomel,
+[25:08] compounded T3, whatever form they're taking
+[25:10] it in, any grain intake will block some of the
+[25:16] T3 absorption. So it's really important that
+[25:19] they understand the relationship between their
+[25:23] grains and their other nutrients. Grains will
+[25:27] break down into phytates and phytates are the
+[25:29] real guilty party. Phytates block iron, zinc,
+[25:33] some of your proteins and some of your free
+[25:36] T3. So make sure they understand that. If
+[25:42] patients or you don't want to prescribe a med,
+[25:46] then these are some things you can do to
+[25:49] increase thyroid function without giving them
+[25:54] medications. You want to double check and make
+[25:57] sure they're getting iodine from somewhere every
+[25:59] single day. If patients receive two teaspoons
+[26:03] of iodized salt consistently, persistently,
+[26:07] daily, they will get about the RDA of iodine.
+[26:12] They will get a decent amount of sodium and a
+[26:14] decent amount of chloride for muscle function
+[26:17] and stomach acid. So it's magic that all of
+[26:20] that comes in two teaspoons of salt. Right.
+[26:25] But oftentimes, iodized salt is recognized by
+[26:29] many people as unhealthy because they've
+[26:31] bleached it. They've iodized it using various
+[26:35] processes that damage it. And then they've also
+[26:37] thrown some multidextrin in to keep the salt
+[26:39] from clumping if it gets moist. And so that's
+[26:43] sugar that's way more potent than sugar. So we
+[26:50] try to avoid iodized salt most of the time.
+[26:53] But I do let patients decide where they get
+[26:56] their salt from. Just know that if they're not
+[26:59] using iodized salt, there's not enough iodine in
+[27:03] the salt they get, even though some of the
+[27:06] products out there recommend or claim that
+[27:10] their salt has iodine. Yeah, it might have two
+[27:12] or three grains like it's tiny. So don't trust
+[27:17] any of those claims unless they can post a
+[27:19] measurable amount of iodine. Don't trust it.
+[27:24] The RDA for most people is about 150 to 180
+[27:29] micrograms a day. Men need more than women. I
+[27:32] typically recommend a product from Fullscript.
+[27:36] I think it's a pure encapsulations product. I
+[27:38] think it's about 200 mics, but I never
+[27:41] recommend more than 300 micrograms every day
+[27:44] except for two populations. There's new data
+[27:48] out that suggests higher doses of iodine. And
+[27:51] of course, the studies don't give us what
+[27:53] those numbers are. Maybe beneficial for BPH
+[27:57] patients, men who with BPH, and women with
+[28:00] fibrocystic breast disease. And so for these
+[28:03] patients, I do recommend 1000 to 3000
+[28:06] micrograms of iodine per day to try to help
+[28:12] slow the progression of both of those
+[28:14] conditions or even sometimes reverse. I have
+[28:17] seen patients completely reverse their BPH and
+[28:20] the fibrocystic breast disease using the
+[28:22] iodine and our other parts of our
+[28:24] treatment. Vitamin D is absolutely essential
+[28:28] for all of our health, brain health, thyroid
+[28:31] health, muscle health, bone health, everything.
+[28:34] So make sure they're getting their D and all
+[28:37] its cofactors. The osteopx product is the
+[28:40] easiest product to use from Fullscript or
+[28:44] anywhere else online because it has D and all
+[28:48] the cofactors. You want to make sure they're
+[28:50] getting D, K2, magnesium, boron, and fat all at
+[28:56] the same moment. And the osteopx has all of
+[29:00] that in one pill. Their iron and ferritin
+[29:03] metabolism is crucial. We talked about iron
+[29:05] and ferritin last week. If you didn't get a
+[29:07] chance to see that, the videos are posted in
+[29:11] the course in lesson number one, two, week
+[29:16] two. We talked about iron and ferritin. So
+[29:20] you can go back and watch that video.
+[29:23] Proteins are crucial for every single thing.
+[29:25] Remember proteins are the building blocks of
+[29:27] the cell. You're not going to make cellular
+[29:29] functions work without protein. And so that's
+[29:33] going to be crucial. And then, of course, that
+[29:35] boils down to a healthy gut, digestion, and
+[29:37] absorption. They might eat 100 grams of
+[29:40] protein a day, but their protein, their
+[29:42] globulin level might be 1.6 simply because
+[29:45] they're just not absorbing it. So we have to
+[29:48] get to the nutrient support and the gut
+[29:51] help for them to get better. This is a
+[29:56] graphic I share with patients a lot. It's
+[29:59] in what I call my homework email. When I see
+[30:02] patients the first visit, sometimes the
+[30:05] second visit, I will typically email a list
+[30:10] of my YouTube videos that have lots of
+[30:12] education and lots of this stuff. And
+[30:17] then it has some of these graphics
+[30:21] attached. And so this is one of them. And
+[30:25] so it helps patients understand that their
+[30:27] health boils down to a three legged stool.
+[30:30] They need vitamins, they need medication in
+[30:32] some cases, and they have to make good food
+[30:35] choices. And those three legs give them
+[30:37] their health. That is the stool. If you
+[30:39] take one leg away, what's going to happen
+[30:41] to that stool? It's going to fall. And
+[30:43] so it's really helpful for patients to
+[30:47] see this analogy. ROS is crucial. Getting
+[30:54] good symptoms is crucial. My thyroid
+[30:56] questionnaire I also posted in the course
+[31:00] and in community, I think. So you have
+[31:04] access to that. I found it online. I
+[31:07] revamped it and reorganized it, but it's
+[31:09] the same thing that I found just
+[31:11] neatened up and reorganized a little
+[31:14] bit. But any of these symptoms
+[31:18] are contributory to hypothyroidism often.
+[31:22] So listen to your patients. Muscle aches
+[31:24] are one of the weirder kinds of symptoms
+[31:27] that people don't associate with
+[31:29] hypothyroidism sometimes. So do keep
+[31:33] that in mind. This is the questionnaire.
+[31:38] It is what it looks like. I had optimontra.
+[31:41] Oops, I got the button.
+[31:43] I had optimontra when I first signed up
+[31:49] to use it. I sent an email ticket,
+[31:53] whatever you do, the support tickets. I
+[31:55] sent that ticket in with this version of
+[31:59] my questionnaire and asked them if they
+[32:01] could create a clickable questionnaire
+[32:06] where all the points were added up at
+[32:08] the end and the patients didn't have to
+[32:10] do anything. It was sort of automatic.
+[32:12] And so they were able to do that.
+[32:14] So the first column is 10 points.
+[32:15] If it's happening a lot, they click a
+[32:17] checkmark. If it's five points, two
+[32:19] points or not happening at all, it's a
+[32:21] zero. So this can tell you a lot about
+[32:26] a patient's symptoms. And this way,
+[32:28] you don't have to ask. Collecting an
+[32:30] ROS verbally in an office visit will
+[32:33] waste way more of your time than it
+[32:36] should. Using a questionnaire like this
+[32:39] covers a lot of systems very quick.
+[32:42] We've covered general, mood, psych,
+[32:45] fatigue, and sleep, skin, hair, and
+[32:47] nails, head, neck, and throat, stomach
+[32:50] digestion, and muscles extremities.
+[32:53] And so we've covered a multitude of
+[32:55] body systems just in this one
+[32:57] questionnaire. And so when I have this
+[32:59] questionnaire back in time for my
+[33:01] first visit, I'm able to say, I see
+[33:04] in your questionnaire, you don't sleep
+[33:07] well. Tell me a little bit about
+[33:08] that. And so you pick two or three
+[33:10] of these to add supporting
+[33:14] documentation in your note for these
+[33:17] symptoms. You don't have to document
+[33:18] about every single one. There's no
+[33:20] point in double documenting. If they
+[33:23] have it in this questionnaire, and
+[33:27] you pull that into your note via the
+[33:31] questionnaire tab at the top, it's
+[33:33] very easy to have all your
+[33:38] information right at your hands. I
+[33:42] have shared my questionnaires
+[33:44] multiple times. I sent a ticket
+[33:46] last week to Optimontra, and I keep
+[33:49] getting run around about whether
+[33:51] it's shareable to other people or
+[33:53] outside my practice or not, they
+[33:55] don't understand what I'm saying, I
+[33:57] guess. So I'm still trying to make
+[33:59] sure it is shareable. I've shared
+[34:01] it multiple times. It should be an
+[34:03] Optimontra. If you search J H H C in
+[34:06] the search field, you should find
+[34:08] my stuff. So how do we evaluate a
+[34:13] thyroid set of labs? The first
+[34:15] thing we want to do is look at
+[34:17] unmedicated. Those are the first
+[34:19] people coming to you that you're
+[34:21] there. It's a blank slate. So
+[34:24] when you get these labs back,
+[34:27] ideally, you're going to want that
+[34:28] TSH to be less than two, I really
+[34:32] prefer it to be less than 1.5
+[34:34] most of the time. At 1.6, 1.7, you
+[34:38] do see your ROS scores, those
+[34:41] questionnaire scores go higher and
+[34:43] higher. So I really like that TSH
+[34:46] to be a little less than the two.
+[34:49] We want the free T4 somewhere
+[34:51] around one. I don't care if it's
+[34:53] 0.7, 0.8, 1.04. I don't really
+[34:56] care because in normal pathophysiology
+[35:00] free T4 is supposed to convert
+[35:01] into free T3. In most of these
+[35:03] patients, it's not. For whatever
+[35:06] reason, they've lost the ability
+[35:09] for conversion to occur properly.
+[35:11] And so they will have free T4
+[35:13] that's okay, and free T3 that's
+[35:16] really low. So our goal
+[35:19] unmedicated is to have a free
+[35:22] T3 somewhere around 3.4, 3.5.
+[35:25] If their free T4 is 1.2, 1.6,
+[35:32] high or upper end of the range, and
+[35:36] they have a free T3 lower than
+[35:38] 3.5, they are not converting
+[35:40] well. So we can't normally
+[35:45] correct conversions, like that's
+[35:47] genetic. Sometimes it's
+[35:49] inflammatory. Sometimes it's
+[35:51] related to their Hashimoto's.
+[35:53] Sometimes it's a whole MTHFR comp
+[35:56] T issue like way other rabbits
+[36:00] to chase. And I did put a video
+[36:04] I recorded a long time ago, two
+[36:06] or three years ago, in the
+[36:08] lesson in week three's lesson in
+[36:11] the course. It's about MTHFR and
+[36:14] thyroid problems. And so I
+[36:16] covered the science and the
+[36:18] relationship. And so that we
+[36:20] don't have time in this session
+[36:22] to cover that. And it's, it's
+[36:24] a whole other animal like it's
+[36:25] just complex. But that is over
+[36:29] there. And y'all can watch that
+[36:31] at your leisure. But free T3
+[36:33] unmedicated should be somewhere
+[36:35] around 3.5. If it's not, then
+[36:39] they may not need medicine. They
+[36:41] may just need vitamin D or iron
+[36:43] or protein or iodine. That may
+[36:46] be the problem. If their TSH is
+[36:48] 2.6 and their free T3 is 3.1.
+[36:53] They might not need
+[36:54] leiothirone. They probably only
+[36:57] need iodine, vitamin D, protein,
+[37:00] all the supportive ingredients.
+[37:02] So just because they have slightly
+[37:05] low free T3 doesn't mean they
+[37:07] automatically need a medicine.
+[37:09] Most of these people in that
+[37:11] three to 3.5 ish range mostly
+[37:18] need iodine. They probably are
+[37:21] not using iodized salt. Most
+[37:24] people not using iodized salt
+[37:27] will be hypothyroid in about 18
+[37:29] to 24 months. So Kayla just
+[37:34] shared her lab results in the
+[37:36] chat and says we just described
+[37:37] her lab results. Yep. So I would
+[37:39] call this subclinical iodine
+[37:41] deficiency hypothyroidism. That's
+[37:44] what I would call this. I
+[37:46] would focus on protein, iron
+[37:49] B and iodine for three to four
+[37:53] months and then redraw these
+[37:55] numbers and see where you are
+[37:56] then because most of the time
+[37:58] that will get you to 3.4 or 3.5
+[38:01] where lots of things feel
+[38:02] better. People don't draw
+[38:05] reverse T3 very often, but it
+[38:08] is absolutely crucial to your
+[38:10] diagnosis and your management.
+[38:13] Reverse T3 is what free T4
+[38:15] becomes when free T3 is not
+[38:18] being converted properly. Okay.
+[38:22] Let me say that again. Reverse
+[38:24] T3 is what free T4 becomes when
+[38:28] it's not converting properly to
+[38:30] free T3. Okay. Free T4 to free
+[38:35] T3 conversion takes a lot of
+[38:37] effort and three major enzymes,
+[38:40] diiodinase one, two, and three
+[38:43] and other chemicals and pieces to
+[38:46] the process. If there is a
+[38:48] genetic defect in a person's
+[38:50] ability to produce any one of
+[38:53] those enzymes or other parts of
+[38:57] the process, conversion from free
+[38:59] T4 will be impaired and free T3
+[39:02] will be sub clinically low. In
+[39:04] many cases, you'll see a free T3
+[39:06] like 1.5, 1.8, 2.1 and that's
+[39:11] overt hypothyroidism right there.
+[39:14] But when it's in the three to
+[39:16] 3.4, 3.5 range, that's a
+[39:18] little bit more nuanced and
+[39:21] more challenging to try to
+[39:22] figure out does this person need
+[39:23] a medicine? Do they just need the
+[39:25] support? So sometimes patients
+[39:28] will choose medicine because they
+[39:30] have felt so bad so long and I'm
+[39:32] okay with that. The thing is you
+[39:34] just have to monitor closely
+[39:36] and reevaluate their med use
+[39:38] very routinely. You can't let
+[39:41] them go three or four or five,
+[39:42] six months not monitoring because
+[39:45] they can wind up hyper. Our goal
+[39:50] for reverse T3 unmedicated is
+[39:52] about 15. If it's 16 or 17, I'm
+[39:56] not going to panic or freak out.
+[39:58] But if it starts getting to be
+[39:59] 18 or 19, that's more of an
+[40:01] inflammation driven level, not
+[40:04] normal physiological range. Okay.
+[40:08] If the free T3 and the reverse
+[40:11] T3 are both in iron range,
+[40:12] this patient is not hypothyroid,
+[40:15] but they're also not hyper and
+[40:16] that's whether they're
+[40:17] medicated or not. So keep that in
+[40:19] mind. Yeah. Um, yeah. Some
+[40:34] comments in the chat. If you
+[40:35] want to follow that, nothing
+[40:37] worth responding to. In
+[40:39] medicated patients, your reverse
+[40:41] T3 is going to help you
+[40:44] understand what dose of T4 your
+[40:48] patient needs to be on. If your
+[40:50] reverse T3 is greater than 12,
+[40:54] they probably need way less T4
+[40:57] medication. You hear that? If
+[41:02] their reverse T3 is above 12,
+[41:07] they are going to need less T4,
+[41:11] whether it's Synthroid, Levo,
+[41:13] Armor or NP, their medicine
+[41:15] needs to be dropped. If their
+[41:16] reverse T3 is high. Okay. If
+[41:21] their reverse T3 is 13, I might
+[41:25] not drop their medicine, but if
+[41:26] it's 14 or 15, I'm probably going
+[41:28] to drop it. Sometimes I will
+[41:31] just say, take your T4 medicine
+[41:33] six days a week, instead of
+[41:34] seven, because that's simpler
+[41:36] than trying to prescribe a
+[41:38] different dose. Remember,
+[41:40] commercial doses are not easy
+[41:44] to tweak up and down a little
+[41:46] bit at a time. So you got to go
+[41:48] from either 100 to 88 or 100 to
+[41:50] 75. What if you need to go from
+[41:52] 100 to 91? You don't have a 91.
+[41:55] You can compound that. But a lot
+[41:58] of patients rely on their
+[41:59] insurance to pay for their drug
+[42:01] costs. And so then you give
+[42:03] them a compounded drug that's
+[42:05] now 50, 60, $80 for 90 days of
+[42:09] compounded T4. And they've got
+[42:11] to pay that out of pocket. And
+[42:13] so I try to use commercial
+[42:15] products whenever I can, simply
+[42:17] so they're able to use their
+[42:18] insurance to pay for that. But
+[42:20] reverse T3 tells you what their
+[42:23] T4 dose should be. Your free T3
+[42:25] tells them tells you what your
+[42:27] T3 dose needs to be. Okay.
+[42:30] Reverse T3 is very sensitive to
+[42:33] inflammatory processes,
+[42:35] infections, stress. So watch
+[42:40] that over time. Once you get
+[42:42] your reverse T3 to go at
+[42:44] 10 or 12, and they're coming
+[42:47] back maybe six or eight months
+[42:48] later, they're, you know,
+[42:49] they've, they've been coming for
+[42:51] a while and you've gotten them
+[42:53] way out. And they haven't been
+[42:57] back for a while. And
+[42:59] suddenly, their reverse T3 is
+[43:02] 26. You're like, what happened?
+[43:05] Did you overdose on your T4?
+[43:06] No. Ask them about a sickness.
+[43:09] Did they just get over the
+[43:10] flu? Did they have a strep
+[43:12] infection, a UTI, a cellulitis?
+[43:15] Did their child wind up in the
+[43:18] hospital? Did their grown
+[43:20] daughter get married? That's
+[43:22] stressful for parents. Like all
+[43:24] of those kinds of things are
+[43:26] going to play a role in that
+[43:29] reverse T3. So don't
+[43:31] automatically draw their
+[43:33] Levo dose just because there's
+[43:34] some random jump or spike in
+[43:37] that reverse T3. Talk to your
+[43:39] patients and find out what might
+[43:41] have driven it up. Were you
+[43:42] sick around the time of your
+[43:43] lab draw? Did you get sick right
+[43:46] before or right after your lab
+[43:48] draw? Remember, incubation
+[43:51] periods for colds, flus and
+[43:52] viruses are different. So if
+[43:55] I got exposed to a flu last
+[43:59] weekend, this is four days
+[44:01] later, my immune system in four
+[44:03] days is going to be ramped up
+[44:05] trying to get ready to fight
+[44:06] off this illness. I don't have
+[44:07] any symptoms yet, but I'm sick
+[44:10] with the flu. And so my labs
+[44:13] might show that. So keep that
+[44:15] in the back of your mind that
+[44:17] reverse T3 is driven by
+[44:19] inflammation, illness and
+[44:21] stress. So keep an eye on
+[44:25] that surgery, another stress,
+[44:28] like hip surgery, I fell and
+[44:30] brought my arm, I had to have
+[44:32] or if to fix my arm, like
+[44:34] whatever, any kind of stressor
+[44:38] can run that reverse T3 up. So
+[44:40] make sure to question your
+[44:42] patients well about those kinds
+[44:44] of things. Just some more
+[44:54] chit chat in the chat. Y'all
+[44:57] can follow along there if you
+[44:58] want. So free T3, this is the
+[45:03] only molecule that enters the
+[45:05] mitochondria for energy
+[45:07] production for ATP free T4 is
+[45:11] both inside and outside the
+[45:12] cell, but it never enters the
+[45:14] mitochondria. So we don't care
+[45:16] what the free T4 level is
+[45:18] except in our OB patients. If
+[45:19] you have patients trying to
+[45:20] get pregnant or pregnant, you
+[45:23] need to keep their free T4
+[45:25] above one, not much. It can
+[45:28] be 1.01, but it needs to be
+[45:30] at or greater than one,
+[45:33] simply because we don't have
+[45:34] any other data on our OB
+[45:36] patients. We don't do a lot of
+[45:37] research on pregnant women and
+[45:39] or their babies. And so the
+[45:41] only data that's out there is
+[45:44] regarding free T4. We don't,
+[45:46] those of us in the functional
+[45:48] space, we don't really think
+[45:49] free T4 does anything for the
+[45:51] baby, but it's the only data
+[45:53] we have. And I don't want to
+[45:55] be charged with, you know,
+[45:58] negligence or malpractice by
+[46:00] letting a free T4 run 0.4,
+[46:03] 0.4, 0.7 point, you know, low.
+[46:07] That would not be healthy for
+[46:08] me or my patients. So we try
+[46:12] to keep that free T4 in our
+[46:13] OBs and our fertility workup
+[46:17] patients at or above one. And
+[46:20] that's regardless of what the
+[46:22] reverse C3 is. So in our
+[46:24] OBs, I don't care if the
+[46:26] reverse C3 is 20 or 21, 22.
+[46:30] I don't care because their
+[46:32] pregnancy hormones are going
+[46:34] to override that reverse C3
+[46:37] braking system a little bit.
+[46:40] And so the reverse C3 often
+[46:43] acts like too much of a brake
+[46:46] when it's that high in
+[46:48] pregnancy that we don't
+[46:49] typically see that. And so it
+[46:51] doesn't matter as much that the
+[46:52] reverse C3 is running high.
+[46:54] Still draw it, watch it. But
+[46:57] we don't really use the
+[46:58] reverse C3 to manage our T4
+[47:00] dosing in our OB patients.
+[47:02] So hopefully that helps explain
+[47:07] some of that. So I don't use a
+[47:11] ton of natural desiccated
+[47:13] thyroid products. I do prescribe
+[47:16] armor and I prescribe NP. Many
+[47:18] insurances don't cover them
+[47:19] anymore. They've cut them out
+[47:21] to like tier three or tier
+[47:22] four or not covered at all. And
+[47:25] I don't typically write PAs for
+[47:28] thyroid medicine. So patients
+[47:30] that want to use these
+[47:32] drugs, I will certainly write
+[47:33] them. I don't have a problem.
+[47:35] However, I only have two
+[47:37] patients that use these
+[47:39] products in isolation. All of
+[47:43] my other patients use armor or
+[47:45] NP with additional lio
+[47:47] thyranine. There's not enough
+[47:50] lio thyranine or T3 in armor
+[47:53] or NP for it to be functional
+[47:56] alone. The only reason those
+[47:58] other patients are using armor
+[48:00] and NP alone is because they
+[48:02] just don't want to take another
+[48:04] pill. That's it. They're okay
+[48:07] not being optimized. They still
+[48:10] don't feel great. And when we
+[48:12] meet, you know, it is what it
+[48:13] is, but they just choose not to
+[48:16] take the additional medication.
+[48:24] So when you think about armor
+[48:28] or NP as part of your treatment
+[48:29] plan, you have to keep in the
+[48:31] back of your mind. It's got a
+[48:32] little bit of T3 in it, but we
+[48:34] treat it mostly like it's a T4
+[48:36] product. So that means this
+[48:38] product has to go in an empty
+[48:39] stomach, an hour at minimum
+[48:42] away from everything else except
+[48:44] lio. You can add doses of lio
+[48:46] to armor or NP, but you
+[48:49] cannot take armor or NP or
+[48:51] Levo with any other medicine.
+[48:55] No PPI, no metformin, no
+[48:57] vitamin D, no magnesium. T4 has
+[49:01] a massive affinity to lots of
+[49:04] other molecules and chemistries.
+[49:06] You cannot let patients take
+[49:09] their T4 product in combination
+[49:12] with anything. It has to go in
+[49:13] their stomach alone and no
+[49:15] coffee, no food, no medicine,
+[49:17] no drinks, no protein, no
+[49:19] nothing for at least a full
+[49:21] hour after they've taken that.
+[49:24] I typically call levothyroxine
+[49:27] or T4, levo, four letters.
+[49:30] So it's an easy cheat note and
+[49:32] I call liothyranine, lio, T3,
+[49:34] three letters. So that's an
+[49:36] easy way to keep those two
+[49:37] separated in my mind. So it's
+[49:41] easy for me to keep it, keep
+[49:43] them straightened out.
+[49:47] Singular levo treatment is
+[49:49] becoming less and less
+[49:50] effective. I mentioned some of
+[49:52] the problems with conversion,
+[49:54] but there's lots of other
+[49:55] issues as well. I think as
+[49:59] humans, as our diet continues
+[50:02] to get worse, just in general,
+[50:06] based on all of the information
+[50:11] out there in the world, the
+[50:12] social media, the TikToker,
+[50:14] that's I call them the TikToker
+[50:15] doctors, all of that stuff out
+[50:18] there is not helpful for our
+[50:20] patients. And they're starting
+[50:22] to use all sorts of things to
+[50:24] help their thyroid medicine
+[50:26] work better. The easiest thing
+[50:28] is just add lio. You give them
+[50:30] the exact molecule they're
+[50:31] missing and it fixes tons of
+[50:33] problems. So if I have a patient
+[50:40] on levo with a reverse T3 of 15
+[50:45] and they're on, let's say
+[50:46] they're on levo 100, I'm
+[50:48] probably going to drop them to
+[50:49] 88, maybe 75. So that that
+[50:53] reverse T3 will fall. That's
+[50:57] not a big problem. If their
+[50:58] reverse T3 is staying pretty
+[51:00] good in our okay range 9 to 15,
+[51:04] okay is 9 to 15, optimal is 10
+[51:06] to 12, they might only need
+[51:09] some T4. If their free T3 is
+[51:12] around 3.4 or 3.5, they're
+[51:15] converting properly. That's
+[51:16] what's supposed to be
+[51:17] happening. So those might be,
+[51:20] I don't think I have anybody
+[51:22] on singular T4. I don't think
+[51:24] anybody, I think all my patients
+[51:26] end up on Lio. Using T3 for a
+[51:33] lot of us providers is a little
+[51:34] scary at first because we've
+[51:36] been told it's, you know,
+[51:37] terrible. It's not a good
+[51:39] drug. It's a great drug. The
+[51:41] problem it's not used
+[51:44] mainstream is it comes with
+[51:45] baggage. It's a cardiac
+[51:47] stimulant. And so then you
+[51:49] have to take time to teach,
+[51:51] explain, titrate slowly, have
+[51:54] them back frequently. And so
+[51:56] that's baggage. That's what we
+[51:57] call baggage. It comes with
+[52:00] caveats and nuances. And it's
+[52:02] just a little bit of a
+[52:03] challenge. We in the functional
+[52:05] medicine space can't afford to
+[52:06] do that because most of us are
+[52:08] charging cash. And or we're
+[52:11] doing a hybrid practice where
+[52:12] we might be charging sometimes
+[52:14] insurance, sometimes cash, we
+[52:16] might have a membership plan.
+[52:18] Like there's lots of ways to
+[52:19] make this work for your
+[52:21] patients. And so look at the
+[52:25] free T3 level, figure out if
+[52:27] this patient is going to
+[52:29] benefit from some Lio and
+[52:32] then start prescribing it. If
+[52:37] we start prescribing Lio by
+[52:39] itself, because the reverse
+[52:41] T3 is 20, why would you want
+[52:44] to give that person T4? Why
+[52:46] does that person need a Levo
+[52:48] product? They don't. If the
+[52:50] reverse T3 is 20, they do not
+[52:52] need a Levo product. And so you
+[52:55] just start them on their Lio,
+[52:57] start them on their Lio, have
+[52:58] them come back in, you know,
+[52:59] eight to 10 weeks, we'll
+[53:00] recheck their labs, see how
+[53:03] the labs look then. Let's say
+[53:05] we've done that two or three
+[53:06] times now and the reverse T3
+[53:08] is now nine. Okay, it might
+[53:11] be time to consider some
+[53:12] Levo. So I probably put that
+[53:15] patient on Levo 25, half a
+[53:17] tab every morning. Okay,
+[53:20] because we don't want a
+[53:23] reverse T3 to not be present
+[53:26] at all. Reverse T3 is their
+[53:29] braking system. That's what
+[53:30] gives them nighttime. It's
+[53:32] what gives them tiredness.
+[53:33] It's what helps things in the
+[53:35] afternoon settle down so they
+[53:37] can go to bed and sleep. And
+[53:39] so reverse T3 helps drive
+[53:41] part of the circadian rhythm.
+[53:43] And so it's important that
+[53:44] they have some reverse T3,
+[53:48] 9, 10, 11, 12, but not 20 or
+[53:51] 30. Like it's not okay to
+[53:54] have a reverse T3 that high
+[53:55] because then they have brakes
+[53:58] and gas at the same time.
+[54:00] What happens if you drive your
+[54:01] car with the gas and the
+[54:03] brakes matched at the same
+[54:04] time? That's not a very
+[54:06] good turnout. If you've ever
+[54:07] watched the NASCAR race at
+[54:09] the end where the winner is
+[54:10] spinning their tires, that's
+[54:12] exactly what they're doing.
+[54:13] They have the gas pedal and
+[54:15] the brake pedal on the floor.
+[54:18] And so they're not doing,
+[54:19] they're not going anywhere.
+[54:20] They're literally just burning
+[54:22] rubber. That's all they're
+[54:23] doing. And so that's the way
+[54:25] bodies feel when there's too
+[54:30] much reverse T3 or too little
+[54:34] reverse T3 because it's
+[54:36] either braking or gassing.
+[54:38] And so we have to be able to
+[54:40] understand free T3 is the gas
+[54:42] pedal. Reverse T3 is the
+[54:44] brake pedal. So if they start,
+[54:46] if you start a patient with
+[54:48] LIO by itself, probably in six
+[54:50] or eight months a year, the
+[54:52] reverse T3 will be low enough
+[54:54] and you'll be like, oh,
+[54:55] maybe we should add some T4
+[54:56] now. And you should. These
+[55:00] are some of the things that
+[55:02] we want to consider when we
+[55:03] start to prescribe your LIO
+[55:05] Thirony. You want to make
+[55:07] sure the ferritin level is in
+[55:08] a healthy place. What happens
+[55:10] if ferritin is low? Low
+[55:13] ferritin contributes to
+[55:14] cardiac symptoms,
+[55:16] palpitations, heart racing,
+[55:17] tachycardia, dysrhythmia is of
+[55:19] all types. Afib is one of the
+[55:22] most common. So like, that's
+[55:25] everybody out there. So we
+[55:26] got to pay attention to what
+[55:29] their ferritin is because you
+[55:30] don't want to inadvertently put
+[55:34] them on a LIO Thirony, a
+[55:38] cardiac stimulant, a known
+[55:39] cardiac stimulant, if they
+[55:41] already have random episodes
+[55:44] of palpitations and heart
+[55:45] racing because their ferritin
+[55:47] is way too low. If ferritin
+[55:51] is low, iron is their priority,
+[55:52] not their thyroid. Put the
+[55:54] thyroid on the back burner.
+[55:56] If they're on some Levo, you
+[55:58] can leave them on their dose.
+[56:00] You could drop it a little if
+[56:01] it needs to be. But I
+[56:04] typically don't mess with
+[56:06] their thyroid doses. If the
+[56:09] ferritin and iron are
+[56:11] priority. So keep that in
+[56:15] mind. Get the low ferritin
+[56:17] fixed first, educate them on
+[56:19] some grain elimination because
+[56:21] of those phytates. Work on
+[56:23] vitamin D, iodine, look at
+[56:26] all the things that help the
+[56:27] patient work better. Many
+[56:29] times we don't need to
+[56:31] prescribe LIO. We just need
+[56:35] to fix the ingredients. And
+[56:37] so they'll start feeling
+[56:38] better when we fix the
+[56:40] ingredients. So when we
+[56:43] prescribe LIO, it's important
+[56:45] that we understand that
+[56:47] patho, normal thyroid
+[56:49] function is the pituitary
+[56:52] gland, releases TSH, telling
+[56:55] the thyroid gland to make
+[56:58] more T4. T4 gets in
+[57:01] circulation, gets the liver,
+[57:04] the liver converts that free
+[57:06] T4 into free T3 when it's
+[57:08] doing things appropriately.
+[57:10] And then early in the
+[57:11] morning, just about the time
+[57:13] your body starts to wake, a
+[57:16] bunch of free T3 is released
+[57:18] out into your circulation to
+[57:20] wake you up and get you
+[57:21] ready for your day. Most of
+[57:23] the time, people will have
+[57:24] another little blurb, little
+[57:27] surge of T3 released late
+[57:29] morning and or sometimes
+[57:31] early afternoon, just enough
+[57:33] to get you through the rest
+[57:34] of your day. So if we're
+[57:38] going to prescribe LIO, it
+[57:40] makes sense that we would
+[57:41] prescribe it in a similar
+[57:43] fashion. So as your patient
+[57:46] begins to increase their LIO
+[57:48] dosing, most of that needs
+[57:51] to go in the early morning,
+[57:52] whenever they wake up, five,
+[57:54] six, eight o'clock in the
+[57:55] morning, whatever time they
+[57:56] wake is when they take
+[57:57] their medicine. They don't
+[57:59] need to wake at three in
+[58:00] the morning, go back to bed
+[58:01] for four hours and then get
+[58:02] up to they've wasted three
+[58:05] hours of medicine. So take
+[58:08] it upon awakening. Most of
+[58:10] my patients, I have them
+[58:11] take their thyroid medicine
+[58:14] and put it on their night
+[58:15] stand or in their bathroom,
+[58:17] because that is a great way
+[58:21] to make sure they do it
+[58:22] right when they wake up
+[58:24] first thing in the
+[58:24] morning. I also have some
+[58:27] midnight piers. So many
+[58:29] patients will take one
+[58:30] levothyroxine tablet out
+[58:33] of their bottle, sit it in
+[58:35] a jar Lied, a little bowl,
+[58:37] a jewelry container on the
+[58:39] bathroom counter somewhere.
+[58:41] It's easily visible on
+[58:42] their way to or from the
+[58:44] bathroom at two or three
+[58:45] in the morning when they
+[58:46] get up to go to the
+[58:46] bathroom. And they can
+[58:48] take that one pill,
+[58:49] telling them to leave the
+[58:50] bottle out and take one
+[58:52] out of the bottle in the
+[58:53] middle of their sleep
+[58:54] pattern is not a great
+[58:55] idea. They're not going
+[58:56] to remember if they took
+[58:57] it or not. But if you
+[59:00] leave the pill out separated
+[59:03] from the bottle and they
+[59:05] wake up in the morning,
+[59:06] they're like, Oh man, I
+[59:07] didn't take my medicine.
+[59:08] I got to take it now. Then
+[59:10] it's more clear. Yes, I
+[59:11] took it. No, I didn't. So
+[59:14] have them plan on using
+[59:16] some kind of system so
+[59:18] they can know they took it
+[59:19] in the middle of the
+[59:19] night. We want highest
+[59:24] dose early morning, seven
+[59:26] or eight o'clock in the
+[59:26] morning, six o'clock in
+[59:27] the morning, whatever works
+[59:28] for the patient. And then
+[59:30] many patients will take a
+[59:31] lunchtime dose. Um,
+[59:33] sometimes they'll do like
+[59:34] 10 or 11. Um, and then
+[59:37] sometimes they'll do a
+[59:38] one or two o'clock dose.
+[59:39] I like the last dose of
+[59:41] Lio to be by two ish.
+[59:45] Mo mostly for two reasons.
+[59:47] One is later than two is
+[59:50] almost guaranteed to
+[59:51] interfere with their
+[59:52] sleep. The half life is
+[59:54] seven ish hours. And so
+[59:57] if they take a dose of, um,
+[60:01] Lio at three or four
+[60:02] o'clock, um, they're going
+[60:05] to have trouble falling
+[60:06] asleep at 10 or 11
+[60:07] o'clock. Um, so I try to
+[60:10] have that last dose of
+[60:11] Lio by 2 p.m. Um, uh,
+[60:15] most of the time, if
+[60:17] they're late night owl,
+[60:18] okay, they might can do
+[60:19] a three or even a 4 p.m.
+[60:21] dose. Um, the way I
+[60:23] normally teach patients to
+[60:24] start their Lio is to
+[60:26] start with one tablet
+[60:27] every day for three weeks,
+[60:28] put a reminder in their
+[60:30] phone. Um, every three
+[60:32] weeks, we're going to
+[60:32] add a tablet, add a
+[60:33] tablet so they can go
+[60:34] through their phone and
+[60:35] say one tablet, one
+[60:36] tablet, one tablet, one
+[60:37] tablet for three weeks
+[60:38] and two tablets, two
+[60:39] tablets, two tablets. And
+[60:41] they keep increasing that
+[60:42] there is no max, there
+[60:43] is no target. Um,
+[60:45] they're going to come
+[60:46] back at eight to 10
+[60:48] weeks after starting this
+[60:50] medicine. So they're only
+[60:51] going to be on three or
+[60:51] four tablets by then
+[60:52] anyway. Um, so, um, that
+[60:56] will, uh, help you
+[60:58] continue to teach and
+[61:00] remind them of all the
+[61:01] safe things. Yes, you can
+[61:03] take Lio and Levo
+[61:04] together first thing in
+[61:06] the morning. They just
+[61:07] can't, the T four can't
+[61:08] be taken with anything.
+[61:13] Um, and then every
+[61:16] three weeks, you can
+[61:17] add faster than every
+[61:19] three weeks. I don't like
+[61:21] to occasionally, I will
+[61:24] add every two weeks. Like
+[61:25] if I have a nurse
+[61:26] practitioner as a patient,
+[61:28] you're smart enough to
+[61:29] know I have a physician, a
+[61:31] nutritionist, smart,
+[61:33] educated people often do
+[61:35] really well at following
+[61:37] directions. And so it's
+[61:39] safer to bump that dose
+[61:41] up a little earlier for
+[61:43] these people. Um, but if
+[61:46] you have normal lay
+[61:47] people, it may not be a
+[61:49] great idea to bump it up
+[61:51] sooner than the three
+[61:53] weeks, unless you've, you
+[61:54] are really confident in
+[61:55] their ability to notify
+[61:57] you if there's a problem.
+[61:58] This is part of the
+[61:59] reason why mainstream
+[62:01] won't prescribe this
+[62:02] drug. It's, it comes with
+[62:03] baggage. It's a little
+[62:04] challenging. Okay. So
+[62:09] this is the dosing
+[62:10] pattern I'm talking
+[62:11] about. So they might
+[62:12] wind up taking three
+[62:14] tabs at like 6am, two
+[62:16] tabs at 11 and one tab
+[62:18] around two. Um, uh, I send
+[62:21] a prescription for LIO five
+[62:24] mics with a SIG of four
+[62:26] tablets once a day. And I
+[62:29] tell them the label is
+[62:30] never right. There's not
+[62:31] enough room on the label
+[62:33] to write all these
+[62:34] directions. So I give them
+[62:36] written directions in my
+[62:38] charting, in my
+[62:40] educational piece so that
+[62:42] they are fully aware of
+[62:44] what they're supposed to
+[62:46] be doing. There are
+[62:54] several questions we're
+[62:55] going to get to most of
+[62:55] them shortly. So we're
+[62:57] just going to hang tight.
+[62:59] Um, make sure the
+[63:00] patients understand that
+[63:01] when they hit that fourth
+[63:02] pill, that's not their
+[63:03] target. Um, many
+[63:05] patients that first eight
+[63:06] to 10 weeks, they'll get
+[63:08] to four and they won't
+[63:09] go up anymore. Uh, that's
+[63:10] about when they're coming
+[63:11] back anyway. So it's not
+[63:13] a big deal because I'm
+[63:14] going to tell them next
+[63:15] time we're going to, I'm
+[63:15] going to prescribe eight
+[63:17] or nine tablets, like
+[63:18] we're going to keep going
+[63:19] up. Um, and so sometimes
+[63:22] I will write, if they're
+[63:23] really struggling, like
+[63:24] every now and then I run
+[63:25] across a patient who is
+[63:28] just overwhelmed or
+[63:31] terribly forgetful. Like
+[63:34] some people just don't do
+[63:36] well with these generic
+[63:38] kinds of directions. And
+[63:44] so sometimes for them,
+[63:45] I'll write directions kind
+[63:46] of like you write for
+[63:47] steroids. When you write
+[63:48] steroids, I'll be like,
+[63:50] take three tabs at seven
+[63:53] AM, two tabs at 11
+[63:56] AM and one tab at two
+[63:59] PM that you can fit in a
+[64:00] script. Okay. So you can
+[64:05] write those kinds of
+[64:06] scripts, but that still
+[64:07] leaves them no
+[64:08] flexibility to increase. And
+[64:11] so sometimes I am the
+[64:14] flexibility because
+[64:15] patients can't handle all
+[64:17] that independent dosing.
+[64:20] And so every now and then
+[64:22] I have probably three or
+[64:23] four patients that I have
+[64:24] to do this for. I give
+[64:25] them the exact dose they
+[64:27] need and they do that
+[64:28] for eight weeks. I get
+[64:29] their labs, they come
+[64:30] back and I write the new
+[64:30] dose and we just keep
+[64:32] doing that. Um, so you
+[64:35] have to be comfortable
+[64:37] writing the script for
+[64:39] the patient and be
+[64:40] confident in their ability
+[64:41] to follow your directions.
+[64:43] The two, maybe three
+[64:45] times that I've had
+[64:47] trouble with overdoses of
+[64:51] LIO is because people
+[64:53] did not follow my
+[64:53] directions. Nobody else
+[64:56] has palpitations,
+[64:56] tachycardia, nobody else
+[64:58] freaks out with their
+[65:00] symptoms because they
+[65:02] not follow my directions.
+[65:04] Um, the people that
+[65:04] freak out with their
+[65:05] bodies that freak out
+[65:07] responding poorly are
+[65:08] those people that are
+[65:09] not following these
+[65:10] directions. And so make
+[65:11] sure you're comfortable
+[65:13] teaching this, talk it
+[65:14] out in front of the
+[65:15] mirror, talk through it
+[65:17] with your son, your
+[65:18] daughter, your spouse, um,
+[65:20] a colleague, talk it
+[65:21] over, talk it out, um,
+[65:23] until you have it kind
+[65:24] of memorized. Like when
+[65:25] I'm telling a patient,
+[65:26] it just comes out like
+[65:27] it's been a speech I've
+[65:29] given for 20 years. Um,
+[65:31] cause I say it's so
+[65:32] much. So practice,
+[65:34] practice, practice until
+[65:35] it's just ingrained in
+[65:38] how you teach this
+[65:39] information. Um, so any
+[65:43] questions about that at
+[65:45] all, um, it's not hard
+[65:47] once you understand what
+[65:49] you're doing right now,
+[65:51] it's overwhelming, I'm
+[65:52] sure. But when you go
+[65:53] back through this video
+[65:55] or you start trying to
+[65:56] teach it to a patient,
+[65:57] type out your macro,
+[65:59] your dot phrase so that
+[66:02] you understand what
+[66:03] you're telling the
+[66:04] patients to do. We don't
+[66:06] have a target goes
+[66:07] dose. Many of my
+[66:08] patients, um, are on 10
+[66:10] or 12, 14 tablets, some
+[66:12] more than that, some
+[66:13] less than that. Sometimes
+[66:14] it's only three or four
+[66:15] tablets that fix them. Um,
+[66:17] does that mean they
+[66:17] don't need meds? No, it
+[66:19] just means that their
+[66:19] body was very sensitive
+[66:21] to the medication and
+[66:22] they just don't need
+[66:22] anymore. Treat the
+[66:24] symptoms, but monitor
+[66:25] the labs for safety. I
+[66:26] try not to let free T
+[66:28] three run above range.
+[66:31] Just because that puts
+[66:34] them at higher risk for
+[66:36] cardiac complications,
+[66:38] palpitations, tachycardia,
+[66:40] hypertension. We don't
+[66:42] want to damage their
+[66:43] heart just because we're
+[66:44] treating their thyroid.
+[66:45] Okay. So the goal for
+[66:47] free T three is
+[66:48] somewhere around four,
+[66:49] but I'm going to tell
+[66:50] you, I have several
+[66:52] patients that are just
+[66:54] fine at 3.3, 3.4. The
+[66:58] older your patients are
+[67:00] the less medicine
+[67:02] they're going to need
+[67:03] to get their free T three
+[67:04] in a place where they're
+[67:05] comfortable. Older
+[67:08] patients don't
+[67:08] metabolize meds as well.
+[67:10] Older patients don't
+[67:12] have as much energy
+[67:13] need. Most of the time
+[67:15] they're retired. They
+[67:17] may be busy at home,
+[67:18] but they're not as busy
+[67:19] as they were when they
+[67:20] worked in retail or
+[67:23] offices or, or whatever
+[67:24] they did before,
+[67:25] whatever plant they ran
+[67:27] or worked in, like
+[67:29] they were much busier
+[67:30] and much, um, more
+[67:32] active. And so, uh, as
+[67:34] patients age, they
+[67:35] often don't need, uh, to
+[67:36] get to the free T three
+[67:38] level at four, 3.4, 3.5
+[67:41] might give them great
+[67:42] energy through the day.
+[67:43] And they tell you they're
+[67:44] fine. Then we're not
+[67:45] going to make them take
+[67:47] more medicine. Um, they
+[67:49] feel great. We're going
+[67:50] to leave their dose
+[67:51] right where it is this
+[67:52] time. Um, so keep that
+[67:54] in mind. You're using
+[67:55] your symptoms to help
+[67:57] them optimize their
+[67:59] health with their
+[67:59] medicine. If they are at
+[68:02] 3.5, 3.6, um, but
+[68:05] they're still having a
+[68:07] crash at two or three in
+[68:09] the afternoon, they have
+[68:10] not found their optimal
+[68:11] dose, review the rules
+[68:13] for the grains, review
+[68:15] the vitamin D, the iron,
+[68:16] the protein re read, go
+[68:18] over all those pieces of
+[68:20] information, but then say,
+[68:21] well, let's try adding
+[68:22] another tablet or two
+[68:24] this next two or three
+[68:24] weeks. And let's see
+[68:25] where we get. Um, just
+[68:28] make sure they know what
+[68:29] to do if they start
+[68:30] feeling hyperstimulated,
+[68:32] make sure they know it's
+[68:33] safe for them to drop a
+[68:34] tablet or two at any
+[68:37] time. Osteoporosis too. If
+[68:43] too much iron, it's
+[68:44] absolutely not. That's not
+[68:45] a thing. Um, yeah, we'll
+[68:49] talk about that some
+[68:49] more in a little bit. Um,
+[68:54] patients need to know
+[68:55] the safety tips and this
+[68:57] is pretty much it. I
+[68:59] like it if they will
+[69:00] plot their heart rate and
+[69:02] blood pressure on a
+[69:05] graph, um, not just write
+[69:08] their numbers. If they
+[69:09] write numbers, that's
+[69:10] fine. That's one way to
+[69:11] monitor. But when they
+[69:13] put the dots, you can
+[69:14] see the numbers fine.
+[69:16] What's wrong with most
+[69:17] of our hypothyroid
+[69:19] patients with their
+[69:20] heart rate? They run in
+[69:22] the forties and fifties
+[69:22] all the time. And
+[69:23] we've all been told
+[69:25] that's a healthy thing.
+[69:26] That means they're in
+[69:27] great shape. No, it
+[69:28] doesn't. Um, look at
+[69:30] their body habitus, look
+[69:31] at their metabolism,
+[69:33] look at all their stuff.
+[69:34] They, they're having
+[69:36] bradycardia because they
+[69:37] are hypothyroid. They're
+[69:39] slow and sluggish because
+[69:40] they're hypothyroid. So
+[69:42] we start adding
+[69:43] stimulant, um, in the
+[69:45] form of lyothyronine,
+[69:46] we're going to start
+[69:47] seeing that heart rate go
+[69:49] from 48 to 52 53 60. Oh,
+[69:54] we've, we've settled in
+[69:55] the seventies now. Um,
+[69:57] yeah, that's exactly where
+[69:58] they should have been
+[69:59] the whole time. So watch
+[70:01] them, uh, uh, checking
+[70:03] their, um, vitals. They
+[70:06] don't have to check it
+[70:06] every day. Um, but you
+[70:08] certainly can check it
+[70:09] once or twice a week. And
+[70:10] that's what I encourage
+[70:11] people to do while
+[70:12] they're titrating their
+[70:13] dose after we find their
+[70:16] dose, I don't have them
+[70:17] check regularly. Um, but
+[70:20] if they call or say
+[70:23] they're having problems,
+[70:24] the first thing I'm going
+[70:24] to ask, what's your
+[70:25] heart rate doing? What's
+[70:26] your blood pressure
+[70:26] doing? I do encourage
+[70:28] patients to use either
+[70:30] their, um, technology
+[70:32] devices, their watches,
+[70:33] their apps, um, and, or
+[70:36] to purchase a blood
+[70:37] pressure cuff so that
+[70:38] they can monitor their
+[70:39] vital signs. Um, they
+[70:43] should be willing and
+[70:44] able and comfortable to
+[70:45] take less med if they
+[70:46] think they're hyper
+[70:47] stimulated. Okay. So
+[70:52] this is a cheat sheet.
+[70:53] The whole graph, this is
+[70:54] a piece of it. The whole
+[70:56] graphic is posted in
+[70:58] the course for you. And
+[71:00] I, um, sometimes wind up
+[71:02] sending it other ways,
+[71:03] but it's posted in the
+[71:04] course. Um, this is your
+[71:06] cheat sheet. It boils all
+[71:07] this stuff down real
+[71:08] quick to a real down and
+[71:10] dirty kind of thing. So
+[71:11] optimal free T three is
+[71:13] somewhere around 3.5 to
+[71:14] 4.1 or two, depending on
+[71:16] your lab reference range,
+[71:18] optimal reverse T three
+[71:19] is 10 to 12 free T four
+[71:22] gold during pregnancy
+[71:23] is greater than one. No
+[71:24] other time does it
+[71:25] matter. Um, if it's newly
+[71:28] diagnosed hypothyroidism,
+[71:29] you are diagnosing it.
+[71:30] They've not been on any
+[71:32] meds. Then you start a,
+[71:36] um, leave O or NP or
+[71:38] armor, um, and, or a lie
+[71:41] with ironing. If they're
+[71:43] free, T three is really,
+[71:44] really low and their
+[71:46] ferritin is in a safe
+[71:47] place to do so. This is
+[71:49] more parts of the, um,
+[71:52] cheat sheet. If they're
+[71:55] free, T three is less than
+[71:56] 3.0, you can consider
+[71:58] adding Lio and have them
+[72:00] increased every three
+[72:02] weeks, building a dosing
+[72:03] pattern that's highest in
+[72:04] the morning, lowest by
+[72:05] two ish o'clock. Um, Lio
+[72:08] will suppress TSH.
+[72:09] Remember, don't keep
+[72:11] drawing TSH, um, with
+[72:13] their lab panels. Other
+[72:15] prescribers besides you
+[72:16] are likely to see their
+[72:17] lab results, even if you
+[72:19] don't share it, patients
+[72:21] will share it. Um, a
+[72:23] hospital systems will have
+[72:24] it in their, uh, lab
+[72:26] portals. Like it's
+[72:28] shareable. It's out there.
+[72:29] And so if you just don't
+[72:31] draw the TSH, then nobody's
+[72:32] going to freak out about
+[72:34] it. Just keep drawing
+[72:36] your free T three, free
+[72:37] T four and reverse T
+[72:38] three. Um, I do draw the
+[72:40] TSH the first time or
+[72:41] two to make sure it
+[72:43] comes down. You don't
+[72:44] want, uh, a TSH running
+[72:48] in that, um, 20, 30, 50
+[72:52] range unchecked. If it's
+[72:54] really high, make sure the
+[72:56] first time or two you draw
+[72:57] their thyroid labs, that
+[72:59] it comes back down and it
+[73:00] gets less than one or 1.5.
+[73:02] And then you don't have
+[73:03] to keep drawing that TSH
+[73:04] anymore. If your free
+[73:07] T three is 3.1, 3.0 to
+[73:10] 3.4 or five, consider
+[73:12] and offer patients the
+[73:15] opportunity to fix the
+[73:16] ingredient deficits rather
+[73:19] than put them on a
+[73:20] prescription drug that
+[73:21] they might only use for a
+[73:22] year. We barely get them
+[73:23] titrated up and now they
+[73:24] don't need the medicine
+[73:25] anymore. That was a lot
+[73:27] of work and a lot of
+[73:28] stress on the patient, um,
+[73:29] to get these doses just
+[73:31] right. So a lot of times
+[73:33] they can fix the
+[73:34] deficits in six months to
+[73:36] a year. And it's going
+[73:37] to take us that long to
+[73:38] titrate their biodose. So,
+[73:40] um, many times it's just
+[73:42] easier to work on the
+[73:43] nutrition part. Um, so
+[73:47] just a few little tips
+[73:48] here, um, perform visits
+[73:50] for LIO management. I
+[73:52] don't ever talk to
+[73:53] patients on the phone in
+[73:54] between visits to
+[73:55] increase or change their
+[73:56] LIO dose. That is always
+[73:58] a visit because I want
+[74:00] patients to have plenty
+[74:01] of opportunity to ask
+[74:03] questions, to make sure
+[74:04] they understand and can
+[74:06] clarify any, any
+[74:08] confusion. That is your
+[74:10] expert advice. Don't give
+[74:11] that away for free in a
+[74:12] phone call. That's really
+[74:14] important. Think about
+[74:15] the advice you give on
+[74:16] phones and don't do that.
+[74:19] Your, um, your, um, your
+[74:26] expert opinion is what
+[74:28] they're paying you for
+[74:29] and they need to pay you
+[74:31] for it. Do not give your
+[74:33] expert opinion away. Um,
+[74:36] we've already stressed
+[74:37] many times CSH will be
+[74:38] suppressed when they're
+[74:39] on LIO, uh, repeat
+[74:41] thyroid studies every
+[74:42] eight to 10 weeks while
+[74:44] you're titrating. If you
+[74:45] get to their dose and for
+[74:48] two or three visits now,
+[74:50] they're free. T3 is
+[74:51] running right around
+[74:52] four. They're reversed.
+[74:53] T3 is 10, 11, 9.10, 9.3.
+[74:59] They're fine. You can
+[75:00] go to four months. You
+[75:01] can go to five months. I
+[75:02] never go past six months
+[75:04] with lyothyronine
+[75:06] prescriptions. Um, I
+[75:08] only ever prescribe 90
+[75:09] days while I'm titrating
+[75:11] with zero refills. And
+[75:14] then once we get them
+[75:15] stable, they get 90 days
+[75:16] with one refill. I never
+[75:18] give past that and I
+[75:20] never let patients go
+[75:21] longer than six months
+[75:22] without evaluation.
+[75:23] Cardiac risks are real,
+[75:26] um, and should make you
+[75:27] just nervous enough to
+[75:29] keep a close eye on your
+[75:30] patients, but it
+[75:31] shouldn't worry you or
+[75:32] freak you out. Okay. Um,
+[75:34] this is a very safe
+[75:35] medicine. It's been
+[75:36] used for a long time
+[75:37] before modern day, like
+[75:40] people used to use it
+[75:41] when we didn't have, um,
+[75:42] other options for some
+[75:43] patients. Um, the
+[75:46] endocrine societies and
+[75:47] all of the agencies do
+[75:49] have a caveat, um, that
+[75:51] cover us when we're
+[75:52] managing meds like meds
+[75:53] like this, um, because
+[75:55] they all have a little
+[75:56] phrase that says, you
+[75:58] know, use whatever
+[75:59] management is going to
+[76:00] work for your patient. And
+[76:01] so, uh, all of these
+[76:02] patients have been on
+[76:03] multiple doses. They've
+[76:05] bounced like tennis
+[76:06] balls back and forth on
+[76:07] T4 doses for a decade or
+[76:09] longer, many times. And
+[76:11] so that's not working for
+[76:13] them, uh, when they
+[76:15] continue to report, uh,
+[76:17] significant symptoms. The
+[76:18] thyroid questionnaire
+[76:20] score above 40 ish is
+[76:22] considered metabolic or
+[76:25] thyroid dysfunction. So
+[76:26] it needs to be addressed.
+[76:27] You need to treat that
+[76:28] one way or the other. Um,
+[76:30] and so that's really
+[76:31] important. Um, I don't
+[76:34] normally, um, titrate
+[76:36] down T4 dosing. If they're
+[76:39] reverse T3 is 20 or
+[76:41] whatever, um, and they're
+[76:43] on 150 mics of, uh,
+[76:46] Levo, I'm probably going
+[76:47] to drop them to 50 or
+[76:48] 75. Like I want that
+[76:50] reverse T3 to fall
+[76:51] cause I want the breaks
+[76:53] off. I want them to
+[76:54] have gas. I want them to
+[76:55] have energy. I want them
+[76:56] to function. Um, and
+[76:58] the easiest way to do
+[76:59] that is to get them on
+[77:00] a much lower dose. Um,
+[77:02] if they're, uh, if it
+[77:06] doesn't come down much,
+[77:07] let's say you drop it to
+[77:08] 20 or 50 or 75
+[77:10] microvans and they come
+[77:11] back and it's like 17.
+[77:13] Number one question,
+[77:15] what happened? Because
+[77:16] I, I was expecting your
+[77:18] reverse T3 to be like
+[77:19] nine or 10. Now, were
+[77:20] you sick? Were you ill?
+[77:22] Were you stressed? Um,
+[77:25] maybe the patient was
+[77:26] nervous and didn't really
+[77:27] drop their dose. That has
+[77:29] happened before. They're
+[77:30] scared. They're
+[77:31] dependent on that T4.
+[77:32] And so they're
+[77:33] freaking out that you've
+[77:34] dropped it now so low.
+[77:36] And they often are not
+[77:38] compliant with your
+[77:38] instructions. And so, um,
+[77:41] they'll come back and
+[77:41] they'll be slipping in
+[77:43] some extra doses, um, some
+[77:45] of the time. So keep in
+[77:47] mind that, uh, they may
+[77:48] not taking it properly
+[77:51] when I'm doing my
+[77:52] follow-up visits after
+[77:55] greeting my patients, um,
+[77:58] saying hello, how are you?
+[77:59] That kind of thing. One
+[78:01] of the very first
+[78:01] questions I always ask,
+[78:02] tell me exactly how
+[78:04] you're taking your thyroid
+[78:05] medicine, which times
+[78:07] or which pills exactly.
+[78:08] That's exactly what I
+[78:10] say to them. Um, I don't
+[78:12] want them to tell me I
+[78:13] take 25 mics of Leo and
+[78:16] 50 mics of levo. I want
+[78:17] to know exactly when those
+[78:19] pills are coming into
+[78:20] their system because
+[78:21] that's going to tell me
+[78:23] information about the lab
+[78:24] values we're going to
+[78:25] talk about in just a
+[78:26] second. So I want to know
+[78:28] exactly what they're
+[78:29] doing. I want to know
+[78:30] they're taking two pills
+[78:32] at breakfast and one
+[78:33] pill at lunch. I want to
+[78:34] know they're taking four
+[78:35] pills at breakfast, three
+[78:37] pills at 10 30 and two
+[78:40] pills at one o'clock. I
+[78:41] want to know exactly when
+[78:43] those pills are coming in
+[78:44] because I want to
+[78:45] understand. I want to see
+[78:46] that decreasing dose
+[78:50] pattern is what we call
+[78:52] it. So I want to be able
+[78:53] to see that. I want them
+[78:54] to tell me exactly how
+[78:55] they're taking it. I
+[78:56] take my levo at midnight
+[78:59] when I get up to go to
+[79:00] the bathroom and then I
+[79:01] take my Leo at five am
+[79:03] and nine am and noon
+[79:06] like whatever works for
+[79:08] them. There's not a set
+[79:10] dosing time for any
+[79:11] people, any of these
+[79:12] people, all of these
+[79:13] patients need to adapt
+[79:15] their doses into their
+[79:17] lives. They should not
+[79:18] have to change their
+[79:19] life to take their
+[79:20] medicine dose. Okay.
+[79:23] Leo can be taken with
+[79:25] food or any other
+[79:26] medicine in general. The
+[79:28] only thing that's risky,
+[79:30] somebody asked this
+[79:31] question a while ago,
+[79:32] the only thing that's
+[79:33] risky with your Leo is
+[79:35] other stimulants. So some
+[79:38] of your ADHD meds, your
+[79:41] energy drinks, your B12,
+[79:44] your B complexes, those
+[79:46] all also are metabolic
+[79:49] stimulation. And so you
+[79:51] have to be really
+[79:52] cautious. Some of your
+[79:53] patients can't tolerate
+[79:54] those combinations. Most
+[79:56] of the time you can
+[79:58] educate your ADHD
+[79:59] patients to do other
+[80:02] things rather than their
+[80:05] Adderall or their
+[80:06] stimulant. And so many
+[80:08] times correcting their
+[80:09] thyroid, they don't need
+[80:10] their stimulant anymore.
+[80:11] I see that a lot. A lot
+[80:13] of times they need
+[80:14] stimulants because their
+[80:15] ferritin is 14 and they
+[80:17] are getting zero oxygen
+[80:19] to their brain. So you
+[80:21] fix their ferritin and
+[80:22] they don't need their
+[80:24] stimulant medications
+[80:25] anymore. I see it all
+[80:26] the time. For those that
+[80:28] think they still need
+[80:29] it, try reducing their
+[80:30] dose. So you can add
+[80:33] more Leo that I mean, like
+[80:35] it just teach and explain
+[80:37] both all of this is
+[80:38] cardiac stimulation. It's
+[80:40] too much to risk. We
+[80:42] don't want to have
+[80:44] dysrhythmia has happened.
+[80:45] We don't want your
+[80:46] heartbeat out of sync. So
+[80:49] it's safe. If we drop
+[80:50] your ADHD med down a level
+[80:53] or two, let's keep dropping
+[80:54] that dose while we're
+[80:55] bumping your Leo up, they
+[80:57] can take them together.
+[80:58] You just have to be
+[80:59] aware that they are all
+[81:01] stimulant and risky.
+[81:04] Okay. What that beat was.
+[81:09] But if they're T four
+[81:11] dose doesn't drop their
+[81:13] reverse T three where
+[81:15] you want it down to that
+[81:16] 10 to 12 range, you can
+[81:17] reduce it again and
+[81:19] reduce it again. And then
+[81:20] you keep increasing your
+[81:21] T three dose until the
+[81:23] three, three, two, three
+[81:24] is around four.
+[81:25] Something's beeping in
+[81:30] here and I don't know
+[81:31] what it is. Um, once the
+[81:34] labs are optimized, I
+[81:35] mentioned this wall ago,
+[81:37] if the patient's feeling
+[81:37] good and they have energy
+[81:39] and they're functioning,
+[81:40] you can stretch their
+[81:41] appointments out a little
+[81:42] bit. I usually do every
+[81:43] two months, every other
+[81:44] month at first, once
+[81:46] they're stable, I go to
+[81:48] three months, then we do
+[81:50] four months and then we
+[81:51] do five months. And then
+[81:53] we do, I do it that way
+[81:54] because every now and
+[81:55] then you'll have an
+[81:57] outlier who winds up with
+[81:59] wacky levels, just weird
+[82:05] at four months out or
+[82:06] five months, like
+[82:07] whatever. And so I'm like,
+[82:09] Oh, we need, we need to,
+[82:11] we need to go back to
+[82:11] every other month for a
+[82:12] little while. Let's tweak
+[82:13] this a little bit. Um,
+[82:15] keep in mind that some
+[82:17] of these people are not
+[82:18] going to need their
+[82:19] thyroid medicine long. If
+[82:21] they are working on
+[82:21] their D and their iron and
+[82:23] their protein and their
+[82:23] iodine, they might not
+[82:26] need their medicine
+[82:27] anymore. And so you can
+[82:29] say, well, your free
+[82:31] tea, I've had this
+[82:31] happen just a couple of
+[82:32] weeks ago, your free tea
+[82:33] three is 6.4 and you're
+[82:36] having, um, heart racing
+[82:38] and palpitations, um,
+[82:40] and, uh, are a little
+[82:42] bit overdosed on your
+[82:43] meds. So let's, let's
+[82:45] drop your meds back. So
+[82:47] we, we, we went from
+[82:48] like, I don't know, I
+[82:49] think it was nine or
+[82:50] 10 pills a day. We went
+[82:51] to three pills a day, um,
+[82:53] two in the morning and
+[82:54] one at lunch. And then
+[82:56] I'm going to see her in
+[82:57] July to see how that
+[82:59] works. Um, she does have
+[83:01] instructions. If she
+[83:02] crashes, she feels like
+[83:03] everything plummets
+[83:04] again. She can add a
+[83:05] tablet or two back over
+[83:07] the coming weeks. Um,
+[83:09] but to let us know how
+[83:10] she's feeling, um, if
+[83:11] anything really weird
+[83:12] happens. Um, but my,
+[83:15] my thinking is she will
+[83:17] be high again in July
+[83:19] and we will take away all
+[83:20] her thyroid meds at
+[83:22] that time. Um, so I
+[83:24] don't typically just stop
+[83:26] all of them. I dropped
+[83:27] the dose really, uh,
+[83:29] drastically for most
+[83:30] patients and have them
+[83:32] retest after another six
+[83:34] or eight weeks. The
+[83:35] half-life of most of
+[83:36] your thyroid meds is
+[83:37] about, not LIO, but T4
+[83:39] is about five to six
+[83:41] weeks. So there's no
+[83:42] point in drawing sooner
+[83:43] than that, except for
+[83:44] your OB patients. Um,
+[83:47] my OB patients, I
+[83:48] draw every four weeks
+[83:50] while they're
+[83:51] pregnant, um, because
+[83:53] you want to make sure
+[83:54] they're in a safe range
+[83:55] without free T4. Um, if
+[83:58] their ferritin was 14 or
+[84:00] 12 or one or whatever it
+[84:02] was, and you couldn't
+[84:03] start them on LIO once
+[84:05] you have them come back
+[84:06] at four months for their
+[84:07] ferritin iron check with
+[84:09] their thyroid panel.
+[84:11] Again, um, you can
+[84:13] start them now on their
+[84:14] thyroid plan. Um, so if
+[84:17] their iron was low, it
+[84:18] becomes priority. There's
+[84:19] no point in drawing
+[84:20] anything for four
+[84:21] months, get the iron
+[84:23] under control, and then
+[84:24] you can start adding the
+[84:26] LIO. Uh, many times
+[84:29] patients will not
+[84:30] maintain their ferritin
+[84:31] level. And so you might
+[84:33] want to, um, drop your
+[84:36] LIO dose if their
+[84:37] ferritin falls real low
+[84:38] again, if they're,
+[84:39] especially if they're
+[84:40] having palpitations or
+[84:41] heart racing. LIO is
+[84:43] safe while pregnant. All
+[84:44] of my pregnant patients
+[84:45] say on LIO, LIO is
+[84:48] bioidentical T3, like it's
+[84:52] bioidentical. It's just a
+[84:53] synthetic version, but
+[84:55] LIO thyranine is the same
+[84:56] exact molecule that our
+[84:58] body produces. So why
+[84:59] would it not be safe?
+[85:01] Okay. Um, they cannot
+[85:05] start any form of LIO if
+[85:08] their ferritin is below
+[85:09] 45 ish. And that's not
+[85:11] a hard fast rule. That's
+[85:12] just one thing I
+[85:13] developed for my practice
+[85:14] because I swept, that's
+[85:15] where I saw the
+[85:17] problems. Um, but NP
+[85:20] and armor both contain
+[85:22] LIO or T3. So no form of
+[85:25] T3 should be prescribed,
+[85:28] um, when ferritin is
+[85:29] really low. And I just
+[85:30] arbitrarily picked 45
+[85:32] because I had two
+[85:34] cases, two patients where
+[85:36] this happened before I
+[85:38] was drawing iron and
+[85:39] ferritin levels routinely.
+[85:41] And it taught me a
+[85:42] lesson. Um, and so I had
+[85:44] two patients, uh,
+[85:46] probably three or four
+[85:47] months apart that wound
+[85:49] up on a LIO with a ferritin
+[85:52] level in the 20s or teens
+[85:55] and 20s. And so I was like,
+[85:57] wow, what the heck is
+[85:59] going on? And so, um, after
+[86:03] I did a little research, I
+[86:04] was like, Ooh, they
+[86:05] shouldn't have gotten LIO
+[86:07] with their ferritin this
+[86:08] low. This is a red
+[86:08] blood cell cardiac
+[86:10] problem, not a LIO
+[86:12] problem. And so I stopped
+[86:13] putting people on T3 at
+[86:15] all until they got to
+[86:17] 45. If you're comfortable
+[86:18] at 40, fine. Use 40 as
+[86:21] your cutoff. If you are
+[86:22] scared to death to put
+[86:24] them all LIO because
+[86:25] their ferritin is low,
+[86:26] make it 50, make it 55.
+[86:28] Like there's not any set
+[86:30] guidelines or standard
+[86:31] out there that says it's
+[86:33] about safe practice. You
+[86:35] have to protect yourself
+[86:37] and your patient from
+[86:39] hyper simulation from
+[86:40] the LIO. So whatever
+[86:42] level you find your
+[86:44] comfort level at, that's
+[86:46] what you need to do. Okay.
+[86:49] Um, go back and look at
+[86:51] some questions here. Um,
+[86:54] so in Etsy, um, for the
+[86:56] prescription, I write four
+[86:57] tabs per day, um, for
+[86:59] 90 days, because that'll
+[87:00] get them to their blood
+[87:01] draw eight to 10 weeks
+[87:03] out. That will get them
+[87:04] to their blood draw. Um,
+[87:07] and then when they come
+[87:07] back, I might write eight
+[87:10] tablets per day or nine
+[87:12] per day. Sometimes I will
+[87:13] write to avoid the
+[87:14] pharmacy. Sometimes the
+[87:15] pharmacy will call and say
+[87:17] they can't, they're taking
+[87:21] five tablets of LIO. Can
+[87:24] they just get a 25 mic
+[87:25] tablet? No, they cannot.
+[87:28] Um, and so anytime I write
+[87:29] a prescription for five
+[87:32] tablets, I write, take
+[87:34] three tablets in the
+[87:35] morning and two tablets
+[87:36] at lunch on the script.
+[87:38] So the pharmacy can't
+[87:39] try to make it combined
+[87:41] into one pill. Um, LIO
+[87:43] only comes in fives, 25s
+[87:45] and 50s. So it is a big
+[87:47] challenge, um, for, uh,
+[87:50] patients to try to get any
+[87:53] other dose, unless you
+[87:54] compound it, you could
+[87:55] write for a 10 or a 12
+[87:57] milli microgram tablet
+[87:58] for sure. Um, so, um,
+[88:02] Kidela asked a question
+[88:03] earlier about osteoporosis
+[88:05] and thyroid meds. So the
+[88:07] reason that's an issue,
+[88:09] if you do any research,
+[88:10] you start reading in the
+[88:11] data. So, uh, endocrinologist
+[88:15] came up with this, uh,
+[88:18] application of problems
+[88:24] with thyroid medication. So
+[88:27] what they did is they
+[88:28] looked at lots of
+[88:30] hyperthyroid patients and
+[88:34] they realized that many
+[88:36] hyperthyroid patients
+[88:37] overstimulated, they have
+[88:39] way too much free T3
+[88:41] and free T4. Um, those
+[88:44] patients were at higher
+[88:45] risk for osteoporosis and
+[88:48] decided that if you put
+[88:51] hypothyroid patients on
+[88:54] medicine to give them normal
+[88:57] lab ranges, they're also
+[89:00] hyperthyroid. And so they
+[89:02] can develop osteoporosis.
+[89:03] How logical does that sound?
+[89:07] That, that's what they
+[89:08] did. That's what they did.
+[89:11] So yeah, you can't get
+[89:13] osteoporosis from thyroid
+[89:16] medication when it's
+[89:17] appropriately prescribed. Now
+[89:20] if you turn loose somebody
+[89:21] out there with a year's
+[89:22] worth of LIO and they're
+[89:24] dosing it willy-nilly, maybe
+[89:26] they could develop some
+[89:27] osteoporosis, but that is
+[89:29] why we cover our tails
+[89:31] when we prescribe this. We
+[89:33] only give them medicine to
+[89:34] get to their next lab
+[89:35] ballot, lab test and
+[89:37] appointment. I prescribe
+[89:39] meds at appointments. I
+[89:41] prescribe very few meds
+[89:42] outside appointments. That
+[89:44] is also your expert advice,
+[89:47] your expert skill. Do not
+[89:49] do that in between
+[89:50] appointments. Now, yeah,
+[89:53] sometimes things happen.
+[89:54] People go on trips and
+[89:55] they're out of the country
+[89:56] for a couple of weeks and
+[89:58] they run out of meds and
+[90:00] they didn't have time to
+[90:01] get labs done. And like it
+[90:03] happens, but I'm telling
+[90:04] you as a general rule, we
+[90:06] do not write meds outside
+[90:07] appointments. We prescribe
+[90:09] meds as part of our
+[90:10] appointment because it's a
+[90:13] safety mechanism and it
+[90:15] keeps us documenting
+[90:17] appropriately. So I think
+[90:22] I covered this Kidello.
+[90:23] When they add a tab, they
+[90:24] can add it whenever they
+[90:25] want. The only rule is
+[90:27] they have to keep the
+[90:29] first dose in the morning
+[90:31] the highest. So let's say
+[90:33] for instance, Kidello,
+[90:34] maybe you, we're going
+[90:36] to use you. Kidello wants
+[90:38] to start LIO. So we
+[90:39] send her a script. And so
+[90:41] she's working on it and
+[90:42] she's worked several weeks
+[90:43] out. And now she's taking
+[90:46] three tablets. That's in
+[90:48] the morning when she gets
+[90:49] up and two tablets at
+[90:51] lunch and one tablet at
+[90:54] 2 p.m. And so now it's
+[90:55] time to add another
+[90:56] tablet. Where does she
+[90:58] add it? She can add it to
+[91:00] anywhere she wants if
+[91:02] she keeps the highest
+[91:04] dose early. So she's
+[91:07] three, two, and one. The
+[91:08] only way to do that is to
+[91:09] add that to the morning
+[91:10] dose. But let's say she's
+[91:12] at five tablets, three
+[91:15] tablets and one tablet,
+[91:17] and she needs to increase.
+[91:18] She can put it on any one
+[91:19] of those doses she wants
+[91:20] because five, three, and
+[91:22] one have more than one
+[91:25] tablet difference. Okay. So
+[91:28] it depends on where the
+[91:30] lag in energy is. As to
+[91:39] when they add that. All
+[91:47] right. So optimal thyroid
+[91:49] management requires
+[91:50] thorough nutritional
+[91:52] assessment, treatment and
+[91:53] lab follow up hormones
+[91:54] require iron B and
+[91:56] protein iodine, adequate
+[92:00] patient education, cover
+[92:02] your butt documentation.
+[92:04] You've got to get patients
+[92:05] to buy into this. We're
+[92:08] going to talk about
+[92:09] Hashimoto's next week in
+[92:11] more detail, but it's an
+[92:13] inflammatory process. And
+[92:15] so you have to address
+[92:16] the imitation or
+[92:18] inflammation, not
+[92:19] imitation, Lord, I'm
+[92:21] tired. And now we're
+[92:25] going to go back and look
+[92:26] at some of the questions
+[92:27] in the chat. So let me
+[92:30] get this over here. All
+[92:31] right. Um, so Kidela asked
+[92:35] an earlier question of
+[92:36] Kayla about her ferritin
+[92:37] because she was talking
+[92:40] about her dose. So Kayla's
+[92:44] ferritin was 134. So
+[92:46] that's safe enough to add
+[92:47] the LIO and to start
+[92:48] working on that. Um, and
+[92:53] then Amethyst made a
+[92:55] comment about adding
+[92:56] cytomell because she's
+[92:57] just on NP. So then you
+[92:59] got to look at reverse
+[93:01] two, three, how much NP
+[93:02] do you need? Um, we're
+[93:04] going to talk about that
+[93:04] when we look at our case
+[93:05] in a minute. Um, Amethyst
+[93:13] my three, two, three was
+[93:14] 2.5 reverse is 11, three
+[93:17] T four, 2.4. That's
+[93:19] pretty high. I started on
+[93:21] NP. Yeah. So, so on your
+[93:27] NP, your reverse three is
+[93:29] 11 or you started NP after
+[93:35] your reverse three was
+[93:36] 11. It matters. I started
+[93:38] NP after these labs. Yep.
+[93:41] So then I would say no.
+[93:43] And the other key here is
+[93:44] look at the free T four.
+[93:45] It's way high. You don't
+[93:48] you don't need any T four.
+[93:50] For how long do we want
+[93:51] to do this? Okay. So I
+[93:52] should really switch to
+[93:53] just plain cytomell then.
+[93:55] Yep. I would daily. Okay,
+[93:57] daily. I would. And it's
+[93:58] dirt cheap. I just looked
+[93:59] it up. It's $36. Yeah,
+[94:01] it's definitely not
+[94:03] expensive. Thank you.
+[94:06] Yeah. Uh, Lio is safe
+[94:08] while pregnant. It is the
+[94:09] same molecule that your
+[94:10] body makes. Um, bran Lio
+[94:15] through guard, good RX
+[94:16] is 40 bucks. Yep. What
+[94:18] level of antibodies would
+[94:20] you order ultrasound? Um,
+[94:21] usually over 100 for either
+[94:23] one of the antibodies. Um,
+[94:26] we're going to talk more
+[94:26] detail about Hashimoto's
+[94:28] and inflammation next week.
+[94:30] Um, but, um, Hashimoto's
+[94:33] is related to thyroid
+[94:34] problems. So I don't mind
+[94:36] answering that. Oh, Lord
+[94:39] Katie, what article did I
+[94:41] mention in the MTHFR
+[94:42] hypo video? I might have
+[94:46] to go back and watch that.
+[94:47] I don't, I don't remember
+[94:48] the article. I might have
+[94:51] to go to my Facebook page
+[94:52] and see if I found it. Um,
+[94:58] but I think that's all the
+[94:59] questions I see. But, um,
+[95:01] let's go look at the case
+[95:03] that P Della posted. Um,
+[95:08] a 48 year old female. Um,
+[95:12] there's a couple of, um,
+[95:15] things here. Um, number
+[95:17] one, when you look at
+[95:18] the community, um, uh,
+[95:21] post, P Della, you did a
+[95:24] great job of, um, adapting
+[95:27] the lab worksheet to meet
+[95:29] your needs. However, you
+[95:30] added some stuff that
+[95:31] really isn't necessary to
+[95:32] be here on this piece of
+[95:33] paper. It should be in
+[95:34] your note or in your
+[95:36] file, but you don't need
+[95:37] all this extra stuff here.
+[95:38] You don't need anything
+[95:39] about their, um, weight or
+[95:42] their H and H or their
+[95:44] RDW. You don't need to do
+[95:46] that. Um, like I don't, I
+[95:50] don't keep, I don't track
+[95:51] those, um, at all. So, um,
+[95:55] it just makes it more
+[95:57] confusing to try to read. Um,
+[96:00] so you might want to
+[96:01] consider tweaking it some
+[96:02] more. Um, but, uh, a
+[96:04] couple of things out of
+[96:06] this, um, first question
+[96:08] was, oops, I just, let
+[96:12] me, let me see if I can
+[96:13] share my screen so y'all
+[96:15] can see this lab value.
+[96:19] Um, here we go. Um,
+[96:28] right. So we have, um,
+[96:31] some inflammation markers
+[96:33] up here. We don't have a
+[96:34] uric acid, um, but we
+[96:36] have a CRP that's above
+[96:37] three. We have a reverse
+[96:39] C three 17. We have a
+[96:42] white count above 10. So
+[96:44] lots of inflammation that
+[96:46] we see right here. Um, I
+[96:47] don't know if the
+[96:48] antibodies were done on a
+[96:49] previous test or they
+[96:51] were negative. I, when I
+[96:53] two antibodies and write
+[96:54] it on here, I do
+[96:55] negative, negative. So I
+[96:57] know I tested
+[96:58] thyroglobulin and TPO
+[96:59] and I write one of them
+[97:00] in front always, and one
+[97:01] of them behind always. I
+[97:03] typically do TPO first and
+[97:05] TGAB last. I put both of
+[97:08] them on that same
+[97:09] blank. They were negative
+[97:11] in the past. Yeah. Um,
+[97:13] homocysteine is 14. That's
+[97:15] definitely too high. Um,
+[97:17] so that, uh, is likely
+[97:19] linked to poor vitamin B
+[97:21] 12 absorption and
+[97:22] utilization. It may be a
+[97:23] methylation defect. Um,
+[97:26] ferritin is way high at
+[97:28] one 20. Um, so that is no
+[97:30] longer an iron marker. Why?
+[97:33] What's up?
+[97:36] Inflammation.
+[97:37] Yep. It's inflammation.
+[97:39] If any time you're iron
+[97:40] and ferritin are this far
+[97:42] apart, it's likely driven
+[97:44] by inflammation. Um, and
+[97:47] or, um, metabolic problems.
+[97:52] Um, low vitamin D will
+[97:54] cause a big gap because
+[97:56] remember vitamin D is
+[97:59] crucial to keeping
+[98:00] hypside and low. Um, we
+[98:02] talked about this some
+[98:03] last week in our iron
+[98:05] session, vitamin D keeps
+[98:06] hypside and low so that
+[98:08] iron and ferritin can move
+[98:09] around appropriately. 79
+[98:12] and one 20 is not a good
+[98:13] relationship. Those
+[98:14] numbers should be much
+[98:15] closer together. And so,
+[98:17] uh, I definitely would
+[98:19] work on some
+[98:19] inflammation for her.
+[98:21] Globulans are really low
+[98:22] at 2.4. Remember ideal
+[98:24] globulin is about three. Um,
+[98:27] her albumin is also a
+[98:28] little bit low, uh, at
+[98:30] 3.9. So, uh, this is
+[98:33] malnutrition and
+[98:34] inflammation as a general
+[98:35] rule. Uh, we see that
+[98:37] supported when we look at
+[98:38] the AST and ALT of way
+[98:41] low 12 and eight. Um, I
+[98:43] don't know what happened
+[98:44] to the alcohol. There it
+[98:45] is. It's up there. Um, uh,
+[98:48] out fast is 80. That's a
+[98:49] little bit of liver
+[98:50] stress, not uncommon at
+[98:52] 350 pounds. Um, and all
+[98:55] this inflammation. So, uh,
+[98:57] definitely work on
+[98:58] inflammation. Her vitamin
+[98:59] D was 51. Um, but it
+[99:01] looks like that was an
+[99:02] old level, but also was
+[99:04] that 51 drawn on or off
+[99:06] her vitamin D and for
+[99:08] how long vitamin D's half
+[99:09] life is two weeks. I'm
+[99:11] never going to have
+[99:12] people be off their D
+[99:13] more than two weeks to
+[99:14] get a lab value. Um, but
+[99:17] I had somebody the other
+[99:18] day who took their
+[99:19] vitamin D the day before
+[99:22] they did labs and her
+[99:24] vitamin D showed like
+[99:25] 84 or something. And her
+[99:27] PCP called, they've got
+[99:29] ahold of her lab results.
+[99:30] Her PCP call says, stop
+[99:32] taking your vitamin D.
+[99:33] When I saw her, I was
+[99:35] like, when did you, she's
+[99:36] like, he told me to stop.
+[99:38] I said, but, um, when
+[99:40] did you take your D? And
+[99:42] she said, well, they
+[99:42] didn't ask me that. I took
+[99:43] it the day before the lab
+[99:44] draw. And I said, well,
+[99:45] our instruction say, hold
+[99:47] it for at least a week,
+[99:48] preferably two so that
+[99:50] we get some of that to
+[99:51] come down. And she did
+[99:54] not remember to do that.
+[99:56] Um, and so, um, I told
+[99:58] her, please don't stop
+[99:59] taking your vitamin D.
+[100:00] But what we see in the
+[100:01] level is your appeal. Um,
+[100:03] if you're concerned, you
+[100:05] can take it every other
+[100:06] day for a while and we'll
+[100:07] retest it in about a year
+[100:09] and we'll see how it
+[100:09] looks. But toxicity and
+[100:11] symptoms typically do not
+[100:13] occur until a vitamin D
+[100:14] level is around 200 or
+[100:16] higher. So I'm not that
+[100:18] worried about it if it's
+[100:19] a little on the high
+[100:20] side. Um, so keep that
+[100:22] in mind. Her insulin is
+[100:23] 6.5. Remember ideal
+[100:25] insulin is five or less.
+[100:27] Anything over five, even
+[100:29] 5.1 is causing higher
+[100:32] insulin levels over the
+[100:34] day than that fasting
+[100:35] level. And so those levels
+[100:37] are going to push lots
+[100:39] of things out of, um,
+[100:42] balance, um, triglycerides.
+[100:46] Um, I don't know where
+[100:49] that went. There should
+[100:51] be a triglyceride level
+[100:52] here. Not all these
+[100:53] ratios. Those ratios are
+[100:54] useless. The ratio that
+[100:56] I type on there, I do
+[100:58] triglycerides, HDL and
+[101:01] the ratio is HDL into
+[101:04] triglycerides. That's
+[101:05] it's the ratio because
+[101:06] all those other ones are
+[101:07] calculated for you on a
+[101:09] lab sheet and they're
+[101:10] pretty useless. Um, uh,
+[101:12] Sir, I was 59 and the
+[101:15] HDL is 47. Yeah. So
+[101:18] that's not a bad, um, a
+[101:21] ratio that gives her less
+[101:22] than one or just barely
+[101:25] over one. Um, so that's
+[101:27] not bad at all. Um, our
+[101:29] goal for that ratio is
+[101:31] two or less. Um, and
+[101:34] then our estradiol is
+[101:35] 90. Testosterone is 170.
+[101:37] I'm guessing she's on
+[101:38] replacement. Yes. Yeah.
+[101:42] So that's much too high
+[101:44] depending on when she
+[101:45] took her dose of
+[101:46] testosterone. Um, we
+[101:48] typically draw
+[101:49] testosterone about four
+[101:50] days out. Um, so that we
+[101:53] don't have it too skewed.
+[101:54] But, um, again, when
+[101:56] our, when we talk about
+[101:57] hormones, you'll find
+[101:59] out that estradiol and
+[102:01] testosterone do much
+[102:02] better when they're close
+[102:03] together, like your iron
+[102:04] and ferritin. So get them
+[102:05] a little bit closer
+[102:06] together, but also
+[102:07] consider working on
+[102:09] better timing for your
+[102:11] draws based on when
+[102:13] they're administering
+[102:14] their medicine. Um, I
+[102:16] typically have patients
+[102:17] use their estrogen the
+[102:18] day before, but not the
+[102:19] day of the lab till after
+[102:20] the lab is drawn. Um,
+[102:22] and then I have, uh,
+[102:24] testosterone about three
+[102:26] or four days, um, post
+[102:27] dose. Um, so if you get
+[102:29] a trough and not this
+[102:30] massively high, almost
+[102:32] 200 number, DHEA sulfate
+[102:34] is terribly low. That's a
+[102:36] big problem likely due to
+[102:37] the nutrition problems.
+[102:39] DHEA should be half at
+[102:41] Lee right at half of the
+[102:43] level. So I don't, this
+[102:45] was a 40 something year
+[102:47] old. Um, uh, if she's
+[102:49] menopausal, then, um, is
+[102:53] her LH on here doesn't
+[102:56] look like she's
+[102:56] menopausal. So she would
+[102:58] still be considered
+[102:59] perimenopausal or
+[103:01] childbearing. Her DHEA, um,
+[103:04] upper limit of the range
+[103:06] should be around 350 to
+[103:08] 400. Um, I always write a
+[103:11] DHEA level 43 slash the
+[103:15] total upper limit of the
+[103:16] range so that I know at
+[103:18] a glance when I'm talking
+[103:19] to her, where her level
+[103:21] falls, but 43 is going to
+[103:23] be low on any of those
+[103:24] ranges. Um, so she doesn't
+[103:26] she's not having enough
+[103:27] ingredients to produce
+[103:30] DHEA. That's why she needs
+[103:32] support. Um, if we fix
+[103:34] the problems, her D, her
+[103:37] iron, her protein, her
+[103:39] thyroid, her insulin
+[103:40] management, her DHEA is
+[103:42] likely to come up and be
+[103:43] where it should be. Does
+[103:46] that kind of help? As far
+[103:51] as her thyroid, um, is
+[103:53] she on thyroid medicine?
+[103:55] Yeah. So I wrote at the
+[103:57] bottom in the notes.
+[104:01] Yeah. So number one, 240
+[104:03] milligrams of NP is a
+[104:04] massively high dose. Uh, I
+[104:07] don't have anybody that
+[104:08] ever takes that much. Um,
+[104:11] and we see evidence of
+[104:12] that problem when we see a
+[104:13] reverse G3 of 17. So I
+[104:16] would drop her to at
+[104:17] least one 20, um, and
+[104:20] then start adding some of
+[104:21] the Lio back because even
+[104:23] on this massively high
+[104:24] dose, she's not getting a
+[104:26] ton of free T three. Uh,
+[104:28] she's 3.4. But with all
+[104:31] this inflammation, with
+[104:32] all this, uh, um, insulin
+[104:35] resistance, weight of
+[104:36] three 52, I'm guessing
+[104:38] she's a high grain
+[104:39] consumer. And so that's
+[104:40] why the dose is of NP
+[104:42] has gone so high because
+[104:44] she's not absorbing. She
+[104:45] can't use any of it.
+[104:46] She's wasting tons of
+[104:47] money with this dose
+[104:49] because her body isn't
+[104:51] able to utilize it. Um,
+[104:54] and so I would drop her
+[104:55] NP dose way back and
+[104:57] start adding some Lio. Um,
+[104:59] keep in mind that she's on
+[105:01] a lot of Lio. You can
+[105:03] do the math. And I put
+[105:05] a chart in the, um,
+[105:07] course for y'all
+[105:08] comparing all the
+[105:09] commercial products and
+[105:10] it shows you the amounts
+[105:12] of Lio in those
+[105:13] commercial products. So you
+[105:14] can kind of estimate,
+[105:16] um, there might be about
+[105:18] 40 mics of Lio in this
+[105:21] particular drug. And so
+[105:22] you can look at that and
+[105:23] kind of estimate it's
+[105:24] an increasing amount. Um,
+[105:27] it's not flat dose. Um,
+[105:30] so you're saying to
+[105:33] decrease her, I didn't
+[105:34] start her on this dose.
+[105:35] She came to me on this
+[105:37] dose. And I guess she
+[105:40] feels good on this dose
+[105:42] being that she doesn't
+[105:42] have a thyroid. So
+[105:44] you're saying to reduce
+[105:45] the armor thyroid and
+[105:47] add the T3, the Lio.
+[105:50] Yes, because her
+[105:51] reverse T3 is 17. It's
+[105:54] too high. So dropping
+[105:56] the armor thyroid would
+[105:57] then decrease the free
+[105:58] T4 dose. Right. Okay.
+[106:02] It's going to, it's going
+[106:03] to drop both doses. You
+[106:05] can't drop one without
+[106:06] the other. But remember,
+[106:08] I said, treat armor NP
+[106:10] like it's a T4 product.
+[106:16] Right. And after your
+[106:18] talk today, it makes
+[106:20] sense because she was
+[106:20] asking me about some
+[106:22] ADHD stuff. I guess she
+[106:24] was on some stimulants in
+[106:25] the past. And she's
+[106:27] feeling like she needs
+[106:28] something again to help
+[106:29] her with her, with her
+[106:31] ADHD. This poor woman
+[106:32] bills raunchy. Yeah.
+[106:36] Bless your heart. I
+[106:37] tell you what I like
+[106:38] better than adding ADHD
+[106:39] meds, especially when
+[106:42] you're trying to get
+[106:43] Lio, um, titrated,
+[106:46] right. Um, DLPA. I
+[106:50] posted about it on my
+[106:51] Facebook page a few days
+[106:52] ago. DLPA is, um, two
+[106:56] forms of phenylalanine and
+[106:58] it works really well for
+[107:00] ADHD, especially with
+[107:03] folks like this. She needs
+[107:04] a little bit of boost.
+[107:05] She needs a little bit
+[107:06] of energy, a little bit
+[107:07] better focus and
+[107:08] concentration while we're
+[107:09] trying to figure out how
+[107:10] to make her right. But
+[107:12] what I would do is look
+[107:12] at the chart, comparing
+[107:14] the quantity of Lio in
+[107:17] each of the products and
+[107:19] give her that much Lio
+[107:21] right away. Like don't
+[107:23] start, don't take away
+[107:24] half her Lio and start
+[107:26] her at five mics. That's
+[107:28] not fair. Okay. You see
+[107:31] what I'm saying? So if
+[107:32] there's 50 mics of Lio in
+[107:35] her 120 armor that we're
+[107:37] going to take away, you
+[107:39] need to give her 50 mics
+[107:41] of Lio right away. Not
+[107:44] in one pill. Keep that
+[107:46] same decreasing pattern
+[107:47] going, but you could
+[107:50] do that. So then I could
+[107:51] potentially, if I reduce
+[107:53] the armor thyroid dose,
+[107:54] have her take that first
+[107:56] thing in the morning and
+[107:57] then take the Lio at 12,
+[107:59] 1, 2 o'clock. Yeah. So
+[108:02] let me pull up. Let me
+[108:03] give you an exact thing.
+[108:05] Now, how does this work
+[108:06] too? Because she is a
+[108:08] shift worker. She works
+[108:09] overnight.
+[108:10] It's just a throw
+[108:11] around.
+[108:12] Her daytime is whatever
+[108:13] time of day she gets
+[108:14] up. It's not day
+[108:16] sunrise to some of that.
+[108:17] Her day begins when she
+[108:18] gets up in the morning.
+[108:21] That is crucial for this
+[108:23] to dose properly. I've
+[108:25] had a couple of nurses
+[108:27] and they rotate their
+[108:28] shifts around. So they
+[108:30] have to move their doses
+[108:31] around based on their
+[108:32] daytime work and their
+[108:34] nighttime work. Their
+[108:35] day begins when they wake
+[108:37] up to go to work. And
+[108:39] that's crucial that they
+[108:40] understand daytime is
+[108:42] their day, not your
+[108:44] day.
+[108:45] Gotcha. And I understand
+[108:47] that because even if she
+[108:48] took like an evening dose
+[108:50] before she went to work
+[108:51] the next day and is off
+[108:52] the next day, if she wakes
+[108:53] up at like 10 a.m. or
+[108:55] something, that's still
+[108:56] the half-life for that
+[108:57] Leo has passed so she
+[108:59] could take another dose
+[109:00] then.
+[109:04] All right. So
+[109:05] Armor and NP thyroid,
+[109:07] she's on 240 now.
+[109:10] She's getting more
+[109:12] than 300 micrograms of
+[109:14] Liya of Levo.
+[109:17] That's a massive
+[109:18] amount of Levo. That is
+[109:19] not great.
+[109:24] That's also going to be
+[109:26] about probably 60
+[109:28] micrograms of Liya.
+[109:30] So if we drop her
+[109:33] armor dose in half
+[109:35] back down to 120.
+[109:38] Or if you're worried
+[109:39] about going that far,
+[109:40] you could do to 180.
+[109:42] Then you need to replace
+[109:47] her
+[109:48] Leo or place that 30
+[109:51] or 40 micrograms of
+[109:53] Liya right away.
+[109:54] I would have her do
+[109:56] the armor.
+[109:58] I would do armor 120.
+[110:01] First thing in the
+[110:01] morning with about
+[110:03] 15 mics of Liya
+[110:06] all at once.
+[110:08] And then I would have
+[110:09] her do about
+[110:11] 20 mics at lunch.
+[110:17] 25 mics at lunch
+[110:21] to get the rest of her
+[110:22] dose in and then
+[110:24] have her increased by
+[110:25] five mics until we find
+[110:27] the dose that makes
+[110:28] her feel good.
+[110:29] But flat out just
+[110:31] switching,
+[110:31] I would do the 120
+[110:33] armor with about 15 mics
+[110:34] all together.
+[110:36] 20 or 25 mics at
+[110:38] lunch that'll replace
+[110:39] what you're taking
+[110:40] away in the half of
+[110:41] her armor dose
+[110:42] and then start adding
+[110:46] tablets of Liya
+[110:47] over coming weeks.
+[110:49] Makes sense.
+[110:54] Yes, so I will still
+[110:56] prescribe only the
+[110:58] five micrograms of
+[110:59] the Liya.
+[111:00] Well, you could
+[111:01] prescribe her some
+[111:02] 25s for the lunch time
+[111:04] dose and just write it.
+[111:06] A SIG take one tablet
+[111:08] every day at lunch
+[111:09] and then give her the
+[111:10] fives for the
+[111:11] rest of the time.
+[111:13] OK.
+[111:16] Tracy, tell us about
+[111:17] your thyroid case.
+[111:22] Hi, Jenny.
+[111:23] So I kind of wanted
+[111:25] to give a little
+[111:25] background because
+[111:26] there's just too much.
+[111:28] I already see in here,
+[111:30] I don't have all the
+[111:31] results, obviously,
+[111:32] but she's 57 and
+[111:34] I already see she does
+[111:35] have some malnutrition.
+[111:37] Her ferritin though,
+[111:38] when she first came
+[111:39] to me, she was only at 37.
+[111:41] So now she's up to 124.
+[111:43] So obviously the
+[111:44] Ferris all worked.
+[111:45] Now I need.
+[111:46] What time frame was that?
+[111:48] From October to now,
+[111:50] May.
+[111:52] So six months.
+[111:53] When was her iron
+[111:54] dose compared to the lab draw?
+[111:56] She stopped everything
+[111:58] six days prior to these labs.
+[112:01] OK, OK, good.
+[112:03] So so but she's got
+[112:06] this is what threw me.
+[112:07] I obviously I know
+[112:08] she needs some T3
+[112:10] now that her ferritin is up
+[112:11] enough to tolerate it.
+[112:13] But I wanted her to come in
+[112:15] and you know, I'm going to sit down
+[112:16] and talk to her
+[112:16] and talk to her about nutrition.
+[112:18] I got her off of grains
+[112:19] and gluten and dairy.
+[112:21] So her insulin went from
+[112:23] 26.4 to 20.7.
+[112:26] You know, so we made gains that way.
+[112:29] But then she got
+[112:30] a little bit more malnourished,
+[112:32] even though we were focusing on protein.
+[112:35] But the thing that really throws me
+[112:37] is why did her CRP and her uric
+[112:39] acid go up so much?
+[112:42] So ask her that.
+[112:45] I'm going to bet she started
+[112:48] buying products.
+[112:51] That were gluten free,
+[112:53] that weren't grain free.
+[112:56] She may have bought products
+[112:57] that were labeled keto,
+[112:59] but really aren't.
+[113:01] OK, she could have.
+[113:02] I don't know. Yeah.
+[113:03] Many patients like we all aim for
+[113:06] what's the easiest way I can do this?
+[113:09] Like, yeah, we're especially moms.
+[113:11] Moms are busy.
+[113:13] They're taking care of
+[113:13] too many people at the house,
+[113:15] too many people at work,
+[113:17] too many people at the church,
+[113:18] too many people at the community hall.
+[113:20] Like they're the life
+[113:22] is just never ending and stressful.
+[113:24] And so convenience often overrides
+[113:29] good sense sometimes.
+[113:31] OK, I'll talk to her.
+[113:33] Yeah, just ask her like this.
+[113:35] This one was a little
+[113:36] perplexing to me.
+[113:37] Maybe you can shed some light on it.
+[113:39] I mean, I tell them what
+[113:41] I expected to happen.
+[113:43] Well, and then I want to be disappointed.
+[113:45] Like I try to say, hmm,
+[113:47] this is a little odd.
+[113:48] I'm can you help me understand
+[113:50] why this happened?
+[113:51] Oh, yeah, I'm not disappointed with her.
+[113:52] I was more frustrated with myself
+[113:54] because I'm like, why can't
+[113:54] I figure this out?
+[113:55] But then her alkaline
+[113:57] FOS went up a little bit now.
+[113:58] Her AST and ALT
+[114:00] kind of did a little bit better here,
+[114:03] but also her A1C went from five
+[114:05] point seven to five point four.
+[114:07] Yeah, I saw that right.
+[114:08] Three plus and liver enzymes.
+[114:10] Keep in mind, if she's actively
+[114:12] losing weight, actively
+[114:13] reducing inflammation,
+[114:15] that's going to be a little bit
+[114:16] of a liver stressor temporarily.
+[114:18] So OK, you kind of expect
+[114:20] to see those changes.
+[114:21] OK, all right.
+[114:22] And then I saw Triggs went
+[114:24] from 121 down to 81.
+[114:27] And I took her off of her statin
+[114:28] because she had terrible myalgia.
+[114:32] I took her off.
+[114:33] I took her off back in October.
+[114:34] Yep, absolutely.
+[114:36] OK, right.
+[114:37] She had a lot of pain.
+[114:38] My thing with her
+[114:39] that I wanted to ask you about,
+[114:40] though, is I'm struggling to.
+[114:44] I guess just put it together
+[114:46] because she also has
+[114:47] massive amounts of stress.
+[114:48] She has one child
+[114:49] that was diagnosed
+[114:50] as type one diabetes.
+[114:51] She has another child
+[114:52] that had to have a kidney transplant.
+[114:55] She has spent months
+[114:56] and months and months
+[114:57] in a hospital and
+[115:00] basically just in survival mode.
+[115:02] So I'm like, is the inflammation
+[115:04] just kind of catching up with her
+[115:05] now that she's starting to address
+[115:06] some of this stuff?
+[115:08] Maybe, maybe.
+[115:09] OK, yeah, that kind of chronic stress
+[115:13] is going to drive
+[115:14] tons of response by the body.
+[115:17] Yeah, because it was just one thing
+[115:19] I thought about
+[115:19] when I saw the markers
+[115:20] actually went up
+[115:22] and then the vitamin D,
+[115:24] it went up a little bit.
+[115:25] But again, she hadn't
+[115:26] taken it for a week.
+[115:28] Well, and keep in mind
+[115:30] that she's probably not
+[115:31] taking it right
+[115:32] if it only went up that much.
+[115:34] Like that's not I mean, like, yeah,
+[115:36] for it to be held a week,
+[115:39] it would still be in her system
+[115:41] pretty good.
+[115:41] See, that's what I thought,
+[115:42] because she's on the osteopics,
+[115:44] just like what you recommend.
+[115:45] But is she taking it literally
+[115:47] in between bites
+[115:48] of buttery, fatty food?
+[115:50] She's supposed to be.
+[115:51] I, of course, will reinforce that,
+[115:53] you know, to make sure
+[115:54] I'm going to be honest.
+[115:55] The other thing I find is
+[115:57] they'll take it
+[115:58] while they're eating breakfast
+[115:59] of bacon and eggs.
+[116:01] Bacon and eggs are great foods.
+[116:03] That's not the problem.
+[116:05] The problem is there's not much
+[116:06] fat added to bacon and eggs.
+[116:09] Well, I usually tell them
+[116:11] to take it with avocado.
+[116:12] Do you think that's OK?
+[116:13] Is that not good either?
+[116:15] Nope, it's not that it's bad.
+[116:17] But there's almost no vitamin A
+[116:18] in avocado.
+[116:20] Oh, the butter is what
+[116:21] contains the vitamin A.
+[116:23] Yes, there's some in the peel.
+[116:25] But it's not enough to like
+[116:27] turn a COPX on
+[116:29] is the way I tell patients.
+[116:30] So what should I mean,
+[116:32] people aren't going to see
+[116:33] what what would be this lady?
+[116:35] I need to tell her specific
+[116:37] a specific food.
+[116:38] Take it with this.
+[116:39] Take it with butter
+[116:41] on your plate of meat and veggies.
+[116:46] OK, because she will do butter
+[116:47] with her steak, so I could.
+[116:49] Yeah, I can do.
+[116:50] OK, most of my patients
+[116:51] are moving their
+[116:52] osteopics to lunch or supper
+[116:55] because breakfast is a hard time
+[116:58] to add butter to the plate.
+[116:59] It just is.
+[117:00] Yeah, let me see.
+[117:03] Now, I don't
+[117:04] I'm going to be honest,
+[117:05] I don't remember
+[117:06] when she came in first.
+[117:08] Her TSH was four point six seven.
+[117:10] And of course,
+[117:10] I didn't have a lot
+[117:11] of other information,
+[117:12] but her reverse T3 was twenty five.
+[117:15] Now her reverse.
+[117:16] I had reduced her levo back then
+[117:19] from one twenty five to seventy five.
+[117:22] And I'll be honest,
+[117:23] I don't really remember why.
+[117:24] I don't know what
+[117:25] made me think to do that,
+[117:26] but that's what I did.
+[117:28] And then so now
+[117:29] I don't have the TSH or the free T4,
+[117:31] but the reverse T3 is up at 38.
+[117:33] So it still looks like she's going to need
+[117:36] not really maybe a levo change,
+[117:38] but at least a Leo addition.
+[117:42] If her reverse T3 is 36,
+[117:44] she does not need any levo.
+[117:48] OK, so
+[117:49] OK, that's probably why
+[117:51] I dropped it to begin with,
+[117:52] because her reverse T3 was twenty five.
+[117:54] So I dropped her from one twenty five
+[117:56] down to seventy five
+[117:58] back in October.
+[118:00] Yeah, OK, she needs
+[118:02] she needs a bigger drop.
+[118:04] OK, she's probably going to twenty five.
+[118:07] OK, because she's on seventy five now.
+[118:09] No Leo, because her ferritin was too low.
+[118:12] Yeah, and her reverse T3 is thirty eight.
+[118:13] So I need to cut her to twenty five
+[118:15] and then start adding in the Leo Thirony.
+[118:20] Right.
+[118:21] Yeah. OK.
+[118:24] Yeah. And of course,
+[118:26] I know I have the nutrition talk
+[118:27] in the you know, the inflammation talk.
+[118:30] What can I do besides diet to help her?
+[118:33] Because she also has asthma,
+[118:36] eczema and hypertension, too.
+[118:38] So the grain free is going to fix
+[118:41] all of those things.
+[118:42] Oh, OK.
+[118:44] Would Mariel Inositol help at all?
+[118:46] Yes, you could add Inositol.
+[118:48] You could add metformin or berberine.
+[118:50] Not not both.
+[118:52] I've got her on berberine already.
+[118:54] OK, so then you could add some Inositol.
+[118:56] Make sure you're maxing berberine out
+[118:57] a thousand milligrams of B.I.D.
+[119:00] Oh, OK, I can go up then.
+[119:01] OK, I guess it just like metformin.
+[119:06] OK, most of the studies using
+[119:07] berberine was done at four or five
+[119:09] hundred milligrams T.I.D.
+[119:11] Patients are not going to be compliant
+[119:13] with three times a day or anything.
+[119:17] So you said I can go to a thousand
+[119:19] twice a day, just like if it was metformin.
+[119:21] Right. OK.
+[119:22] And technically it can be with any two meals.
+[119:24] If they're not eating two meals,
+[119:26] if they're only eating one meal,
+[119:27] they only get one dose.
+[119:30] OK.
+[119:32] But I would definitely talk to her
+[119:35] about convenience foods, packaged foods.
+[119:38] We need to mostly meats and veggies
+[119:41] from around the perimeter of the store,
+[119:43] not the aisles.
+[119:45] Well, I have a feeling you might be right
+[119:47] because her children, again,
+[119:48] they've spent a lot of time in hospitals
+[119:50] and I think she's probably
+[119:52] just grabbing stuff.
+[119:53] I would like I would eat, of course,
+[119:56] however, in that situation like
+[119:57] and then worry about it when I get out.
+[119:59] Like, I mean, I'm surprised
+[120:01] she's done as well.
+[120:01] She has because when I first
+[120:02] started talking to her, she couldn't
+[120:04] hardly eat at all because of her nerves.
+[120:06] Yeah.
+[120:09] But yeah, she may be a good candidate
+[120:11] for a low dose naltrexone,
+[120:14] maybe a GLP one like she
+[120:17] she could be a candidate
+[120:18] for a multitude of things.
+[120:20] It just depends on what she can afford
+[120:22] and what she can manage.
+[120:23] I do have her on the phone.
+[120:25] Sorry, I forgot to say I do have her
+[120:26] on four milligrams of terzepatide.
+[120:30] So a low dose.
+[120:31] Yeah, yeah.
+[120:34] Somebody asked about almond flour.
+[120:36] I like almond flour,
+[120:37] but you can over consume almond flour
+[120:40] if you're not careful.
+[120:41] I will sometimes make almond
+[120:43] flour cakes or breads,
+[120:47] but I don't make them very often.
+[120:51] I do have a Kentucky butter cake recipe
+[120:53] on my blog, on my website,
+[120:56] JoyfulHeartHouseCalls.com.
+[120:58] You're welcome to check that out.
+[121:00] It always falls apart
+[121:01] when it comes out of the oven
+[121:02] because there's no gluten
+[121:03] to hold it together,
+[121:05] but it tastes absolutely fabulous.
+[121:08] And so we usually make that
+[121:09] around holidays and stuff on occasion
+[121:11] because my husband
+[121:12] has a terrible sweet tooth,
+[121:14] but I probably don't make it
+[121:15] but once or twice a year.
+[121:17] You have to be careful
+[121:18] substituting almond plant flowers
+[121:21] for nut flowers and stuff
+[121:25] for your wheat.
+[121:28] They are sealed pretty high carb
+[121:30] depending on how much of them you use
+[121:33] or how frequently you use them.
+[121:35] So that can be used
+[121:37] or for cutting carbs.
+[121:39] Many people are still going to struggle
+[121:42] with oxalate sensitivity
+[121:44] and inflammatory responses
+[121:47] to some of the flowers.
+[121:48] So it really is very individual
+[121:52] as to who can tolerate what.
+[121:55] All right.
+[121:57] We've gone to two full hours tonight.
+[121:59] I hate to do that to y'all,
+[122:01] but sometimes it's just gonna happen
+[122:04] with the complex topics
+[122:06] that we're talking about.
+[122:08] Next week we will talk about
+[122:10] Hashimoto's specifically
+[122:12] and other inflammatory processes.
+[122:16] We'll talk about CRP,
+[122:17] uric acid homocysteine ferritin.
+[122:20] We are meeting next week
+[122:21] on Tuesday night.
+[122:23] Yes, Yomitzi, yes.
+[122:27] So watch for that.
+[122:31] Everything will come emailed to y'all Monday
+[122:36] so that you'll have it
+[122:37] in time for Tuesday's meeting.
+[122:39] We will be driving to San Antonio
+[122:41] on Wednesday for my granddaughter's
+[122:43] graduation on Thursday.
+[122:46] So we will be busy Thursday night.
+[122:50] So thank you very much.
+[122:53] And we will talk about that,
+[122:56] Quinella, when we talk about our vet stuff.
+[123:00] Yes, I will take a look Amy.
+[123:02] Don't forget to post your cases
+[123:04] and y'all are starting to learn.
+[123:07] Some of you especially that
+[123:08] this is repeat mentorship.
+[123:11] Go comment about some of the cases
+[123:14] that you see in the community.
+[123:16] Comment and throw in your opinion too,
+[123:20] because you are learning
+[123:23] and have mastered some of this material.
+[123:26] So feel free to chime in.
+[123:27] So we will get together Tuesday night,
+[123:30] 5 p.m., same time, same place,
+[123:32] just a different day.
+[123:33] All right, y'all take care.

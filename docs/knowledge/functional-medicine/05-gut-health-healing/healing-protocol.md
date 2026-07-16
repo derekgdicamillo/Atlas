@@ -71,8 +71,8 @@ The source protocol is **not** explicitly labeled with 5R (Remove/Replace/Reinoc
 
 **Goal:** Repopulate the gut with healthy bacterial strains.
 
-- **Product:** **Trust Your Gut Probiotic** (author's FullScript shop) — selected for its **7 strains** of bacteria, including *Lactobacillus reuteri*. The author explicitly instructs to disregard the CFU/"billions" count on the front label and focus instead on the **number of distinct bacterial strains listed on the back**.
-  - *(Course lesson notes reference a generic example of "a multi-strain probiotic (e.g., Orthobiotic)" when summarizing this step — this is the course-notes paraphrase, not the named product in the written protocol; the written protocol's named product is Trust Your Gut Probiotic.)*
+- **Product:** **Orthobiotic (Orthomolecular)** — current recommendation. **Update (2026-07-15, from the video recording): the previously named "Trust Your Gut Probiotic" is discontinued; the author now recommends Orthobiotic.** The selection principle is unchanged: disregard the CFU/"billions" count on the front label and focus instead on the **number of distinct bacterial strains listed on the back** (multi-strain, incl. *Lactobacillus reuteri*).
+  - *(This reconciles the earlier discrepancy: the written slide protocol named "Trust Your Gut Probiotic" while the course lesson notes referenced "Orthobiotic" as a generic example. The video confirms Orthobiotic is the current product. See [video-supplement.md](video-supplement.md) for more video-sourced gut notes.)*
 - **Dosing/administration:** twice daily on a **completely empty stomach** — no food, medicine, or other drinks, **only water**, for **at least 30–45 minutes** before/after.
 - **Schedule:** twice daily for **1 week**, then **once daily** thereafter.
 - **Duration:** **4–6 weeks** is generally sufficient to replace healthy gut flora for most patients. Long-term daily use is not typically required; many patients continue **1–2×/week** long-term to support ongoing gut bacterial health. Best re-use case: after any future "gut insult."
@@ -135,7 +135,7 @@ If symptoms do not improve, or are concerning at any point:
 | 1 | Ongoing | Bone broth / collagen (Type 1, 2, 3) | Salted, buttered; several ×/day initially → 1–2×/day | Many weeks to months | Recommended, not optional |
 | 2 | Month 1 | GI Synergy | Per label (FullScript) | 4–6 weeks (up to 3–4 months) | No — core step |
 | 3 | Month 2 | Universal Toxin Binder | Once daily, away from food/meds by 1–2 hr | 20 days / 1 box | Yes — toxin-burden patients only |
-| 4 | Month 3 | Trust Your Gut Probiotic | BID on empty stomach ×1 week, then QD | 4–6 weeks (then 1–2×/week maintenance optional) | No — core step |
+| 4 | Month 3 | Orthobiotic (Orthomolecular) — *replaces discontinued "Trust Your Gut Probiotic" per 2026-07-15 video* | BID on empty stomach ×1 week, then QD | 4–6 weeks (then 1–2×/week maintenance optional) | No — core step |
 | 5 | Month 4 | BioFilm | Once or twice daily | Response-guided ("as long as benefits seen") | Yes — leaky gut patients |
 | 6 | Month 5 | L-glutamine (+ continue BioFilm) | BID | 3–6 months (6–12 months if severe); often long-term | Yes — leaky gut patients |
 | 7 | Any time | Berberine | Not specified in source — **[source unclear]** | Ongoing, adjunctive | Yes — IR/PCOS/DM overlap |

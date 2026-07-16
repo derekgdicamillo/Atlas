@@ -1,0 +1,1481 @@
+# Transcript: 02-iron-ferritin
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\Week 2 - Iron & ferritin metabolism\recording.mp4
+# Duration: 99.9 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:00] All right, let me put people in here.
+[00:27] Good afternoon.
+[00:28] I'm going to get everybody admitted and ready to go.
+[00:46] There is a PowerPoint posted in the course under week two if you have not found that or
+[00:54] if you want to download it and keep it, you could certainly do that.
+[01:01] There's also a case that's been posted.
+[01:03] We will try to touch on that at the end of our discussion on iron.
+[01:12] So we'll touch on that a little bit after we talk about iron.
+[01:20] So if you want to look at that case, you could type in a comment or chat regarding that if
+[01:27] you want.
+[01:28] So feel free to do that.
+[01:32] It's posted in the community.
+[01:35] So sometimes I'll open a tab for the course and a different tab for community.
+[01:42] So I can go back and forth between the two while I'm working on stuff for y'all.
+[01:46] So you could certainly do that if you wanted.
+[01:58] If you have questions while we're waiting on everybody to get logged in and set up, feel
+[02:04] free to unmute yourself and ask away.
+[02:09] That's not going to hurt a thing.
+[02:11] Or you can type in the chat if you don't want to talk.
+[02:18] There is a PowerPoint posted in the course in week two.
+[02:23] So feel free to grab that.
+[02:26] And then there is a patient case posted.
+[02:28] I think that's Natalie.
+[02:29] She just joined us.
+[02:30] I just added her to the meeting.
+[02:33] So we'll take a look at that.
+[02:38] After we get through with our iron discussion.
+[02:42] So hopefully we'll be able to help answer a few of those questions in a little bit.
+[03:08] Natalie, question about your case while we're waiting on folks.
+[03:22] You said she had a hysterectomy, but did she keep her ovaries?
+[03:27] Do you know?
+[03:31] You can either unmute or type in the chat.
+[03:34] Either one is fine.
+[03:35] But does she have her ovaries still?
+[03:43] She said she did not keep her ovaries.
+[03:45] Okay.
+[03:46] Well, it's odd that she has such a low FSH and LH then, because that's interesting.
+[03:58] But we're missing some important numbers.
+[04:02] So the insulin is crucial.
+[04:06] Probably this is mostly insulin resistance.
+[04:12] As evidenced by the fasting glucose, the triglycerides, the HDL, the testosterone, the
+[04:17] estradiol, the DHEA, all of those are definitely not in our optimal range.
+[04:24] Her sodium and potassium are way far apart.
+[04:26] So she was probably way too dry at the time of the draw.
+[04:31] So I would definitely work on getting patients to cooperate better with our lab instructions.
+[04:39] I'll make sure they're well hydrated.
+[04:41] They need to drink water the morning of the draw, but not coffee, not juice, not coke,
+[04:46] not anything else.
+[04:48] And then we're also missing uric acid, thyroid antibodies, and reverse C3.
+[04:53] Those are all crucial inflammation markers.
+[04:56] And so they help us understand.
+[04:57] However, her CRP is through the roof sky high at six.
+[05:01] So definitely not, she's not an un-inflamed person at all.
+[05:10] Another question about it is her mom and her sister had breast cancer.
+[05:16] And so she was, you know, nervous about hormone therapy, but then they took off the black
+[05:21] box warning, but how are we navigating that these days?
+[05:25] Yeah.
+[05:26] So we're going to have a whole hormone session.
+[05:29] The short answer is you navigate it however the patient wants.
+[05:32] If they're afraid, okay, then just don't.
+[05:35] But she's got boatloads of other stuff that we can work on.
+[05:39] And it may ultimately help balance some of her estrogen and testosterone.
+[05:44] So I mean, like a lot of patients are hesitant to do hormone work, especially early on.
+[05:53] They come around after a while, you can't, you know, have her come back in, I would,
+[05:57] with these labs, I would probably redraw her in about four months because there's some
+[06:02] things, reasons why.
+[06:05] And so at that time I would add all the other stuff you're missing.
+[06:10] I try not to send people back, oh, I need these more, like, you know, three or four
+[06:14] different trips to the lab, get people worn out and aggravated.
+[06:19] So I try to manage with the results I have and then have them come back later with another
+[06:26] draw that I'm going to follow up on and add those things then.
+[06:31] Supplement, like supplement wise, and I'm still kind of newer to like adding supplements.
+[06:38] Yeah.
+[06:39] Obviously she needs like the osteopics, right?
+[06:41] She needs that vitamin D and all the co-factors with it.
+[06:45] But then I was reading a lot about like burbing and things like that to help with sugars
+[06:50] and things like that.
+[06:51] Yep.
+[06:52] So insulin resistance, your basic three best options are berberine, metformin, and orinositol.
+[07:01] So berberine and metformin are pathologically anatomically, biologically very similar.
+[07:09] They go down the same pathways.
+[07:11] So I don't normally put people on metformin and berberine for that reason.
+[07:17] Okay.
+[07:19] And the patients will choose one or the other, but I dose them similarly.
+[07:22] So I dose metformin, 1,000 BID, I dose berberine, 1,000 BID, until I found this new berberine
+[07:28] I posted about on my page this past week, it's a dihydro berberine.
+[07:34] I think I talked about it, mentioned it in our insulin discussion last time, but it is
+[07:41] only 200 milligrams and it doesn't have to be high-dosed like the other berberine.
+[07:49] So that might be an option, either dihydro berberine, regular berberine, or metformin.
+[07:58] And then inositol, it depends on the product you choose.
+[08:01] There are boatloads of inositol products.
+[08:03] Inositol is great for those patients that have both hormone imbalances and insulin
+[08:10] resistance.
+[08:12] I probably put her on progesterone because of something you said, let me go back to her.
+[08:21] She doesn't sleep very well.
+[08:22] Yeah.
+[08:23] I was thinking he was asleep, but I wasn't sure.
+[08:25] I didn't want to lie.
+[08:26] So the irritability and the sleeping issue justify the progesterone lab value or not,
+[08:33] but her progesterone is tanked.
+[08:36] But most of this is driven by inflammation and insulin.
+[08:38] I'd be interested to see what her insulin level is.
+[08:42] But by the time you get there, it may be a few points lower than it is now.
+[08:47] She's compliant and does all the work.
+[08:51] But yeah, I would definitely get her on an anti-inflammatory eating plan, get her on
+[08:56] the osteopics.
+[08:59] And we're going to come back to this toward the end because I want to talk about the
+[09:02] iron more.
+[09:03] Okay.
+[09:04] Yeah.
+[09:05] I had a question about that too.
+[09:06] Our iron discussion.
+[09:09] I would watch her thyroid numbers.
+[09:12] They're not great.
+[09:13] They're not perfect, but they're not terrible either.
+[09:18] Her TSH is much higher if that is a two than I like.
+[09:23] So she may have an iodine deficiency, not realizing it.
+[09:29] So you're going to want to make sure she gets an iodine supplement load, this is usually
+[09:34] less than 300 micrograms a day.
+[09:37] And then she could also just do the iodized salt, like you were saying, like the three.
+[09:41] She can, as long as she can consistently, persistently get two teaspoons of iodized salt every single
+[09:47] day.
+[09:48] Okay.
+[09:49] Yeah.
+[09:50] Um, so yeah, but you're definitely on the right track.
+[09:56] So good job.
+[09:57] Thank you.
+[09:59] Um, we're, for those of you joining, uh, uh, recently, not, I was going to say, I
+[10:04] don't want to say late, but you're not late.
+[10:05] You're just joining and I'm just clicking ads.
+[10:07] So, um, but we, uh, few people, um, were signed in a little bit early and one of them was
+[10:15] Natalie.
+[10:16] She has posted a case in community.
+[10:18] If y'all want to take a look at that, um, it's over there in the community and, um,
+[10:23] you're welcome to take a look at that.
+[10:25] We are going to go back to that case at the end of our iron ferritin discussion.
+[10:30] I don't recommend any iodized salt.
+[10:33] Um, most iodized salt is very unhealthy, um, but patients have choices and if it's cheaper
+[10:40] and more likely that they'll be compliant, then they can use whatever iodized salt they
+[10:45] want to use, um, versus an iodine supplement.
+[10:49] I don't care.
+[10:50] I teach them about healthy salt versus non-healthy salt, um, and the pink salt, sea salts.
+[10:56] Those are all way healthier salts, but none of them are iodized.
+[11:00] So, um, you know, patients have to make some choices, but I don't recommend iodized salt
+[11:05] because it's not healthy.
+[11:07] They bleach it, they add stuff to it, maltodextrin is in salt.
+[11:11] Did you know that?
+[11:12] Like, come on, that's pure sugar.
+[11:15] Why do you put sugar in salt?
+[11:18] So, um, seltic sea salt, sea salt is great.
+[11:23] It just has no iodine.
+[11:24] So just make sure you add iodine to their supplement list when you send them their, um,
+[11:31] full script recommendations.
+[11:35] Few people are still logging in and joining us, so we're going to give them another minute
+[11:39] or two to get set up, um, any other questions while we, uh, wait on everybody to get ready
+[11:45] to go.
+[11:47] There is a PowerPoint in the course.
+[11:50] If you have not found that and you want to download that and keep that, um, uh, it's,
+[11:57] it's over there in the course under the week two icon, uh, Lugal's iodine is poison.
+[12:06] That's the short version.
+[12:08] Um, it is about 12,000 times the amount of iodine that a body can use.
+[12:15] So yeah, we call that a poison, right?
+[12:19] Yeah.
+[12:20] Uh, it's truly intended to be used a drop or two in like a gallon of water.
+[12:27] And then you drink like a teaspoon of the gallon a day.
+[12:32] You don't drink Lugal's iodine.
+[12:34] It's not intended to be that used that way.
+[12:37] So I never recommend Lugal's cause people are going to short, uh, change themselves, uh,
+[12:42] with time.
+[12:43] They're just going to take a drop and they've gone and it's 12,000 times more iodine than
+[12:48] the body can use.
+[12:49] It will trigger hyperthyroidism, goiter, um, uh, even thyroid cancer in some patients.
+[12:55] Um, it triggers nodular growth, uh, makes the numbers look bad.
+[13:00] I've had, uh, probably three or four patients that have come to me because some other prescriber
+[13:06] put them on Lugal's not because they put them on Lugal's, but because they were using Lugal's
+[13:11] they, when they get to me and I do labs, all their labs look hyperthyroid, but all
+[13:15] their symptoms are hypothyroid.
+[13:17] So you have this giant mismatch.
+[13:20] And so we get them off of the Lugal's iodine and their numbers tank.
+[13:25] Um, and that's when we support their thyroid the right way, um, with low doses of iodine
+[13:33] and other, um, nutrition support.
+[13:36] So yeah, never Lugal's keep your iodine doses, always and forever, 300 micrograms
+[13:42] a day or less.
+[13:45] There is a caveat to that.
+[13:47] If you have, there's some new research out the past couple of years, mostly in the past
+[13:52] year, 18 months, BPH patients and fibrocystic disease patients, both men and women have
+[14:01] been shown to improve symptoms and their BPH symptoms big time, um, by adding iodine.
+[14:10] So when those patients, I dose them a thousand micrograms of iodine a day.
+[14:15] So if somebody comes to me with BPH or fibrocystic breast disease, they get a different amount
+[14:20] of iodine.
+[14:21] Um, they get a higher amount.
+[14:24] So just keep that in mind.
+[14:26] That's the only exceptions that I have so far.
+[14:30] All right.
+[14:32] Um, any other questions before we dive in, uh, we still are admitting people every second
+[14:38] or two.
+[14:39] Um, just another minute, we're just 10 minutes in, not quite 10 minutes in any other questions
+[14:45] you have before we start.
+[14:55] Any other questions?
+[14:56] Hey, Jenny.
+[14:57] Yes.
+[14:58] Hey, it's Tracy.
+[14:59] Did you see where they've changed PCOS to PMOS?
+[15:02] Yes, I was going to mention that when we got started, I just, I know, right.
+[15:09] I've been saying for about 10 years that, um, the, um, PCOS name, uh, it was poor, um, it
+[15:19] was not appropriate whatsoever.
+[15:21] Um, and, uh, it should have been something, um, definitely different, um, three, three
+[15:30] years.
+[15:31] Yeah, I agree.
+[15:32] I was like, yes, it's an insulin inflammation problem.
+[15:35] It is not an ovarian problem.
+[15:37] And so that's, that's, I'm thrilled that to the article I read today, it should help people
+[15:44] get more coverage with their insurance for treatment, but you know, we'll see, but I
+[15:49] don't know.
+[15:50] Metabolic resistance is denied, um, as an ICD 10 code.
+[15:54] So I said, we'll see about that, but I don't think we're going to get better, uh, like,
+[16:00] I just think having it called a metabolic problem, we'll get more people attuned to
+[16:08] the metabolic issues and take the focus off the ovaries because that's where it's always
+[16:13] been.
+[16:14] You have an ovary problem.
+[16:15] No, you don't.
+[16:16] What's making that ovary do that?
+[16:18] Something is driving that problem just randomly decide to spit out lots of, well, and I've
+[16:27] had lots of, um, ultrasounds done that show no signs.
+[16:31] Right.
+[16:32] Absolutely.
+[16:33] But all the labs clearly say PCOS.
+[16:35] Yep.
+[16:36] Absolutely.
+[16:37] So I'm hoping it'll just clarify a little bit of that kind of, um, misnomer.
+[16:44] Um, Samantha, yes, it is still recommended to use iodine at least part time, mostly because
+[16:52] seafood is so expensive.
+[16:53] The average person, even in a high seafood, uh, area, beach area, um, uh, most people aren't
+[17:00] going to afford enough of it to keep their levels in a healthy place.
+[17:05] So yes, they still need their iodine.
+[17:08] Good question.
+[17:10] Um, all right.
+[17:13] So I haven't added anybody in the last two or three minutes, so we're going to start,
+[17:18] um, our discussions.
+[17:21] So question, you have to be careful with iodine.
+[17:24] No thyroid medication, um, does not work the same way as iodine.
+[17:29] Our goal to be honest, Kadella is to get people off of thyroid medication.
+[17:34] The only people that we know are guaranteed to always and forever need thyroid medication
+[17:39] or those that have a thyroidectomy.
+[17:41] If they still have an active functioning thyroid gland, our goal is to eventually get them off
+[17:46] of thyroid medicine.
+[17:48] And I take probably 10 or 15% of my patient population off of thyroid medicine annually.
+[17:57] It happens.
+[17:58] Um, so once patients get enough iodine, vitamin D protein, once they get adequate support ingredients
+[18:08] for the recipe, the recipe comes together and the mixer works, um, not real, uh, good
+[18:15] benefits to testing iodine.
+[18:17] Several people here that have done mentorship, started testing it.
+[18:20] It's always low.
+[18:21] Um, the only time it's high is if people are mega dosing iodine, like on Lugol solutions
+[18:26] and other similar products.
+[18:28] Um, so I tested it for a while and I'm like, they're all, everybody's low unless they're
+[18:35] mega dosing.
+[18:36] So there's no point in testing it.
+[18:39] You can, but it's just an added expense and doesn't give you any new information.
+[18:46] Um, so, all right, so we have a PowerPoint to look at, um, about iron.
+[18:52] So let me find my share button so I can give y'all access to what I'm looking at.
+[18:58] Um, and so we are going to talk about, we're not really going to talk about hair growth.
+[19:04] That was the title of our presentation.
+[19:05] I did a while back when we take that out, um, cause it's the same thing, uh, for energy
+[19:11] as for growing hair and, uh, cells that need to grow.
+[19:16] All right.
+[19:17] So, um, y'all have seen this before.
+[19:21] This is what I base my mentorship on my patient care on.
+[19:25] Um, so these are our objectives.
+[19:27] We're going to skip some of this cause we don't really need to talk about it, but
+[19:31] we do need to go back and look at the pathophysiology, the basic biology
+[19:37] behind iron and ferritin.
+[19:39] They are two different iron molecules.
+[19:41] And so that's really important that we understand the differences.
+[19:51] Um,
+[19:55] it's not going to be much bigger on my screen.
+[19:58] I'm going to be honest with you.
+[19:59] And then I can't see half of it because of y'all.
+[20:03] Um, so, um, keep in mind that iron is used, uh, for different purposes than ferritin.
+[20:12] Ferritin is what we've always known as stored iron.
+[20:16] Uh, we were basically taught not much else when we went through biology,
+[20:22] patho, A and P, whatever in our, uh, prereqs and our RN programs.
+[20:28] Um, but iron is for lots of body processes, your hormones, immune function,
+[20:36] cellular growth, many, many, many, many processes use iron either as a basic
+[20:42] ingredient or as some sort of catalyst or ion as processes occur.
+[20:50] Um, and so it's really important that we get iron and ferritin in an optimal range.
+[20:57] Um, ferritin, however, is used mostly for one main purpose, maybe a few other things,
+[21:02] but the main purpose is that ferritin becomes hemoglobin on red blood cells.
+[21:07] What do red blood cells do for us?
+[21:10] What's their job?
+[21:12] Why are red blood cells so important?
+[21:18] Bury oxygen.
+[21:19] They deliver oxygen to every single body cell from head to toe.
+[21:24] What symptoms do you think are going to occur if that process is impaired?
+[21:36] Fatigue, shortness of breath, tachycardia.
+[21:40] Absolutely.
+[21:41] Fatigue, uh, yeah, uh, tachycardia, palpitations.
+[21:44] Absolutely.
+[21:45] Because what is the backup for the red blood cells, your cardiac muscle?
+[21:51] So if the cardiac muscle itself, the organ in your chest beating is getting some, uh,
+[22:01] or getting a lack of oxygen delivery to that muscle, it just says, oh, well, I can
+[22:06] just beat harder and faster.
+[22:08] That'll deliver more oxygen, right?
+[22:11] And that's an okay, temporary backup mechanism.
+[22:14] But how long do you think that's going to work?
+[22:18] It can't work a lifetime like that.
+[22:21] Um, uh, you wind up with congestive heart failure and, um, hypertension.
+[22:27] So, uh, not real good.
+[22:30] And so again, we want to look at optimal functional, um, not necessarily, uh, typical
+[22:36] ranges.
+[22:38] So one of the first things I find when I see patients is patients come to me thinking
+[22:45] they have hypothyroidism.
+[22:47] And so they answer the thyroid questionnaire that I always send out.
+[22:50] It's basically a simple review of systems.
+[22:53] We're talking about their symptoms, but my TSH is always normal according to all
+[22:58] the other labs they've had done.
+[23:01] And so they, they think coming in that I'm just going to label them as hypothyroid
+[23:06] and give them thyroid medicine, but the same exact symptoms happen with low iron
+[23:10] and ferritin.
+[23:11] So how can you distinguish between the two if you're not getting all of the lab
+[23:16] values, so it's really important that we get the symptoms and we get, um, the
+[23:24] labs to distinguish between the two.
+[23:27] I have a boatload of patients that come to me saying they're losing their hair.
+[23:30] Why?
+[23:31] Well, these are some of the most common reasons.
+[23:34] Well, if they're getting a low iron, low protein, low vitamin D, and they all
+[23:39] have inflammation and insulin resistance, their hair is not going to grow well.
+[23:43] And it's going to fall out.
+[23:46] So again, this is the same lab panel we talked about last week.
+[23:51] Um, we want to use our diagnosis codes appropriately.
+[23:56] If we are going to let them use their insurance to cover their labs, um,
+[24:00] obesity rarely covers anything.
+[24:03] I hardly ever use that on my insurance based patients on my cash patients.
+[24:10] Sure.
+[24:10] It's not going to hurt anything, but on, uh, obesity, sometimes obesity
+[24:16] diagnoses are excluded from insurance carriers.
+[24:22] So if you label it as obesity, they're, they're likely to deny some of those
+[24:26] charges on the contrary, don't you love, uh, all these conflicts that
+[24:32] everybody has every now and then we'll run across an insurer that will
+[24:36] cover vitamin D because of an obesity diagnosis code.
+[24:40] So, um, yeah, uh, I, I don't tend to throw obesity on an initial visit, but
+[24:49] if I get a fax back from a lab or the patient tells me their lab is asking
+[24:54] for more codes, I sometimes will add it to those requests because sometimes
+[25:00] it does help, uh, cover that.
+[25:06] Um, well, Kayla, you're still going to want to diagnose your patients
+[25:10] with appropriate diagnoses.
+[25:12] So you just don't have to justify the labs if you're only cash-based, but if
+[25:17] you want to use, if the patient wants to use their insurance, you have to use
+[25:22] the codes that will cover their labs.
+[25:26] So yes, they go on the lab sheet.
+[25:28] Yep.
+[25:31] Um, so these are some of the ones I use most commonly.
+[25:35] I will tell you a real big secret that I have discovered in the last few years.
+[25:40] Medicare will cover almost all the labs that you want to get.
+[25:45] If you add screening codes, so you can say screening for diabetes, that'll
+[25:50] justify your A1C screening for cardiovascular disease that will cover
+[25:55] your CRP and sometimes, um, some of your other testing, uh, definitely a lipid
+[26:01] panel, I don't draw too many lipids, but if you want to draw them, um,
+[26:05] that would justify it screening for nutritional disorder.
+[26:09] Um, so in my system in Optimontra, I can start typing a screening word and I'll
+[26:15] get a whole list of, uh, uh, screening codes, and I can just scroll down
+[26:20] through there and pick ones, um, that I think are the most appropriate and
+[26:23] add them to my lab diagnosis.
+[26:25] So I add them to my lab order.
+[26:28] I don't add them to my chart when I add screening codes, because I don't
+[26:32] want to pop, there's no need for them to populate my chart.
+[26:34] Do y'all follow what I'm saying?
+[26:36] Uh, the lab order in Optimontra is a separate pop-up window.
+[26:41] And so I will add all of the lab, I mean, all of their diagnosis
+[26:46] codes in their chart before I go to populate the lab order.
+[26:51] And then during the lab order creation, if I need to add more screening
+[26:55] codes or something, that's just a one-time thing, um, I will add that
+[27:00] after I've created the note, not in their note.
+[27:07] I have never had iron or ferritin not covered, ever, never, fatigue
+[27:17] justifies getting an iron panel, period.
+[27:20] I don't know what your insurer is or what the problem is.
+[27:24] Um, and are you sure it's that test?
+[27:27] Sometimes the request for more codes is difficult to read.
+[27:35] Um, it took me a while to figure out that sometimes they're not asking
+[27:38] for, um, a specific test.
+[27:41] They're just saying, you ordered all this, we need more codes.
+[27:44] And so you don't know which ones they are really looking for.
+[27:47] Um, yeah, I, I don't know.
+[27:52] I've never seen ferritin or iron not covered.
+[27:55] I've never had an issue with that.
+[27:56] And I've been doing this for like five or six years now.
+[28:00] Yeah, you could add screening for nutritional order and disorder and
+[28:04] see if that helps, but I've never seen it not covered.
+[28:11] Um, so I mentioned this already.
+[28:13] We won't belabor this, but if you look at this list, they're identical.
+[28:18] Um, and so look at your patient, um, they're reporting, uh, hypothyroid
+[28:23] symptoms, but they're also reporting anemia symptoms.
+[28:26] Um, you could also, are you using Z8 6.39?
+[28:32] Um, cause Z8 6.39 covers a history of nutritional, um, endocrine, or something
+[28:43] else disorder, and so everybody has that.
+[28:46] Everybody has that.
+[28:47] Everybody has a metabolic disorder.
+[28:50] So make sure you are using, let's go back to my sheet.
+[28:56] So this, these three codes right here on the side of this lab sheet.
+[29:02] Uh, this yellow sheet is graphic.
+[29:04] These three codes absolutely must be on every, um, lab sheet that I draw this.
+[29:14] I use these three no matter what.
+[29:15] And then I add additional ones that apply hair loss, dry skin, um, uh, insomnia.
+[29:23] Um, there's a, there's a generic, uh, cognitive dysfunction kind of
+[29:31] thing, lack of awareness or something for concentration.
+[29:34] It's a symptom.
+[29:35] It's not an attention deficit diagnosis.
+[29:38] Um, so when people complain of brain fog, or I think I might have attention
+[29:44] deficit disorder, but nobody's ever diagnosed it, I use, I throw that in as
+[29:48] well, so I list every diagnosis code that matches symptoms to your patient.
+[29:53] You can put 40 diagnosis codes on your lab order.
+[29:57] It doesn't matter how many you use.
+[29:59] Um, uh, but keep adding dino diagnosis codes.
+[30:03] I never use just these three.
+[30:06] I used to get away with just these three, but insurers are getting
+[30:10] more and more persnickety.
+[30:11] So now I put everything in there that I can.
+[30:15] Um, R five three eight is not specific enough.
+[30:18] You need R five three eight three.
+[30:19] The more dots, uh, the more spaces in your ICD and HEN codes, the better off you are.
+[30:25] Use as many spaces as you can.
+[30:29] I don't ever turn them in with less than four numbers.
+[30:34] Um,
+[30:39] um, so amethyst, if you're looking for ICD and ICD 10 codes, there is, uh, there
+[30:44] are several good ICD and ICD 10 websites.
+[30:48] Um, I usually will Google search a Google for ICD 10 codes.
+[30:52] It's Chris.
+[30:54] Somebody.
+[30:55] I don't know who he is.
+[30:56] Um, might be a she Chris.
+[30:58] I don't know, but it has lots of, uh, uh, uh, information.
+[31:05] So if you go into his website, the Chris ICD 10 page, you can type R five
+[31:12] three eight, and you'll see all the things there are five, three, eight, one
+[31:17] or five, three, eight, two, or five, three, eight, whatever ICD 10 codes are
+[31:22] populated in the giant book.
+[31:25] Um, are also populated there.
+[31:29] Um, so then you can read through them and pick the one that you
+[31:32] think is most appropriate R five, three, eight, three covers almost everything.
+[31:37] I don't remember Lisa, what the code for brain fog is Kimberly is idea R 41 89.
+[31:44] Um, I don't remember what it is, but you can in Opta mantra or in an ICD
+[31:50] 10 search, you can just do, um, uh, brain fog or something like that.
+[31:55] Um, and it'll, it'll pull up some ICD 10 codes for you.
+[32:00] Um, yeah.
+[32:02] So Kida Kida says there's a red book logo.
+[32:04] You can look up codes in.
+[32:06] So there's lots of resources, but, um, I mostly use my EMR.
+[32:11] And then if I don't know what I'm looking for, you know, EMR tend to
+[32:14] have a language all their own.
+[32:17] And it really takes me off because you would think brain fog as common as
+[32:21] the symptom is today would have a matching diagnosis code, but it does not.
+[32:26] Um, and so you have to learn a whole different vocabulary to
+[32:30] match up your code sometimes.
+[32:32] So, um, but save those to your favorites.
+[32:35] Once you find them, if you have a favorites tab and your EMR use that puppy, use it.
+[32:41] Um, so these are, yep, that's the one Kimberly, that's what I use, um, R4189
+[32:52] other symptoms and signs involving cognitive functions and awareness.
+[32:56] That's exactly it.
+[32:58] That's the one I use for brain fog.
+[33:01] Um, so when you look at, um, iron deficiencies, there's kind of stages
+[33:08] So our goal is somewhere around 80 to a hundred, you can be 150, 160, um, you
+[33:14] just don't want to be like screaming high.
+[33:16] You don't want to be two or three, 400 for iron or ferritin.
+[33:20] So number one, keep in mind that iron and ferritin have different measurements.
+[33:28] Okay.
+[33:30] Um, so we'll look at some of those in a little bit, but they're not the same
+[33:35] measurement, they're not the same nanogram per meal, or micrograms per
+[33:38] liter, um, uh, on every lab result.
+[33:42] But our goal is to get the numbers pretty close together.
+[33:47] Okay.
+[33:49] Um, as iron deficiency develops though, a ferritin around 60 to 65 will
+[33:55] start triggering some symptoms.
+[33:57] People will start saying they have more fatigue, more brain fog.
+[34:01] They can't get through the day very well in a year.
+[34:03] They lose their energy.
+[34:05] Um, they can't focus.
+[34:07] Um, they'll start having some headaches randomly, um, maybe migraines that,
+[34:13] and they've never had them before, um, as their iron and our ferritin specifically
+[34:21] begins to fall further, those symptoms worsen.
+[34:24] So now, instead of an occasional fatigue or an afternoon where I need a nap and
+[34:29] can't get through the afternoon.
+[34:31] Now it's every day.
+[34:32] Like I have to stop and take a nap or I have to go get an energy drink.
+[34:35] I get a, um, uh, cup of coffee, like whatever, an espresso, whatever, to
+[34:43] keep me up and functioning the next few hours, um, sleep patterns begin to
+[34:48] get disrupted because now they're using more caffeine, more stimulants to
+[34:52] get through their day.
+[34:53] So now they're awake all night and can't get to sleep at some point.
+[34:58] Palpitations and tachycardia began, uh, dyspnea gets worse and worse.
+[35:03] Other people are beginning to notice, are you okay?
+[35:06] You're, you get winded when you go up those stairs, um, carrying the laundry.
+[35:10] You, you seem short of breath.
+[35:12] Are you all right?
+[35:13] Um, and then as the ferritin level falls, they're, they get more and more depressed.
+[35:18] It's not clinical depression.
+[35:20] They just have no motivation.
+[35:21] They have no energy.
+[35:22] They literally just can't.
+[35:24] And so, um, they call themselves, I feel like I'm depressed, but I'm really not.
+[35:29] My brain tells me I'm not depressed.
+[35:31] My body is telling me I am.
+[35:33] That is what I talk about when I talk about poor motivation.
+[35:37] If those, uh, ferritin levels continue to fall, um, they get down to 20 or less.
+[35:43] You have pretty significant cardiac risk.
+[35:45] That heart is really overworking and think about all these women, especially
+[35:51] that have periods every month that are losing blood that are running in the
+[35:54] twenties and thirties and then during their period week, that ferritin really
+[35:58] plummets to like 10 or 15 and then they spend the next three or four weeks
+[36:04] trying to recover from that.
+[36:05] And then it happens again.
+[36:06] So they're just going through this vicious cycle and they can't get their
+[36:10] ferritin better, all these women on social media posts out there saying, I
+[36:15] never get my ferritinites because they're never addressing it properly.
+[36:18] We as providers have not done a very good job of helping patients understand
+[36:24] what ferritin is doing and how the cells are responding to that lack.
+[36:31] If they have, um, insurance and, um, agree, I really like for patients to
+[36:39] go get an iron infusion, if it can be covered by the insurance.
+[36:42] And it's one of the few things I will write a PA for, um, if they, if
+[36:47] their insurance denies them, uh, an iron infusion, I will write a PA.
+[36:52] My nurse will write a PA for them because I think it's that important.
+[36:55] I don't write many PAs, but I will write a PA for an iron infusion in a heartbeat.
+[37:03] Yeah.
+[37:03] So a ferritin of 13 is real terrible.
+[37:06] Um, uh, amethyst, uh, what's the life cycle of the red blood cell?
+[37:12] Do you remember?
+[37:15] I'm not trying to put you on the spot.
+[37:17] Uh, it's about a hundred days, 110 days.
+[37:19] Yeah.
+[37:20] So, um, patients aren't going to feel better till that ferritin that iron
+[37:24] that got infused gets put on, uh, new baby red blood cells.
+[37:28] So it's going to take a while.
+[37:29] Um, most will start reporting occasional mild improvements in two or three weeks.
+[37:36] But keep in mind that you can't infuse iron and it be forced onto the red blood
+[37:44] cell, that red blood cell has all the iron on it.
+[37:47] It will ever have after it's in circulation.
+[37:50] It's kind of like asking a baby to, um, grow an 11th toe after he's born.
+[37:58] You can't do that.
+[38:00] You're not going to look, it's not physically possible.
+[38:04] So you want to give them plenty of time, um, to, uh, get that fixed, uh, all even
+[38:12] while they're getting infusions, you still want them taking some iron daily.
+[38:16] You still want them taking their vitamin D and their vitamin C to help.
+[38:21] Um, but here's a little graphic that a lot of patients, um, or providers like to
+[38:26] see, because it kind of breaks what I just said down into a colorful little,
+[38:30] um, graphic, uh, this graphic.
+[38:33] I believe is posted in your week re in your week two resources.
+[38:37] So you can download that if you want.
+[38:39] It's all, I'm always posting it on my Facebook page, joyful heart healthcare.
+[38:45] So you can get it from there as well.
+[38:47] Iron requires a few co-factors, vitamin C, of course.
+[38:51] Um, I typically dose vitamin C, uh, two to 4,000 milligrams,
+[38:56] three or four times a day.
+[38:58] Yes.
+[38:59] On purpose, not for iron absorption, but what else is going on?
+[39:05] These people have terrible guts, terrible inflammation, lots of ROS, reactive
+[39:11] oxidative species floating around in their bloodstream and they're making more.
+[39:15] Um, and so vitamin C helps the body get rid of inflammation and focus
+[39:20] on iron absorption improvements.
+[39:23] Vitamin D is crucial.
+[39:25] Um, some of you are aware that there are some small studies and some
+[39:30] providers that are dosing iron every other day to minimize inflammation.
+[39:36] Vitamin C will fix that problem when dosed enough.
+[39:40] But the main reason they're dosing it every other day is because of hepcidin.
+[39:45] Hepcidin is a hormone ish inflammation ish, um, a chemical that goes up
+[39:53] when vitamin D is low.
+[39:54] So if hepcidin is high, the body cannot absorb and utilize iron appropriately.
+[40:00] And so the only way to lower hepcidin then is to increase vitamin D.
+[40:05] And so that's why we use the osteopax because the vitamin D includes the
+[40:09] boron, the vitamin K, the mag, all of the co-factors necessary.
+[40:14] And so that really is helpful.
+[40:16] Trace minerals like zinc and copper, manganese, molybdenum, um, uh, you
+[40:24] know, all of those are in red meat.
+[40:26] And so if they have iron deficiency anemia and their ferritin is low, the
+[40:30] first food thing we're going to ask them to change is to eat more red meat.
+[40:34] Therefore, they won't need a trace minerals peel if they are vegetarian
+[40:38] or they don't eat or can't afford red meat, you may want to consider
+[40:42] a trace minerals product, at least temporarily, but I never high dose
+[40:47] trace minerals zinc, especially, um, is commonly being overdosed out there.
+[40:53] And when I do test that, it's always either tanked because they're not
+[40:58] getting any, or it's screaming high because they've been overdosing.
+[41:03] Um, some people have been overdosing zinc since COVID because
+[41:07] it's helpful for my immune system.
+[41:09] Yes, it is.
+[41:10] However, um, it's a heavy metal.
+[41:14] It has nowhere to go in excess.
+[41:16] And so you never want to dose trace minerals without lab values, or you
+[41:21] want to do it very short-term.
+[41:23] So like one bottle, one four month stamp, whatever it takes to, to, to
+[41:28] get to the next thing, some chats here.
+[41:35] Um, vitamin C dose again, please.
+[41:38] Yes.
+[41:38] Amethyst two to 4,000, uh, three or four times a day for vitamin C.
+[41:43] And it's written down in here somewhere.
+[41:45] I think the product, um, that I use is called ferrous solve.
+[41:50] It is a ferrous shell product.
+[41:53] Um, ferrous shell is a registered trademark word for ferrous bisglycinate.
+[42:00] Um, it is the safest form of iron that you can use, um, for almost every patient.
+[42:09] Um, I don't like traditional iron supplements.
+[42:12] They are terrible on gut health.
+[42:14] They are poorly absorbed.
+[42:16] I have had patients try to use them and they really just don't raise levels.
+[42:21] Patients go on Amazon or Walmart or wherever, uh, they're shopping and they
+[42:27] try to find the cheapest iron they can.
+[42:29] And they're also going to get the lowest doses they can.
+[42:33] So the ferrous solve product that I recommend is 45 milligrams.
+[42:38] And I typically prescribe that twice a day, um, with two different
+[42:42] meals or somewhere in their day.
+[42:46] Um, high doses of vitamin C, as I said, um, remember vitamin C is a natural
+[42:50] laxative, so you don't want to put them on 4,000 milligrams T or TID or QID
+[42:55] right off the bat, start them on one or 2000 twice a day and tell them to
+[42:59] increase that every week or two until they find diarrhea and when they find
+[43:05] diarrhea, they back off one or 2000 milligrams and they can stay there.
+[43:10] What's the worst problem that we have with iron supplementation constipation?
+[43:15] Well, that's another reason for high dosing vitamin C.
+[43:18] Um, I have a lot of patients that will start their Ferris shell and one
+[43:21] pill of vitamin C and the next time I see them, they've, they've, they've
+[43:25] stopped their iron because they had constipation.
+[43:28] Well, how much vitamin C are you taking?
+[43:30] Um, a thousand a day.
+[43:33] Okay.
+[43:33] Well, that's why you have some constipation.
+[43:35] You didn't follow the written instructions that I gave you what we talked about.
+[43:39] You would be on 10 or 12,000 milligrams now and you wouldn't have any constipation.
+[43:44] Oh, nobody reads.
+[43:46] They don't pay attention to us.
+[43:48] Um, so we have to reteach, reteach, reteach.
+[43:51] Um, so be careful and make sure that they understand your instructions over time.
+[43:59] Um, let's see.
+[44:06] Um, amethyst, you ask a question that we were all taught in our end school.
+[44:10] Iron should be taken on an empty stomach, right?
+[44:12] But what happens when many people, um, take iron on an empty stomach, they throw it up.
+[44:19] So, uh, if it's tolerated, yes.
+[44:21] But if it's not take it in between bites of food, like I don't have a preference.
+[44:25] I'd rather them get some than none.
+[44:27] So however it works.
+[44:30] Um, yes.
+[44:33] Um, you Nancy, uh, you're exactly right.
+[44:36] A lot of, uh, of mainstream people will recommend things from various stores
+[44:41] and online sites.
+[44:43] One of the most popular is a Mary Ruth's product and it's supposedly gentle
+[44:47] on the stomach.
+[44:48] The problem is I think it has like nine or 12 milligrams.
+[44:53] You'd have to just about drink the whole bottle daily to get enough iron
+[44:57] for it to be of use.
+[44:58] Well, that's going to be hundreds of dollars a month.
+[45:01] That's stupid.
+[45:02] Um, look for one that's higher dose.
+[45:04] Um, so I like a dose for the day, about a hundred milligrams.
+[45:10] So there are some products with 36 milligrams.
+[45:14] You could use those, but they're going to need that three times a day.
+[45:18] I never dose these together.
+[45:20] You don't want to take 90 milligrams of iron at once.
+[45:23] That's bad for kidneys.
+[45:24] Remember iron can be nephrotoxic.
+[45:27] So dose it carefully, just, and make sure you're teaching your
+[45:30] patients what to do and how to take them.
+[45:36] Oh, of course the glass of orange juice is going to fix it all.
+[45:38] Yeah.
+[45:39] Don't use orange juice.
+[45:40] That vitamin C is completely dead in the water.
+[45:42] It's completely useless.
+[45:44] It's been homogenized and pasteurized.
+[45:46] It's been heated.
+[45:46] It's completely disintegrated, not useful.
+[45:50] Um, uh, your best source of iron and your B12 and your other Bs is red meat.
+[45:56] So try to encourage more red meat intake prices of beef are high right now.
+[46:01] So I get that patient struggle sometimes.
+[46:03] Um, but even if they can have, uh, red meat at least five out of
+[46:08] seven days, um, that will give them some of these nutrients.
+[46:12] Try to get them off of grains.
+[46:14] Grains break down into phytates.
+[46:16] Phytates block iron.
+[46:18] Um, sometimes you will have patients like our case in the community
+[46:24] that Natalie posted earlier and, uh, their ferritin will be 67.
+[46:29] I think is what it was 68.
+[46:31] Um, they may or may not need iron, but they need to get rid of the grains
+[46:37] so that the iron, they are consuming cause she at 67, this patient is getting
+[46:41] some iron, but it's not, not a lot of it is able to be absorbed probably
+[46:46] because of the grain intake, rice, corn, oats, wheat, all of that will
+[46:51] block that iron absorption.
+[46:53] It also blocks zinc absorption.
+[46:56] Phytates will also block T3 absorption.
+[46:59] So be really careful, um, when we, um, uh, are teaching patients about nutrition.
+[47:08] Um, yeah, not enough of the blood builder for sure.
+[47:12] Um, you would have to do four, four doses of that that if that's what they're
+[47:18] going to use, uh, I'm not sure.
+[47:21] I don't remember this product specifically, but I think the iron blood builder has
+[47:25] other ingredients in it, so you can't really double dose that.
+[47:30] And you may not even need to dose that at four times a day because of the
+[47:34] other ingredients that are included.
+[47:36] I don't remember that specific product, but if it's the one I kind of think
+[47:41] it might be, I would stay away from it.
+[47:44] Yes.
+[47:45] Many of our Hispanic and Asian patients do tons of grains and they think that
+[47:51] they have no other way to eat, but I have seen boatloads of Hispanics and
+[47:56] Asians change the way they're eating.
+[47:58] Um, and, uh, they're able to tolerate a grain free lifestyle.
+[48:03] It's a challenge for sure.
+[48:05] Um, so just help them understand.
+[48:11] Um, if you're going to order an infusion, uh, connect with your local infusion
+[48:17] center, I'm lucky enough that I have a local infusion center that will take
+[48:21] my orders, uh, well, it's at a hospital.
+[48:25] The other hospital will not take my orders.
+[48:27] I have to refer them to Hema.
+[48:29] They see them and then they tell them, no, you don't need an infusion.
+[48:32] And so it's a whole waste of time.
+[48:35] So I typically try to send them all to, uh, the other, uh, hospital and
+[48:40] infusion center, if you are lucky enough to have, um, uh, a med spa that
+[48:47] gives iron infusions or, um, an IV hydration place that does iron infusions
+[48:53] connect with them and see if you can work out a plan where they'll, they'll
+[48:58] get all your referrals for iron infusions.
+[49:00] Um, and they can charge a decent price for patients to pay out-of-pocket.
+[49:06] Um, that's what we did when my granddaughter needed an iron infusion.
+[49:10] I paid like 250, $300, uh, for each infusion, just cash out-of-pocket.
+[49:14] We didn't even go through her insurance.
+[49:16] Her ferritin was one.
+[49:19] Um, these are the typical standard orders.
+[49:23] Um, a ferroheme or Venifer.
+[49:25] Venifer has the least number of, uh, adverse reactions, uh, with infusion.
+[49:32] Um, and so that's what I typically try to order, but sometimes the
+[49:37] infusion center has a different protocol.
+[49:39] There's a couple of other iron products, ferroclit and something else.
+[49:45] I don't remember the name of it, uh, but some insurance would only cover that.
+[49:50] And so you have to write it again.
+[49:52] Uh, sometimes you have to write a PA.
+[49:55] Um, uh, basically you want to say the PO version is ineffective.
+[50:00] So what you have to do, if you write a PA, you have seen the patient, you told
+[50:06] them to go on iron, you redraw them in four months or two months, if you
+[50:10] want to kind of like push it.
+[50:12] Um, and the iron didn't come up.
+[50:14] They were 20, they're 21.
+[50:16] It's not coming up.
+[50:17] Then you can say the PO method is being ineffective.
+[50:20] It's not being absorbed.
+[50:21] Well, we need an iron infusion.
+[50:23] And so that can help you get your PA approved and through the system.
+[50:28] And then they can get their, um, infusion.
+[50:32] I typically get an iron and ferritin panel about six or eight weeks after both
+[50:36] infusions, I usually order two infusions at a time, uh, one today and
+[50:41] one in a week or 10 days, and then no more infusions.
+[50:46] We just continue with PO iron C and D.
+[50:49] Um, uh, depending on how low they were, if they're below 30, they're
+[50:53] going to get PO recommendations.
+[50:55] If they're probably 50 ish or, um, by the time you, um, get to, uh, the
+[51:02] level, they're probably not going to need to continue a ton of, uh, the
+[51:06] PO cause the infusion is probably going to bring them up.
+[51:09] So, um, just get a iron level.
+[51:13] I've had one patient that reacted, uh, severely to an iron infusion.
+[51:19] We went from like seven to like 350, uh, with her infusion.
+[51:25] So I was like, uh, yeah, you don't need your iron fields.
+[51:29] Um, so, uh, that's why we draw a level about six or eight weeks out.
+[51:33] That level at six or eight weeks is not your target.
+[51:36] It's not your goal.
+[51:37] It does nothing to help you know, if your patient is going to get better
+[51:41] cause the life cycle of the red blood cell is a hundred days.
+[51:45] Um, it's a safety net for you.
+[51:48] Um, you don't want to continue dosing iron if the infusion has shot their
+[51:53] ferritin levels into the three or 400 range.
+[51:57] So it is simply just to see what we got to.
+[52:00] And if it's really high, then you get them off their iron, get them off their red
+[52:04] meat, um, and, uh, recheck them in the next six or eight weeks.
+[52:08] And then you'll be about your four months out.
+[52:12] Got a couple of questions.
+[52:13] So let me go to those in the chat.
+[52:26] I don't have a copy of a PA.
+[52:28] There's usually a form that comes from the, either the insurer or the infusion
+[52:33] center, so I just feel that out.
+[52:35] I answer the questions that provide, I don't have a form.
+[52:39] Um, yes, there are some religions that don't eat red meat.
+[52:42] First of all, they need to understand that biologically, uh, red meat is
+[52:46] essential to health, um, I understand the religion thing.
+[52:51] I really do, but the body was created by a religious being to need iron.
+[52:59] There is no other food that will provide it.
+[53:02] And the patients cannot take, no patient can take iron.
+[53:06] Over their whole lifetime.
+[53:07] It's a dangerous supplement.
+[53:11] So be careful.
+[53:13] I'm not trying to make people get off their religion or lose their
+[53:16] religion or anything like that, but God is very forgiving and he doesn't
+[53:21] want you to die or have a heart problem simply because of a nutrition problem.
+[53:27] So teach and let patients make choices.
+[53:31] Just help them understand that the danger of being able to make
+[53:34] just help them understand that the dangers of taking iron long-term far
+[53:39] exceed the benefits of taking iron long-term.
+[53:43] You don't want brain cancer or brain, um, cognitive issues because all that
+[53:49] excess iron gets stored there, um, or liver cancer, same thing.
+[53:54] So, um, iron level typically below, uh, below range, um, some insurers
+[54:00] will cover it with, with it below about 20, some low 30.
+[54:04] It varies.
+[54:05] Um, it depends on how symptomatic they are.
+[54:07] So there's not a iron level that is, um, um, that's like seven stone.
+[54:15] Have you considered Moringa?
+[54:16] I've had a couple people use it.
+[54:17] I haven't really single seen a lot of results out of it.
+[54:21] Um, so I don't know.
+[54:23] I've, I've seen a couple people use it, but not with very good results.
+[54:29] Um, using C and D we see great results.
+[54:32] So, um, uh, make sure your patient understands that K two is not potassium.
+[54:39] I've had boatloads of patients wind up taking potassium peels trying
+[54:42] to get their vitamin D in, um, uh, make sure they get their D with their
+[54:49] fats, with their magnesium, with their K two, their boron, all of that's
+[54:53] in one peel in the osteopics.
+[54:55] So if they will use that product, they won't have to buy four more peels.
+[54:59] Um, D and K two are fat soluble.
+[55:02] So never take them on an empty stomach, always in between bites of fatty food.
+[55:06] And I already mentioned the upside in that impairs iron absorption.
+[55:13] We talked about this a little bit.
+[55:15] The trace minerals are really helpful for iron absorption.
+[55:18] Um, and all of these are in red meat in some quantities.
+[55:21] Um, uh, so I see people all the time, a lot of these help coaches and, um,
+[55:28] um, uh, Tik TOK experts out there telling people, if you'll just eat two Brazil nuts
+[55:33] every day, you'll get plenty of selenium.
+[55:35] Why do you need selenium?
+[55:37] If you're eating a six or eight ounce ribeye or equivalent red meat, um,
+[55:41] several days a week, that's like hundreds of, um, uh, percent of the selenium you
+[55:48] need, so like, uh, be careful telling people to do things, uh, when you're
+[55:53] not sure what the nutrient content is.
+[55:58] I like using chronometer.
+[56:00] Uh, if you have a chronometer app, um, I'll show you a picture of my app here.
+[56:08] I like chronometer.
+[56:09] It's a food tracking app, um, like my fitness pal or, um, like there's a bunch
+[56:16] of them, um, but I like chronometer because it gives you, like, let me put
+[56:23] a food in here, let's pick ribeye and we're going to make it be six ounces.
+[56:33] I'm going to add that to the diary.
+[56:34] So now I'm going to open it up down here.
+[56:37] And so I'm going to try to show you this screen, stop share.
+[56:43] And then it's going to be hard to see, but not only does it have your
+[56:47] macros up here at the top, but if you scroll down through the bottom, you'll
+[56:51] see lots of other nutrients and see the bars go all the way across there.
+[56:57] So that is B1, B2, B3, um, B6, B12, 240% of your days.
+[57:05] B12 need is in six ounces of ribeye.
+[57:09] So why do people need all the vitamins and the supplements that we're
+[57:14] finding that they need, they don't need a pill.
+[57:17] They just need to eat real food.
+[57:19] Um, 112% of their selenium is in a six ounce ribeye, 235% of their zinc.
+[57:28] So these people don't need all the supplements that they think they need
+[57:32] listening to Tiktokers and experts.
+[57:34] But I like chronometer, um, for this purpose, because it gives you all this
+[57:39] other nutrition information, not just their macros.
+[57:43] Um, and you don't have to.
+[57:46] Um, you don't have to buy anything to get that.
+[57:50] Like the, the, if you buy something, all you're buying is connection with your
+[57:55] patients, so you could buy that, um, and have your patients, um, subscribe to that
+[58:00] app and then you can connect with them.
+[58:02] I just find that to be a little over the top.
+[58:05] I don't like having to look at all their other stuff.
+[58:10] Um, an infusion last Friday.
+[58:13] Um, yeah, three months is never good.
+[58:16] Three months came about because of insurance rules.
+[58:18] Get that, wipe that out of your brain.
+[58:20] Use physiological processes to have patients return for live draws.
+[58:25] The red blood cell will take up ferritin in a hundred days.
+[58:29] Uh, it takes a hundred days for them to turn over.
+[58:32] So drawing your iron and ferritin panel at four months is way more beneficial
+[58:37] and economical than three months, because at three months, you're only
+[58:40] going to have about 67% of them turned over.
+[58:44] So it won't do you much good.
+[58:45] Make sense.
+[58:46] Um, but yes, I would send for a second infusion.
+[58:50] Yeah.
+[58:51] I know you can't see that picture very well.
+[58:53] It's okay.
+[58:53] Um, just look up chronometer and play with it a little bit.
+[58:57] Um, I know meat is expensive, uh, and I know red meat is more expensive
+[59:02] than chicken or anything else right now, but I'm telling y'all patients
+[59:07] spend a crap ton of money on crappy food.
+[59:10] If they would just stop that and buy real food, their budgets would be better.
+[59:16] Both their health would get better and their finances would get better.
+[59:21] If you don't buy bags, boxes and cans of junk in the stores and you just buy
+[59:25] meats and veggies and bacon and cheese, your cart is small and you
+[59:32] have plenty of food for the week.
+[59:34] I'm telling you, it works like crazy.
+[59:36] It's rather wild.
+[59:40] Um, let's see if there's something else over here.
+[59:44] I need to get to, yes, being sick is way more expensive.
+[59:53] How many meds are they going to have to buy if they turn out, um,
+[59:56] type two diabetic in 10 more years?
+[59:59] Um, how many shots are they going to have to give themselves because they
+[60:02] become insulin dependent type two diabetic at some point, like the,
+[60:07] the cascade is terrible.
+[60:09] And so our goal is to help them understand where the nutrition is and how
+[60:14] to, um, use that to optimize their health.
+[60:20] Okay.
+[60:22] Um, get people off of margarine and corn oils and inflammatory crappy fats.
+[60:28] Get them on real butter because that helps them absorb their proteins, um,
+[60:34] and their vitamin A.
+[60:39] So you've probably seen these charts before I had, I remember having one
+[60:43] in my A and P book or something, uh, way back in the day, you can compare
+[60:48] iron deficiency, anemia to be 12 deficiency to, uh, anemia of chronic diseases.
+[60:54] And so just by using this chart, you can kind of figure out what their
+[60:58] problem is many times when I draw on my initial lab panel on patients,
+[61:04] I will find low MCV and, uh, low MCH.
+[61:09] And when I see that, I'm like, yep.
+[61:11] Even though your H and H are normal, uh, you have low ferritin even
+[61:16] before I look at the number, I can tell you with low MCH and low MCV,
+[61:22] they have low ferritin, um, because this is, this is classic.
+[61:26] And so, uh, you can keep and use this charter or Google other charts
+[61:30] to use for comparison, but it's really helpful if you, um, look at this.
+[61:36] The only thing I disagree with on this chart is many times you will
+[61:40] have a folate level above range when you have B12 deficiency.
+[61:46] Um, so this is mostly a chart from mainstream medicine.
+[61:50] Uh, it's not one I've done for functional medicine.
+[61:53] I should probably make one, um, because high folate is almost always
+[61:57] associated with the B12 deficiency.
+[62:00] So, uh, just a few other supplement tips, um, uh, to think about Ferrosol
+[62:11] is 45 milligrams per cap.
+[62:12] They can only take one cap per dose.
+[62:14] They can't double or triple that to get more without risking kidney injury.
+[62:19] So be very careful with that.
+[62:21] Um, lots of vitamin C, the more they take, the better off they are from head to toe.
+[62:27] Um, there's lots of reasons to use high dose, use high doses of C.
+[62:30] Uh, low dose C is sufficient for iron absorption, but it's not helpful for inflammation.
+[62:36] It's not helpful for gut healing.
+[62:38] It's not helpful for the constipation that often comes with Ferrosol.
+[62:42] Um, even though Ferrosol is less troublesome to the gut, it is not no trouble.
+[62:48] Like it's seal will cause some constipation or sluggish gut.
+[62:52] So the C acts to counteract that.
+[62:55] Once labs get to about 65 or 70, you might be able to take the patient off the iron peels,
+[63:03] but they have to be consuming adequate red meat regularly, at least five out of seven days.
+[63:10] If they are not, then you need to have some kind of plan so that they continue
+[63:16] to get iron some days, but they get a break for it from it some days.
+[63:21] Um, oftentimes I will have them take their iron Monday, Wednesday, Friday.
+[63:25] Um, sometimes we'll take instead of BID, we'll just do QD.
+[63:31] Um, but they absolutely cannot continue taking iron if they are not getting the lab values tested.
+[63:38] So if something happens and they move or they lose insurance or whatever life brings their way and they're, you know, six months from now, they haven't gotten their labs.
+[63:50] Um, they need to stop their iron.
+[63:52] They need to know if they are not being followed for their iron lab work.
+[63:58] They absolutely must stop taking their iron if they can't get labs done because it is toxic to the brain and to the liver.
+[64:07] And so make sure they fully understand the risks to taking it, um, unchecked.
+[64:13] I have a client with elevated ferritin.
+[64:20] Yes, we're going to talk about elevation in a minute.
+[64:23] Um, he just needs to decrease his red meat a little bit, but it's driven by inflammation.
+[64:28] So what is driving the inflammation?
+[64:31] Um, he probably has some fatty liver disease with an ALT of 43.
+[64:35] Um, uh, I would definitely look at all of his labs for sure.
+[64:43] Um, but I will tell you over, I think the, I think the cut off is any ferritin over 600.
+[64:57] Somebody can correct me if I'm wrong.
+[64:59] Any ferritin over 600 should be evaluated for H with, for, um, hereditary hematochromatosis.
+[65:06] H H get order an HFE.
+[65:08] The next time you do labs to look for that HFE gene.
+[65:12] And if the HFE gene is positive, that ferritin is really high and is dangerous to his liver and his brain.
+[65:20] Get him to donate blood ASAP and continue donating it regularly.
+[65:24] That's the best way to get the ferritin down quickly.
+[65:30] Um, Lisa says I've had a patient tell me they had yeast symptoms.
+[65:35] My thing won't move.
+[65:41] Why are you being dumb computer?
+[65:43] There we go.
+[65:46] Um, computer will not move.
+[66:01] Um,
+[66:02] where did your question go, Lisa?
+[66:08] Oh, here it is.
+[66:09] Um, Lisa says I've had a patient tell me they had yeast and some yeast symptoms when taking iron.
+[66:14] Um, maybe, um, because gut dysfunction drives most of our absorption problems.
+[66:20] We have a whole session we're going to do on gut.
+[66:23] Um, so I would treat her with some nystatin or some fluconazole for about six weeks.
+[66:29] Um, while she starts her iron, um, and see if you can't kill, kill those bugs off.
+[66:35] Um, the best thing for inflammation is grain free eating.
+[66:39] Uh, you can never out supplement a poor diet until you get the inflammation source gone.
+[66:46] Nothing else we do is going to help.
+[66:48] So they have got to improve their D, improve their C intake and get off the grains.
+[66:55] So, um, somebody was asking about the infusion, uh, information while ago, these
+[66:59] are the infusion, uh, things that I follow.
+[67:02] I typically order a couple infusions, uh, about seven to 10 days apart.
+[67:07] Uh, and then we recheck those iron and ferritin labs.
+[67:10] There's no reason to drop anything else at six weeks.
+[67:13] Nothing else you've looked at is going to change that fast.
+[67:16] Um, and the only reason we're looking at iron and ferritin is not to see
+[67:20] how well they're doing.
+[67:21] It's to see that they are, are safe with the iron we gave them.
+[67:27] Um, uh, if they stay low, you can consider another infusion or, uh,
+[67:33] PO supplements, your choice.
+[67:36] Um, if the levels are really, really good, um, then they may not need the, um,
+[67:42] iron peels, but continue dietary iron, continue C and D, um, and then you
+[67:49] want to check, uh, iron levels every four months, as long as they're on
+[67:54] iron of any kind, whether it's an infusion or a PO every four months.
+[68:01] After they get really good, um, if they're in the 70 to a hundred range,
+[68:07] um, you don't have to test it every time you do labs.
+[68:10] Um, you could go to like every six months, eight months, 12 months.
+[68:15] Um, you just want to make sure they're maintaining, um, after you get a
+[68:19] couple of labs that show they're in good shape.
+[68:22] If you have a patient with hypothyroidism, which we're going to talk about next
+[68:26] week, there's a couple of, uh, special caveats.
+[68:33] Um, ferritin that is too low will cause hypothyroidism.
+[68:39] So be very careful putting patients on LIO.
+[68:42] You can use centroid all day long, but not LIO.
+[68:46] Lio-thyronine is T3.
+[68:47] We're going to talk about it a lot more next week, but T3 is a
+[68:52] specific stimulant to the body.
+[68:54] What did we already say is going to happen when ferritin is low and
+[68:58] the heart kicks in as backup.
+[69:01] We're going to have palpitations and tachycardia.
+[69:03] We're going to run the risk of hypertension and CHF eventually.
+[69:06] So because of the unsafe cardiac risks, we don't typically give low ferritin
+[69:15] patients, Lio-thyronine, or if we do, we keep the dose really low, really tiny.
+[69:20] Um, and so we'll talk next week about how we use the free T3 to guide
+[69:24] your T3 dosing, and we use reverse T3 to guide your T4 or levodosing.
+[69:30] Remember that grains interfere with T3 and iron absorption.
+[69:34] So it's absolutely crucial to help patients understand that if you want
+[69:38] more data about grains, uh, there are two major books that I recommend
+[69:44] to patients and I post about them all the time on social media.
+[69:47] One is called Grain Brain.
+[69:51] It's written by Dr.
+[69:52] David Pearl Mudder.
+[69:54] He's got a new book coming out about brain health.
+[69:57] I think it's in August or September.
+[70:00] Um, Wheat Belly is by Dr.
+[70:03] William Davis.
+[70:04] He has a couple of other books out as well, but wheat belly was his very first.
+[70:09] It was about almost 20 years ago.
+[70:12] And he, he and Dr.
+[70:13] Pearl Mudder both have accumulated boatloads of references and their
+[70:17] books are all referenced, like there's all research studies in their books.
+[70:23] They list them all the articles.
+[70:25] So, um, those are some great books to do some deep diving into how
+[70:31] unhealthy grains are in the U S.
+[70:34] Now I will tell you that I have patients that travel around the world on occasion.
+[70:39] Um, some go to Spain, England, Argentina, Columbia.
+[70:46] I have a bunch of patients from Columbia, Mexico.
+[70:49] They can go and eat food in their country.
+[70:52] And then it's not the same.
+[70:53] They don't get swollen.
+[70:54] They don't get bloated.
+[70:55] They don't have brain fog.
+[70:57] They don't get sick.
+[70:58] Um, so it's what we do to food here in the U S it's not necessarily
+[71:02] the grain itself.
+[71:04] It's how we process it.
+[71:06] Um, so keep in mind that occasional going off plan, like for travel or whatever,
+[71:15] um, is going to happen, um, and, uh, give patients some grace, like we can't
+[71:21] expect them to live a perfect life when there's life that's got to be lived up
+[71:28] there, but okay.
+[71:30] Well, you had, um, uh, tortilla on the cruise.
+[71:34] Oh, okay.
+[71:34] That's great.
+[71:35] Uh, I hope you enjoyed that.
+[71:37] Um, uh, let's get back on, on, on task now and get these numbers back down.
+[71:42] Cause you went on all that, that those trips.
+[71:45] In fact, I had a patient just last week, this same exact thing happened too.
+[71:48] She traveled from a lot from like January to this past, um, week when I saw her.
+[71:54] And so all of her inflammation markers had gone up a little bit.
+[71:57] And she's like, dang, I was hoping I was back on track soon enough for it not to
+[72:01] show up, um, but all of her, her CRP, her uric acid, her white count, everything
+[72:07] was up just a couple of notches.
+[72:09] Um, and so she's like, when I saw my results, I knew what you were going to
+[72:12] say, and I was like, well, give yourself some grace and just, uh, get back on
+[72:16] plan and stay on black, stay on plan.
+[72:19] Don't worry about it.
+[72:22] So, um, keep in mind, you're all asking for the exceptions.
+[72:25] The problem with all the exceptions is they still raise glucose, which
+[72:28] raised insulin, which door sat.
+[72:30] So they may be less inflammatory, but they're not any healthier.
+[72:34] Okay.
+[72:36] Um,
+[72:41] so when you follow up, think about red light, uh, red blood cell lifespan.
+[72:45] We talked about that wall ago with the three months.
+[72:47] Um, somebody had a comment in the chat about red, uh, three month follow up.
+[72:51] Uh, avoid that.
+[72:52] I do two month thyroid follow ups and four month iron follow ups and for
+[72:58] other stuff, it's four or five or six months.
+[73:00] So it really depends on the need and the physiology as to how I decide how
+[73:06] I'm going to have patients follow up.
+[73:08] But the logical follow up for iron is every four months.
+[73:11] It can be five.
+[73:12] You could choose five if you want.
+[73:15] Um, just pick a number and keep it there, but three is insufficient.
+[73:19] Two is insufficient, except that you want to check for the infusion impact.
+[73:25] Um, uh, mentioned earlier, you want to continue checking iron, uh, for a
+[73:33] year or so after you DC the iron.
+[73:35] And then you want to check every year or two, uh, to make sure they're holding
+[73:39] their own and they haven't fallen off.
+[73:41] Um, the goal is to not need all these pills and supplements forever.
+[73:45] Our goal is to get people on the supplements they need for the shortest
+[73:50] amount of time they need them.
+[73:51] And then to continue that diet for the rest of their lives, um, because that
+[73:55] will sustain those levels and minimize inflammation and insulin problems.
+[74:00] If the level falls, a lot of times patients will get so excited.
+[74:04] They don't have to take as many pills and they'll be like, great.
+[74:07] My iron level was 74 and I'm not going to have to take that pill anymore.
+[74:11] And then we draw levels in four months and it's 48.
+[74:15] And they're like, why didn't it fall?
+[74:17] Well, you tell me how many times a week did you eat red meat twice?
+[74:21] Yeah.
+[74:21] Okay.
+[74:22] Well, that's why we fell.
+[74:23] Um, uh, you went back to some of the old habits because you got kind of used
+[74:28] to how it was working.
+[74:30] You were using the peel to rely on the iron intake.
+[74:33] So when you got rid of the iron intake, the iron level fell.
+[74:37] So the only way to get that back up is to go back on supplements for a
+[74:40] while and then learn to eat differently.
+[74:43] And you just got to continue eating differently forever.
+[74:46] Keep in mind your menstrual changes, um, in women, especially through
+[74:50] menopause, perimenopause, really, really heavy bleeding will drive low ferritin.
+[74:55] If I have low ferritin in my perimenopausal women, I send them to the
+[74:59] GYN people for an ablation or hysterectomy conversation.
+[75:03] And I tell them that's why I want them to go.
+[75:05] Your iron is 14 and you have terrible symptoms because your
+[75:11] ferritin level is so low.
+[75:13] You are short of breath.
+[75:14] It is impacting life.
+[75:15] Uh, you need to go to your GYN and have this conversation.
+[75:19] They're going to talk to you about an ablation, which is where they do a
+[75:23] DNC that is like heat sealing your womb.
+[75:26] So you can't have a thickened uterus anymore.
+[75:29] You typically don't have bleeding, maybe spotting sometimes, but you
+[75:33] don't have normal periods anymore.
+[75:34] And so that stops the iron loss every month.
+[75:38] Um, some women opt for the hysterectomy, not my favorite plan, but
+[75:43] that is an option that GYNs will put on the table sometimes.
+[75:46] So I tell them that's what they need to have a conversation about and
+[75:50] that they need to decide what they want to do.
+[75:54] If their thyroid is also low, um, at their four months checkup for their
+[75:59] iron, you could add your thyroid numbers.
+[76:02] If you want to retest, say their TSH was 2.5 and their free T3 was 2.8.
+[76:10] So they were all just not quite right.
+[76:13] Um, but if we add iron and D and iodine and we're eating better at the
+[76:18] four months checkup, their thyroid numbers might be just a little bit
+[76:21] better and they may not wind up needing pills, um, uh, prescription.
+[76:25] So you can check those at their four month mark as well.
+[76:30] And these are a bunch of references.
+[76:32] So the other thing we haven't really talked about, um, let me
+[76:38] answer a couple of questions.
+[76:39] Can I also, as you say, iron under 30, send for infusion.
+[76:42] It depends.
+[76:43] Uh, I send them if they're outside range, outside normal ranges on the
+[76:48] lab sheet, if it's marked red on their lab sheet, they're going for an infusion.
+[76:52] Some insurances will cover them up to 20 or 30.
+[76:56] So that's going to be very patient specific and you're going to have to
+[76:59] get them to dig into their insurance coverage.
+[77:02] Um, I don't do that for patients.
+[77:04] I make my patients do that.
+[77:05] If you want an infusion, dig around and find it.
+[77:08] Um, if it's safe, see if it's covered.
+[77:10] Otherwise I try to find some, uh, infusion center where like cost
+[77:14] spa or hydration place that might, um, offer it.
+[77:20] So it depends on the area they're in.
+[77:22] So, um, we talked about, that was mostly low.
+[77:25] So let's go look at our case.
+[77:28] And then we're going to talk about high ferritin.
+[77:30] So let me, this is sideways in here.
+[77:34] Let me share my screen so you can at least see the numbers I'm talking about.
+[77:40] Um, so this is our patient with a TSH of two, a free T4 of one, a free T3 of 3.6.
+[77:48] So those are all decent thyroid numbers, except the TSH.
+[77:52] That's why I suspect this patient is low iodine.
+[77:55] We mentioned this early on in our session.
+[77:58] Um, assisting CRP or both high white count is high.
+[78:02] That is inflammation.
+[78:03] Um, ferritin is 67, uh, may or may not need iron peels because of 67, 67 not terrible.
+[78:14] So if we can, if she's willing to get rid of inflammatory foods, which are driving
+[78:18] her CRP, homocysteine, her white count and her A1C, um, I mean, fasting glucose
+[78:25] and triglycerides, um, that those numbers are going to get better, but so
+[78:30] will her iron and ferritin levels.
+[78:33] So 87 is not bad for iron ferritin is a little low at 67.
+[78:37] Ideally we want them to both be in the eighties.
+[78:39] If iron is 87, we expect ferritin to be in the eighties.
+[78:43] Um, so it's a little low.
+[78:46] Um, but we are missing other inflammation markers.
+[78:49] We're missing a reverse T3.
+[78:50] We're missing an insulin and an A1C.
+[78:53] Um, triglycerides are way too high.
+[78:55] When you calculate, um, HDL into triglycerides, we get.
+[79:00] Is that, is that eight that your, is that your calculation, Natalie?
+[79:06] You divided that out.
+[79:08] So we have a HDL 176 divided by HDL of 28.
+[79:16] Yeah.
+[79:16] So that's a risk of 6.2.
+[79:19] Um, that's not good.
+[79:20] You want that triglyceride to HDL ratio to be, uh, two or less, uh, or less than two.
+[79:27] Um, estrogen is, uh, low at 51 test or not low.
+[79:34] Uh, okay.
+[79:35] At 51.
+[79:35] I thought it was five, but I see it's 51.
+[79:38] Testosterone is 11.
+[79:39] That's low.
+[79:40] Those are both driven.
+[79:41] Higher estrogen, low testosterone by insulin resistance.
+[79:45] Her DHEA sulfate is low at 78.
+[79:48] How do I know that?
+[79:49] I write my lab value, my max range next to my 78 when I'm doing these.
+[79:56] Um, DHEA sulfate for, uh, I think she was 41.
+[80:00] Was she not Natalie?
+[80:02] Was that what I saw 41?
+[80:11] Does that sound right?
+[80:13] Peri- peri- menopausal, the rate, uh, her DHEA sulfate should
+[80:19] be around 400, give or take.
+[80:22] Um, so DHEA of 78 is really, really low compared to the high end of the range.
+[80:34] Um, we want DHEA sulfate to be right in the middle.
+[80:38] So whatever the lab reference range is, if it's 400, her DHEA sulfate should be about
+[80:44] 200, it's way lower than that at 78.
+[80:48] So she's not getting vitamin D.
+[80:50] She's not getting healthy cholesterol.
+[80:52] We know that because her HDL is 28.
+[80:55] Um, so she doesn't even have basic ingredients to make DHEA.
+[81:00] I'm going to show y'all on, let me stop share here.
+[81:03] You will see this picture that I share with y'all bunches over the coming weeks.
+[81:11] Um, let me find it.
+[81:20] And then let me change my share screen to this picture.
+[81:34] So, um, you're going to see this, uh, probably a hundred times over the next
+[81:39] four months, but cholesterol becomes hormones.
+[81:43] So we need HDL up so that she makes plenty of pregnant alone and DHEA.
+[81:48] Guess what becomes testosterone and estradiol, DHEA.
+[81:52] Um, so this is the normal pathway of how hormones are produced.
+[81:57] So as this patient is trying to fix her problems, you can see that without
+[82:03] adequate DHEA, she's not going to have appropriate testosterone or estradiol.
+[82:08] And that's exactly what we see in her lab value.
+[82:12] Um, when we, when we looked at those, um, labs.
+[82:17] So I would definitely work on inflammation and, um, um, insulin
+[82:23] resistance and getting grains down, getting red meat up, uh, getting
+[82:28] protein and fats to be her healthiest, um, base food meal, meal plan, and
+[82:36] then, um, um, retest her, I probably retest her at about four or five
+[82:43] months because there's nothing in here that's real significant.
+[82:47] Um, there's no point in draw doing anything before four or five months.
+[82:51] Um, we need our iron better.
+[82:53] That's going to take four months.
+[82:54] Um, so, um, I, I might would add some DHEA when I add DHEA supplements, I
+[83:02] typically do, um, uh, uh, about five to 10 milligrams at a time.
+[83:10] And I have patients bump that up to about 20 or 30.
+[83:14] Um, most women don't tolerate much more than that.
+[83:17] It goes down that DHT pathway, which is the masculinizing testosterone.
+[83:22] People, women don't like that.
+[83:24] So you have to be careful doing that.
+[83:26] Um, terseptide might be helpful, but I don't often prescribe that up front.
+[83:32] Um, I, I make them put some work in.
+[83:35] Um, the medicine is not going to fix the problem.
+[83:38] And that's what people think these shots are magic and they're not, they
+[83:42] are causing severe malnutrition and patients need to understand where their
+[83:46] nutrients come from to survive and to, uh, be healthy.
+[83:51] And so normally I tell them right now you're in her case right now,
+[83:55] your iron is borderline.
+[83:57] Um, I don't think it's safe to add terseptide to our treatment plan yet.
+[84:02] Um, let's see what kind of changes we can make to your diet and your
+[84:06] nutrition plan, your supplement plan.
+[84:09] Um, and let's retest in, um, September, October, uh, and see where we are.
+[84:15] And then I would draw the things that are important to your retest your iron,
+[84:19] your thyroid, um, the insulin, the A1C, all the things you're missing.
+[84:24] Um, and then, um, uh, I just don't ever redraw that whole panel.
+[84:30] That's, that's, that's kind of a waste.
+[84:32] You don't need all of it.
+[84:34] Um, uh, so I would add the things you need to follow up on.
+[84:39] And then say, you know, let's look at your labs, uh, in the fall.
+[84:43] And, um, uh, if they're looking better, it might be safer for us
+[84:48] to add the terseptide then go ahead and give them some hope for sure.
+[84:52] Um, you could also put her on a, um, GLP one probiotic.
+[84:57] So her body makes some, uh, a little bit of extra GLP one, some acromancia,
+[85:02] and, uh, that can help, um, uh, do a gut protocol where they empty.
+[85:07] She could lose four to five pounds just from emptying all the waste out
+[85:11] that might be sitting in her gut.
+[85:13] Um, I do not see patients in between labs.
+[85:18] I see patients as a result of labs.
+[85:21] You certainly can, especially if you're doing like a membership or a, like
+[85:26] a club kind of program where you want to provide nutritional support.
+[85:29] You certainly can do that.
+[85:31] Um, that is a very popular way of managing some of your, um, patients.
+[85:37] Um, I'm looking to see if I've missed anything.
+[85:43] 20 ferritin of 20 needs, uh, ferrosoft, BID, vitamin C multiple times a day,
+[85:48] vitamin D, um, red meat and no grains.
+[85:55] Um, all right.
+[85:57] So the only thing we really haven't talked about is high ferritin.
+[86:00] So this is about iron and ferritin.
+[86:03] Um, but high ferritin is much more rare.
+[86:06] Um, somebody already mentioned one, so we've kind of touched on it.
+[86:09] But if you have a high ferritin level, um, uh, typically above range, or if
+[86:18] your ferritin is about one and a half times the iron.
+[86:22] So in our case, we looked at the iron level was 87 or something,
+[86:27] and the ferritin was 67.
+[86:30] So that's not a big gap.
+[86:33] Um, and so that would not be worrisome.
+[86:36] But let's say the iron is 150 and the ferritin is 265.
+[86:45] Like that's a, that's a huge gap.
+[86:47] So that's a one and a half times more or plus that ferritin level, even though
+[86:54] it might not be outside range is too high.
+[86:57] That is an inflammation driven product.
+[87:01] That ferritin level is no longer much of an iron marker.
+[87:05] It is now what we call an acute phase reactant and an inflammation marker.
+[87:11] So if you have a ferritin level, that's a lot higher than your iron level,
+[87:17] regard that as inflammation, not as iron.
+[87:20] You can still send those patients for a blood donation and help
+[87:26] them drop those levels back pretty quick.
+[87:29] Um, that's really quick and easy.
+[87:31] Lots of people like to give blood and help out.
+[87:34] Um, other people, not so much, but it is your best and fastest
+[87:38] way to get ferritin levels down.
+[87:40] I don't typically test for hematochromatosis until that ferritin
+[87:48] level or iron level is above five or 600.
+[87:51] There has to be a real good reason.
+[87:54] Um, if they have liver enzymes that are screaming high and a high ferritin.
+[87:59] Oh, even if they're not at 500, I might send them for HFE testing.
+[88:03] The next lab draw.
+[88:04] Why?
+[88:05] Because liver is the organ of choice for ferritin storage over, over storage.
+[88:13] So, uh, you have to look at like the whole picture.
+[88:16] You have to not key in on, Oh my God, this ferritin is 400.
+[88:20] Well, if the ferritin is 400 and your ALT and ALT are 12 and your outcost is 45.
+[88:27] They do not have liver problems related to their iron problem.
+[88:31] Uh, that's an inflammation thing.
+[88:33] Um, so look at the whole picture and think about all the stuff we talk about and how
+[88:39] inflammation is connecting all these dots.
+[88:42] And then it's easier for you to kind of figure out, okay, well, her iron of
+[88:46] 465 probably isn't too bad if her liver's low and her inflammation markers.
+[88:52] Some of her inflammation markers are high.
+[88:53] Maybe her white count is eight and a half or CRP is 10 or 12.
+[88:59] Um, so if you have other markers of inflammation, it gives
+[89:02] you more confidence in your decision that says, Oh, well, this is inflammation.
+[89:08] Um, use the numbers you have.
+[89:10] It's why all of these markers are so helpful.
+[89:12] It's why getting that CRPHS, getting that uric acid, adding that
+[89:17] homocysteine, getting all of these markers helps you see a whole picture
+[89:21] rather than saying, Oh my God.
+[89:23] Um, like in, in the case, uh, Natalie gave us, we know this is insulin
+[89:28] resistance, but we don't have any real proof of that because we
+[89:31] don't have an A1C or an insulin.
+[89:32] I'm not fussing at Natalie.
+[89:33] She didn't know this.
+[89:34] We're just getting started with this, uh, class.
+[89:37] So she didn't know.
+[89:39] Um, but that's just an example of how the missing data, uh, might be, uh, more
+[89:45] helpful if we'd had it, then we'd have more proof.
+[89:49] We're pretty suspicious that it's insulin resistance because of how
+[89:52] wacky her hormones are.
+[89:53] Um, and the triglycerides are high.
+[89:56] Remember we want triglycerides less than a hundred, uh, less than 90
+[90:02] ideally.
+[90:03] Um, so, you know, she's got double what we want for triglycerides.
+[90:07] That's from carbs over consumed.
+[90:09] So, um, that makes us really suspicious that this is what this is.
+[90:14] Um, does that kind of help
+[90:21] any questions about iron or anything else before we get done tonight?
+[90:27] It's six 30 and I think they have supper in there.
+[90:32] Yes, you sure do.
+[90:38] What is your real name?
+[90:39] All I see are, uh, Chad Tatiana.
+[90:47] Am I saying that right?
+[90:48] Tatiana.
+[90:49] I like that.
+[90:50] That's pretty.
+[90:53] Um, I tried to say Tiana because I'm all about some Disney princesses.
+[90:58] Um, let's see.
+[91:04] What did, thank you for everything.
+[91:07] Amethyst is super helpful.
+[91:08] I took this course by you already separate and this just cleared up a lot of things.
+[91:12] Yep.
+[91:13] Yeah.
+[91:13] It really, like Amethyst, you're exactly right.
+[91:17] All of what I taught y'all today and last week, every bit of it, all of it,
+[91:23] we learned in basic biology.
+[91:25] We learned it in A and P.
+[91:27] We just never, our teachers, our instructors, our professors in nursing
+[91:32] school and getting our prereqs for degrees.
+[91:36] They never brought it forward into a cellular support implementation.
+[91:43] Like we learned most of these facts.
+[91:45] Y'all all knew vitamin C was helpful for iron.
+[91:48] You even asked, do we, don't we dose iron on an empty stuff?
+[91:51] We learned all those facts, but we never really, uh, had a way to bring all
+[91:58] of that into implementation.
+[92:00] Nobody ever made that bridge bridge for us.
+[92:03] We, we didn't know that part.
+[92:05] And so that's what I am trying to do.
+[92:07] I'm trying to bring that basic stuff.
+[92:09] We learned that we all knew back into how do I use this information
+[92:14] to support my patients cells?
+[92:16] Cause that's what this boils down to.
+[92:18] That's exactly what it boils down to.
+[92:22] Um, Tatiana says I had a fibroid two centimeters removed, but my, my hair's
+[92:26] falling, yep, your hair's falling out because your ferritin is tanked girl.
+[92:31] If you don't have iron, you can't grow new cells.
+[92:33] Um, no knowledge or connectivity.
+[92:35] You're exactly right.
+[92:36] This is why I do what I do so that y'all learn to connect all these dots.
+[92:41] Um, I have said since I started doing this, I believe iron and ferritin panels
+[92:46] should be part of the annual wellness exam.
+[92:49] Every person gets every year.
+[92:52] Um, the recording will be available, um, until the end of mentorship.
+[92:56] So if you want to watch it over and over again, overcoming weeks, you can.
+[93:00] Um, so hopefully, uh, the replays are posted in the course under the week.
+[93:07] They're recorded.
+[93:08] So iron, this iron session will be posted in the course in week two,
+[93:16] in week two iron and ferritin metabolism.
+[93:19] And so you open that tab up and there'll be a link to some of the graphics to some
+[93:24] of my articles and this video will be there.
+[93:27] And so the replays go in each week.
+[93:34] Um, I don't think that recordings are downloadable.
+[93:38] I don't think the course will let you do that.
+[93:41] Um, and then somebody else just had a question.
+[93:49] Yeah, we don't need thousand dollar functional specialty labs.
+[93:52] Like I order a, I just ordered a Dutch.
+[93:55] I haven't, I've ordered maybe three Dutch tests my whole career doing this.
+[94:00] Like we don't need those for the average patient, probably 85 to 90% of the
+[94:07] patients we take care of all of what we've done last week and this week, the
+[94:11] coming weeks are going to take care of the average patients we have.
+[94:15] You are going to have those weird ones that you're doing all the things.
+[94:18] And you're like, I don't understand why this is just happening.
+[94:21] I don't understand the symptom.
+[94:22] I I've got your thyroid optimized.
+[94:25] I don't know why you're still fatigued.
+[94:27] Like there's always going to be that weird puzzle.
+[94:30] Those are the people you do some of the weird testing on some of the
+[94:37] functional medicine, expensive tests.
+[94:39] Like I said, I just ordered the first Dutch in months.
+[94:42] Um, so I think they're listed under forms, not questionnaires.
+[94:48] If you're searching for the questionnaires, Leony, I do not do saliva.
+[94:55] When we talk about hormones, we'll talk about how inaccurate
+[94:58] and unhelpful it is.
+[95:02] Um, labs are cheapest via Rupa.
+[95:06] I'm going to tell you the, my lab panel through insurance runs about
+[95:10] three grand through Rupa.
+[95:12] I can order those same tests for about 250, 260 bucks.
+[95:17] Um, so yeah.
+[95:20] And then there's no deductible, no copay, no nothing with that.
+[95:24] So that's usually the cheapest way.
+[95:28] Um, yes.
+[95:35] And now Rupa and full script have been optimized, uh, which fella integrated.
+[95:43] And if you do cash prices with like, um, quest or lab core, sometimes
+[95:48] those are just as cheap as Rupa.
+[95:52] So there are options.
+[95:54] Make sure, let me, I'll double check my Optimontra, um, and make sure that they're
+[96:00] there, but you should be able to search in forms J H H C, um, and find mine.
+[96:07] It's not, but like four things.
+[96:10] So, but I'll double check and make sure they're there.
+[96:14] Um, I hardly ever order allergy testing.
+[96:18] Most people aren't allergic to things, um, that impact their, um,
+[96:23] absorption, uh, most people just can't tolerate it.
+[96:28] So if you get them off grains, their absorption greatly.
+[96:33] What's that?
+[96:39] Jenny, I have a quick question.
+[96:40] Yeah.
+[96:41] Oh, I saw some work that somebody else had one.
+[96:43] Um, on, on Facebook, you see so much now cause everyone's talking
+[96:47] about menopause, whatever, but I'm seeing someone they'll, they'll order.
+[96:51] They'll allow them to order lab tests, don't get them tested.
+[96:55] And they, they're so expensive, $300, $400.
+[96:58] And then whoever, whatever company it is, I guess they'll send them, almost
+[97:02] if you've seen that just information of guests regarding the testing.
+[97:07] And I said, like that they'll test like 160 different things.
+[97:12] You've seen some of them, but the function helps panel, huh?
+[97:17] You're talking about that function health panel.
+[97:19] Yeah, some of everything and people get excited because like, oh,
+[97:22] they're testing out his 168 items and think someone's allergy, someone's
+[97:27] different, everything else.
+[97:28] So I think they get so much from that.
+[97:30] Yeah.
+[97:30] But I've had patients do it and bring me the results and they're missing pieces.
+[97:34] And I just tell them, I don't have enough information to go on.
+[97:37] And then they realize they did a dumb thing.
+[97:40] I can't help it, but they have no idea what they're looking at desperate.
+[97:44] Y'all.
+[97:45] This is what they do when they feel like they don't have anywhere to turn.
+[97:49] Mainstream medicine has been gatekeeping all of their insurance.
+[97:53] I mean, health information stuff because of insurance.
+[97:59] And that's not appropriate.
+[98:01] Insurance or not.
+[98:01] Patients are, are, are deserving of knowing their insulin value or their
+[98:07] figure 10 value that they should be able to get that information.
+[98:11] I do upcharge a little bit.
+[98:12] Usually whatever it takes it to get to an even number like up 50, 60,
+[98:17] $75, whatever it takes to round up, something easy.
+[98:32] Trying to make sure I've covered everything.
+[98:33] I will double check my option mantra and make sure the forms are shared.
+[98:37] They're supposed to be there, but I will double check.
+[98:48] Mainstream does want to sick.
+[98:57] All right.
+[98:58] Any other questions before we sign off tonight?
+[99:00] I smell food in my kitchen.
+[99:05] All right.
+[99:06] Great conversation tonight.
+[99:08] We'll talk about thyroid next week.
+[99:12] If you need to rewatch the video, I'll have it uploaded here
+[99:15] and just a little bit tonight.
+[99:17] Um, and then there's, uh, uh, information over there.
+[99:21] I thought I saw a question about intake fees.
+[99:24] Um, I charged two, two 29 for an initial visit and one 79 for all follow-ups.
+[99:35] And that's like flat rate across the board.
+[99:37] Nobody gets anything different.
+[99:42] All right.
+[99:42] Uh, y'all take care.
+[99:43] Have a great week.
+[99:44] Um, don't forget to post cases in community.
+[99:47] Hopefully you'll have a couple of thyroid cases this week.
+[99:50] Bye y'all.

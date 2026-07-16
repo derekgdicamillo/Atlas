@@ -46,6 +46,7 @@ async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const e of entries) {
     if (e.name.startsWith(".")) continue;
+    if (e.name.startsWith("_")) continue; // skip _video-transcripts (raw transcripts + drafts)
     if (e.name === "node_modules") continue;
     const full = join(dir, e.name);
     if (e.isDirectory()) out.push(...(await walk(full)));

@@ -1,0 +1,58 @@
+> **⚠️ VIDEO-SOURCED · UNVERIFIED · PRACTITIONER-OPINION.** Auto-transcribed (small ASR model) from the Spring 2026 mentorship video recordings; contains material NOT captured in the slide-based knowledge base. Items marked ⚠️ have transcription-uncertain numbers or drug/product names and MUST be verified against the original slides before patient-facing use. This reflects one practitioner's clinical opinion from live Q&A, not guideline-level evidence. Generated 2026-07-15.
+
+# Supplements & Nutrition — NEW from video (DRAFT, unverified)
+
+Source: `10-supplements-nutrition.transcript.txt` (Week 5 — Business Mgmt & FullScript Use, Jenni Gallagher APRN). Auto-generated transcript (faster-whisper small.en) — verify anything ⚠️-flagged against the actual slides/PowerPoint before using clinically. Items below were checked against all three existing KB files (`README.md`, `supplement-reference.md`, `fullscript-and-resources.md`) in `10-supplements-nutrition/` and are **not** duplicates of what's already there. Pure business/marketing chatter (website/Facebook setup, DPC/membership pricing, Podia payment issue, Dr. Berry news story, dot-phrases/scribe discussion, Idaho collaborative-physician question) is intentionally omitted per scope.
+
+---
+
+## Thyroid & Iron — new clinical nuances
+
+- **Ferritin <45 ng/mL flagged as a cardiac risk threshold**, distinct from the repletion-trigger threshold (<60–70) already in the KB: below ~45, reduced oxygen-carrying capacity puts the cardiac muscle at risk, leading to dysrhythmias including **AFib** and other palpitations. [62:53] ⚠️ ("45-ish," approximate per speaker)
+- **Vitamin C with Ferrosolve is not primarily "for the iron's sake"** — the teaching frames it as: the extra vitamin C is being used to fix other things in the body, and it's paired with iron mainly because vitamin C is known to aid iron absorption/use (i.e., a secondary/practical rationale, not solely an absorption mechanism). [61:44]–[62:09]
+- **Low ferritin driver, stated plainly:** patients who don't eat red meat and eat a lot of grains have low ferritin from those two factors alone — compounded in women by monthly menstrual blood loss until menopause. [65:03]–[65:27]
+- **Osteo Px timing detail not previously captured:** take the capsule *in between bites* of fatty food, and **preferably at lunch or dinner — not breakfast.** [62:15]–[62:28]
+- **Ashwagandha dosing timing:** typically dosed **at bedtime**, unless the patient needs the stress/adaptogen effect during the daytime instead. [61:22]–[61:28]
+- **Ashwagandha/Free T3 worked example** (new specificity beyond the general claim already in KB): a patient with Free T3 around **2.9–3.0** (mildly subclinical hypothyroid, not needing medicine) given iodine/B/iron/protein plus **ashwagandha 700–800 mg once or twice a day** might rise to roughly **3.2–3.3** — a small but real bump, not a full normalization. [60:40]–[61:15] ⚠️ (approximate figures, "might")
+- **Selenium-from-red-meat graphic, new numbers:** a red-meat serving (steak) was cited as providing close to **200% of daily selenium need**; a separate mention of a "four ounce... maybe six... maybe eight ounce" serving at **112%** and zinc at **~200%**. Used to argue patients eating red meat 4–5x/week essentially never need supplemental selenium. ⚠️ Ounce size and exact percentages are inconsistent/uncertain in the audio — confirm against the actual selenium/zinc graphic before quoting a number. [57:47]–[58:38] and [84:48]–[85:18]
+- **Sublingual progesterone intolerance → think cortisol, and consider pregnenolone as a bridge:** when oral or sublingual progesterone isn't tolerated, the course teaches this is usually a **cortisol/stress issue** — work up adrenal function rather than assuming a med problem. In some cases, **start with pregnenolone instead of progesterone** and let the patient's body adjust before retrying progesterone. This is additional to the KB's existing "progesterone-induced anxiety → work up cortisol" note (different trigger: sublingual intolerance specifically). [18:03]–[18:32]
+
+## Anti-inflammatory/antioxidant supplements — new duration principle
+
+- **General rule not previously captured:** most of the anti-inflammatory/antioxidant agents discussed (black seed oil, oil of oregano, resveratrol, CoQ10, fish oil, curcumin/quercetin in this context) are meant for **short-term, acute use only — roughly 2–4 weeks** while sick or newly exposed to an inflammatory trigger, **not continuous long-term daily use.** Analogy used: "would you put somebody on amoxicillin for two years? No." [64:56]–[68:48]
+- **Resveratrol — new indication mention:** described as increasingly used by "urogynecology folks" for various **female and male urological issues**, in addition to its general antioxidant/anti-inflammatory role already in the KB. [67:36]–[67:56] ⚠️ (vague — no specific condition named)
+- **Oil of oregano — expanded candida indications:** beyond the general antifungal/Candida note already in KB, this session specifically calls out **vaginal yeast infections, yeast rash in skin folds**, and even mentions it being given to **dogs for yeasty skin conditions.** [68:48]–[69:22]
+- **Vitamin D "hammer" protocol (new, not in KB):** when a patient starts getting sick (runny nose, cough, sore throat), boost vitamin D to about **20,000 IU/day** for roughly **5–10 days** to support immune response. Critically, this boost is done with a **separate, plain vitamin D product** (mentioned as a Neurobiologix/"Great Vitamin D" product from Fullscript) added on top of — **not** by multiplying — the patient's regular Osteo Px, because Osteo Px's other ingredients (K2, magnesium, boron) can't be safely quadrupled/multiplied alongside the D. [66:22]–[67:20]
+
+## Gout — new case-study pearl
+
+- **Lasix vs. spironolactone and gout flares:** for a CHF/edema patient on dual diuretics, the instructor determined that **Lasix (furosemide) is more likely to trigger gout flares than spironolactone**. She discontinued the Lasix and switched to **spironolactone dosed twice daily** (morning + early afternoon, not after ~2pm due to nocturnal diuresis) instead of the prior once-daily dosing. This is presented as a new operational insight from her own ongoing case (husband), not previously in the KB's gout section. [69:48]–[71:21]
+- **MOTS-C update:** while the patient stays on the MOTS-C peptide, gout flares are rare/much less severe; a recent flare during a treatment gap was described as "way less troublesome" than his pre-MOTS-C flares. (MOTS-C itself is already flagged in the KB as an adjunct peptide, not an OTC supplement.) [70:24]–[71:00] ⚠️ (peptide dosing/frequency not given)
+
+## DLPA — new indication and titration detail
+
+- **ADHD alternative, not previously listed as an indication:** some patients are using DLPA **instead of their ADHD medication**; framed as the newest addition to her recommendations, "especially for ADHD issues." [74:13]–[74:44]
+- **Brand call-out:** **Pure Encapsulations** named as "the best brand I've found" for DLPA specifically. [74:52]–[75:00]
+- **Titration detail beyond the KB's existing 500 mg → 2,000 mg range:** start at **500–1,000 mg/day for 2–3 days**, watch for palpitations or hyperstimulation, then advance to **2,000 mg/day.** [75:00]–[75:28]
+
+## Inositol — new indication
+
+- **Inositol also lowers Hashimoto's antibodies**, per this session — an indication not present in the existing KB inositol entry (which covers insulin resistance, PCOS/PMOS, PMDD/OCD, egg quality, etc., but not autoimmune thyroid antibodies). [79:41]–[79:53]
+
+## FullScript workflow — new operational detail
+
+- **"Basic Supplement" template contents (not previously enumerated in the KB):** the default protocol sent to almost every new patient contains **Osteo Px, Ferrosolve, iodine, a B-complex, liposomal vitamin C, a probiotic, berberine, inositol, and magnesium** — then items are removed per-patient (e.g., pull iron/Osteo Px if ferritin is already good). A separate **"Basic Follow-Up"** template also exists but its contents weren't detailed. [41:58]–[42:26]
+- **Anxiety/Stress/Sleep template — specific named FullScript products** (new brand/product names not elsewhere in the KB): **BHP** (contains valerian root — some patients decline due to smell), **Serenity**, **Zen Stress Support**, **magnesium**, and **P5P**. Because ingredients overlap heavily across these products, she does not send the whole template — she populates it, then strips out duplicated ingredients before sending. [45:58]–[47:14]
+- **Favorites vs. Templates — distinct UI/workflow, not previously described:** "Favorites" are individual products (no bundling); "Templates" are pre-built multi-product protocols. Patients reportedly find the **Favorites tab easier to navigate** than Templates, which is why she maintains both. [47:39]–[48:43]
+- **Public shop browsing (new detail):** all of her templates and favorites are set to **public**, so a patient (or another provider) can browse her FullScript storefront directly — e.g., look up "what does she recommend for bone and joint health" — without her having sent a specific plan. She recommends reviewing/updating your own public shop every **4–6 months** as recommendations evolve (example given: swapping standard berberine for dihydroberberine). [48:43]–[49:21]
+- **EMR integration workflow (not previously in the KB):** if FullScript is integrated with your EMR, you can open a FullScript tab from within the EMR, build the recommendation there, and it **populates directly back into the EMR chart**. Stated to integrate with most EMRs; for EMRs it doesn't support, contact a FullScript rep or use their chat to request integration setup. [44:47]–[45:21]
+- **FullScript Labs — new pricing comparison:** a colleague states FullScript's lab pricing is "very comparable to Rupa," sometimes **a few cents/dollars cheaper**, cash-pay, ordered through **Quest or LabCorp** (Quest noted as the cheaper of the two), and removes the provider as a billing middleman. [51:29]–[52:26]
+
+## Lab-ordering pearls (adjacent to supplement/dispensary workflow)
+
+- **Ferritin must be ordered as a separate line item from the standard iron panel** — many labs will not actually run ferritin bundled inside an iron panel even when it's listed as included. Order both explicitly. [84:22]–[84:48]
+- **Quest and LabCorp use different test codes and sometimes different panel groupings for the same intended test** — e.g., LabCorp bundles free + total testosterone together, while estrogens are reported differently (Quest reports a fractionated estrogen result; LabCorp reports **separate estrone and estradiol** as two distinct tests). Practical implication: build separate ordering templates/cheat-sheets per lab vendor rather than assuming codes/bundles transfer across Quest and LabCorp. [83:38]–[84:22] ⚠️ (exact codes/numbers not clearly audible, described only as "graphic posted under Week 5")
+
+---
+
+**Item count: 22** new/non-duplicate items identified (grouped into 8 themed sections above). Several additional transcript passages (Idaho prescribing-law question, DPC/membership pricing details, website/Facebook marketing advice, dot-phrase/scribe workflow, Medicare screening-code selection, diagnosis-code examples for insurance billing) were reviewed and excluded as pure business/practice-management chatter outside this task's clinical/dispensary scope.

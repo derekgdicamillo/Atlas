@@ -1,0 +1,1840 @@
+# Transcript: 01-lab-optimization
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\Week 1 Video Recording - Lab Optimization\recording.mp4
+# Duration: 101.9 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:30] All right, folks are signing in and getting logged in, I love it.
+[00:46] We are starting a brand new mentorship.
+[00:51] So welcome, welcome to everybody.
+[00:53] We're going to give everybody a couple of minutes to get logged in and set up.
+[00:58] And then we'll get started.
+[00:59] I am Jenny Gallagher, nice to have the new folks around.
+[01:03] There's a couple that have been here before.
+[01:07] Something new that I just posted in community while we're waiting, if you want to go check
+[01:12] it out, I just posted a let's get to know each other post in community.
+[01:19] It's just three simple questions.
+[01:22] Just answer that.
+[01:24] Let's see if we can find anything in common amongst this big old group of medical professionals.
+[01:31] So you can check that out.
+[01:33] I also just posted a few minutes ago, a PowerPoint for tonight's presentation.
+[01:39] If you want to download that and have it handy, if you want to start a folder on your computer
+[01:44] with all our files, you might want to do that.
+[01:47] We're going to be using a boatload of graphics.
+[01:51] Some PDF documents and lots and lots of PowerPoints.
+[01:57] So if you want to fix a folder while we're waiting and get that all set up to get you
+[02:01] organized, go for that.
+[02:05] There are also a couple of graphics and a lab worksheet.
+[02:10] You may want to access and download those while we're hanging out waiting.
+[02:15] But welcome, and I'm glad to have you.
+[02:18] We'll talk a little more in a minute, but we'll let everybody get logged in.
+[02:21] If you have a question, feel free to unmute yourself and ask away.
+[02:27] Or you can type it in the chat, your personal choice.
+[02:30] I don't have a personal choice.
+[02:35] So feel free to do that.
+[02:39] Wow, lots of people are signed in early and right on time.
+[03:08] That's awesome.
+[03:16] The PowerPoint is in the course under your lessons, under week one lessons, and it's
+[03:25] in the community.
+[03:26] I just posted it in the community to make it easy for y'all to access.
+[03:30] The majority, we're going to do some orientation here in a minute, but the typical handout
+[03:39] PDFs, slides, graphics, any of that is posted usually in week one, week two, week three based
+[03:47] on the topic we're talking about.
+[03:48] Today we're going to talk about lab optimization after we cover a little bit of orientation
+[03:55] and getting familiar with the platform.
+[04:00] And then we're going to dive into lab optimization.
+[04:09] Does that help a little bit, Sarnia?
+[04:14] Sarnia.
+[04:17] And I'm terrible saying names, so I apologize right up front if I say your name wacky and
+[04:21] crazy.
+[04:35] I'm looking for it, so I'll see.
+[04:37] You said it's posted under the course, the spring mentorship course, go in the lessons
+[04:46] and then scroll down.
+[04:47] You'll see a Zoom links lesson.
+[04:49] You'll see a week one lesson, a week two lesson, and we haven't put any more in there
+[04:53] yet because we don't need more than that yet.
+[04:56] Maybe I'm in the wrong place.
+[05:00] It's under the Dreffelhearts Institute, powered by Podia.
+[05:05] Yep.
+[05:06] Let me share my screen and I will show you where to find it.
+[05:16] Make sure you're in the course, not the community.
+[05:19] Oh, I'm in the community.
+[05:20] Yep.
+[05:21] The community has it as well, but every week the course will be the majority of the places
+[05:31] that I put your stuff.
+[05:38] So let me.
+[05:39] Oh, I see.
+[05:41] Spring, of course, that's good.
+[05:44] All right, so.
+[05:55] So the login information came earlier today, so make sure you find the email that I sent
+[06:05] that says login.
+[06:07] I sent directions that I've always been sending in all of the other mentorships.
+[06:15] But my IT person, my daughter-in-law, showed me a secret special way that's way faster
+[06:20] and easier this morning, so I re-sent those instructions.
+[06:25] So if you go and look for my name or Podia or mentorship in your email folder, you should
+[06:34] be able to find that email.
+[06:39] So it has a specific step-by-step login instructions.
+[06:43] And so we're going to screen share in just a little bit and talk a little bit about navigating
+[06:51] inside the course.
+[06:53] So just hang tight.
+[06:55] Don't feel like you're behind doing anything right now because it's all brand new.
+[07:01] We're going to do some orientation here, and then we're going to move into the lab optimization.
+[07:06] But if you are comfortable navigating new tech, you can log into the course part and
+[07:12] find your PowerPoint and download that.
+[07:16] There are a couple of graphics over there as well.
+[07:20] So you can access those as well.
+[07:35] We're going to start here in just a second.
+[07:37] It's five after, so almost.
+[07:40] So we'll start at five after.
+[07:42] I'm going to go ahead and start with a little introduction.
+[08:07] I'm Jenny Gallagher.
+[08:09] I am a nurse practitioner.
+[08:11] Most of y'all know who I am.
+[08:12] You've seen me answer questions all over Facebook and social media.
+[08:18] We are going to start tonight with a little orientation.
+[08:22] I'm fixing a screen share and walk you through a little bit of the PODIA platform.
+[08:30] And then we're going to dive into lab optimization here in just a little bit.
+[08:39] So when you log into the course, so there's two places you can be in PODIA.
+[08:48] One is our course, and one is the community.
+[08:52] We're going to look at both of them, but this is what the course looks like.
+[08:56] So when you open up the course, the Zoom links every week are in this lesson.
+[09:02] You open this up, and there's the Zoom link.
+[09:04] If you scroll down the page from, let me move my people, that's not what I wanted to do.
+[09:20] Go to the next one.
+[09:23] Here's a link to the mentorship community.
+[09:25] So you can go over there from here, and this is all on your left side of the screen
+[09:31] as well.
+[09:34] So there's lots of links and stuff.
+[09:37] Get in here and click around for sure.
+[09:40] The week one video recording is lab optimization.
+[09:45] This is the PowerPoint you can download and access.
+[09:48] We're going to go through that shortly.
+[09:50] And then there are a couple of graphics here that you can feel free to download and save
+[09:57] to your devices so you have easy access to information and material.
+[10:03] And then in community, we're going to come over here.
+[10:11] When you click on the community link, I'm in the wrong place.
+[10:15] I can't get there from here.
+[10:17] Let me go back to my version, not your version.
+[10:25] I'll show you the right page.
+[10:41] All right, so we'll screen share again, and this is it.
+[10:54] And so community is kind of like a Facebook feed.
+[10:59] So you have things on the side that are different topics and places you can go.
+[11:05] And then, Tracy, can you move that to the thread where I asked to get to know each other
+[11:12] so we don't have a bunch of different posts clogging up the feed?
+[11:18] So I just posted this, get to know each other.
+[11:22] Three simple quick things so nobody has to write a long paragraph about stuff.
+[11:28] So just answer right there.
+[11:31] Here is a lab worksheet that we are going to utilize a lot throughout our time here.
+[11:39] It has four columns where you could have four different patients or you could use January
+[11:46] on patient A and April on patient A, and then July on patient A, you could keep a running
+[11:55] list if you want to keep up with papers.
+[11:57] I don't.
+[11:58] I hate paper trails.
+[12:00] So I usually use these for my chart prep before visits.
+[12:07] So these are just some things that are available for y'all to use to have some resources.
+[12:15] But this is your community feed, and there will be lots of things here.
+[12:20] I posted the link to the session tonight here.
+[12:25] And so we're going to talk about all of these different things in community as we go.
+[12:33] And then once we get the PDFs downloaded or once y'all get to them and find them and all
+[12:48] that, you can save those and refer back to that anytime you wish.
+[12:56] All right.
+[12:58] Any other quick questions before we dive in and get started with lab optimization?
+[13:03] This is always a really good session.
+[13:07] People learn a lot from this session, but I'm going to be honest with you.
+[13:12] The only way you're going to learn this material and feel like you've mastered it is to keep
+[13:18] doing this over and over.
+[13:20] Keep looking at these numbers.
+[13:22] Keep looking through the PowerPoint.
+[13:24] Use the graphics to help guide your knowledge of these levels because it's a lot of numbers
+[13:31] and a lot of information.
+[13:33] I'm not going to lie.
+[13:35] Everything we do after this session is out of this session.
+[13:40] This is like the very ground work, the very foundation of moving forward throughout mentorship.
+[13:46] So this little piece tonight is pretty important.
+[13:54] Feel free to go back and watch this video over and over and over again if you wish
+[14:00] or pieces of it.
+[14:02] I've had people say, well, I go through and watch two or three minutes of this and then
+[14:06] I move to this, things that are harder for you.
+[14:08] Go back and look at.
+[14:10] I remember being in BS in school, in RN school, and I love the heart, and so it was easy for
+[14:21] me to study cardiac stuff.
+[14:23] I did not like acid base imbalance, and so it was hard and I failed the test because
+[14:28] I didn't go back and study that.
+[14:30] I had to retake that test.
+[14:32] So study things that are hard for you, not the things that you know or pick up real easy,
+[14:40] but feel free to access the material any time you wish.
+[14:45] All right.
+[14:47] Any quick questions before we dive in?
+[14:49] Yes.
+[14:50] Hi.
+[14:51] Quick question.
+[14:52] My name is Michelle.
+[14:54] I'm so sorry.
+[14:55] Are we able to access those, well, the worksheet is what, the lab worksheet, you put that in
+[15:03] a post, right?
+[15:04] Yes.
+[15:05] Okay.
+[15:06] That's what we're going to go over now.
+[15:07] Yep.
+[15:08] Okay.
+[15:09] Yep.
+[15:10] Thank you.
+[15:11] And we'll talk about that a little bit as we move through tonight's discussion and then
+[15:14] you'll see it week after week after week.
+[15:17] So don't feel like you have to know anything right now.
+[15:20] We're coming with a blank page.
+[15:24] So all right.
+[15:26] So let me, any other questions before we start on our PowerPoint?
+[15:33] Nobody's clamoring to speak.
+[15:36] So that's all right.
+[15:37] It can be a little intimidating, the first session or two.
+[15:40] So we're going to start here with functional versus normal.
+[15:49] Number one, I really try to avoid the use of the word normal and I would encourage you
+[15:56] to start building that habit as well.
+[15:59] Normal does not tell us anything.
+[16:02] So really look at more specific word choices that you can use.
+[16:13] Some of you have seen this.
+[16:14] I post it on my social media.
+[16:16] It's on some of my PowerPoints when I create them.
+[16:20] But this really does tell a lot about, I'll enlarge this a little bit, about the basic
+[16:26] philosophy that built this mentorship.
+[16:31] It's taken, of course, from Maslow's Hierarchy.
+[16:34] Our biggest need is essential nutrients that the body requires for normal processing and
+[16:42] functions.
+[16:43] When we add supplements to improve any deficits that we might have, because most of us have
+[16:49] not been eating real healthy most of our lives.
+[16:53] And then when we use lab work, it helps us identify those deficiencies.
+[16:59] And then sometimes we need medicine, sometimes we need to quit smoking or vaping or find
+[17:07] plastics or chemicals or stuff in our water.
+[17:12] There are all kinds of things.
+[17:13] So this sort of builds on your dietary intake, supplements, choices.
+[17:18] And then we try to use the least amount of medicine for the shortest period of time.
+[17:22] So people might need medicine, I'm not anti-medication, but I'm not going to go to medication first
+[17:29] choice for everything, the way most mainstream providers do, the way most of us have done.
+[17:35] I used to, but I've learned that that doesn't really help people.
+[17:40] And so this is sort of the philosophy on which I've built this mentorship.
+[17:48] Ooh, that's real big.
+[17:49] Let's try going down here.
+[17:52] So when we look at mainstream versus more functional practices, these are a few of the
+[18:01] characteristics.
+[18:02] So in mainstream medicine, they tend to write more prescriptions.
+[18:05] They spend less time with patients.
+[18:07] It's hard to spend time.
+[18:08] They have admin and financial people over here in the background screaming at them to
+[18:14] see more people to hurry things up.
+[18:17] And so it's hard with all of that stuff going on in a big practice or a big clinic setting.
+[18:23] It's hard to spend time with people, but that's how you're going to connect and that's
+[18:27] how you're truly going to heal people.
+[18:30] You've got to spend time, but it is very challenging to listen to the patient when you
+[18:36] have all these other voices between guidelines and admin and your MA, your nurses, your
+[18:43] other staff, your other goals or practice goals, maybe not your goals, screaming at you from
+[18:51] all angles.
+[18:52] In a more functional practice, we try to use less medications or at least lower doses
+[18:57] of medications.
+[18:59] We're more focused on food, nutrients and lifestyle.
+[19:02] And most of us try to spend more time because many of us are cash-based.
+[19:07] If you're insurance-based, you may find yourself in that mainstream column some of the time
+[19:12] because you're really trying to do all the right things, but your time gets crunched
+[19:17] pretty significantly.
+[19:19] In cash-based practices, it's much easier to spend more time and the schedule improves
+[19:26] over time.
+[19:27] Schedule improves and then how you manage your schedule improves.
+[19:31] And so that's really helpful when you think about it.
+[19:34] When we look at labs, we talk about an optimal or functional lab range.
+[19:40] And so that's a different number than normal in your lab reference ranges that you normally
+[19:47] see printed on a lab report.
+[19:50] And this picture is a little bit skewed because it's not always the middle of the
+[19:55] range.
+[19:56] A free T3, for instance, mid-range is barely normal.
+[20:01] And so this is not always a very accurate depiction, but it was the best I could come
+[20:06] up with.
+[20:08] In a more optimal range, sometimes it's on the upper end.
+[20:14] Every now and then it's on the lower end.
+[20:17] And so it's real important that you start avoiding the word normal as much and try to
+[20:22] use more optimal, more functional words.
+[20:26] A really good example is vitamin D.
+[20:29] During the pandemic, vitamin D got to be a little bit famous because more of our morbidity
+[20:36] and mortality rates were associated with lower vitamin D levels.
+[20:41] We found that below 60 created situations where patients were less likely to recover
+[20:48] well, if at all.
+[20:50] And so that sort of began more and more of us, even in mainstream, beginning to realize
+[20:57] that vitamin D at 29 or 30 is not great or healthy.
+[21:02] And so our goal is to get it closer to that 60 to 80.
+[21:07] Most people freak out if they get a lab value back with a vitamin D level over 100.
+[21:16] Sometimes some of the labs are now 80 max.
+[21:19] And so if it's red or has a big H beside it, people freak out.
+[21:25] And so don't freak out, number one, because toxicity isn't going to occur till you're
+[21:31] over 200 ish.
+[21:33] So the first thing you should always ask when you see a vitamin D level that's high
+[21:40] is when did you take your vitamin D compared to your lab draw?
+[21:44] If they just took it the last two or three days, that's why you don't need to tell
+[21:47] that patient stop taking your D. It's high because they have D from the pill.
+[21:54] When you are thinking about vitamin D levels, vitamin D's half-life is two full weeks.
+[22:04] So if you draw a vitamin D on a patient that is currently using vitamin D most every day
+[22:11] and they don't hold their vitamin D for about six weeks or so, they're going to be skewed
+[22:17] a little on the high side.
+[22:19] And so keep in mind that we want it to be high as a general rule.
+[22:26] But don't freak out if it's over range.
+[22:29] Talk to them about when they took it.
+[22:30] And we'll be covering more and more of that as we go.
+[22:34] This is one of the charts that kind of got real popular during the shutdown when everybody
+[22:41] was getting sick and staying home and doing all this research.
+[22:46] And you'll see that, well, dang it, I can't get it to do what I want it to do here.
+[22:50] Let me try on my finger.
+[22:53] So when you look at, if you, you can Google this chart, I've added the 30, 40, 50, and
+[22:59] 60 across the top because it makes the numbers bigger for you to see.
+[23:03] But you see that all of the illnesses are associated with vitamin D levels lower than
+[23:12] 60.
+[23:14] Some lower than 50, some lower than 40, but all less than 60.
+[23:17] And so this is what we're trying to prevent.
+[23:20] We're trying to prevent chronic disease.
+[23:22] Did you know that there is an 83% chance of having breast cancer if your vitamin D
+[23:28] level is lower than 50?
+[23:33] Did you think you could prevent breast cancer just by keeping a vitamin D level?
+[23:37] Vitamin D becomes all your hormones.
+[23:39] Vitamin D is crucial to your immunity.
+[23:43] Your whole immune system is built around vitamin D.
+[23:46] So when we start looking at charts and data and statistics like this, it's important
+[23:51] that we understand what it's telling us.
+[23:54] But you have an 83% chance of developing breast cancer if your vitamin D level is low.
+[23:59] So who's going to go start taking their vitamin D?
+[24:04] Vitamin D can't work on its own.
+[24:06] So one of the things we talk about as we move through mentorship is making sure
+[24:10] you're getting all of the co-factors of vitamin D, not just the D.
+[24:15] Many of you are, you own or work in medspas or you want to own a medspa.
+[24:23] And so many of your IV hydration places and medspas will offer injectable vitamin D.
+[24:29] That's not a bad moneymaker for sure, but don't depend on it.
+[24:34] Use it as a stepping stone to get your patient built up a little bit.
+[24:38] But then you want to continue the P.O. vitamin D, not just shots.
+[24:44] Because the shots have not been shown to be sustaining a healthy vitamin D level
+[24:49] long, long term.
+[24:51] So we got to get it into the diet.
+[24:52] And the best way to do that is with P.O. supplement.
+[24:57] And so you want to make sure the patient gets mag, K2, boron, all at the same
+[25:01] moment with some fats.
+[25:03] Butter is your best fat.
+[25:04] And we'll be talking about that more and more as we go.
+[25:07] Tonight is mostly about lab optimization.
+[25:09] So don't panic about any of this other information.
+[25:12] It's just sort of fluff to help you understand some of the concepts
+[25:15] we'll be covering as we go through this.
+[25:19] Another one that we look at is iron and ferritin.
+[25:23] Typically, mainstream only orders a CBC.
+[25:26] But remember that hemoglobin uses ferritin.
+[25:32] Ferritin becomes hemoglobin to transport oxygen.
+[25:35] And so patients that report any kind of fatigue or brain fog,
+[25:41] poor energy, poor stamina, palpitations, tachycardia, fainting,
+[25:47] syncope, any kind of weird symptoms like that,
+[25:49] you want to consider what's their ferritin.
+[25:52] Get that differential driving functionally.
+[25:56] Think about vitamin D. Think about iron ferritin numbers.
+[26:01] Because hemoglobin is what transports our oxygen
+[26:06] on the red blood cell.
+[26:07] And if the body can't get oxygen, you're going to have brain fog.
+[26:10] You're going to have fatigue.
+[26:11] You're going to have energy drops.
+[26:14] You're going to have a heart that's
+[26:15] trying to compensate by pumping harder and faster.
+[26:18] So you will see palpitations and various cardiac symptoms.
+[26:23] Hematocrit shows us the percentage of red blood cells
+[26:27] delivering oxygen when you have a really low ferritin
+[26:30] or really high ferritin levels.
+[26:32] You might see your patient's hematocrit fall or climb
+[26:37] outside normal ranges.
+[26:39] That's not healthy.
+[26:40] Hematocrit and hemoglobin should
+[26:42] stay in that normal range.
+[26:44] But if it's outside, even if you're just doing CBC right now
+[26:48] and those numbers are outside range,
+[26:50] that should trigger you to wonder,
+[26:52] what is their iron or ferritin number?
+[26:54] And so iron and ferritin are part of our basic panel
+[26:57] that we want to make sure we get on people.
+[27:02] Mainstream reference range says ferritin level
+[27:05] is as low as 10 to 12 normal.
+[27:09] But I'm going to tell you, if you have a ferritin level below
+[27:13] about 65-ish, your patient's going
+[27:15] to have significant symptoms.
+[27:17] And so we're going to talk about that more
+[27:20] as we move through here.
+[27:21] But the lower that is, the worse the patient's symptoms are.
+[27:25] And if that ferritin level is 10 or 12 or less,
+[27:28] it's almost life-threateningly low.
+[27:31] So you don't want ferritin levels, because if they
+[27:34] don't have enough ferritin, they can't
+[27:36] make hemoglobin on red blood cells.
+[27:39] Red blood cells will start to decline.
+[27:42] The body will freak out, because not enough ferritin
+[27:46] is available for red blood cell function.
+[27:50] With your thyroid, we want to look at more than a TSH.
+[27:55] We get a free T3, free T4, reverse T3, and a TSH
+[28:01] when we're looking at thyroid balance and thyroid function.
+[28:05] None of the molecules are available for energy
+[28:09] production in the mitochondria except free T3.
+[28:12] So then why are we drawing a TSH or free T4?
+[28:17] I don't know.
+[28:18] When you look at why it happened, I don't know.
+[28:21] There's no real good explanation anywhere.
+[28:24] Free T4 becomes free T3, so it's not
+[28:28] very useful to the patient.
+[28:32] TSH is a stimulating hormone.
+[28:34] It doesn't tell you a whole lot.
+[28:36] And so you really want to optimize free T3 and reverse T3
+[28:40] to get patient symptoms better.
+[28:43] What's the difference?
+[28:44] Well, free T3 is the gas pedal.
+[28:47] Reverse T3 is more like a brake pedal.
+[28:50] So if you think about a car, I do a lot of analogies.
+[28:53] You'll learn.
+[28:54] Free T3 acts like your gas pedal.
+[28:57] Reverse T3 acts like your brakes.
+[28:58] If you want to drive to the store, to church, to school,
+[29:01] to work, wherever you're going to go,
+[29:04] you're going to use your gas pedal and your brake pedal
+[29:07] to get you there.
+[29:09] Your body has a gas pedal and a brake pedal.
+[29:12] Your brake pedal drives your circadian rhythm, daytime
+[29:15] versus nighttime.
+[29:17] Your gas pedal drives your daytime and energy.
+[29:20] And so we want to make sure your free T3 level
+[29:23] is closer to four.
+[29:25] So optimal is about 3.5 to four give or take.
+[29:29] There are some mild outside dot range
+[29:35] that can be considered OK.
+[29:37] And we're going to talk about those nuances and those caveats
+[29:40] as we move through our different sessions.
+[29:43] Ideally, we want reverse T3 to be only about 10 or 12.
+[29:47] If you don't have enough reverse T3,
+[29:50] you won't have any brakes.
+[29:51] You can have severely impaired sleep and rest,
+[29:55] pretty significant anxiety, because there's no brakes.
+[29:59] What happens if you have a car with no brakes?
+[30:01] It runs fast.
+[30:02] It runs downhill and picks up speed.
+[30:04] And that's what your body will do
+[30:06] if you don't have a braking system like reverse T3
+[30:09] in place.
+[30:10] If your reverse T3 is high, let's
+[30:13] say it's 25 or 30.
+[30:14] I've seen it as high as 50 or 60.
+[30:17] If your reverse T3 is high, that means
+[30:20] it's putting the brakes on with both feet.
+[30:22] You're mashing the brakes all the way to the floor.
+[30:23] You're pushing, pushing, pushing, pushing.
+[30:25] And you're stopping, stopping, stopping.
+[30:27] That's not going to feel good.
+[30:28] That is more evidence of hypothyroid symptoms.
+[30:32] And so that's not good.
+[30:33] You never want your reverse T3 that high unexplained.
+[30:37] So it's really important to watch those levels.
+[30:41] And we have a whole session where
+[30:44] we talk about optimizing thyroid, and then
+[30:46] we refer to that often all the way through,
+[30:48] because it is a fairly complex session.
+[30:56] Hemoglobin A1c optimal is about 5.2 or less, 5.3 or less.
+[31:03] We see diabetic complications, organ damage,
+[31:07] begin about 5.3, 5.4.
+[31:11] And so at 5.2 or 5.3, that's as high as we want that A1c to be.
+[31:16] So that we prevent end-stage organ damage.
+[31:20] These people don't even have a diabetes diagnosis.
+[31:24] Think about that for just a minute.
+[31:25] Ponder that just a bit.
+[31:27] They have nephropathy, retinopathy, neuropathy,
+[31:31] cognitive decline, but no diabetes diagnosis.
+[31:37] Until their diabetes gets much, much worse.
+[31:41] But the cellular damage begins very, very early.
+[31:44] So this is a really good example of why,
+[31:48] of how mainstream says seven or less is OK.
+[31:52] And a target even for diabetes patients.
+[31:55] But in a functional practice, we want
+[31:59] to get that down around 5.2 or so.
+[32:03] This is a chart that I have referred
+[32:05] to for years and years and years.
+[32:07] You can Google these charts.
+[32:09] They're all over the place.
+[32:12] Ideal is this 5.2 or less.
+[32:17] This also lists your A1c compared to glucose
+[32:22] in both milligrams per deciliter and millimoles per liter,
+[32:26] which is your UK, other country kind of comparisons.
+[32:33] And so you can look at this chart or Google other ones.
+[32:38] But the red really startles people,
+[32:40] the orange startles people.
+[32:41] If you share this kind of thing on your social media
+[32:44] or with your patients, it can be really helpful at helping
+[32:47] them understand how dangerous it is.
+[32:51] Ideal glucose is in the 80s.
+[32:53] And we'd never want that glucose
+[32:55] moving more than about 10 or 12 points.
+[32:57] That's hard for mainstream providers to get used to.
+[33:02] But it really is the clear evidence and science.
+[33:07] The Diabetes Revolution is a great book
+[33:09] authored by Dr. Richard Bernstein,
+[33:11] who was an 89 or 90-year-old type 1 diabetic himself,
+[33:17] who learned many years ago, decades ago,
+[33:20] that he felt better and lived life better
+[33:23] and to the fullest with his glucose in the 80s and 90s
+[33:26] all the time versus any other place.
+[33:29] And so he formulated what's called the law of low numbers.
+[33:34] If you keep your glucose low, you need lower numbers, lower
+[33:39] quantities of insulin, and you have lower episodes
+[33:43] of hypoglycemia, which are life-threatening for type 1s.
+[33:48] And so this is another topic that we'll
+[33:53] cover quite a bit as we move through mentorship as well.
+[33:56] Ideally, your postprandial glucose
+[33:58] shouldn't be very different from your pre-meal.
+[34:02] 10 or 12 point change is ideal.
+[34:05] If it's more than that, it's time
+[34:06] to figure out what drove those numbers up.
+[34:09] What were the carbohydrates at that meal?
+[34:14] I highly recommend a CGM.
+[34:17] There are two over-the-counter brands out now.
+[34:20] The Stelloe, I've been saying Stelloe.
+[34:22] I learned a few months ago that it was Stelloe
+[34:24] and I still can't say it right.
+[34:26] And Thea are both available over-the-counter
+[34:29] without a prescription.
+[34:30] So really encourage your patients.
+[34:32] Thea actually has a program where you as a prescriber
+[34:38] can connect with them and get your patients on the CGM.
+[34:43] And you can get some of the results.
+[34:45] You can network with your patients and the company.
+[34:49] So you may want to look into the Thea program
+[34:52] if you're wanting to incorporate better glucose
+[34:55] management, insulin resistance control with your patients.
+[34:59] One of my favorite charts to share in mentorship
+[35:02] and on social media is this one featuring Dr. Joseph Kraft
+[35:09] and his research on insulin levels.
+[35:11] Dr. Kraft lived up until about the 90s, early 2000s
+[35:18] but he did some research back in the 20s, 30s and 40s.
+[35:22] He tested 14,000 people plus glucose and insulin levels
+[35:28] every hour for, as you see here, five or six hours
+[35:32] and then plotted that.
+[35:33] These are the results of that plotting.
+[35:36] He found four basic patterns of insulin responses after food.
+[35:43] And so all of them but one are considered diabetic
+[35:49] because they're gonna develop diabetes.
+[35:52] They have a hyper insulin response.
+[35:55] And so this is one of the things that we'll continue
+[35:58] to talk about and build on as we move through mentorship
+[36:02] is trying to get insulin down, trying to get glucose down,
+[36:06] trying to prevent diabetes and cardiovascular disease
+[36:10] from happening.
+[36:12] Optimal insulin is about five or less.
+[36:16] Sometimes I even see problems at five.
+[36:20] And what I think is happening, the more I practice
+[36:23] and see this in your patients,
+[36:25] mentorship participants, patients and my own
+[36:29] is that sometimes the five is healthy now
+[36:33] because of work the patient was doing
+[36:35] before they ever came to us.
+[36:38] They started reading on social media.
+[36:40] They heard a TikToker, they read a book, whatever.
+[36:43] They found some resources and they realized
+[36:45] that they have an insulin problem.
+[36:47] And so they may start fasting.
+[36:49] They may go keto, carnivore, low carb, whatever.
+[36:52] And they're working to improve their health.
+[36:55] And so you get this level on them and it's 4.6.
+[36:58] And you're like, oh, well you don't have insulin resistance
+[37:01] but they still may be 50 pounds overweight or whatever.
+[37:05] Yes, they still have insulin resistance.
+[37:07] It's just still in the process of resolving.
+[37:10] And so that's why you have to be careful
+[37:14] with hard and fast numbers.
+[37:15] This is about whole picture, not keying in on one number
+[37:20] and saying, oh, well your insulin is fine.
+[37:22] You don't have this problem.
+[37:23] Yeah, it's just being reversed.
+[37:27] Insulin is one of the lab results.
+[37:30] There's not many that this happens to
+[37:32] but insulin is one of them
+[37:36] that is very, very slow to resolve 100%.
+[37:41] What I mean is the number may fall.
+[37:43] The patient can learn to fast.
+[37:45] If they're fasting for 10 or 12, 14, 16 hours,
+[37:49] their insulin's gonna fall
+[37:50] and it's gonna be really, really low.
+[37:52] But if they're high carb eating and overeating
+[37:56] during those other six or eight hours that they're eating,
+[37:59] they're still spiking really high insulin levels.
+[38:01] So you can get a sort of false reading when that happens.
+[38:08] And so helping patients understand that the spikes
+[38:11] are also contributing to problems.
+[38:14] It's just not the fasting number
+[38:16] that is beneficial for us to know.
+[38:18] So always evaluate your whole patient
+[38:22] in light of all of this.
+[38:23] Think about their intake for the last week.
+[38:27] Sometimes I'll ask patients,
+[38:29] tell me about what you ate last week.
+[38:31] Tell me what you ate yesterday and day before.
+[38:34] Just give me a brief overview
+[38:36] of what typical meals look like.
+[38:38] Anything to get them talking and explaining
+[38:40] because they'll get to talking and telling you stuff.
+[38:43] And then before you know it,
+[38:44] you have learned a whole lot
+[38:46] about why they're having trouble
+[38:48] with some of their numbers,
+[38:51] some of their lab values
+[38:52] because they're just not eating in a healthy kind of way.
+[38:57] And you can help them identify some of those problems.
+[39:01] You can use your testosterone levels,
+[39:04] osteodial levels, DHEA sulfate levels,
+[39:06] thyroid numbers, triglycerides, A1C,
+[39:09] and fasting blood sugar
+[39:11] to help you understand insulin management.
+[39:14] Even your inflammation numbers,
+[39:16] your CRP, uric acid, homocysteine,
+[39:20] those that are outside range really high,
+[39:23] those are often because of insulin levels
+[39:26] that have been pushing.
+[39:28] The other thing that will happen
+[39:29] that's weird with insulin
+[39:31] and not many other labs
+[39:32] is that if your patient had high insulin levels
+[39:38] in the past or they're high now
+[39:41] and they fix the insulin,
+[39:44] they may not fix the testosterone,
+[39:45] esterol, DHEA, thyroid,
+[39:47] they may not fix all these other markers
+[39:50] till way on down the road.
+[39:51] I often explain fasting insulin to patients
+[39:55] and the problems it causes
+[39:57] kind of like a snowball rolling downhill.
+[40:00] Once that snowball of high insulin starts,
+[40:04] it starts a lot of processes
+[40:06] that then start impacting all the way down that hill.
+[40:09] And so it's gonna roll over trees,
+[40:11] it's gonna push down bushes,
+[40:12] it's gonna knock over people.
+[40:13] So like that snowball continues to impact people
+[40:18] even after that insulin level drops down to five.
+[40:21] And so it's not an easy thing to fix 100%.
+[40:25] So keep in mind just because their fasting insulin
+[40:28] is optimal at four or five or whatever,
+[40:33] they still may have evidence
+[40:35] of previous insulin resistance.
+[40:40] Mentioned some of the inflammation markers already.
+[40:43] We want to always check inflammation markers
+[40:46] because high insulin drives high inflammation.
+[40:49] Plus lots of foods we eat, processed food,
+[40:52] seed oils drive a lot of inflammation.
+[40:55] And so always get a CRP.
+[40:57] I always use a high sensitivity,
+[40:59] never use a plain CRP.
+[41:01] A plain CRP is gonna either tell you yes or no,
+[41:04] it's high or low.
+[41:05] That doesn't help you really
+[41:07] because high sensitivity is gonna give you a number,
+[41:10] a point like number.
+[41:11] Their CRP might be 2.6, that's high.
+[41:16] Even though the plain CRP says less than three is okay,
+[41:20] that's healthy.
+[41:21] No, it's really not.
+[41:22] Anything over one, one or less is your optimal CRP level.
+[41:28] And so if you're not getting an HS,
+[41:31] you won't know that.
+[41:33] And so make sure you're getting CRP high sensitivity.
+[41:37] Another quick tip about CRP high sensitivity
+[41:40] that I just learned is if your patient has a CRP level
+[41:45] that's 10 or less,
+[41:47] it's more likely to also be severely risky cardiovascularly.
+[41:54] Cardiovascular inflammation is seen more with CRP HSs
+[41:59] that are eight or 10 or less.
+[42:03] Other types of inflammation,
+[42:05] various autoimmune diseases, food, smoking, toxins
+[42:10] will drive CRPs way high.
+[42:13] But typically your cardiac CRP risk
+[42:16] is with a level that's 10-ish or less.
+[42:21] High, like above three or four, but in that lower range.
+[42:26] White blood cells, we want to be about 6.5 to seven or less.
+[42:31] Your optimal white blood count is low,
+[42:34] not at the top end of the range.
+[42:37] It's more toward the middle and lower end of the range.
+[42:40] White blood cells are our immune system.
+[42:43] If the white blood cell count is running eight or 10
+[42:46] at the top of the range chronically, like all the time,
+[42:49] their whole body is on alert all the time
+[42:53] because of inflammation.
+[42:56] The whole army is coming to work every day,
+[42:59] seven days a week, 365, it never gets a break.
+[43:03] And so that's not healthy for the bone marrow,
+[43:06] it's not healthy for the person.
+[43:08] So watch for the white blood cell count very carefully.
+[43:12] And if it's higher than about 6.5 or seven,
+[43:16] you can talk to your patient
+[43:17] about risks for inflammatory processes.
+[43:22] Homocysteine can be a marker of inflammation.
+[43:25] It can also be a marker for an MTHFR variant.
+[43:29] We'll talk about MTHFR variants genetically
+[43:35] in another couple of sessions.
+[43:37] We'll talk about it some with thyroid,
+[43:39] we'll talk about it some when we do inflammation.
+[43:42] But MTHFR is a genetic variant that alters
+[43:47] a lot of problems, so methylation.
+[44:02] So remember methylation is a process
+[44:04] where chemicals are separated during processing,
+[44:09] during digestion, absorption.
+[44:12] And so methylation is a process of cleaving
+[44:15] two ingredients.
+[44:18] And so a really easy example is B12.
+[44:22] It's the most famous one.
+[44:23] But if you take a B12 called cyan cobalamin,
+[44:28] which is the typical cheapest form of B12
+[44:30] on the market today,
+[44:32] and you have one of these variants
+[44:34] that won't separate appropriately,
+[44:39] you take cyan cobalamin,
+[44:41] it goes through your system unused, you get rid of it.
+[44:43] So that B12 was never broken apart
+[44:46] from the cyanide molecule,
+[44:47] it was never able to be absorbed.
+[44:49] And so we talk about that some more
+[44:51] in this program as well.
+[44:54] Uric acid, most of us are very familiar
+[44:57] with testing uric acid for our gout patients
+[44:59] and sometimes our kidney patients.
+[45:01] But uric acid is the newest inflammation marker.
+[45:05] If you follow my page,
+[45:07] you may have seen me post
+[45:08] about Dr. David Perlmutter sometimes.
+[45:11] He has a new book out soon,
+[45:14] I think maybe in August.
+[45:16] His most recent book came out two or three years ago
+[45:19] called Drop Acid.
+[45:21] And it is sort of a review of the evidence
+[45:24] relating uric acid to cardiovascular
+[45:26] and other inflammatory processes.
+[45:29] So we want uric acid to be five or less,
+[45:33] not six, like we say for gout.
+[45:36] We want all uric acid levels to be less than five.
+[45:39] That poses the least risk for kidneys,
+[45:41] for gout and the heart.
+[45:45] Ferritin is not always an inflammation marker,
+[45:48] it's an iron marker.
+[45:49] Ferritin becomes hemoglobin on the red blood cell
+[45:51] that transports oxygen all around the body cells.
+[45:54] But if ferritin is really, really high,
+[45:57] it becomes an inflammation marker.
+[46:00] It is an acute phase reactant,
+[46:02] really high stress, really high inflammation,
+[46:04] some wacky thing going on in your life
+[46:07] can really trigger an over storage of iron.
+[46:11] Just shunts iron right out of iron into storage
+[46:15] and that will create that really, really high level.
+[46:19] TPO and thyroglobulin antibodies
+[46:22] are your two major Hashimoto's markers.
+[46:24] You always want to test those on your initial labs
+[46:29] when you are working up fatigue.
+[46:32] So that means for a new workup,
+[46:35] you're gonna get a TSH, free T3, a free T4,
+[46:42] a reverse T3, a TPO thyroid peroxidase antibodies
+[46:48] and a thyroglobulin antibody.
+[46:50] So you're gonna get six thyroid levels
+[46:52] on every new patient because of fatigue, okay?
+[46:58] And so these tell you if the patient
+[47:01] likely has Hashimoto's.
+[47:03] Technically, I do use the normal ranges
+[47:07] for TPO and thyroglobulin antibodies,
+[47:09] but if your patient has known Hashimoto's
+[47:13] and they've had markers in the hundreds of thousands before
+[47:18] and they get to less than a hundred,
+[47:19] they are doing great.
+[47:21] So don't keep like after them to get better.
+[47:24] Getting the TPO and thyroglobulin antibodies
+[47:27] down to less than a hundred is a great feat
+[47:30] and should be rewarded
+[47:32] because normally Hashimoto's is a very difficult to control.
+[47:37] There are other autoimmune markers, I don't test them
+[47:40] unless there are known specific symptoms that correlate
+[47:43] and we'll cover some of those in our inflammation setting.
+[47:47] Like for instance, if you have a patient
+[47:48] sitting in front of you that has a butterfly rash,
+[47:51] don't you want to order some lupus workup?
+[47:55] So in that case, yes, I would add lupus
+[47:57] to my labs that I'm doing.
+[47:59] So it really depends on what else you may want to test.
+[48:04] I just finished building a long haul COVID course
+[48:09] for the elite NP and we have a small session
+[48:13] that we'll cover in mentorship,
+[48:16] but if your patient's sitting there telling you
+[48:18] they think they have long COVID
+[48:19] and they have all these symptoms
+[48:21] and they've been sick forever,
+[48:22] add a spike protein, another autoimmune marker
+[48:26] to your lab values.
+[48:27] You can order whatever you want that you can justify.
+[48:32] So keep that in mind.
+[48:37] Electrolytes, when you're looking at your CMP,
+[48:39] there's a few things we look at
+[48:41] and electrolytes is one of them.
+[48:43] You want sodium to be at the upper end of the range,
+[48:45] bare minimum 140.
+[48:47] I aim for about 141, 142.
+[48:51] I like for potassium to also be
+[48:53] in the upper half of the range.
+[48:55] Most of us were told back in our own school
+[48:57] that our elders always had to be at four or better.
+[49:00] Well, why just elders?
+[49:02] I find that people that have tons of muscle cramps,
+[49:05] Charlie horses, toes drawing,
+[49:08] those kinds of things are typically very, very low
+[49:10] in their sodium levels.
+[49:12] So get people on salt.
+[49:14] And yes, I know some of you just had a heart attack
+[49:16] because I said, get people on salt.
+[49:18] We're gonna talk more about salt
+[49:20] as we move through this,
+[49:21] but salt is not the villain of blood pressure
+[49:24] or hypertension or health problems at all.
+[49:29] The body absolutely must have salt.
+[49:31] Remember your sodium and potassium pump from biology.
+[49:35] If you don't take a look at that, look that back up.
+[49:38] Remember that for every muscle contraction,
+[49:40] sodium and potassium have to cross the cell membrane
+[49:43] to create that action potential.
+[49:46] If you don't have enough sodium,
+[49:48] muscles don't function right.
+[49:50] The number one cause that I find
+[49:52] for fibromyalgia and chronic fatigue syndrome
+[49:55] is poor salt intake.
+[49:56] Those patients can add their salt
+[49:58] and their symptoms literally start to disappear within days.
+[50:02] So it really is an amazing thing to watch.
+[50:08] Some of your patients are taking magnesium, chromium,
+[50:12] selenium, zinc, copper randomly and without direction.
+[50:18] Be very, very careful with those.
+[50:21] I never recommend heavy minerals or heavy metals
+[50:26] or those kinds of ingredients without lab values.
+[50:30] Now, magnesium gets used up a lot.
+[50:32] And if you take a lot of it,
+[50:33] the bones will communicate with the bloodstream
+[50:36] and it'll just be sucked up into the bone tissue.
+[50:39] So it's not a big deal for a mag,
+[50:40] but all of your other heavy metals,
+[50:43] most of your trice minerals
+[50:44] should not be taken willy-nilly.
+[50:46] Those need to be tested.
+[50:49] Always get a red blood cell version
+[50:51] if you're gonna draw magnesium, chromium,
+[50:53] selenium, iron, copper, molybdenum,
+[50:57] all of those trace minerals need to be drawn
+[51:01] using the red blood cell version
+[51:03] because it's more stable.
+[51:05] It's not as impacted by food and digestion and fluctuations.
+[51:13] Continuing to look at your CMP,
+[51:16] you want your liver enzymes to be evaluated well,
+[51:20] alkaline phosphatase.
+[51:22] Ideally, we want around 60.
+[51:25] It can be 55, it can be 65,
+[51:27] but kind of outside that 60-ish range,
+[51:31] we really don't want alkaline phosphates to stay there.
+[51:34] If your liver enzymes are lower,
+[51:37] you can always count on some mild malnutrition.
+[51:41] Look at their proteins, their vitamin D,
+[51:43] their iron, their iodine.
+[51:44] Look at all of those things together as a whole picture
+[51:48] and you'll start to see the mild malnutrition.
+[51:51] Sometimes it's pretty moderate to severe malnutrition,
+[51:54] but you'll see the liver enzymes
+[51:57] support your thought process that,
+[52:00] you've already told your patient
+[52:01] they're low in their proteins,
+[52:02] they're low in their D, they're low in their iron,
+[52:04] and now we see that that's true
+[52:06] because now we have liver enzymes
+[52:08] that don't even get up to optimal,
+[52:11] and so they are at the bottom end of the range.
+[52:13] AST and ALT, you want right around 20,
+[52:16] so usually about 16 to 25 is good for your AST and ALT,
+[52:22] but if it's lower than that,
+[52:24] consider the malnutrition.
+[52:26] If it's higher than that,
+[52:28] with any of your three liver enzymes,
+[52:30] consider liver stress.
+[52:32] Think about alcohol, medications, Tylenol.
+[52:36] What did they do the last few days before the draw?
+[52:39] Did they have a severe migraine
+[52:41] and they took a bone load of meds?
+[52:44] Did they have a wedding they went to over the weekend
+[52:47] and they drank a lot over the weekend,
+[52:50] and so their liver enzymes are elevated
+[52:51] because their body was metabolizing all the alcohol?
+[52:55] Look at the whole story, ask patients,
+[52:57] why do you think your liver enzymes were elevated?
+[52:59] These are the things that might contribute.
+[53:03] Do any of those things connect for you?
+[53:07] And so oftentimes the patients will say,
+[53:09] oh yeah, we did this and this and this,
+[53:11] and you'll be like, okay,
+[53:12] well, we'll just retest your liver enzymes,
+[53:14] your CMP next time and we'll see if they come on down,
+[53:18] and if they don't, we'll have to figure that out.
+[53:21] Keep in mind that fatty liver disease is quite common
+[53:24] with all the metabolic dysfunction in America today,
+[53:27] around the world today,
+[53:29] and so liver enzymes can indicate
+[53:32] some possible fatty liver disease.
+[53:34] Keep in mind, however,
+[53:36] that fatty liver disease is diagnosed
+[53:38] by the gold standard of imaging, not labs.
+[53:41] So don't ever tell a patient,
+[53:42] you have fatty liver based only on lab work,
+[53:45] and if they come to you already being told that,
+[53:49] teach them and retrain them to understand
+[53:52] that fatty liver is diagnosed by imaging, not by labs.
+[53:59] This one's a biggie,
+[54:00] and this one gets a lot of medical professionals
+[54:04] all stirred up and confused, but it's really simple.
+[54:08] So on your CMP, you get a protein level
+[54:11] and an albumin level.
+[54:13] Sometimes you'll get a globulin level, but not always.
+[54:20] The math problem is globulin plus albumin equals protein.
+[54:28] So if you have two of the three levels,
+[54:31] you can calculate the third one.
+[54:34] So if you only have a protein level and an albumin level,
+[54:37] you wanna say seven minus four is three, okay?
+[54:41] So globulin would be three.
+[54:47] Remember that saying from probably high school biology,
+[54:51] proteins are the building blocks of the cell.
+[54:53] Remember that?
+[54:56] That's your globulin.
+[54:57] Globulins are the building blocks of the cell.
+[55:00] So globulins become immune, immunoglobulin system.
+[55:06] Globulins become hormones, globulins become everything.
+[55:11] Skin cells, bone cells, muscle cells, brain cells,
+[55:14] every last thing that we have that make us up
+[55:18] starts out as a globulin kind of protein.
+[55:22] So if your globulin is low,
+[55:25] none of your body systems
+[55:27] are going to be effectively working.
+[55:30] The number one call,
+[55:32] somebody asked this question a minute ago,
+[55:33] the number one cause of low white blood cell count
+[55:36] is poor globulin, a globulin that is low.
+[55:40] If the globulin is low,
+[55:42] there's not enough protein to build new cells
+[55:46] and something must be sacrificed.
+[55:48] And for a lot of patients,
+[55:50] that winds up being the white blood cell.
+[55:54] So watch for that.
+[55:55] If you have somebody that's having low white counts,
+[55:58] when you get labs, look at their proteins.
+[56:02] If their globulin level is a little low-ish, that's why.
+[56:08] We don't want globulins to be low.
+[56:10] We don't want globulins to be high, right around three,
+[56:13] like 2.9 to 3.2 is your ideal,
+[56:16] perfectly right in the middle of the range.
+[56:19] We don't want low or high.
+[56:23] Low is poor protein intake or absorption.
+[56:26] We don't know which one it is
+[56:29] until we talk to a patient, collect some history
+[56:31] and kind of figure out what's going on.
+[56:32] Remember the whole picture.
+[56:39] And then high globulin is almost always
+[56:48] from low protein.
+[56:50] I know, that's weird.
+[56:51] So think about what happens
+[56:53] if we are not consuming enough protein
+[56:56] for the body to get amino acids,
+[56:57] what's the body gonna start to do at some point?
+[57:00] Anybody wanna guess?
+[57:03] Type it in the chat or you can unmute and just chime in.
+[57:07] If there's not enough protein intake or absorption,
+[57:11] what's the body gonna start doing?
+[57:17] Eat muscle.
+[57:17] Amy and Stephanie, you're exactly right.
+[57:19] It's gonna start breaking down your own muscle.
+[57:22] That's protein and it's accessible.
+[57:25] And so it's gonna start breaking down your muscle
+[57:27] to get amino acids to do the jobs that the body needs done.
+[57:31] There's not a real good break on that system.
+[57:35] Once that process starts, it just breaks down a lot.
+[57:39] And there's not a real good way to like stop it.
+[57:43] And so a lot of times you'll find really high albumin
+[57:47] or globulin levels because that's what's happening.
+[57:50] And so if you see really high albumin or globulin,
+[57:53] that should be your first thought.
+[57:55] Maybe you're not getting enough protein in your diet.
+[57:58] Your body's breaking down muscle
+[57:59] and it's just getting too much of it.
+[58:01] So that kind of needs to become part of your thought process
+[58:05] when you see these numbers.
+[58:07] And that applies to albumin or globulin.
+[58:09] If you have one of them low, one of them high,
+[58:12] always consider that something is up with protein,
+[58:16] either poor intake or poor absorption of the protein.
+[58:22] Remember that albumin is responsible mostly
+[58:24] for water balance inside and outside the cell.
+[58:27] It keeps your fingers healthy until you get in plain water
+[58:32] and then it sucks the salt and albumin right out
+[58:35] of your cell and the cells begin to collapse.
+[58:38] And that's what gives you pruning wrinkly fingers
+[58:40] when you sit in the tub for a long time.
+[58:43] So keep an eye on your albumin and your globulin.
+[58:48] When we talk about hormones,
+[58:52] we're gonna do a lot with hormones.
+[58:55] We're gonna talk about hormones a lot during mentorship.
+[58:58] DHEA sulfate is your precursor for everything.
+[59:03] We're gonna talk about a lot of ingredients
+[59:08] that make hormones, but early on,
+[59:12] one of the first molecules is DHEA sulfate.
+[59:14] And so we want DHEA sulfate, again,
+[59:18] to be right in the middle.
+[59:19] Not very high, not very low.
+[59:21] If it's high, we're going to wonder
+[59:24] about insulin resistance.
+[59:25] If it's low, we're gonna wonder about insulin resistance,
+[59:29] poor protein intake, poor nutrition,
+[59:31] like all the things we've been mentioning so far.
+[59:34] So keep in mind too that DHEA sulfate varies
+[59:38] based on age and gender.
+[59:40] Men have a normal range up to about 420, 450.
+[59:45] Post-menopausal women only goes to about 220 or 230.
+[59:50] So watch your range and be careful.
+[59:54] Don't just settle on a number.
+[59:55] When I'm doing my lab worksheet
+[59:57] that I showed y'all early in the session,
+[59:59] I will write my DHEA sulfate number.
+[60:02] Let's say it's 214 and I'll slash 230
+[60:06] so that I know this menopausal lady is 211
+[60:12] out of a total of 230.
+[60:13] So the highest level is the 230 and her level is the 211.
+[60:17] That way I know when I'm looking briefly at the report
+[60:20] I've written out in my appointment,
+[60:22] oh, your DHEA is low on the high side
+[60:25] because it's at the very top of the range.
+[60:28] We need to get that down a little bit.
+[60:30] And so then I don't have to wonder,
+[60:31] oh, what age is she?
+[60:32] Was this a male?
+[60:33] Like I don't have to wonder,
+[60:34] I have both those numbers right in front of me and handy.
+[60:40] Ideally for total testosterone for men and women,
+[60:44] we want it mid-range or higher.
+[60:46] The women level is beginning to change a little bit.
+[60:50] We're wanting more testosterone for women to feel better
+[60:55] and we're starting to see some of those levels go
+[60:58] above range, free testosterone.
+[61:02] We want to be the upper third of the range.
+[61:05] And then we also want not just numbers, but we compare.
+[61:10] So if you have a total testosterone on a female
+[61:14] who is running a 50-ish, 45 or 50 for her total T,
+[61:19] we should expect most women at certain points of their cycle
+[61:27] to run an estradiol level around that 50.
+[61:30] So you're wanting a ratio that has that total T
+[61:33] and the estradiol level pretty close together
+[61:38] and not far apart.
+[61:39] If their estradiol level is 320
+[61:43] and their testosterone is 10,
+[61:45] they have some severe insulin resistance
+[61:48] and estrogen dominance going on.
+[61:50] And so that needs to be addressed.
+[61:52] We also want estrone to be as low as possible.
+[61:57] Does anybody know the difference
+[61:58] between estradiol and estrone?
+[62:00] Does anybody want to share the differences?
+[62:02] If you want to type it, you can,
+[62:03] or you can unmute and chime in.
+[62:08] Anybody want to share the difference
+[62:09] between estradiol and estrone?
+[62:12] I'm not trying to put anybody on spot.
+[62:13] Just if you know, you can say, and if you don't,
+[62:16] I'm gonna tell you, I'm not gonna put anybody on spot.
+[62:22] Somebody answered in the chat.
+[62:24] Let's see.
+[62:28] Lisa says, estrone is harmful, sort of.
+[62:32] Yeah, Amy, you're right.
+[62:33] Estrone is the estrogen of menopause.
+[62:36] We don't want estrone to be higher.
+[62:40] Yes, Angela, it usually is.
+[62:41] We don't want it to be higher.
+[62:43] Because when estrone is higher,
+[62:46] patients have more symptoms.
+[62:49] A lot of times I have patients describe
+[62:52] their menopausal symptoms as sort of like this.
+[62:56] I feel like I'm dragging around
+[62:59] an 80-pound suitcase with me everywhere I go.
+[63:02] And so I get a clear image of that.
+[63:04] I'm dragging something that's heavy, a burden.
+[63:08] I don't feel well.
+[63:09] I'm tired.
+[63:10] And so estrone is like that.
+[63:12] Estrone drives a lot of menopausal symptoms.
+[63:16] Estrone will drive a lot of the brain fog,
+[63:19] a lot of the irritability, the mood swings,
+[63:22] the poor sleep patterns.
+[63:26] So if your patient's complaining
+[63:28] of menopausal type vasomotor symptoms,
+[63:32] consider their estrone is probably much too high.
+[63:35] And we want it to be lower than estradiol.
+[63:38] Normally, without any assistance,
+[63:40] estrone will be higher in menopause.
+[63:43] Our goal, though, as functional practitioners,
+[63:46] is we will be able to get that down.
+[63:48] We can do things to drive estrone down
+[63:51] and improve estradiol levels and raise that up.
+[63:57] Yeah, everybody always asks that, Lisa.
+[63:59] There's not a level number that we can look at
+[64:03] because it's driven by the estradiol number.
+[64:06] So if estradiol is 60 and estrone is 70,
+[64:11] that's a bad number.
+[64:12] But if estrone is 70 and estradiol is 110,
+[64:16] that's not a bad number.
+[64:18] It's about the relationship.
+[64:20] So that's why this mentorship is really helpful
+[64:25] for providers and practitioners
+[64:28] because it helps you start to look at things
+[64:31] a little differently, not just the flat number.
+[64:33] Oh, I have to do this because this number is low or high.
+[64:37] No, it's about beginning to understand
+[64:40] that all of these are connected.
+[64:42] All of this chemistry interacts with one another
+[64:45] and learning the relationships that drive better symptoms.
+[64:50] So estradiol is your youthful estrogen of childbearing age.
+[64:56] It's what thickens the lining of your uterus
+[64:59] to have a period every month.
+[65:01] Estradiol is the bioidentical prescription.
+[65:06] We give women to drive that estrone down
+[65:09] and to give them better estradiol levels
+[65:11] to have better symptoms.
+[65:14] Thus, why we typically want patients to have a mammogram
+[65:20] and or a uterine sonogram
+[65:22] early in their estradiol support program.
+[65:26] And so those are all things to think about.
+[65:29] The majority of your hormone imbalances
+[65:31] are gonna be driven by insulin and or malnutrition.
+[65:36] Insulin plays the biggest role.
+[65:41] So there's a boatload of references in here.
+[65:46] What I would suggest that y'all do,
+[65:48] and we'll stop share and come back here.
+[65:52] One of the things I would suggest y'all do,
+[65:54] let me go back to,
+[66:00] let me pull up the lab worksheet.
+[66:03] That's what I'm looking for.
+[66:06] And we're gonna share the screen too.
+[66:10] So what I would encourage y'all to do
+[66:12] is to take the lab worksheet.
+[66:16] If you didn't already download that,
+[66:20] it is posted in your course material under lessons.
+[66:25] But what I would encourage y'all to do is take this video
+[66:30] take the slides, you don't have to listen to it again,
+[66:34] but take the slides, go through,
+[66:36] take that yellow graphic that has some of the optimal ranges
+[66:40] and write them down on this little sheet.
+[66:42] A lot of participants in previous sessions
+[66:47] would use this with the optimals on the far left column
+[66:54] and use patients on the other three columns.
+[66:57] And then they use this page up,
+[66:59] they make a new page with all of the optimals
+[67:02] in the next, on the next page,
+[67:04] because writing it over and over like that
+[67:07] every time you do a new page,
+[67:09] writing it cements it into your mentality.
+[67:12] You master the material.
+[67:15] You can print it off on here if you want
+[67:17] and then just keep using it to help you understand.
+[67:21] A lot of provider participants when we do mentorship,
+[67:25] when they post their cases,
+[67:28] they'll actually take a pin and they'll write,
+[67:31] TSH is low, free T4 is high.
+[67:34] They'll do little down and up arrows on every single level
+[67:37] so that looking at it at a glance,
+[67:39] they know that number is higher or lower than our goal.
+[67:43] And so learning to use this worksheet
+[67:46] is gonna be absolutely crucial
+[67:49] for your mastering the material as we cover it.
+[67:56] Anybody have questions about any of this tonight,
+[68:02] anything we've covered
+[68:03] or anything we think we're gonna cover later?
+[68:07] Hi, Jenny, it's Kidela.
+[68:08] I have a question.
+[68:10] Regarding your vitamin D and labs,
+[68:14] if you get a level like you're saying,
+[68:17] if they're taking their vitamin D and you check it
+[68:19] and it's high, it's because of their supplement.
+[68:22] But is there any room to utilize
+[68:26] that level on supplement to guide
+[68:30] to see if they're on the right dose of supplementation?
+[68:34] Not really, because I recently had this happen.
+[68:39] I had a patient who had a vitamin D level,
+[68:43] I think it was like 14 or 15 last year when we drew it.
+[68:49] And when we went over, I think it was last week,
+[68:51] I saw her, her vitamin D level was 83, 84.
+[68:56] And it was flagged high
+[69:00] because her lab now goes up to 80 and that's it.
+[69:04] And so anything over 80 is considered a high level.
+[69:07] Her PCP or somebody had seen the levels before I did
+[69:12] and before I had my appointment with her.
+[69:14] And so he had told her,
+[69:16] you need to stop your vitamin D, you're on way too much.
+[69:19] And I'm like, when she told me that,
+[69:22] I was like, well, let's look and see what it was before.
+[69:24] And it was like 14 or 15.
+[69:26] I said, no.
+[69:27] I said, tell me when you took your dose.
+[69:29] And she said the day before, and I said, yep,
+[69:31] you definitely do not need to stop your vitamin D
+[69:34] because you were 20 and yesterday's dose
+[69:38] is most of what we see in your lab.
+[69:40] So there's not a really good way to know,
+[69:42] like, you can do peaks and troughs of like hormones,
+[69:46] of antibiotics, of various meds, and that's helpful.
+[69:51] With vitamin D, it's not very helpful
+[69:53] because number one, if they took like,
+[69:59] let's say they went and got a 50,000 unit shot Friday,
+[70:06] you know, they went to a med spa.
+[70:07] They thought they would get a couple of shots
+[70:09] and feel better.
+[70:12] So that may spike their vitamin D level, you know,
+[70:15] a hundred and 50, like it might be real high.
+[70:20] But when their level was drawn, it might've been 40,
+[70:25] but they're still trying to get it higher and higher.
+[70:27] There's no way to know how much D from the medicine
+[70:30] is impacting their labs.
+[70:33] It's very, very challenging
+[70:36] because it's such a long,
+[70:41] it hangs around a long time.
+[70:43] It's just a long time that it's in the system.
+[70:46] I guess I'm just trying to figure out,
+[70:48] so say someone's supplementing
+[70:50] and they did high dose for a couple of months
+[70:52] and now they're say on like 5,000
+[70:55] and they get their labs done holding for the two weeks
+[70:59] and it's, you know, optimally, say 60, 70.
+[71:03] Do we just say, continue your 5,000
+[71:06] or do we cut your dose down like?
+[71:09] Yep, so I never use anything but a 5,000 unit dose
+[71:12] and we'll talk about some of the products
+[71:14] that I use as we move through here.
+[71:16] The vitamin D product that I use is osteopX
+[71:19] because it has all the cofactors in one peel.
+[71:22] People don't have to buy a separate magnesium
+[71:24] or a separate boron or a separate K2
+[71:27] like it's all in one peel.
+[71:29] So that saves them money, time and convenience.
+[71:33] And so then they only have to take that peel
+[71:35] in between bites of fatty food for it to be absorbed.
+[71:39] I never use high dose, quote unquote.
+[71:41] I never recommend they go get an injection if they want to.
+[71:44] It's fine, but it never changes my plan
+[71:47] or what I'm doing to get the ingredients in by mail.
+[71:51] Because when you high dose things,
+[71:56] if you're not also giving them those cofactors,
+[71:59] you're wasting your time and their money.
+[72:01] That's the first thing.
+[72:03] But second, it's not gonna be absorbed.
+[72:07] Like it's not gonna go anywhere.
+[72:08] Just cause you raise a vitamin D level in blood
+[72:10] doesn't mean it's going anywhere.
+[72:13] So that's the other thing we have to consider
+[72:16] in a more functional practice is that level you see
+[72:20] that may be 150,
+[72:23] is that truly gonna get utilized or is it gonna get wasted?
+[72:29] Like, is it going to come out in poop
+[72:31] over the next few weeks
+[72:32] because it was never absorbed or utilized.
+[72:35] There was no boron, there was no K2, there was no fat.
+[72:40] None of the cofactors were taken with it.
+[72:42] And that's the big problem with the high dose injections
+[72:47] because none of those cofactors are included.
+[72:49] They're not being digested cause it's injected,
+[72:53] but those aren't injected with the D.
+[72:56] And so part of those aren't just cofactors for absorption,
+[73:00] they're cofactors for utilization.
+[73:03] And so it makes a big difference
+[73:07] when the patients actually start taking the cofactors
+[73:10] that they need for the D absorption.
+[73:12] Vitamin D levels, somebody's asking in the chat,
+[73:17] Stephanie, how often are you checking vitamin D levels?
+[73:19] Maybe once a year, maybe once every 18 months,
+[73:22] D is very, very, very, very, very, very, very slow to change.
+[73:26] And I'm never gonna tell people to be off
+[73:28] for the whole time that it's needed
+[73:31] to get an accurate vitamin D level.
+[73:34] So what's the point?
+[73:35] I'm just gonna tell them to take it.
+[73:36] If I have somebody that gets worried
+[73:39] because I have a slight elevation in their D level,
+[73:41] I'm just gonna tell them to take it every other day.
+[73:46] But I never, we're gonna talk about lab timing,
+[73:50] different things are tested at different times
+[73:52] all the way through here.
+[73:54] I don't do anything quarterly.
+[73:58] Typically just do vitamin D when I think about it.
+[74:04] If it's above range, you can give them
+[74:06] hypervitamin doses, vitamin doses, D diagnosis code,
+[74:11] and redraw it again if you want just to be safe.
+[74:15] I have done that sometimes,
+[74:17] but I don't normally draw a vitamin D level,
+[74:20] but about every 12 to 18 months.
+[74:25] Because even if they're off it for two weeks,
+[74:28] it only dropped half,
+[74:29] like the dose only is half out of their system.
+[74:31] Remember half-life is two weeks,
+[74:33] so it's gonna take five half-lives,
+[74:36] which is gonna be almost a month or just over a month
+[74:39] for it to completely clear their system.
+[74:40] I'm never gonna tell anybody to be off their D that long.
+[74:44] That's absurd.
+[74:45] People need too much D to function.
+[74:48] It's so important for everything we do.
+[74:50] I'm never gonna tell anybody to hold it.
+[74:53] So the longest is two weeks that I tell them to be off.
+[75:01] Let's see.
+[75:03] Amy says, when her patients are 80 or above true,
+[75:07] fasted, and off two weeks, I can't see the rest of it.
+[75:13] My crazy computer is being so dumb.
+[75:18] Let me do this.
+[75:20] Then I have them do Monday, Wednesday, Friday.
+[75:22] Yep, that's what I do.
+[75:27] Yeah, does that help, Stephanie?
+[75:29] The other thing that I haven't mentioned yet
+[75:32] with regard to being off of things is, remember biotin.
+[75:36] It's a great B vitamin.
+[75:38] It's very helpful.
+[75:39] Great for hair, skin, and nails.
+[75:41] It's in a lot of supplements out there,
+[75:44] not just hair, skin, and nail stuff.
+[75:46] It's in a lot of collagen, protein powders, energy drinks.
+[75:49] It's in a lot of stuff,
+[75:52] but biotin will skew lots of your lab results.
+[75:55] University of Iowa has a PDF out
+[75:58] that tells you which things it goes up and down.
+[76:02] It'll skew your results up or down.
+[76:05] You can Google University of Iowa biotin,
+[76:08] and it pops right up.
+[76:10] It's a two or three page document,
+[76:12] and it recommends, I think, a day or two off of biotin,
+[76:15] but I tell people a week, and this is why.
+[76:20] Some of these people are self-dosing
+[76:23] because they're literally devastated and desperate.
+[76:27] They have looked for anything and everything
+[76:31] that they can find to make them feel better,
+[76:33] make their hair grow, make their skin better.
+[76:35] Whatever their problem is,
+[76:37] they're struggling to find something to work,
+[76:41] and so they just keep adding these supplements.
+[76:42] Well, they might be on three or four things
+[76:44] that have biotin in them,
+[76:47] and so they may not know it
+[76:49] because they're not taking a biotin pill.
+[76:52] They don't know it's in their hair, skin, and nail thing.
+[76:55] They don't know it's in their vitamin D pill
+[76:57] or their B complex or their multivitamin.
+[77:01] These people come to me,
+[77:02] I've had people come to me taking four or five
+[77:05] of the same ingredients labeled a different title.
+[77:09] They don't know, so we have to remind them
+[77:14] it's about the actual ingredients on the back of the label.
+[77:17] You got to look for biotin and everything
+[77:19] and make sure you stop that a week ahead of time
+[77:22] so that all of the biotin can have time to detox.
+[77:27] Optimal B12 and tholite,
+[77:28] I don't really have optimals, amethyst.
+[77:30] That's another one of those whole picture things.
+[77:33] So, optimal B12 is we want it
+[77:37] to be toward the top of the range,
+[77:38] but the only time you're gonna see it
+[77:40] at the top of the range is if they're supplementing
+[77:42] or eating exactly right all the time, okay?
+[77:46] So, that means they're always gonna have B12 levels
+[77:51] for the bottom end of the range or low.
+[77:54] So, I look at the B12 and it's on my list,
+[77:57] it's on the lab worksheet,
+[77:58] but I really don't have a set number.
+[78:01] If your folate is low or above range,
+[78:06] they have a B12 deficiency.
+[78:10] So, keep that in mind.
+[78:11] We want folate mostly kind of in the middle,
+[78:14] not real low, not real high.
+[78:17] The other problem amethyst with B12 levels
+[78:20] is that varied levels, especially the higher ones,
+[78:26] might be an indication of that MTHFR variant
+[78:30] we mentioned earlier.
+[78:31] We're gonna talk about that some more,
+[78:33] but MTHFR variants drive poor B12 metabolism.
+[78:39] And so, somebody might be on three or four B12 supplements,
+[78:44] and their level might be greater than 2,000.
+[78:46] I've had it greater than 4,000 before
+[78:48] on people really, really high,
+[78:50] and they still feel like crap,
+[78:52] and they have all the symptoms of low B12,
+[78:55] because they're not able to separate cyan cobalamin apart,
+[79:00] like that molecule is staying stuck together.
+[79:02] So, their body is not able to access the B12.
+[79:05] It's all in their bloodstream,
+[79:07] but it's not accessible, not usable by their body.
+[79:10] So, if you have an MTHFR or COMT genetic variant
+[79:14] that causes methylation defects,
+[79:17] they can't use any of that B12.
+[79:19] So, that's why there's not really a set number for B12.
+[79:22] You gotta look at the whole picture.
+[79:23] Are they on a B12 supplement?
+[79:25] Is it in their protein shake?
+[79:27] Are they drinking an Anise every day?
+[79:29] Like, what's going on
+[79:31] that's driving that B12 level to be high?
+[79:35] And if they're not getting any B12,
+[79:39] if their B12 is low,
+[79:40] are they not eating any red meat?
+[79:42] Because that's the big source of B12.
+[79:45] So, there's not really a number,
+[79:47] but those are the guides.
+[79:48] We kinda want it to be in the middle
+[79:50] to upper end of the range of B12,
+[79:52] but we don't want it low,
+[79:54] and we definitely don't want it above range.
+[79:57] The one caveat that you might wanna make a note of
+[80:00] and keep in mind is if you consistently
+[80:03] have a B12 level that's above range,
+[80:05] even when the patient swears
+[80:07] they are not using anything to raise B12,
+[80:11] you might wanna consider a solid tumor.
+[80:14] Some of your various tumors, brain, liver, bone,
+[80:19] some of those cancers can overproduce B12.
+[80:23] So, it's not common.
+[80:24] I've never found it to be true with any of my patients,
+[80:28] and I have seen hundreds of thousands of patients.
+[80:32] So, it is rare,
+[80:34] but you need to keep that kinda little niggling
+[80:36] in the back of your mind,
+[80:37] going, hmm, hmm, like,
+[80:41] to keep an eye out for that.
+[80:43] So, what I usually do is if it's really high the first time,
+[80:46] we talk about all of the things
+[80:49] that might be driving it up,
+[80:50] and so the patient then goes and reads labels
+[80:53] and starts looking and trying to figure it out,
+[80:54] and then the next time we draw, it usually is down.
+[80:59] Another thing that I will sometimes use
+[81:01] is a specific product called B minus.
+[81:04] Seeking Health makes a great product.
+[81:07] It's the B vitamins, but no B12.
+[81:10] So, for people that are struggling
+[81:12] with weirdly elevated B12 levels
+[81:17] or stays on the upper end,
+[81:19] you can put them on Seeking Health's B minus product
+[81:22] for your next three, four, six months,
+[81:25] and when they come back,
+[81:26] their B12 often falls and is way back down
+[81:30] into a good range.
+[81:34] Kidela, you're seeing them for consult first
+[81:37] and holding cell, yes, absolutely.
+[81:40] So, I know a lot of people in the functional space
+[81:43] offer like a 15-minute consult where they order the labs.
+[81:46] If you're running a cash practice, you can do that
+[81:49] because you don't have to justify any of your labs.
+[81:53] My practice is a hybrid practice.
+[81:55] I have some insurance patients
+[81:57] and some cash pay patients.
+[82:00] So, I treat them all the same.
+[82:02] So, we have the same workflow for everybody,
+[82:04] and it's not confusing for any of the staff,
+[82:07] but we put new patients on schedule.
+[82:10] I spend an hour with them collecting my history.
+[82:15] I do some, I use some questionnaires
+[82:18] that are shared in the Optimontra system.
+[82:20] If that's what you have, you're welcome to find them.
+[82:24] All of my Optimontra forms are,
+[82:27] they include JHHC in the title.
+[82:30] So, you can go to the Optimontra library
+[82:33] and search JHHC, and you will find my forms.
+[82:37] It's not, but three or four, maybe five of them.
+[82:41] And then we get those questionnaires sent out
+[82:44] to patients before their appointment.
+[82:46] So, I see them completed when I see the patients.
+[82:50] So, I'm able to open up that completed questionnaire,
+[82:53] go through those questions,
+[82:55] asking them to tell me more about these symptoms
+[82:58] and that kind of stuff.
+[82:59] And it can be really helpful
+[83:02] if patients are answering questions before you see them.
+[83:04] They'll often answer questions on a piece of paper,
+[83:07] way more openly and honestly than they will
+[83:10] if you ask them in person.
+[83:11] Plus, it gives you a chance to,
+[83:15] let's say they answered their fatigues question
+[83:19] on the thyroid questionnaire.
+[83:21] There's a question about, all right,
+[83:22] do you wake tired or are you always tired?
+[83:25] Are you always tired, 10.
+[83:26] You wake tired, two.
+[83:28] Okay, so you mentioned on your questionnaire,
+[83:32] you have a lot of fatigue.
+[83:33] Tell me a little bit about your energy.
+[83:37] When do you get tired?
+[83:39] What happens when you get tired?
+[83:41] Are you missing out on life?
+[83:43] Like, I try to get a lot of questions thrown out there
+[83:46] so that they're not just a, are you tired?
+[83:51] No?
+[83:53] Well, yeah, they are, they wouldn't be there.
+[83:55] They just don't know the right words.
+[83:57] And so you have to get them to tell me,
+[84:01] tell you things like, tell me about your fatigue.
+[84:04] You said you have some, you're tired sometimes
+[84:06] when you wake up, tell me what that's like.
+[84:08] Is it because you didn't sleep well?
+[84:11] Like, get them to talking because yes and no questions
+[84:15] are the absolute worst questions
+[84:17] for a functional practitioner.
+[84:21] Absolutely, my time is my expertise
+[84:25] and that's worth money, Kadella.
+[84:28] So I charge them up front for the hour long visit
+[84:30] to collect information.
+[84:32] They wait a week or two, go get their labs.
+[84:34] It's two more weeks or longer before we get results back.
+[84:38] Another tip you should be aware of,
+[84:40] the reverse T3 is gonna take two weeks to come back.
+[84:43] The reverse T3 takes a long, long time.
+[84:45] And so you might get part of your results
+[84:48] within two or three days and ready to schedule
+[84:50] that patient back.
+[84:51] Do not do it.
+[84:52] Do not do it.
+[84:55] Give yourself time to make sure the reverse T3 is back
+[84:59] and set an alert in your Opto mantra, your Athena,
+[85:04] whatever you're doing, whatever system you're using,
+[85:06] set an alert, some kind of way to check
+[85:09] for that reverse T3 in about 10 more days
+[85:11] because it's gonna take two full weeks for that to come back
+[85:14] and you cannot do an adequate chart review, lab review
+[85:18] without the reverse T3.
+[85:19] It is part of this whole picture.
+[85:21] Don't do it.
+[85:22] If the lab didn't run a test,
+[85:25] if they forgot the insulin,
+[85:27] some of your lab texts don't know the difference
+[85:29] between insulin and A1C and they think it's the same thing.
+[85:33] They won't draw a reverse T3
+[85:34] because they've never heard of that.
+[85:36] Like there's a few times that the lab texts just screw up
+[85:40] one way or the other, don't panic.
+[85:41] Just do the best you can with what you have.
+[85:44] Add it to the next time.
+[85:45] Sometimes I'll even type a little note.
+[85:48] I have a little space in my orders I can write.
+[85:50] And so I'll write reverse C3 omitted last time.
+[85:54] Please make sure it's drawn this time.
+[85:57] You can also teach your patients to run some quality control
+[86:00] and say to the tech as they're keying in all the orders.
+[86:06] Last time they missed my ferritin level,
+[86:08] can you make sure that gets run this time?
+[86:11] And so that's very helpful.
+[86:13] Any of those little things that you can do
+[86:14] to ensure you get better results.
+[86:16] Kayla, are you charging your cash?
+[86:23] Yes, I answered that.
+[86:24] I'm cash-based and was planning to set up
+[86:26] comprehensive consultation when they get labs drawn first,
+[86:29] then consult on them.
+[86:30] So many people doing functional practices, Kayla, do that.
+[86:37] If you're cash-based, you could certainly collect
+[86:41] a little information online through a questionnaire or whatever
+[86:45] and then you, or they come in and do labs
+[86:48] and you could certainly do that.
+[86:53] Because I'm insurance-based,
+[86:55] I'm not going to give away my time for free.
+[86:58] So it's certainly up to you, however you do that.
+[87:02] Kayla, Amy has provided how she does her stuff in the chat
+[87:07] if you wanna make sure you read that.
+[87:11] There's lots of ways that people with providers
+[87:14] will set this up.
+[87:16] Many times they'll make a whole big fee
+[87:19] for that first visit that includes labs.
+[87:22] You can do my whole work up through RUPA
+[87:25] for about $250 or so.
+[87:29] And so if you charged like $350 for their first visit
+[87:37] and labs, you still get paid decent
+[87:40] and you've gotten a visit in and their labs
+[87:45] and then they come back and pay you for the lab.
+[87:49] So the lab codes I use for RUPA, they're not really codes.
+[87:56] I just go in and they have a favorites tab
+[88:00] and I just have all of my labs in the favorites tab.
+[88:02] I choose access to run the labs through
+[88:08] and so all of the tests I chose were access.
+[88:13] And so you can just build them out,
+[88:15] however you want them to be.
+[88:16] You can build that for most any of the labs will do that.
+[88:21] In my Optimontra system, I have my tests selected
+[88:24] in templates and so I have to click two or three buttons
+[88:28] and it populates all 20 of the lab tests done.
+[88:33] I have one panel set up for Quest.
+[88:35] I have one panel set up for LabCorp
+[88:37] and if they use other labs, I just choose Quest.
+[88:41] That's my default and I just populate all of that.
+[88:45] Many people, Angela, do a monthly membership
+[88:48] and then they add on things for different services.
+[88:51] You're exactly right.
+[88:52] The same way they pay for labs,
+[88:53] they might pay for a vitamin D injection
+[88:55] or a B12 shot, Botox injection, whatever.
+[89:00] All those things are add-ons.
+[89:01] There's a hundred different ways
+[89:03] to make this work effectively.
+[89:07] Um, yes, sometimes I do have different labs
+[89:16] for the same things.
+[89:17] The cool thing about RUPPA, RUPPA is if it's duplicated,
+[89:24] it gives you a little highlighted thing.
+[89:26] Hey, I feel like it's screaming at me.
+[89:29] Hey, Jenny, you're being dumb.
+[89:32] You've got this selected two or three times
+[89:34] like it's duplicated.
+[89:35] And so then you just kind of have to go through
+[89:37] and figure out one that's always duplicated
+[89:40] is sex hormone binding globulin.
+[89:44] No, no, albumin, because it's in the CMP
+[89:48] and it's in your testosterone panel.
+[89:50] And so it'll flag that.
+[89:51] So I just leave the warning.
+[89:52] I figure out, because if you click there,
+[89:54] it'll tell you what's duplicated.
+[89:57] And then I remove all the duplications,
+[90:00] except that one, because I know that's in two panels,
+[90:02] but I need both those panels.
+[90:03] I need all those things in both things.
+[90:05] So yes, Fullscript Labs now has emerged with RUPPA.
+[90:13] And so you can go through Fullscript to order the labs
+[90:16] and their supplements.
+[90:19] So if you don't know what Fullscript is,
+[90:21] it is a vitamin supplement shop.
+[90:23] And I highly recommend that you set one up.
+[90:25] It's easy money on the side.
+[90:28] And if you're using an EMR,
+[90:30] they can probably integrate it
+[90:32] so that your recommendations populate to your chart.
+[90:36] And so that's really nice,
+[90:37] because I can send a Fullscript recommendation
+[90:40] while I'm in their note,
+[90:42] and it populates to their note.
+[90:45] And so then it's documented in their chart
+[90:47] without me having to write it all down.
+[90:53] Kayla, rural doesn't really matter.
+[90:55] There are lab draw locations in lots of places
+[90:58] and RUPPA contracts with boatloads of them.
+[91:01] I didn't know it until recently,
+[91:03] but my local hospital is a RUPPA draw site.
+[91:08] I didn't know that.
+[91:09] I was like, really?
+[91:12] Okay, that's pretty cool.
+[91:15] I had no clue, but I had a patient who...
+[91:18] So when you send the orders to RUPPA,
+[91:20] RUPPA is gonna email your patient.
+[91:22] It's gonna give them all the instructions
+[91:24] about how to get their labs done.
+[91:26] It's gonna give them a list of choices local to their area.
+[91:30] And they can go wherever they want, get it drawn,
+[91:32] and then you get the results back.
+[91:36] So pretty easy.
+[91:38] So I mean, I really encourage you to look
+[91:40] at some of these other things.
+[91:41] I didn't know RUPPA was a thing.
+[91:44] In some places you can even have patients
+[91:47] order their own labs through Ulta
+[91:49] or through walkinglabs.com.
+[91:51] So if you're struggling to find somewhere,
+[91:54] let them look online at Ulta,
+[91:56] or you look online at Ulta
+[91:58] and walkinglabs.com,
+[92:00] many places except poor New York.
+[92:03] I hate it.
+[92:04] Poor New York doesn't let anything go on there
+[92:08] with regard to patient independent care.
+[92:14] But most places will have draws sites
+[92:18] for RUPPA, Ulta, and walkinglabs.com.
+[92:23] And I only found RUPPA just a few,
+[92:29] two or three years ago before that.
+[92:31] I would tell patients, hey, go on walkinglabs.com,
+[92:35] find a lab, go get these tests done.
+[92:37] And I just give them the order
+[92:38] and they would meticulously go through
+[92:40] and find those orders and put them in themselves
+[92:45] and get them done all by themselves.
+[92:47] I wouldn't have to do a thing.
+[92:50] Kayla, determining pricing is hard as game and all.
+[92:53] Yes, it is.
+[92:56] It's just hard.
+[92:57] You just have to figure it out.
+[92:58] Like I said, my whole 20-ish panel is about $235 or so
+[93:07] through RUPPA.
+[93:08] I generally charge $300 for that panel.
+[93:10] So I make a little bit for doing the paperwork and stuff.
+[93:16] And so you can price it however you want.
+[93:19] I just round up to something easy.
+[93:23] And Amy are talking a little bit about,
+[93:35] I do 60-minute visits initially first as well.
+[93:38] My follow-ups are 30.
+[93:40] I do my chart prep in the morning
+[93:43] when I'm getting ready to see patients.
+[93:46] So I'm like eight to nine or 9.30.
+[93:48] I'll do nothing but chart prep.
+[93:49] I'll open the charts, update.
+[93:52] Any questionnaires that they've completed
+[93:54] since their last visit.
+[93:56] Load the lab results all in the objective part.
+[94:00] So I have a running look.
+[94:01] So I can scroll down that objective section
+[94:04] and see, oh, well, last January,
+[94:07] they had these levels.
+[94:08] In August, I have these levels.
+[94:10] Well, today, these are looking better.
+[94:13] We're making some progress here.
+[94:15] And so I have a running tab.
+[94:17] Yes, you can do some charting, diagramming.
+[94:22] I don't know, but I just find it more clicks.
+[94:26] I just rather have it all in my note in that one page.
+[94:29] And so I can easily scroll through there
+[94:31] and find the results that I'm looking for.
+[94:40] Yep, we do have a session in our mentorship program
+[94:45] on business management.
+[94:47] And so we'll get to that one night.
+[94:49] I think there's a tentative topic outline in your course.
+[94:57] Trying to remember where that is now.
+[94:59] I don't know, maybe I'm dreaming,
+[95:01] but I thought I put it in there.
+[95:03] If you don't see the tentative outline,
+[95:06] shoot me a message, tell me that it's not there,
+[95:09] but I'll look when we get done and make sure it is.
+[95:11] But there's usually a topical outline.
+[95:13] So it goes through different topics over coming weeks.
+[95:17] So you kind of know what to expect.
+[95:19] And usually on Monday or Tuesday, I prep for Wednesday night.
+[95:26] And so if you're looking for something,
+[95:29] it's not gonna be posted probably till Tuesday-ish.
+[95:35] Either late Monday night or sometime Tuesday
+[95:38] to get ready for the Wednesday session.
+[95:40] So like the PowerPoints, the graphics,
+[95:43] any instructional information, I'm providing extra.
+[95:47] Usually it's posted the day before our session.
+[95:50] Occasionally I let time get away from me
+[95:53] and it's posted right before the session.
+[95:54] So I apologize for that, but life is crazy.
+[95:59] Any other questions that y'all have?
+[96:01] Great questions tonight, great interaction.
+[96:04] I'm so excited about this group.
+[96:05] Amy, I don't wanna put you on the spot,
+[96:11] but you've done this before.
+[96:13] And I think, is your net C still here?
+[96:17] I was gonna give each of y'all.
+[96:20] Yeah, I'm here.
+[96:22] Yeah, if you wanted to like give any comments
+[96:27] about your being here and repeating mentorship.
+[96:33] What's my third time here?
+[96:36] Everything I know about functional medicine,
+[96:38] I've learned from Jenny and I've invited a few friends.
+[96:41] So there's a few people here that came
+[96:43] because I told them about you.
+[96:45] Nice.
+[96:46] And it's okay.
+[96:48] And I'm helping more people
+[96:50] from everything I've learned from you.
+[96:52] I love it.
+[96:53] Including myself.
+[96:54] I mean, I became your patient not too long ago
+[96:56] and we're treating my thyroid.
+[96:58] So, you know, it goes full circle.
+[97:00] I love it.
+[97:01] I will tell you, I can tell a big difference
+[97:03] in your skin now versus when you first joined.
+[97:06] But there was nothing wrong per se.
+[97:09] It's just a healthier, glowing look to your skin today.
+[97:13] Yeah, I mean, ferritin went from 31 to 47.
+[97:16] So, you know, so you don't know.
+[97:19] I was talking to a patient today doing a discovery call
+[97:21] and I was telling her, I'm like, numbers don't lie.
+[97:24] You don't know what you don't know.
+[97:25] And everything costs money.
+[97:27] But I mean, this is your health at the end of the day.
+[97:29] It's not, we're not gonna take care of people for free,
+[97:32] but we can do a better job than most people out there.
+[97:36] Yeah.
+[97:36] Because from what we're learning here.
+[97:37] So yeah.
+[97:38] Well, thank you very much.
+[97:39] Amy, you have a comment?
+[97:43] I always have comments and this is my fourth time.
+[97:48] And I'm gonna tell you,
+[97:50] repetition really is the mother of all learning.
+[97:52] And it is, especially if this is your first time around,
+[97:57] I'm telling you, you do it at least one more time.
+[97:59] You're gonna get double out of it.
+[98:01] And it's you, the more you do it,
+[98:06] it's like the universe says,
+[98:09] oh, you think you know this?
+[98:10] Well, just wait, let me show you this patient.
+[98:13] Right, it's always gonna be the weird one.
+[98:16] Yeah.
+[98:17] So it's nice being able to have a mastermind group
+[98:21] to come to so that you can get,
+[98:24] you can pick each other's brains
+[98:25] and you can see how people think through things.
+[98:28] It's really beneficial
+[98:30] and helping you create a rhythm to see in people, so.
+[98:36] Yep.
+[98:38] So Stephanie asked in the chat,
+[98:40] I see patients in multiple states.
+[98:42] I'm licensed in about 10 or 12, I've lost track.
+[98:47] And so I see patients in Florida,
+[98:50] Iowa, Nebraska, Utah, Nevada, Arizona,
+[98:56] Washington State, Kansas, I don't remember all, Arizona.
+[99:02] So like there's 10 or 12 of them.
+[99:03] So I'm licensed in all the states.
+[99:05] If you want to get licensed in other states,
+[99:08] you just go to their website,
+[99:10] the Board of Nursing website and apply.
+[99:12] It's real easy to get other license.
+[99:14] I only get licensed in FPA states.
+[99:17] I do not get DEA in any state but Nebraska.
+[99:21] So I do not get DEA in any state
+[99:26] but I do send controls in any state but Nebraska.
+[99:32] Brandy, I was just fixing to ask
+[99:34] if there's anybody else here.
+[99:35] So I can't see all the people on my screen.
+[99:38] I have to go to other screens and then I get lost.
+[99:40] I don't know where I am.
+[99:41] So if there's anybody else that wants to comment,
+[99:44] Brandy says it's her second time.
+[99:46] She's, Macy says third time.
+[99:48] I saw you earlier.
+[99:50] I forgot that you were here, Macy.
+[99:52] Yeah, so lots of people with repeats.
+[99:58] That in and of itself tells me that this is worthwhile.
+[100:04] It really makes my heart smile
+[100:07] to see some of y'all come back
+[100:09] for second and third time, four times.
+[100:12] Consent forms, Kidela.
+[100:14] I just have one that's my treatment thing for everybody.
+[100:17] There's a bunch of different ones out there.
+[100:19] I stole one offline.
+[100:21] Googled and found one and adapted it.
+[100:24] So yeah, they're not hard to find.
+[100:28] If you do any of the elite NP courses,
+[100:31] many of them come with some of those consents and forms.
+[100:37] So just look in those resources if you have them.
+[100:40] You don't have to buy those for this mentorship
+[100:43] but if you have that, use those resources
+[100:45] because they are provided as part of their coursework.
+[100:49] Thanks, Macy.
+[100:50] I appreciate that.
+[100:53] Well, I'm done with education for tonight.
+[100:57] I will be getting some more stuff put in the PODIA platform
+[101:02] for y'all over the coming days,
+[101:04] getting ready for next week.
+[101:07] Toward the end of the month,
+[101:08] I'm not sure which date it is right off the bat
+[101:11] but I do wanna mention it.
+[101:13] We'll be driving on a Wednesday to San Antonio.
+[101:18] My granddaughter is graduating in San Antonio
+[101:21] and so we're gonna move that one session to Tuesday
+[101:24] so I can do it before we leave
+[101:26] and not have to worry about mentorship on our trip
+[101:29] but I will post that as soon as I verify that date
+[101:32] and get that set up for y'all
+[101:35] so that you'll know exactly when that is
+[101:37] but it's the only Tuesday,
+[101:38] the only time I know this whole four months
+[101:41] we need to move it but it's because we'll be traveling.
+[101:44] So y'all take care.
+[101:45] I love y'all.
+[101:46] I will see y'all next week.

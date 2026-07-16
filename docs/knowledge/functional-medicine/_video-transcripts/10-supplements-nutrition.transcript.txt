@@ -1,0 +1,783 @@
+# Transcript: 10-supplements-nutrition
+# Source: C:\Users\Derek DiCamillo\OneDrive - PV MEDISPA LLC\Spring2026-Mentorship\Week 5 - Buiness Mgmt & FullScript Use\recording.mp4
+# Duration: 94.6 min
+# Auto-generated (faster-whisper small.en). Numbers/drug names may be imperfect.
+
+[00:00] you
+[00:30] you
+[01:00] can you hear me now? I can hear you. The last thing I heard was, um, you know,
+[01:30] um, the good choice to put her on the leave. Oh, 25. Yeah. Yeah. Um, so that's, that's all
+[01:37] I was saying that sometimes things just don't match up to what we expect and the things we,
+[01:45] the general things that I talk about, um, don't always apply to everyone. So you have to just
+[01:50] step outside your comfort zone and you have to do that more when patients drag you outside
+[01:55] your comfort zone. So, um, that was a good choice. So, okay. Well, thank you, Jenny. Um,
+[02:03] you're welcome. Uh, keep me posted on how she does. Um, that's interesting. Yeah. She's pushed
+[02:10] me to my limit. Right. Yeah. Some of them will do that for sure. All right. Um, so first
+[02:20] off I got three, I'm not fussing at anybody. I just want to make this an element announcement.
+[02:25] I got three emails this week from Podia saying that payments had failed. Um, remember that
+[02:33] the, um, payments are going to automatically, um, charge your card or whatever account you
+[02:39] set up. Um, if you're, uh, this just happened to me as well. I'm mentioning it. My debit
+[02:45] card just expired May 30th, May 31st. So June one, I couldn't use it. And so now I have to
+[02:51] go and change all my card things. So if it expires, somebody emailed me as soon as it
+[02:56] happened and said, Hey, I had to get another card. I'm waiting on my bank. So like stuff
+[03:01] happens. Um, so just make sure that your card is current and up to date, please. Um,
+[03:09] there is a PowerPoint posted for supplements for tonight. We probably aren't going to
+[03:15] really go buy that much. Um, it lists a bunch of supplements that I do like to use, um, uh,
+[03:23] for specific things. But most of tonight is mostly about business management set up, uh,
+[03:31] uh, of practices. Um, uh, and then we're going to look at my, uh, full script shop. So we're
+[03:38] going to talk about full script protocols and plans and templates and all that stuff.
+[03:44] Um, so you get some idea of how that works. Um, how many of y'all don't have a full
+[03:51] script shop yet? Is there anybody that does not?
+[03:55] So everybody has a full script shop. We think. Okay. That's pretty cool.
+[04:16] She almost says she does not have one yet. Okay. Um, uh, I highly recommend it. Um,
+[04:25] oh, that's a good way to word it, Linda. So yeah, um, some people have it, but don't really do
+[04:31] anything with it because you probably have struggled trying to figure out what do I do
+[04:34] with it? Um, so that's what we're going to talk about, um, in part of our section session
+[04:40] tonight, I am going to share my screen on my button. Um, and then we are going to go.
+[04:56] Let's see if I can get where I want to be. I want to go to,
+[05:00] oh, a little thing here in my way.
+[05:10] I want to go here. All right. So when we talk about practice set up,
+[05:18] one of the things that always comes up in different groups online is what do I do
+[05:26] with my website? Do I use a Facebook page? Do I use a website? Um, it, you really need all of the
+[05:33] things you need your own website. Mine is joyfulhearthousecalls.com as you see up here in the
+[05:41] address bar. Um, and then my giant logo is here in the center and then over here in the top left,
+[05:49] there's another version of it. When I first opened my practice back in 2018,
+[05:55] that seems like so long ago now, um, I was going to run a house calls practice. I was not telehealth.
+[06:03] I was mainstream regular practice. Just, I was going to go to patient homes. Well,
+[06:10] I got that up and going and then COVID shut everything down. And so we couldn't go inside
+[06:15] people's homes. I didn't want to go inside people's homes. They didn't want me in their
+[06:19] homes. So like it just kind of shut things down. Well, life took me through this weird twist and
+[06:26] I wound up running this big massive mask making group, um, on Facebook in our local Omaha area.
+[06:36] And the thing went viral worldwide. I had people all around the world asking to join my group
+[06:43] in Omaha to learn how to make masks and how to set up this thing. And so for like
+[06:51] four or five months, I didn't work at all. I only organized mask making because back then at the
+[06:59] time, we didn't know much about masks and everybody was out. You couldn't even buy one
+[07:05] hospitals were without them. And so that's why we started. Um, and it turned into making,
+[07:11] we made about 105,000 masks between March 21 and December 31. And so I wasn't making masks.
+[07:21] I was organizing and managing. Well, through that four or five months when I wasn't working,
+[07:27] I don't know how, but we, we still paid our bills. We still had income. We still, I don't,
+[07:34] I cannot explain to this day what happened except it was a God thing. Um, so, um, all of a sudden
+[07:46] the emergency act went into place and we could see patients anywhere. So I started posting.
+[07:54] Everybody was out of medicine. Nobody had their diabetes meds or blood pressure meds or thyroid.
+[07:58] Nobody had medicine. And so I just started posting and ran a couple of ads on Facebook
+[08:04] and voila, my schedule filled up within weeks. I was working eight in the morning till eight at
+[08:09] night. Um, and then charting after that. So my practice literally blew up literally in,
+[08:17] in just a few weeks. Um, and I quickly had to pair that back and, um, uh,
+[08:26] cut that back some because I couldn't function. Um, and so that's how my practice grew. I was very
+[08:37] unique because of the timeframe that that happened, but the way I set up my practice,
+[08:43] I was credentialed with insurers. Um, I was, um, working like a normal typical clinic
+[08:53] only. I was seeing patients via a video screen. Now, since I set that up, I wish I had never done
+[09:03] that. I wish I had never taken insurance. Um, the way my practice works right now is I take
+[09:10] insurance for Nebraska patients, Medicare nationwide, because it's a federal program. And if you're a
+[09:19] Medicare provider, you have to see Medicare patients, uh, anywhere, um, if you're licensed
+[09:24] there. And so, um, I'm licensed in multiple States. And so I take cash from all other patients
+[09:33] that are outside Nebraska or that are not Medicare. So cash-based everywhere. I'm licensed
+[09:40] except for Nebraska, which is insurance. Um, lots of people always have questions about memberships
+[09:47] and, um, those kinds of things. Does anybody want to share your experience with your, um,
+[09:57] membership based practice?
+[10:01] Does anybody have a membership or do you run like hormone packages,
+[10:07] like somebody share something that's not fee for service?
+[10:21] I am Jessica. I'm in Pennsylvania. Okay. I opened, um, elemental health and wellness
+[10:35] as a primarily an Ivy clinic. And then we moved into hormones because people asked for them.
+[10:41] And I had no idea what I was doing when I started. I still don't. I still don't. Um, but
+[10:50] I do a hormone, um, membership. I do a male membership. All of my consults, this is kind of,
+[10:57] um, pared down over the years. Right now, all of our consults are in person for hormones.
+[11:05] I don't do any telehealth for hormone replacement for men or women. Um, it's 250 for the initial
+[11:11] visit. They pay for their labs. I built a, um, a lab profile in Optimontra. If they want to use
+[11:20] their insurance, they can. I just send them the requisition. If they do cash base, we only do
+[11:26] cash base out of the office we draw here. So that's 350 for that entire panel. Um, it's
+[11:32] pretty comprehensive. And then they pay 90 women pay $99 a month. They pay for that includes all
+[11:41] of their follow-up visits with me just for hormones. Um, and then they pay for their meds. So their
+[11:46] progesterone is normally covered by insurance if they have it or very inexpensive to get it,
+[11:51] get it themselves. And then their creams are $75 each and we do a two month supply at a time.
+[11:59] Um, my men are the same 250 plus their labs and they're 125 a month. That includes their
+[12:07] testosterone. I only do in-person for men. So they have to physically come into the office
+[12:12] because it's a controlled substance. Um, they come in every three months for their refill and their
+[12:17] labs and their follow-up. And that's how we do it. And then they don't pay for anything else.
+[12:22] Um, you know, everything is included for the guys. Women, because, um, this has changed and
+[12:28] that's why I'm taking this class. Um, it's not just hormones. So, you know, we're doing,
+[12:34] we kind of are getting away from the, from the package price monthly membership fee for women
+[12:40] because they're so much more complicated. Um, guys just want their testosterone and they want
+[12:46] to get out the door. They really don't care. They, you know, I begged them, I, I have to have firm
+[12:50] rules. You must come in for your three month follow-up or you will get no more, no more
+[12:54] medicine. Women are a little bit different. They're here all the time for different things.
+[12:58] We're doing more and more with them. Um, so that's where we're at with that.
+[13:03] Yeah. Great. Um, do you have any, um,
+[13:09] information you would be willing to share about your finances, like a monthly or an annual,
+[13:18] a quarterly, like what do you, what it looks like? What does that look like for you?
+[13:24] So I can tell you what it looks like per patient for the guys. So if you think about it, their
+[13:28] testosterone is about 40 bucks a vial for a 10 ml, 200 milligram per ml vial.
+[13:35] I don't have anybody over 200 milligrams a week. I won't go higher than that.
+[13:41] So that gets them about 10, 10 weeks of medication. Um, so that's, so figure $40 for their
+[13:47] medication and then their follow-up visits, their labs are $45 every three months. So it's
+[13:54] basically all, it's pretty much all profit. Um, once you get them started, um, women,
+[13:59] as I said, a little bit more complicated. Um, there are creams I order there. I use
+[14:04] Olympia for all my creams just for ease of ordering. Um, there are about $65 a piece.
+[14:15] We, we charge 75 for their meds. Um, and then their follow-up visits are included. So they're
+[14:22] paying $99 a month and I probably only see them every two or three months. So, you know,
+[14:29] I charge 125 for an office visit. If they're paying, some people don't want a membership.
+[14:33] They only want to pay when they come in. So our office visit fee is 125. Our, our, um,
+[14:41] initial consultation is 250. You know, so if you work it out, it's, it does make you money on the
+[14:47] guy side, on the women, not so much. That's why we're going back to doing, uh, doing regular
+[14:52] office visits. We're kind of going away from the membership with the women. They're just
+[14:57] too complicated. Yeah. You get so wrapped up in them and you end up talking to them every other
+[15:01] day and it's just not worth it. Yeah. Same. Um, and that's why I've continued to use a fee for
+[15:10] service, um, platform. Um, if they need me, they pay for me is what it will sound to. Um,
+[15:19] I packaged some plans out and tried to price them out and marketed them a little bit on Facebook. I,
+[15:26] I never had much interest, like maybe two or three calls or emails about them. Um,
+[15:34] uh, but in general, uh, hormone management is, is just tough. Um, there's, we don't have good
+[15:44] standard protocols. Nobody fits a standard protocol. No matter what you start them at,
+[15:50] it's going to change within three to four months. Like sometimes it changes next week. Like, um,
+[15:57] so it just is all over the place because so many factors play a role in hormone management,
+[16:04] thyroid health, um, um, uh, insulin, like all of the things in our lab panel that we're always
+[16:13] talking about. Um, uh, that's what drives, um, uh, uh, hormone health. And so if insulin is high,
+[16:24] it's going to mess with estrogen, testosterone, and progesterone. It just is. Um, and so it's one
+[16:30] of the main reasons the complexity of hormone management is one of the main reasons you can't
+[16:36] just manage hormones. Most of the time you have to expand, you have to include some of the, um,
+[16:43] thyroid, the insulin, the inflammation, because all of that is impacting our hormones. Um, you know,
+[16:49] you've heard, you've probably said, uh, as providers, you've probably heard people say,
+[16:55] or you've said it yourself, men on a healthy, low, whatever eating plan will lose 10 pounds
+[17:03] compared to the woman's half pound. Um, and it's just because of all the stuff that impacts
+[17:10] estrogen and progesterone management within our, our bodies. Women are just different. Um,
+[17:16] men will lose weight way faster, um, way more efficiently than women. And so it all goes into
+[17:24] there. Um, somebody's asking, Linda is asking about our initial labs. Um, the initial labs are in
+[17:32] the lab worksheet. Um, and we discuss them during the first session that is lab optimization. We
+[17:40] talk about that. There's a graphic that lists all of my labs. That's what I always recommend
+[17:45] no matter what you're seeing a patient for. Um, if they, if you can justify, um, getting their
+[17:52] insurance to cover them, if they're cash pay, you can order those labs no matter what. Um, but if
+[17:57] you're having to justify to insurers, that lab panel may require a little tweaking, um, if
+[18:03] you're not careful with your, um, um, diagnosis codes. Um, Kelly, you've got somebody not
+[18:11] tolerating oral progesterone sublingual not working. So usually it's a cortisol issue
+[18:18] when, um, progesterone can't be tolerated. So think about stress, uh, you know, back up a little bit,
+[18:25] you know, try something different. Um, sometimes you have to start with pregnant alone instead of
+[18:32] progesterone, um, and let their bodies, uh, get adjusted that way. Um, but there are usually
+[18:40] reasons that oral progesterone is not tolerated. Um, questions, raise your element of credential
+[18:49] since April or May. Um, okay, good. Um, all right. So that's the questions. Anybody else have a,
+[19:00] um, DPC you want to talk about or some other, um, plan of business management?
+[19:10] I'll just add, we just started doing DPC in January and we had to close our panel because
+[19:23] we got too busy. Wow. Yeah. Um, I refuse to take insurance. I've never wanted to take insurance.
+[19:31] I have an ER background. I just never was interested much to the behest of my husband
+[19:36] who begs me to open for insurance. And I said, if I do that, I'm losing all control of everything.
+[19:41] Absolutely. So our DPC just opened. It's super reasonable. Um, it's, I think it goes from $30.
+[19:48] I only see 13 and up, not because I can't see kids. I just don't want to,
+[19:53] and I don't offer vaccinations. So it's just too hard to get them. They're too expensive.
+[19:59] It's just too much. So 13 and up, I believe 13 to 20 is $30 a month and it goes up from there
+[20:09] and our highest level is $75 a month for 60 and up. Um, and it's gone really, really well.
+[20:16] And that just includes your primary care visits. So it's not, you know, they get yearly labs, just
+[20:22] a wellness panel. It's nothing crazy. Um, I offer to do the other labs at a cash price. Um,
+[20:28] it's gone over really well because we do things different here. And that's what I tell everybody.
+[20:32] Like it's a, it's, I don't do concierge and I'm really clear about that. And I think you have
+[20:37] to be when you're talking to people, this is not concierge. You're not going to call me at three
+[20:41] in the morning and tell me your throat is sore. Right. Um, you know, that kind of thing,
+[20:46] but it's gone, it's gone well, but I'm by myself and I don't want to get overwhelmed.
+[20:50] So I just cut it off and we're just adding people as people leave, we add new people.
+[20:54] So that's awesome. Yep. That's awesome. So, um, yeah. Uh, if you want to set up a DPC,
+[21:05] I really recommend several of the DPC Facebook groups. Penny Vachon V A C H O N is a long time
+[21:14] DPC expert. She's been running her practice for several years, um, and assists and guides lots
+[21:23] of other entrepreneurs to open and manage their own DPC clinics. Um, so if you just search DPC on
+[21:30] Facebook, you'll start to find several, um, a few of them limit their members to physicians only,
+[21:38] but there are several that are, um, a multi, uh, provider types, uh, included. So, um,
+[21:45] if you can get into a couple of them where Penny is, um, add, she's admin of a couple of them.
+[21:52] Um, um, she's great at answering questions and helping. And recently I think it's her
+[21:58] daughter that has begun to work for her and her daughter is doing some of her marketing and
+[22:04] teaching and, um, education to help her, um, with some of her stuff.
+[22:09] So, yep. Um, I think it's, I, I don't, I don't know if it's I or Y.
+[22:18] That may or may not be right, but it's something like that. If you'll find the DPC groups you'll
+[22:24] find her. Um, so we talked about having your website. So let's look at mine for just a second.
+[22:34] Go away, go away. Um, I can't get where I want to go.
+[22:51] Screen share. Let me see if I can do this this way. This needs to be
+[23:00] smaller. So I can see the tabs. Here we go. So this is my website. And so, um, if you scroll down,
+[23:12] um, it's a more functional holistic perspective to care. I do offer direct primary care. I've
+[23:18] never had anybody do that. Um, but we talk about medical video chats. Um, this section of cute
+[23:28] illness care, I am in the process of reworking. It's not going to say that anymore because I don't
+[23:32] really want to take care of sore throat sore throat either. Jesse, I do lots of chronic
+[23:39] condition management, um, mostly functional, but, um, I have a couple of people that like their
+[23:48] mainstream drugs. Um, down here, there's a little bit about me and my education. I have a little video
+[23:59] about me here from YouTube. And then, um, I have articles down here, my blog articles.
+[24:06] So you can click on metabolic dysfunction and find some articles. You can click on thyroid
+[24:11] health and you'll learn about iodine and thyroid stuff. If you click on this, you can learn about
+[24:17] ketogenic lifestyle article. So I have a boatload of stuff and then further down are the chronological
+[24:25] as I produce new articles. Um, and I'm way overdue for producing more, but these are down here.
+[24:32] Then I have a couple of testimonials. Um, and then there's a contact form down here with,
+[24:37] uh, phone number and information. So that's my website. If you don't have a website,
+[24:42] you can set one up on wit for using Wix or GoDaddy or WordPress or whatever. This one,
+[24:48] I started out with Wix, but, um, it was harder to do stuff in. And so I switched over to WordPress,
+[24:57] um, about a year and a half in. Um, and so this is a WordPress based site.
+[25:04] Then we go to my Facebook page. Can y'all see my Facebook page when I, do I need to share
+[25:09] screening it? You can see it, Kelly. Good. Okay. Um, so this is my Facebook page. I alternate my
+[25:18] cover pictures and my profile pictures with me or table setups or whatever from time to time.
+[25:25] Um, but when you scroll down, um, you'll see the contact information is listed. Um,
+[25:33] and then you'll see photos and you keep scrolling. There's a featured post because yesterday was
+[25:39] Redmond Relight Day or something. And so I shared some stuff about that, but these are the posts.
+[25:46] These are my posts. So most of these graphics I make myself using Pic collage. Um, I have begun
+[25:54] playing with, um, chat GPT to make a few of them. I put my graphic in and I say, create a new graphic
+[26:02] with this information on it and include my logo. And so it'll come up with something. And sometimes
+[26:08] I like it. And sometimes I don't, but my web, my Facebook page is about education.
+[26:14] It's not about selling drugs. It's not about selling my services a hundred percent.
+[26:20] I want to educate people because what I'm teaching y'all, if you think about it,
+[26:26] it's all basic bio stuff. It's basic A and P. If we can teach our patients to do this stuff,
+[26:33] they will need us less. And that sounds terrible, like a terrible business model,
+[26:38] but our goal is to spread that out there. So there's plenty of people that need the education
+[26:44] we're providing. Um, uh, like for instance, we'll go back to this one right here. I shared this
+[26:52] news on Dr. Berry earlier, um, uh, a couple of days ago, uh, New York post and Fox news,
+[27:02] both ran posts and articles about Dr. Berry losing 70 pounds eating beef, bacon, butter and eggs.
+[27:10] And so, um, uh, I've seen boatloads of anger toward him, a lot of, um,
+[27:21] harassment toward him and that way of eating. But those of us that have chosen a lower carb
+[27:28] eating plan, all lost weight, all fixer stuff. We're all way healthier now than we were. And, um,
+[27:37] advertisers are what don't like this. And so that's what it comes down to advertisers
+[27:44] don't like it when their packaged products, um, are, are not used to get healthy. So
+[27:53] just be aware and watch all that because you'll see what, um, the media does to people.
+[28:02] In fact, Dr. Berry himself is one of the ones that have had, um, things done to,
+[28:11] um, y'all can work. We're going to put my water in now they left. I'm sad. Um, uh, his house burned
+[28:24] down about three or four years ago, his house burned down. And the suspicion was that it
+[28:30] was on purpose by people that did not like his stance. Um, and then his office or I think
+[28:38] is how his office burned down first. And then a few months later, his house burned down.
+[28:42] And so he has been attacked, uh, for several years, um,
+[28:50] because of the way he teaches against big food and big farming, big pharma. Um,
+[28:58] yes. And in the chat, um, somebody just posted Brandy posted in P's and PAs in direct primary
+[29:05] care. That's one of Penny's groups. That's one of the ones that I belong to. And it's really good.
+[29:11] Um, yes, Kelly, you do find that a lot of people don't want to put in the work. Um,
+[29:21] many times though, what happens or what I see is they, they really don't want to at first,
+[29:28] but then they wind up getting their labs and I go through the labs and I show them
+[29:35] the numbers and how their lifestyle is causing those numbers. And when they start making the
+[29:43] connections, that's when people start wanting to make changes. And a lot of times it's not
+[29:49] all the changes at once they'll start realizing, Oh, there's a lot of information. Maybe I should cut
+[29:54] back on the process stuff. So they do, they start working on that. And then in four to six weeks,
+[29:58] they're like, gosh, I feel so much better than I used to. Like it really is a one step at a time
+[30:05] plan for many people. And so it's why all of this stuff is so important to teach and to get out
+[30:14] there. Um, Tracy, I'm sorry. My door creaking. Um, they were, I got running water in my kitchen
+[30:23] today, but they're working on the bathroom and they aren't finished. So they were going to finish
+[30:28] it, but now I'm working and they don't want to work while I work. So, um, that'll have to happen later.
+[30:35] Um, but, um, uh, when big pharma, big food get wind of somebody like this, making headlines
+[30:44] national news wise, it hurts their bottom line. Um, we've already seen evidence as, uh, big
+[30:51] companies. Um, uh, I think it was Kellogg's. I saw a couple of years ago, I was already shut
+[30:57] down a couple of their plants and manufacturing plants because it's, it's beginning to dig into
+[31:02] their bottom line. And so that happens, but I use my Facebook page to educate and teach.
+[31:10] I do run ads from here on occasion. Um, and we could talk about that more if we need to,
+[31:19] but what I usually do is I go over here to my ad center and populate an ad. Um,
+[31:31] I'll show you some of my statistics right quick, and then we'll go to my full script shop.
+[31:35] So my most recent ad I ran for mentorship. Um, it, I, it had, which this is weird. I never
+[31:43] understand their data. It had 7,900 views plus, but it reached 2,500, 8,500 people.
+[31:51] That math does not math. So I don't know how Facebook added that up on fingers and toes, but,
+[31:57] um, but that only cost me $63 and 80 cents is what it turned out to be because they pro rate
+[32:04] the 24 hour period. So I usually spend 70 or 70 or $80 on an ad, um, at a time. Um,
+[32:14] one that I did for patients. Let's see if I will find one. I haven't done one for patients in a while.
+[32:22] Um, simply because my panel is full too. I feel Jesse's pain. Um,
+[32:30] well, I don't know where it is. There won't go back any further. That's weird. Um,
+[32:37] but used to, I would run a patient ad about once a month. Um, I would pick, um,
+[32:49] something to run. Usually it's something like, um, have you had your insulin checked or thyroid checked,
+[32:57] um, call and schedule an appointment today. Um, so I advertise services. I don't advertise drugs.
+[33:05] If you advertise drugs, you're going to have a hard time if you are not legit script certified
+[33:13] because that costs a bunch of money to get. Um, but big pharma has pushed Facebook and
+[33:20] Instagram into making people pay that price to advertise meds, which is crazy. Like it,
+[33:30] it just doesn't make sense to me. Um, any questions about your website or your Facebook page?
+[33:39] I highly recommend some of you probably see me comment when people ask about marketing their
+[33:45] stuff. I, I, I really discourage hiding behind the computer. Put yourself out there
+[33:53] so people see you know, you get to know, you put your, you don't have to put your address
+[33:59] on Facebook, but put yourself out there. Let people know your personality, who you are, um,
+[34:06] what community you are popular in, maybe where you go to church, where you go to school,
+[34:13] where you take your kids to swim, like post some of the things about your real life. Um,
+[34:20] like here's my parents. I posted the other day was their 61st wedding anniversary. They've both
+[34:26] been dead for years, but I thought, um, it's a really good idea to talk about missing your
+[34:34] family. That's a real hard thing for a lot of people. It causes a lot of emotional trauma.
+[34:40] And so I thought if your mom and dad are living, you need to show them how much you appreciate
+[34:44] them. And if they're not, um, spend some time honoring them and thinking about them.
+[34:49] So there are ways to, um, get yourself out there, um, uh, with your personal self. Oh,
+[34:57] thanks Tracy. Um, um, I, if I had younger kids, I think I would post a lot more about life and
+[35:11] getting, you know, to swim lessons, to cheer lessons, to dance lessons, dance lessons, football,
+[35:17] like we don't have little kids anymore. All our kids are grown and I have grandkids,
+[35:23] but I don't feel like it's my place to use my grandchildren to market. Um, so, um, all these
+[35:29] folks that use Instagram and Tik TOK though, to market about, look, I put on my makeup and it's
+[35:34] wacky today. Like those normal things help people see, see you for a real you. Um, I don't post,
+[35:43] I posted one time recently about a fall. I fell, um, uh, and was surprised that I didn't
+[35:49] break a bone because I fell on concrete really hard, right over Apollo Lumber. Um, and, um,
+[35:56] I was sore, but I didn't need a hospital. I didn't break my bones. And so I posted about osteopics
+[36:03] and collagen and the stuff I use to stay healthy, to keep myself in a healthy state. My, uh,
+[36:11] my estrogen, my, uh, all, all the stuff that I do. I talked about that and I'm like,
+[36:18] this is why I fell and didn't wind up meeting the ER at 64 years old. However,
+[36:24] I should be one of the ones I have all the risk factors for osteoporosis, all of them. Um,
+[36:30] and so, um, that bringing yourself into the public sphere is crucial to helping you
+[36:39] market your business. It just is. So, um, any questions about your website or Facebook page
+[36:46] or anything like that, if you want a critiquing of your Facebook page or your website, feel free
+[36:53] to post it in the elite MP group or in my case studies group, you can post it in our community,
+[37:00] get some feedback from different people. Um, my first one, I didn't really like
+[37:05] much at all. Um, but after I started making some money, I was able to reinvest my money and, uh,
+[37:12] get this one that was professionally designed and done for me. Um,
+[37:18] then let's see, I was going to go to my full script shop. Here we go. Um,
+[37:29] any questions before we dive into the full script thing?
+[37:35] Hey, Jenny, quick question. Um, maybe somebody knows in the group, did anybody hear anything
+[37:45] about Idaho changing its laws with prescribing? I just say, because I got a couple of scripts back
+[37:52] asking for a collaborative physician, it's supposed to be independent. So, so I have not seen anything,
+[37:59] but I will tell you many pharmacists still think you should have one. And so they'll just
+[38:04] be patooty heads about it. Well, these Walmart ones were patooty heads about it.
+[38:09] Walmart is one of the worst. I, I absolutely detest sending prescriptions to Walmart.
+[38:16] Same. Definitely. When I get those back, I usually tell the patient they're wanting information for
+[38:22] a collaborative physicians that I don't have. Um, what other pharmacy are you willing to use?
+[38:29] Because most people use more than one. Well, one of them sent a message saying something about
+[38:34] changes to the prescribing laws. And I looked, but I didn't find anything and I haven't gotten
+[38:39] any notifications from the board. So Idaho too. And I haven't seen anything either.
+[38:45] Okay. It was probably just the pharmacy then. Yeah. That's them to send you proof.
+[38:51] Right. I've had to do that with other pharmacies before. Yeah. Oh, that's a good idea. I didn't
+[38:57] even think of that. Send me a link to that. Yeah. Or I've had to fax them that I do not need a
+[39:06] collaborating physician in my state. Right. Oh, nice. I'm going to do that.
+[39:18] Yeah. It is just kind of a pain. And what may have happened is Walmart home office sent out a
+[39:27] thing to all the pharmacies saying, you know, just remember you're, you're supposed to get
+[39:32] these collaborative physicians, um, on these prescriptions. And so everybody's just being
+[39:39] patootie heads about it, even in states that aren't, don't require it. So it may have been
+[39:43] something from home office that happened. I think Walmart got sued or something about
+[39:49] opioids. And so now they're being sticklers about everything. Yep. Yep.
+[39:53] Um, all right. So here is my full script shop. I opened up my husband's account so I can kind of
+[40:04] show y'all how I make a set of recommendations. So you have this menu on the far left. So you can
+[40:16] go directly to products. I have all of my things set up in, in tools. So I have templates.
+[40:24] And so I've opened his chart. So we're in his chart. So now I can go into the template space
+[40:29] and I have all these templates set up. So the templates give me the ability to look at,
+[40:38] at a glance, the things that I typically use for gout, for instance, that's the one I clicked on.
+[40:44] So this is my gout template, Chlorella, and you're a flam. I need to update it because I
+[40:51] don't use either one of these particular products anymore at all. But that's, that's,
+[40:58] that's why I clicked on this one. The other key thing is here is that every few months I go
+[41:04] through and update my recommendations. Like this one, I don't use anymore. I use a different
+[41:10] Chlorella. I use a pure encapsulations AI product. It's auto immune product. It's got your
+[41:18] tart cherry and several ingredients. It's a combo gout thing. And then we use a Shanka Pedra.
+[41:26] And so I need to update this so that it's updated and correct. But we're going to go back.
+[41:35] We're going to pick one that I do recommend.
+[41:40] And so Fullscript has their own protocols. If you look down toward the bottom, there's
+[41:48] bunches of these are theirs. I don't use those at all. I have some energy, antivirals, kids, gout,
+[41:58] protein absorption. The two I use most often are basic follow up and basic supplement. What's
+[42:05] the difference? Basic supplement is what I send to almost everybody that's a new patient. So we're
+[42:11] going to look at that first. So the basic supplement protocol includes my osteoporosis,
+[42:17] ferrosol, iodine, B vitamins, liposomal C, a probiotic, some berberine and inositol and
+[42:26] a magnesium. So what we're going to do is we're going to add to plan. We're going to click
+[42:32] this over here and go add to plan. And then I'm going to review the draft. Let's look at the
+[42:37] actual items I have put in John's cart. So he needs his osteoporosis, but his iron was good.
+[42:47] So we're just going to take that out. You can set up a different plan that's with or without.
+[42:52] I just find it's quicker and easier just to take one out that I don't need. So I don't have 50
+[42:59] different plans. I have one that's basic. But the rest of these, we're going to continue
+[43:06] to use for him. We're going to add something though. So we've got the basic plan in here
+[43:14] and then we're going to find the add product. So we're going to add.
+[43:20] And so I mentioned the shock of Pedro. That's one that we don't talk about a lot.
+[43:25] We're going to tie that in here in the search.
+[43:30] And we're going to look shock of Pedro up.
+[43:36] The one that we are using most recently is this purple label. So add that to the plan.
+[43:42] We're going to go back to review the draft.
+[43:44] And so now we see his osteopics is iodine B's C probiotic, his insulin resistant medications.
+[43:57] And then the shock of Peter is at the bottom. So then we can just click send to client.
+[44:02] So you'll notice on his account on his profile up here, I've set up him with a 35 percent
+[44:12] discount. That's the max discount you can set up in full script.
+[44:16] So that means that I don't have to pay myself. So I just pay the full script price and that's all.
+[44:24] So normally I will do this for him and then I will move that over to an office checkout
+[44:34] and I'll order it to be mailed and shipped directly to us. I don't do that for patients.
+[44:40] But if you want to order for yourself, that's the way I do it for patients.
+[44:47] It works the exact same way. You just send this to the client and it automatically emails.
+[44:52] If your full script integrates with your EMR, you can get to full script from within your EMR.
+[45:03] And so just open up the full script tab and this is the same thing you see.
+[45:08] And then when you get done with your recommendation, you can populate that recommendation directly to
+[45:14] your EMR. It integrates with most EMRs. And if it doesn't, you can email your full script
+[45:21] rep or chat with them online and ask them about integration set up.
+[45:32] Templates make things real easy, Kelly. You don't have to search your items
+[45:37] out if we go back up here and let's apply another. Let's look at another template.
+[45:47] Let's scroll down here and see because like I have some for
+[45:53] women's hormone balance. There are seven or eight in there.
+[45:58] Anxiety, stress, and sleep. That's got a bunch in it. I never, I don't usually send the whole
+[46:05] template to somebody. I open it and populate it and then remove the things that they don't need.
+[46:12] And this is a good example of that because many of these ingredients for anxiety, stress,
+[46:17] and sleep are duplicated in these products. So you don't want to send multiple ingredients.
+[46:24] So, but these are some of the ingredients that I recommend for
+[46:30] adrenal support, stress, and sleep, anxiety. And so I might add that to the plan, but then
+[46:39] now I have 18 recommendations. He definitely does not need 18 peels,
+[46:45] but we're going to go through here and take the ones out that he doesn't need. Let's say
+[46:52] he doesn't like the smell of Valerian root. So we're going to take the BHP out.
+[46:58] We're not going to use the serenity. We're going to use, let's use the Zen stress support
+[47:06] and the magnesium and P5P and we'll take the rest of them out. So you can populate a plan into your,
+[47:14] or you can populate a template into your plan without sending all of them. So you can edit
+[47:21] as you go, just like I'm doing here. And so then it changes the price. It changes what's
+[47:29] in the cart. So, but the discount stays the same. So other questions about Fullscript.
+[47:39] My Fullscript shop is able to be shopped. All of my templates and all of my favorites
+[47:46] are public. So let's go to products and I'll show you my favorites.
+[47:53] So there's two ways to organize your shop. One is
+[48:02] favorites. So if you set up favorites, you don't have templates. They're just products.
+[48:10] And so here are some favorites. Again, different products are set up. So here's my anxiety
+[48:17] favorites. Some of the same products from the template, but let's say I want to use this
+[48:25] ashwagandha and this ADHS product, but not that whole template. So you can use it for different
+[48:33] reasons. Patients find the favorites tab easier to navigate than the templates tab. And so that's why
+[48:43] I have both of them set up. But you are free to go in as a patient into my shop and look around
+[48:51] and say, okay, well, what does Ginny recommend for bone and joint health? Okay. These are the
+[48:55] things she's got in here. I'm going to add a couple of these things to my list too.
+[49:00] And so then you can use them. If you're using mine as your guide, I would go in every four,
+[49:07] five, six months and update yours because as I learn more, I change my recommendations. I go up
+[49:14] more just like I recently talked to y'all. I mentioned the berberine that's different now.
+[49:21] The hydro berberine.
+[49:40] This is just a different type of berberine and the research that's come out regarding the hydro
+[49:48] berberine is pretty good. And so it's dosed a little differently. This is usually only once
+[49:54] or twice a day. Whereas nor other berberines are typically two or three times a day and they're
+[50:02] much higher dose. This berberine doesn't have to be, but two to 400 milligrams a day.
+[50:09] So it saves on peels for people and inconvenience. So as I learn more, I update my full script
+[50:18] shop so that patients or y'all can see new things and different kinds of recommendations.
+[50:38] Any questions or yes, I love thorn. I use thorn a lot. I use zymogen.
+[50:45] I like a few of the designs for help, a few of the seeking help.
+[50:53] I use pure encapsulation some.
+[51:01] But that's what that's the beauty of full script. So if you sign up and use only Apex Energetics or
+[51:08] only designs for help, that's the only supplements you can recommend. And many of the products are
+[51:15] just different. They have different amounts, different ingredients. And so I like to be able
+[51:20] to mix and match the products from all around rather than being restricted to just one brand.
+[51:29] I have not used full script labs yet. But amethyst, why don't you tell us a little bit
+[51:36] about the labs? Because I have not done that yet. I do use Rupa, which is what is integrating with
+[51:41] full script, but I have not used labs through full script yet. Anybody want to tell us about that?
+[51:50] It's pretty easy. Their prices are really, really affordable. I think they're very comparable to
+[51:55] Rupa. If not, maybe sometimes a few pennies dollars cheaper. And it's cash pay. So some of
+[52:04] my patients, if something is not covered under their insurance, I'll just order it through this.
+[52:08] It takes me out of the middleman's collecting any money. They just pay full script
+[52:13] and they go to either Quest or you can use what's that other one lab core if you want,
+[52:19] but Quest is cheaper. It's kind of like using Rupa basically, but just through full script.
+[52:26] Okay. Pretty cool. Nice.
+[52:35] I have something I want to mention, Jane, if that's okay. I don't know if anyone else has
+[52:41] seen it, but it might've been a week, maybe two, but I think it was only a week away.
+[52:47] And I can't think of what show was today's show. Good morning, Sunday morning. But they talked
+[52:52] about what you had mentioned about Amazon. And I was happy that they showed that about the
+[52:56] medications and how, you know, be really cautious about ordering medications. Pretty much what you
+[53:02] just said about ordering medications on Amazon, how they showed the different companies had the
+[53:07] same labeling as close as they possibly could, but how it was not the exact same.
+[53:14] Now, in fact, Amazon did an audit and study a couple of years ago of some of the supplements
+[53:21] and many of their supplements were found to contain lead and arsenic and other toxins.
+[53:29] And that's when at the time I was using a combination of full script and Amazon
+[53:35] and tell people just order this, whatever. But after I saw that report, I'm like,
+[53:41] no, I'm going to send my recommendations through full script. And that's when I really set up my
+[53:46] shop, more organized and more usable. Because I didn't want people saying, well,
+[53:54] you told me to take this product and I bought it on Amazon and it's got lead in it.
+[53:59] So that should be the same important now, but it's pretty much what you just said about lead
+[54:02] happening in there and just them not knowing and people thinking those coming from one place,
+[54:07] but coming from another, like if they order from one place.
+[54:09] Yeah. Some of your shippers and sellers actually fake out the old chat GPT label
+[54:18] and make it look just like designs for health and sell it for designs for health. And it's not.
+[54:27] So even if you order a knowledgeable, educated person, if you order from Amazon,
+[54:33] you need to double check your seller, make sure it's shipping from where you think it should
+[54:37] ship. Like, I mean, I do order occasionally things for, from Amazon, especially for family
+[54:43] members because full script is expensive for shipping. If you only order one item that's
+[54:48] five dollars, you got to pay that much more for shipping. So like sometimes I will order
+[54:54] something from Amazon, but it's very rare now because I don't want to send toxic ingredients to
+[55:05] people I love. And I thought about that when I saw it, when I saw that I thought about you. So
+[55:09] if anybody else wants to see, I'm thinking you could probably YouTube because it wasn't that long.
+[55:13] It's all over there. I just want to use it. Yeah. Any other questions about full script?
+[55:21] And we'll take a look at the supplement PowerPoint. Oh, that's a nice link,
+[55:29] amethyst. That's a good, good one. All right. So let me stop share and go to share
+[55:42] PowerPoint. And we will talk about a few of these supplements that we recommend.
+[55:50] Where is that? Oh, there it is. Okay. All right. So
+[55:59] this is our, here we go, supplement. So first thing you want to remember,
+[56:15] because we're drawing lots of labs, remember that biotin is not a bad vitamin or a bad guy at all.
+[56:21] But it alters, skews, interferes with about 150 lab results. And so if you are drawing those labs
+[56:32] and your patient is taking biotin in various forms, their labs are not going to be accurate.
+[56:40] They're going to be skewed high. Some of them will be skewed low. So you want to make sure
+[56:44] that they all know where to find the biotin. So most of the data says to stop biotin at least three
+[56:54] days. That's not adequate if somebody's using like hair vitamins, because they'll have thousands,
+[57:02] 10, 15, 30,000 micrograms of biotin in that product. And so it takes about one day for
+[57:12] every hundred mics to clear the system. So I don't do that math with patients. I just tell them
+[57:19] stop it about a week ahead of time, because that's generally enough for most of the biotin
+[57:24] to clear their system. If you want the full list and exactly how it's skewed, you can google
+[57:32] University of Iowa biotin and they have a whole PDF document of all of the skewed results,
+[57:40] whether it's high or low, and you can have that. I just look it up if I need it.
+[57:47] The four base ingredients that patients have to have for optimizing their thyroid
+[57:52] are going to be iodine, vitamin D, iron, and protein. And so those are all products we want
+[57:58] to recommend safely and carefully for patients. You want to be very careful recommending thyroid
+[58:06] supplement combos, because many of them include selenium, iron, and chromium. All of those are
+[58:12] heavy metals and unsafe for long-term use. Remember that six ounce, I don't remember
+[58:19] the numbers exactly, but a six ounce red meat steak, like a ribeye or sirloin,
+[58:26] is going to have almost 200% of the needed selenium. Why would a patient need to take selenium
+[58:33] in any supplement form if they're eating red meat four or five days a week, which is bare minimum
+[58:38] what I recommend. It's the most nutrient dense food out there, and so that food provides most
+[58:47] of these ingredients. And so if you recommend thyroid combo supplements, keep in mind they're
+[58:53] going to raise T4, they're not going to raise T3. T3 is what we want to raise. T4 is not
+[58:59] converting properly for most of the people we are taking care of. And so raising T4 is not going to
+[59:05] help them. You want to make sure they're getting iodine either in their salt or their supplement.
+[59:10] I typically recommend no more than 300 micrograms of iodine. I typically use the pure
+[59:17] encapsulations iodine product. I think it's 225 or 250 mics. In that, if a patient gets
+[59:25] two teaspoons of iodized salt every day, they do get about 150, 160 micrograms of iodine,
+[59:33] which is the RDA. So if they're using iodized salt, the label must say iodized for it to count.
+[59:41] They can get two teaspoons of salt, and that iodized salt will be sufficient. They won't
+[59:46] need a supplement. The only exception for iodine supplements is if patients have BPH
+[59:54] or fibrocystic breast disease. Men that have BPH are found to have low iodine. Recent studies
+[60:03] are showing this in the past year and a half or so. Same with fibrocystic breast disease in our
+[60:10] women. And so I have been putting those two classifications of patients on up to 3,000
+[60:18] micrograms of iodine a day to see if it helps with their fibrocystic breast disease
+[60:26] and or their BPH. Ashwagandha is the only supplement that I have found that helps raise
+[60:34] free T3 at all, and it only raises it a tiny bit. So if you have somebody, for instance,
+[60:40] that comes to you and is mildly sub clinically hypothyroid, but they want something to boost
+[60:46] them up. Let's say they're at 2.9 or 3.0 for a free T3 level. They probably don't need
+[60:52] medicine. They probably need iodine. They need the ingredients to make a thyroid hormone,
+[60:58] but you could add their iodine and their B and their iron and their protein and all the stuff,
+[61:02] and then tell them to use some ashwagandha 700 or 800 milligrams once or twice a day,
+[61:08] and that might help get them to like 3.2 or 3.3. It's not going to massively raise their
+[61:15] free T3 all the way up to the top of the range, but ashwagandha is a great supplement. It's an
+[61:22] adaptogen, so it helps with stress. It helps with rest, relaxation. I typically dose it at bedtime
+[61:28] unless they need it in the daytime. This is my preferred iron and vitamin D. I like the
+[61:36] Ferrosol and the Ostio PX products because they really do work toward improving iron values.
+[61:44] I typically dose the Ferrosol twice a day as a prescription, not as a supplement,
+[61:51] and so make sure your patients understand that you want them taking this twice a day
+[61:55] and that it needs to be taken with a lot of vitamin C, not for the iron sake. Remember
+[62:01] that all that extra vitamin C is being used to fix other things, but we connect it to the iron
+[62:09] because we know vitamin C does aid in iron absorption and use. Vitamin D is crucial to
+[62:15] get all the ingredients that are in Ostio PX at the same time, so this puts it all in one peel,
+[62:22] and then they have to take this peel in between bites of fatty food,
+[62:25] preferably lunch or dinner, not breakfast.
+[62:28] Teaching patients how to take iron can be a real challenge,
+[62:37] so if you want to screenshot this, I made this for patients and providers, but this is a great
+[62:46] graphic to use if you want to save it and edit it out and get down to just the great part you can.
+[62:53] Remember that if the ferritin is lower than 45-ish, the cardiac muscle is a little bit at risk because
+[63:04] of the lack of oxygenation going on, and so you'll wind up with dysrhythmias like AFib
+[63:11] and various other palpitations and crazy wacky rhythms, so get them on some iron
+[63:20] twice a day and then get them to taking their D in between bites of fatty food.
+[63:26] I know eliminating grains is challenging. I understand that, but the only way to truly
+[63:31] improve health is to get rid of them, so really work with your patients to teach them and help
+[63:37] them understand how important it is because of how it impacts their iron absorption.
+[63:46] Emethyst, thanks for posting the PDF on the bio-immune assay tables from
+[63:58] online. Kelly, I'm having a tough time with this lately. Yes, everyone does.
+[64:03] When patients are struggling with getting rid of grains, I always recommend the books Brain
+[64:08] Brain and Wheat Belly. They are the two OGs. They are the best books for patients to read
+[64:15] and to really grasp how inflammatory grains are. The first thing that happens is grief.
+[64:27] What happens when you lose something? You go through the five stages of grief, right?
+[64:33] People don't want to give up their grains, and so they think,
+[64:39] oh, well, I'll do gluten-free, and so that'll help a little, but not enough, and then they'll say,
+[64:46] well, then I'll get rid of this thing, and then I'll get like they work their way through,
+[64:50] and that's okay if they're having to do it step by step. That's better than not at all,
+[64:55] but what happens is important for us to help explain to patients. They need to understand
+[65:03] that grains break down to phytates, and phytates block iron absorption.
+[65:08] Why are all these people low ferritin? They don't eat red meat, and they eat tons of grains. Those
+[65:13] two things by themselves drive low ferritin. On top of that, most of our patients are women,
+[65:20] and we lose blood every month until we're menopausal, and so the blood loss is constant
+[65:27] on a monthly cycle, and then the daily intake is challenging for the body to get adequate nutrients
+[65:35] from, and so it's important that we just keep teaching and teaching and teaching until they
+[65:41] start understanding and getting better with it. B12 is essential. I like methyl or hydroxy or
+[65:56] adenosyl forms of B12. Never cyan cobalamin. Cyan cobalamin cannot be absorbed well by most
+[66:04] of us, at least half of us, but B12 by itself is pretty useless. You always want to use a B complex
+[66:14] in not just the B12 ingredient. If you're talking about anti-inflammatories, these are some of my
+[66:22] favorites. I like high dose vitamin C and vitamin D. If you are sick, if you have a sore throat,
+[66:29] you can both boost these doses up really high. There is such a thing called a vitamin D hammer.
+[66:36] We typically will use that when we start getting sickly, start having a runny nose,
+[66:42] cough, sore throats will boost up to about 20,000 units of vitamin D every day. I do not do that
+[66:51] with the osteopics. You cannot quadruple or, I don't know what eight times would be, but
+[66:58] you can't do that with all those other ingredients. We do keep a plain vitamin D that doesn't have
+[67:05] anything else in it. I think it's a neurobiologics vitamin D product from Fullscript. When we get
+[67:13] sick, we add that vitamin D to our osteopics so that we boost our vitamin D intake for
+[67:22] usually five to 10 days is all it takes for the immune system to respond to those colds and flu
+[67:29] bugs. Sometimes we'll add the chlorella. If the gout flares, if John's gout's slaring up,
+[67:36] we'll add chlorella through the day. We'll add the shankopedra. Resveratrol is being used currently
+[67:45] by lots of your urogynecology folks for various female and male urological issues. Resveratrol is
+[67:56] great for anti-inflammatory purposes. Cocutin and fish oil are also really good anti-inflammatories.
+[68:05] Black seed oil and black cumin seed are great antioxidants and anti-inflammatories, but most
+[68:13] of these shouldn't be taken long, long term. You take them for two to four weeks while you're sick
+[68:21] or exposed and getting well, but you don't use them all the time. It's kind of like,
+[68:26] would you put somebody on a moxacillin for two years? No. Why? Because it's not meant to be
+[68:35] taken that way. It's a short term, acute illness kind of medicine, and that's what most of these
+[68:42] anti-inflammatory agents are for. Keep that in mind.
+[68:48] Oil of oregano is one of my favorite candida recommendations. People think they have a
+[68:59] yeast infection, or if they know they have a yeast infection, they have the rash under their skin
+[69:05] folds, vaginal yeast infections. Oil of oregano is great to take care of that. Some people will
+[69:14] even give it to their dogs when they have a yeasty kind of skin stuff, mangy stuff going on.
+[69:22] You can dose these with a couple of different doses here.
+[69:31] This is the vitamin D that we do use when we get sick. We just bump it up. We don't bump anything
+[69:38] else. We've tried. My husband has gout because of his diuretic use. I've been working recently
+[69:52] on tweaking some things, so we have changed some things, and he's not using as many gout
+[69:56] supplements as he was. He used to take Lasix 23 tablets by two or three o'clock in the afternoon.
+[70:06] He would take one tablet, two tablets early morning, and one tablet around noonish, one o'clock.
+[70:16] The first things we used were the ones on the left on the purple graphic. We used those for a while.
+[70:24] Things got better, but then I kept reading and learning and studying,
+[70:27] and then we started using the ones on the orange graphic.
+[70:31] The ones on the orange graphic are the ones we currently use for his gout. However, we no
+[70:39] longer use these on a daily basis because I've been tweaking some things. What I did is I got to dig
+[70:48] in into Lasix and sporonylactone. He has congestive heart failure, so those are the two typical
+[70:54] recommendations for CHF edema. I got to dig in and realize that the Lasix is more likely to cause
+[71:03] gout flares than the sporonylactone, so I took him off the Lasix and put him on sporonylactone
+[71:10] twice a day instead of once a day. Now he's getting sporonylactone early morning and then another
+[71:17] dose around lunchtime or one or two o'clock in the afternoon, usually not after two
+[71:21] because you know diuretics will work on you overnight. So now if he thinks he's having a
+[71:28] gout flare, it still will happen on occasion because he is not a compliant eater by any stretch
+[71:35] of the imagination, and so sometimes it's the things he eats or drinks that will make his
+[71:40] gout flare up. So now when it starts to flare, we add the chancaperta and the chlorella right away
+[71:48] and sometimes the AI formula. The AI formula contains the quercetin, tumeric, bromelain, ginger,
+[71:57] and so those really help cut back on gout pain and flares.
+[72:05] So what else have I been tweaking for his gout? Well, the other thing we like for his gout is
+[72:11] a peptide. We've been using MOTS C, M-O-T-S-C, and so as long as he's on the MOTS C, we typically don't
+[72:24] see much of a gout flare. We have been out for the last couple weeks and last week he did have
+[72:29] a little bit of a flare, but it was actually way less troublesome, way less painful than the
+[72:35] gout flares he had had before we changed diuretics around. Inositol is one of my favorite supplements
+[72:43] for insulin resistance. Patients that have insulin resistance and hormone imbalances really do well
+[72:51] with inositol. As you see here in this list, inositol helps with PMDD and OCD symptoms,
+[72:59] so it helps with ovarian function and egg quality, regulates ovulatory cycle, so it's
+[73:05] really beneficial for your PMOS patients. PCOS has got a new name. I need to change my
+[73:14] list here, but it's now PMOS. Most of the studies have been done using one to two thousand
+[73:22] milligrams of inositol per day. Most of my patients use this powder, and I think it has,
+[73:31] if I remember right, it's got four thousand, yep, at the top, four thousand milligrams per
+[73:36] serving, per scoop, and so that is very helpful.
+[73:44] This used to be my preferred berberine product. I need to update my PowerPoint,
+[73:48] because now it's the zymogen berberine, dihydro berberine, but yes, it does all these
+[73:56] same things. It improves insulin, lowers glucose, lowers A1c, so all of those things.
+[74:03] CM-Core is still a great product. Some patients like it and still use it.
+[74:08] I just switched my recommendation. This is one of the newest things I've added to my
+[74:13] patient recommendations. DLPA, two forms of phenylalanine, they really do help with memory,
+[74:23] concentration, and learning. Some of my patients are using this instead of their ADHD meds, because
+[74:29] a lot of my patients, the more they take care of themselves better and better and better,
+[74:34] the less medication prescription drugs that they want to use, and so they're always asking me,
+[74:40] what can I use instead of this? What can I use instead of that? This is the newest
+[74:44] thing that I have learned about, especially for ADHD issues, so I like this. Typically,
+[74:52] you dose it. Pure Encapsulations has the best brand that I've found that we're using.
+[75:00] You typically want to recommend starting with 500 milligrams a day if you can,
+[75:06] and you can dose up to 2,000 a day. They generally start with 500 to 1,000 for two or three days,
+[75:14] get a little bit in the system, make sure they're not going to have any palpitations or
+[75:18] weird kinds of hyperstimulation impacts, and then move to the 2,000 a day dose.
+[75:28] And that's all. These are some of the books. Some of y'all are already familiar with some
+[75:35] of these books. I talk about them all the time. I guess probably the first one that started
+[75:42] changing my practice and my life was the big fat surprise. And then I learned about Grain Brain
+[75:48] and Wheat Belly. So most of these books go back almost 20 years. About half of these books are
+[75:57] at least 20 years old, 25 years old now. The newest ones are Eat Rich, Live Long,
+[76:03] and Understanding the Heart. Drop Acid was a couple years ago. Perlmutter, Dr. Perlmutter,
+[76:09] has a new book coming out in August. So be watching for that. If you don't follow him on
+[76:14] social media, find him and follow him so you can see his new book, but it comes out in August.
+[76:19] So I'm excited to see that. This is one of the newer books. This Dr. Eads book,
+[76:27] Change Your Diet, Change Your Mind, came out about a year ago, I'm thinking.
+[76:36] She's a psychiatrist and she talks about how grains and carbohydrates destroy the brain
+[76:43] and contribute to tons of depression, anxiety, and mental health disorders.
+[76:49] And in her practice, she uses MRIs and CT imaging to show you the impact on your brain,
+[76:58] on those foods. And then when you get off, she repeats it and the hot spots are all gone.
+[77:05] So she's got a really interesting perspective. So if you're having patients that are really
+[77:11] struggling with going grain free, this is the book to recommend. Because if they understand
+[77:17] grain brain and wheat belly and they still don't want to get off their grains,
+[77:21] then it's a mind thing. It's an addiction. And so this book would make a big dent in helping
+[77:28] patients begin to understand the importance. All right, questions.
+[77:35] So the inositol lowers testosterone amethyst, but most of those are referring to women.
+[77:49] It does not lower men's testosterone. It lowers women's testosterone.
+[77:56] Teenagers really do struggle because they live their lives with their peers.
+[78:03] And remember, peer pressure is hard. For those of you that are struggling with grain free eating,
+[78:13] I really encourage the grain brain book, the wheat belly book, and Dr. Eads book change your
+[78:21] diet, change your mind. But also encourage your children, your teenagers to follow those
+[78:27] people on social media. Start exposing them to healthy people out there in the space they're
+[78:35] already living in. I was scrolling on Facebook the other night, and some reel popped up. It
+[78:44] was some woman who's popular for some weird reason. I never did figure out what she normally
+[78:50] talks about. But she was doing a box reveal. She was opening three shipments that she was
+[78:59] delivered. Three big food companies sent her boxes. She got three boxes of Cheerios, different
+[79:06] flavors. She got a cake mix. And she was celebrating all this free stuff that she got,
+[79:14] and this big box reveal, product reveal, on her TikTok or reel or whatever it was. And I was like,
+[79:21] I just watched her with my mouth open. My flabber was totally gasted because I'm like,
+[79:28] I can't believe anybody would do this today. Knowing as much as we know now about food,
+[79:35] even our food pyramid has changed and upside down now. And people are still bragging about
+[79:41] how healthy Cheerios are. So Inositol does help lower Hashimoto's antibodies. It is a great
+[79:53] agent all the way around. Berberine, I normally dose once or twice a day.
+[80:02] So yeah, either one. I try to get my husband to take it twice a day, but he doesn't always take
+[80:08] meds on schedule the way he should. Like I said, did I say he's not compliant? Yeah,
+[80:13] he's not compliant. So I do the best I can. Yes, man. Exactly.
+[80:20] Any other questions about your setup, your management?
+[80:35] I posted in the course, in the weekly course things, I posted several graphics. There's a
+[80:42] couple of them that are my Quest and LabCorp test codes, so that you can see what those
+[80:49] codes look like when you put them in an order. The number, the code numbers are there. All that
+[80:54] stuff is there. So like Quest and LabCorp don't have the same exact lab tests. And so if you
+[81:01] want to send a patient to Quest, you want to order as on the Quest from the test codes for
+[81:10] Quest. If you're going to send them to LabCorp, you want to send them from a LabCorp test code
+[81:16] situation. So I have that graphic posted in the course under week five.
+[81:25] So just scroll down to this week's session and open that up. And there's a whole bunch
+[81:30] of graphics. I'll show you where it is. I'll show you what it looks like.
+[81:33] I think it's this page. Screens.
+[81:46] Let's see if it's this one. If I can make it pop up here.
+[81:53] Let's get rid of this one. It's this page right here. Yours looks a little different,
+[81:57] but it's the one that says your course. And then it has your Zoom links. That's where you find
+[82:02] the link for our meetings. You can go to community. And then each recording is posted here. So your
+[82:09] week five business management and full script use. If you open that, it'll show you the
+[82:15] biotin graphic we looked at earlier. The iron absorption graphic. Here's my full script
+[82:20] information. So if you want to study my full script shop, here is how you get in there.
+[82:26] Here is one of the graphics I was just talking about. This is an example for a patient going
+[82:37] to get labs using her insurance. So diagnosis code number one is fatigue. Two is myalgia.
+[82:44] Three is personal history of endocrine nutritional metabolic disease. Everybody has that. Like
+[82:50] everybody, if they're the least bit tired or sickly, this fits everybody. This is the code I
+[82:58] use for brain fog, R4 1.89. This particular woman had some wacky periods. So we added her
+[83:07] irregular menstruation, dry skin. And then if you're using insurance, adding screening codes can
+[83:18] be very beneficial, especially for Medicare patients. Medicare really likes you to use
+[83:23] screening codes if possible. And so I try to add those. There's probably 20 different screening
+[83:31] codes. I find that these three tend to be the most usable. And so then these are lab core
+[83:38] test codes and then quest test codes. And so if you'll look, here's insulin. It's 561.
+[83:45] Here's insulin 4333. So the codes in their system are different.
+[83:52] The lab combos are different. So like if you look down here at quest, you'll see testosterone
+[84:01] free and total. But when we come up here to look at the lab core ones.
+[84:08] Well, they are together. What's different? The fractionated panel is different. Estrogens
+[84:16] are fractionated in quest, but in lab core, you have a separate estrone level and estradiol
+[84:22] level. They're two different tests. So notice too, that I have an iron panel, but I also have
+[84:29] ferritin by itself. If you want to get your ferritin level, you need to order it separately
+[84:35] from your iron panel. Many labs will not run the ferritin in the iron panel, even though
+[84:41] it's listed. I don't know why. So I add, I order the panel and the ferritin separately.
+[84:48] And so then I get my lab values that I need. This is the graphic I was mentioning earlier
+[84:55] with regard to selenium in a piece of red meat. This is 112%. I think this is a four
+[85:05] ounce piece of meat. Maybe it was six ounce. I don't remember. Maybe it was eight ounce.
+[85:09] It was almost 200%. But there's no reason. You see the zinc is here 200%. Selenium is here.
+[85:18] Most people do not need anywhere near the heavy metals that social media out there
+[85:25] is telling them to consume. Kelly, we are going to talk about GI mapping and stuff. We are going
+[85:38] to talk about Dutch in some of our sessions. So keep up with that. I do some GI maps, but usually
+[85:47] I can figure out what's going on without a GI map. Now I've been doing this for a while
+[85:52] and can figure it out. And we'll talk about ways for you to learn to watch for that.
+[86:01] But yes, if you're going to use the Dutch or the GI maps, utilize their free conference
+[86:07] call to go over it with you. I did that in the beginning and it's very helpful.
+[86:12] I just don't do a ton of GI maps anymore. I recently started doing some duches again,
+[86:19] but I haven't done very many.
+[86:24] Let's see what else out here.
+[86:30] So Tracy, you have to set up a template to get it all in one. Go into your Optimontro lab thing
+[86:38] and click create template and then put all the ones you want and then you don't have to
+[86:41] send it separate. If you're ordering it separate on your order, yes, it's going to have to be
+[86:48] different. But if you'll set up a template, it won't have to be. I like templates. Can you tell?
+[86:57] So templates and protocols, dot phrases, anything that minimizes the amount of keystrokes
+[87:08] minimize keystrokes are money. So if you can find a way to type less, you're going to make more money.
+[87:15] Kelly, you're exactly right. A lot of what we do is hormone optimization. And sometimes a Dutch is
+[87:21] the only way to go. I have a lady that just, we just ordered a Dutch for her because no matter
+[87:29] what we've prescribed for her, her symptoms aren't getting better. We've increased her estradiol
+[87:36] levels. We've changed her progesterone levels. We've changed her testosterone. None of her symptoms
+[87:43] are really changing and getting better. And we've done really big improvements to her doses.
+[87:49] And so I'm just not happy. So I'm like, something is happening to your hormones. That's different.
+[87:56] And we need to understand the pathways. And that's what the Dutch is good for. It's not just about
+[88:02] a level, but it will help you understand the pathway. Where are those hormones going? What's
+[88:07] happening to them? I do not use a scribe for my visit notes. I use dot phrases. So in three or
+[88:16] four keystrokes, I can populate 500 word paragraphs. So quick and easy. I don't use a scribe at all.
+[88:32] But I think AI scribes are going to be more and more important for y'all.
+[88:38] I'm trying to wean my way out of a practice. I only work two days a week now seeing patients.
+[88:45] I'm not a full-time prescriber anymore just because I do all this other teaching and mentoring and
+[88:49] it just takes time. Plus I'm almost 65 years old. It's time for me to take a step back. And so
+[88:56] I'm not trying to work a whole practice or make a million dollars in my practice.
+[89:04] I just want to take care of people.
+[89:08] I need to update my dot phrases. So if you are interested in buying my dot phrases,
+[89:16] don't right now because I'm hoping sometime in the next couple of weeks
+[89:20] to update them and add some for 2026. I've made a few more, especially with regard to peptides,
+[89:27] red light therapy, some of those things that I've added recently and I don't have them in
+[89:34] the set that I sell yet. So I'm going to update those soon and get those out.
+[89:40] If you've ever bought them before, all you need to do is redownload the new set. You don't have
+[89:45] to buy it again. So you can just download the set once you bought it. If you bought it in the other
+[89:53] system in Kajabi and you can't access the PODEO one, just email me or shoot me a message somehow,
+[90:01] text me or whatever. Don't call the office and don't use my website. That is all for patient
+[90:07] stuff. I do all of my mentorship myself. Nope, my staff doesn't handle any of that.
+[90:12] So either email me, text me or reach out through the community in mentorship and let me know that
+[90:22] you can't get your dot phrases access. And I will update that for you because if you bought it in
+[90:29] Doohickey in Kajabi, I have to give it to you in PODEO.
+[90:47] My text number is the office number, but none of the calls come to me. They go to my patient staff.
+[90:54] So the number is the same, but I only get texts. The staff gets the phone calls.
+[91:03] All right, so I hope that's very helpful for setting up your business or tweaking some
+[91:09] things you're doing with Fullscript. But next week we are going to
+[91:16] talk about insulin resistance, prediabetes, PCOS, which is now PMOS, diabetes type one,
+[91:28] and we'll touch on a little bit of type one and we'll talk about type two.
+[91:36] So hopefully that will be a really big topic for next week. So one of the things I like
+[91:45] to mention and remind people of, I recently had a patient that expressed this confusion.
+[91:54] And so after our appointment, we went through her labs, we gave her the results.
+[91:58] And so a day or two later, she sent this big, long email, I'm more worried about this and this
+[92:03] and this and then this and this and this. And I sent her back and you okay, then you get to
+[92:08] prioritize what you want. But I also went into explaining that the treatment for all of the
+[92:14] things. Her low iron gets the same treatment as her diabetes, which gets the same treatment
+[92:21] as her low vitamin D, like everything that we're helping patients do uses the same treatment plan.
+[92:30] Where you got to get rid of grains, you got to improve fats, you got to improve meat.
+[92:37] Like it's all the same. It's just when you talk about it,
+[92:40] separate it out. It sounds like it's a whole thing for this and a whole thing. It's really not.
+[92:47] It's really not for your iron to go up. We need to cut out grains. There go a bunch of your carbs
+[92:54] right there. So guess what's going to happen to the A1C. It's going to come down. Your insulin
+[92:59] is going to come down. It's not as fast as the A1C. Insulin can take a year or two to change
+[93:05] much. But the treatments are all the same. We want to go grain free, focus on green veggies,
+[93:14] red meat and butter. I call it my Christmas tree plate. So yeah, Kelly, you're right. The body has
+[93:21] to work in one whole system. The body is one whole system. That's why mainstream medicine
+[93:27] struggles because they parcel and sort it all out. You go to one endocrinologist for diabetes and
+[93:33] a different one for your thyroid. You go to a different GYN provider for your reproductive
+[93:38] hormones because neither diabetes nor endo for thyroid want to touch their hormones. Like
+[93:46] everybody wants their own territory and they don't want you overlapping or stepping into that.
+[93:51] But that's a problem because it all overlaps in the body. The chemistry is all interacting
+[93:57] together. All of the intake drives ATP production. So it really is crucial that patients understand
+[94:06] that all the treatment things really are geared toward fixing all the things so that we're not
+[94:15] trying to work on one thing at a time. All right. Well, I'm going to go grab me a bite of supper.
+[94:20] And then I have an elite webinar at seven in just a little bit. So y'all take care
+[94:27] and we'll talk diabetes and sugar next week. Bye y'all.
