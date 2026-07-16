@@ -10,10 +10,10 @@ Timestamps are approximate [mm:ss] from the transcript.
 
 ## Vitamin D — additional clinical/practical detail
 
-- ⚠️ **83% breast cancer stat**: "There is an 83% chance of having breast cancer if your vitamin D level is lower than 50." [22:53–23:33] — dramatic, specific figure; verify against the source slide/citation before using clinically.
+- **83% breast cancer stat**: "There is an 83% chance of having breast cancer if your vitamin D level is lower than 50." [22:53–23:33] — dramatic, specific figure; verify against the source slide/citation before using clinically. (confirmed vs slides)
 - Injectable/IV vitamin D (common medspa offering) is called out explicitly as **not sufficient long-term** — shots have not been shown to sustain a healthy vitamin D level over time. Use injections only as a "stepping stone," then transition the patient to daily PO vitamin D. [24:04–25:07]
 - Cofactor dosing detail: give magnesium, K2, and boron **at the same time** as the vitamin D, with some dietary fat — **butter named as "your best fat"** for absorption. [24:57–25:07]
-- ⚠️ Named product: vitamin D supplement she personally uses is **"OsteoPX"** (phonetic — verify spelling), chosen because it bundles vitamin D + magnesium + boron + K2 into one pill (cost/convenience/compliance reasoning given). [70:16–71:33]
+- ⚠️ Named product: vitamin D supplement she personally uses is **"OsteoPX"** (phonetic — verify spelling), chosen because it bundles vitamin D + magnesium + boron + K2 into one pill (cost/convenience/compliance reasoning given). [70:16–71:33] (not found in slides — remains unverified)
 - Standard dose used is **5,000 IU** — she states she "never" uses anything but a 5,000 IU dose and does not recommend high-dose (e.g., 50,000 IU) injections, because injected D bypasses digestion and isn't co-administered with its cofactors, so it may raise the serum number without being absorbed/utilized (can be excreted unused). [71:07–73:12]
 - Retesting cadence: vitamin D is rechecked only about **once every 12–18 months** (not quarterly) given its long half-life — holding a patient off it long enough to get a "clean" level isn't worth the tradeoff of foregoing a needed supplement. [73:54–74:44]
 - Practical tip for a patient anxious about a mildly-elevated D level: switch them to **every-other-day or Monday/Wednesday/Friday dosing** rather than stopping supplementation. [74:39–75:22]
@@ -27,7 +27,7 @@ Timestamps are approximate [mm:ss] from the transcript.
 
 ## Inflammation markers — additional nuance
 
-- ⚠️ hs-CRP and cardiac-specific risk (transcript is somewhat garbled here — verify against slide): general/autoimmune/toxin-driven inflammation can push hs-CRP much higher, but **cardiovascular-specific inflammation risk is described as showing up more in the modest range (roughly 3–10)**, not necessarily at very high hs-CRP values. Worth confirming the exact cutoffs intended. [41:38–42:21]
+- ⚠️ hs-CRP and cardiac-specific risk (transcript is somewhat garbled here — verify against slide): general/autoimmune/toxin-driven inflammation can push hs-CRP much higher, but **cardiovascular-specific inflammation risk is described as showing up more in the modest range (roughly 3–10)**, not necessarily at very high hs-CRP values. Worth confirming the exact cutoffs intended. [41:38–42:21] (not found in slides — remains unverified)
 - Homocysteine/methylation mechanism explained via example: an MTHFR variant impairs "cleaving" (methylation) of certain molecules; classic example given is **cyanocobalamin B12** — if the variant prevents separating the cyanide-B12 complex, the B12 passes through unused/unabsorbed regardless of serum level. [43:22–44:53]
 - Other autoimmune markers (beyond TPO/TgAb) are only ordered when a specific symptom correlates — example given: a patient with a **butterfly rash** should get a lupus workup added. [47:47–48:04]
 - **Long-haul COVID**: if a patient presents with suspected long-COVID symptoms, add a **spike protein antibody** test as an additional autoimmune marker (she references a long-haul COVID course she built separately, with a small mentorship session planned on this). [48:04–48:32]
@@ -49,7 +49,7 @@ Timestamps are approximate [mm:ss] from the transcript.
 
 ## Hormones — additional detail
 
-- ⚠️ DHEA-S reference ranges by age/gender given numerically (verify exact cutoffs against slide): **men up to ~420–450**; **post-menopausal women only up to ~220–230**. [64:40–64:50]
+- ⚠️ DHEA-S reference ranges by age/gender given numerically (verify exact cutoffs against slide): **men up to ~420–450**; **post-menopausal women only up to ~220–230**. [64:40–64:50] (not found in slides — remains unverified)
 - Practical charting tip: on the lab worksheet, write DHEA-S as a fraction of the patient's age/gender-specific ceiling (e.g., "214/230") so the relative position is visible at a glance without re-deriving age/sex context each time. [64:57–65:17]
 - **Testosterone:estradiol ratio concept** (not in KB): for women, total testosterone and estradiol are expected to sit reasonably close in value at certain points in the cycle (example given: total T ~45–50 alongside estradiol ~50). A large split (example: estradiol 320 with testosterone 10) is read as severe insulin resistance + estrogen dominance, i.e., the *relationship* between the two numbers matters, not just each number alone. [65:44–66:20]
 - Estrone vs. estradiol is similarly relationship-dependent, not a fixed cutoff: example given — estradiol 60 / estrone 70 is "bad," but estradiol 110 / estrone 70 is "not bad." [78:59–79:16] (KB already notes estrone should be lower than estradiol; this adds the "it's the ratio, not an absolute number" framing with worked examples.)
@@ -57,8 +57,8 @@ Timestamps are approximate [mm:ss] from the transcript.
 
 ## B12 / folate — additional detail
 
-- ⚠️ Persistently/markedly elevated B12 (examples given: >2,000, even up to ~4,000) in a patient who denies any B12 supplementation is a rare but real red flag for a **solid tumor** (brain, liver, bone cancers can overproduce B12) — described as rare in her own experience but worth keeping "in the back of your mind." [79:57–80:34]
-- ⚠️ Named product: **"B-Minus" by Seeking Health** — a B-complex without B12 — used for 3–6 months in patients whose B12 runs persistently high/elevated, to help bring the level back down. [81:00–81:22]
+- ⚠️ Persistently/markedly elevated B12 (examples given: >2,000, even up to ~4,000) in a patient who denies any B12 supplementation is a rare but real red flag for a **solid tumor** (brain, liver, bone cancers can overproduce B12) — described as rare in her own experience but worth keeping "in the back of your mind." [79:57–80:34] (not found in slides — remains unverified)
+- ⚠️ Named product: **"B-Minus" by Seeking Health** — a B-complex without B12 — used for 3–6 months in patients whose B12 runs persistently high/elevated, to help bring the level back down. [81:00–81:22] (not found in slides — remains unverified)
 - Folate that is **low or above range** is treated as an indicator of a B12 deficiency/metabolism problem. [77:44–77:47]
 
 ## Biotin — additional detail
