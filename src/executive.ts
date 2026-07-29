@@ -261,7 +261,10 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
   if (isGBPReady()) {
     try {
       const reviews = await getReviewSummary();
-      if (reviews.unreplied > 3) {
+      // If every review appears unreplied, the API almost certainly omitted
+      // reviewReply data in this response — skip rather than false-alarm.
+      const unrepliedSuspect = reviews.totalReviews > 5 && reviews.unreplied === reviews.totalReviews;
+      if (!unrepliedSuspect && reviews.unreplied > 3) {
         alerts.push({
           severity: "warning",
           category: "Reputation",

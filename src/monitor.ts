@@ -744,12 +744,20 @@ async function checkReviewHealth(supabase: SupabaseClient): Promise<MonitorResul
   try {
     const summary: GBPReviewSummary = await getReviewSummary();
 
+    // If every review appears unreplied, the API almost certainly omitted
+    // reviewReply data in this response — treat the count as suspect.
+    const unrepliedSuspect = summary.totalReviews > 5 && summary.unreplied === summary.totalReviews;
+
     // Record snapshots
-    await recordSnapshot(supabase, { metricKey: "reviews.unreplied", value: summary.unreplied });
+    if (!unrepliedSuspect) {
+      await recordSnapshot(supabase, { metricKey: "reviews.unreplied", value: summary.unreplied });
+    }
     await recordSnapshot(supabase, { metricKey: "reviews.avg_rating", value: summary.averageRating });
 
     // Unreplied reviews
-    if (summary.unreplied > 5) {
+    if (unrepliedSuspect) {
+      // skip unreplied alerts this cycle; next clean API response resumes them
+    } else if (summary.unreplied > 5) {
       results.push({
         metricKey: "reviews.unreplied",
         value: summary.unreplied,

@@ -330,7 +330,7 @@ async function runOpus(prompt: string, opts: { maxTokens?: number } = {}): Promi
     // SDK path (when running with a direct API key)
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: "claude-opus-4-8",
+      model: "claude-opus-5",
       max_tokens: opts.maxTokens ?? 2000,
       messages: [{ role: "user", content: prompt }],
     });

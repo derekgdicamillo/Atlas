@@ -2,22 +2,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface SalienceWeights {
   access: number;
-  trust: number;
+  recency: number;
   incident: number;
   demotion: number;
 }
 
 export const DEFAULT_SALIENCE_WEIGHTS: SalienceWeights = {
-  access: 0.3,
-  trust: 0.3,
-  incident: 0.2,
-  demotion: 0.2,
+  access: 0.25,
+  recency: 0.35,
+  incident: 0.20,
+  demotion: 0.20,
 };
 
 export interface SalienceResult {
   memoryId: string;
   score: number;
-  components: { access: number; trust: number; incident: number; demotion: number };
+  components: { access: number; recency: number; incident: number; demotion: number };
 }
 
 const INCIDENT_TAGS = new Set(["decision", "incident", "regret", "surprise", "correction"]);
@@ -37,15 +37,16 @@ export async function computeSalience(
     return {
       memoryId,
       score: 0,
-      components: { access: 0, trust: 0, incident: 0, demotion: 0 },
+      components: { access: 0, recency: 0, incident: 0, demotion: 0 },
     };
   }
 
   const r = row as any;
 
-  // Access component: capped at 1 (saturates at 10 accesses)
+  // Access component: capped at 1 (saturates at 5 accesses — realistic given
+  // memory table was only added to search candidates on 2026-07-01).
   const accessRaw = Number(r.access_count_since_rewrite ?? 0);
-  const access = Math.min(accessRaw / 10, 1);
+  const access = Math.min(accessRaw / 5, 1);
 
   // Incident component: 1 if any incident-class tag is present
   const tags: string[] = Array.isArray(r.tags) ? r.tags : [];
@@ -55,49 +56,30 @@ export async function computeSalience(
   const demotionPressure = Number(r.demotion_pressure ?? 0);
   const demotion = Math.min(demotionPressure, 3) / 3;
 
-  // Trust component: 1.0 if any trust-negative event in last 7d shares a turn_id
-  // with this memory via attribution_log
-  let trust = 0;
+  // Recency component: how many times was this memory retrieved in the last 7 days?
+  // Saturates at 5 retrievals → score 1.0. Replaces the broken "trust" component
+  // that scanned trust-snapshots.jsonl for delta=-1/turn_id events — a format that
+  // never matched the actual snapshot file (kind="daily-snapshot" entries only).
+  let recency = 0;
   try {
-    const cutoff = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const { data: attrTurns } = await supabase
+    const cutoff7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const { count } = await supabase
       .from("attribution_log")
-      .select("turn_id")
+      .select("*", { count: "exact", head: true })
       .eq("memory_id", memoryId)
-      .gte("created_at", cutoff);
-
-    const turnIds = new Set((attrTurns ?? []).map((a: any) => a.turn_id));
-    if (turnIds.size > 0) {
-      const { readFile } = await import("node:fs/promises");
-      try {
-        const raw = await readFile("data/trust-snapshots.jsonl", "utf8");
-        for (const line of raw.split("\n")) {
-          if (!line.trim()) continue;
-          try {
-            const ev = JSON.parse(line);
-            if (ev.delta === -1 && ev.turn_id && turnIds.has(ev.turn_id)) {
-              trust = 1;
-              break;
-            }
-          } catch {
-            // skip malformed lines
-          }
-        }
-      } catch {
-        // file may not exist yet
-      }
-    }
+      .gte("created_at", cutoff7d);
+    recency = Math.min((count ?? 0) / 5, 1);
   } catch (err) {
-    console.error("[dream-engine] trust component lookup failed:", err);
+    console.error("[dream-engine] recency component lookup failed:", err);
   }
 
   const score =
     weights.access * access +
-    weights.trust * trust +
+    weights.recency * recency +
     weights.incident * incident +
     weights.demotion * demotion;
 
-  return { memoryId, score, components: { access, trust, incident, demotion } };
+  return { memoryId, score, components: { access, recency, incident, demotion } };
 }
 
 /**
@@ -165,11 +147,23 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
   const top = await topSalient(supabase, 24, 10);
   if (!top.length) return { dreamId: null, rulesEmitted: 0, doubts: [] };
 
+  // Skip SWS if no candidate has meaningful salience. Without this guard, a
+  // zero-salience pool triggers 3 Haiku calls per memory (30+ min total),
+  // blowing the wall-clock timeout. A score ≥ 0.05 means at least one
+  // attribution_log retrieval or two access increments — a realistic bar.
+  const meaningful = top.filter((s) => s.score >= 0.05);
+  if (!meaningful.length) {
+    console.log(
+      `[dream-sws] all ${top.length} candidates scored < 0.05 — skipping SWS this cycle (max was ${top[0]?.score.toFixed(3)})`
+    );
+    return { dreamId: null, rulesEmitted: 0, doubts: [] };
+  }
+
   const allVariants: Record<string, any[]> = {};
   const allRules: string[] = [];
   const allDoubts: string[] = [];
 
-  for (const s of top) {
+  for (const s of meaningful) {
     const { data: row } = await supabase
       .from("memory")
       .select("id, summary, content, tags, created_at")
@@ -275,7 +269,7 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
     `# Atlas SWS Dream — ${today}`,
     ``,
     `## Top-salient memories`,
-    ...top.map((s, i) => `${i + 1}. ${s.memoryId} — score ${s.score.toFixed(2)}`),
+    ...meaningful.map((s, i) => `${i + 1}. ${s.memoryId} — score ${s.score.toFixed(2)}`),
     ``,
     `## Counterfactual variants`,
     ...variantSection,
@@ -295,7 +289,7 @@ export async function runSWS(supabase: SupabaseClient): Promise<{
     .insert({
       phase: "SWS",
       trigger: "nightly-sws-cron",
-      source_refs: top.map((s) => ({ kind: "memory", id: s.memoryId, score: s.score })),
+      source_refs: meaningful.map((s) => ({ kind: "memory", id: s.memoryId, score: s.score })),
       content: narrative.slice(0, 30000),
       rules_emitted: ruleIds,
       doubts: allDoubts,
@@ -476,7 +470,7 @@ export async function runREM(
         instructions: "Compose a tomorrow scenario in which this uncertainty becomes consequential.",
       });
       const resp = await client.messages.create({
-        model: "claude-opus-4-8",
+        model: "claude-opus-5",
         max_tokens: 1500,
         system: REM_SYSTEM,
         messages: [{ role: "user", content: userMessage }],

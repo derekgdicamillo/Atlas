@@ -249,8 +249,10 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "council-shadow-review": 5 * 60 * 1000, //  5 min — LLM summary + file write
   "blackboard-gc":   2 * 60 * 1000,       //  2 min — git bundle + file writes
   "joint-deadline-sweeper": 60 * 1000,    //  1 min — quick Supabase sweep
-  "dream-sws-nightly": 15 * 60 * 1000, // 15 min — 3 haiku calls/memory × up to 90s each; processes top-5 salient memories
+  "dream-sws-nightly": 30 * 60 * 1000, // 30 min — raised from 15min after 3 consecutive timeouts; 3 haiku calls/memory × up to 90s each; processes top-5 salient memories
   "dream-rem-nightly": 10 * 60 * 1000, // 10 min — REM scenario generation via Opus
+  "replay-nightly":    10 * 60 * 1000, // 10 min — replay harness scores up to 20 entries via haiku
+  "freshness-feed":    10 * 60 * 1000, // 10 min — fetches llms.txt for all fast/real_time hot domains
   "default":           5 * 60 * 1000,  //  5 min catch-all
 };
 
@@ -771,11 +773,20 @@ jobs.push(
           ["git", "add",
             "src/", "config/", ".claude/", "db/", "setup/",
             "*.md", "package.json", "ecosystem.config.cjs",
-            "tsconfig.json",
           ],
           { stdout: "pipe", stderr: "pipe", cwd: PROJECT_DIR, env: sanitizedEnv() }
         );
-        await addProc.exited;
+        const addErr = await new Response(addProc.stderr).text();
+        const addExit = await addProc.exited;
+
+        // git add aborts the entire staging operation on an unmatched pathspec
+        // (exit 128) and stages nothing. Without this check the downstream
+        // "git diff --cached --quiet" returns 0 and the job silently reports
+        // "No changes to commit" forever. See 2026-07-25 diagnostic.
+        if (addExit !== 0) {
+          log("git-backup", `git add failed (exit ${addExit}): ${addErr.trim()}`);
+          return;
+        }
 
         const diffProc = spawn(
           ["git", "diff", "--cached", "--quiet"],

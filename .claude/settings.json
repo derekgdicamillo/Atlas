@@ -13,7 +13,11 @@
       "Bash(type .env*)",
       "Bash(Get-Content .env*)",
       "Bash(git push --force*)",
-      "Bash(git reset --hard*)"
+      "Bash(git reset --hard*)",
+      "Bash(pm2 restart*)",
+      "Bash(pm2 stop*)",
+      "Bash(pm2 delete*)",
+      "Bash(pm2 kill*)"
     ],
     "ask": [
       "Bash(git push*)",
@@ -26,13 +30,9 @@
       "WebSearch",
       "WebFetch",
       "TodoWrite",
-      "Bash(pm2 *)",
-      "Bash(pm2 restart*)",
-      "Bash(pm2 stop*)",
       "Bash(pm2 start*)",
       "Bash(pm2 list*)",
       "Bash(pm2 logs*)",
-      "Bash(pm2 delete*)",
       "Bash(pm2 status*)",
       "Bash(pm2 info*)",
       "Bash(pm2 describe*)",
