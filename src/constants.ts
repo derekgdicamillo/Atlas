@@ -63,11 +63,13 @@ export const CIRCUIT_BREAKER_THRESHOLD = 3;
 export const CIRCUIT_BREAKER_RESET_MS = 5 * 60 * 1000;        // 5 min
 
 // Model routing defaults per task type
-// Budget is irrelevant ($200/mo Max plan, never close to limit).
-// Use the best model for everything except validation (haiku is fine for quick checks).
-export const RESEARCH_DEFAULT_MODEL: ModelTier = "opus";
+// NOTE: budget is NOT irrelevant. On 2026-07-31 five parallel Opus research agents
+// burned the Max plan spend limit in ~an hour and returned nothing. Research is
+// web-search + summarize work that Sonnet does at a fraction of the token cost.
+// Opus stays for code and final synthesis only.
+export const RESEARCH_DEFAULT_MODEL: ModelTier = "sonnet";
 export const CODE_DEFAULT_MODEL: ModelTier = "opus";
-export const SYNTHESIZE_DEFAULT_MODEL: ModelTier = "opus";
+export const SYNTHESIZE_DEFAULT_MODEL: ModelTier = "sonnet";
 export const VALIDATE_DEFAULT_MODEL: ModelTier = "haiku";
 export const BUDGET_PRESSURE_THRESHOLD = 0.10;                 // $/node triggers haiku
 

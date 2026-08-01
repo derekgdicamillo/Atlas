@@ -133,6 +133,12 @@ export interface SupervisedTask {
   lastCheckedAt: string | null;
   /** Error message if failed */
   error: string | null;
+  /**
+   * Set when the subagent died on a harness-level problem (spend limit, auth,
+   * overload) rather than on the task itself. Suppresses retries — respawning
+   * only burns more of whatever ran out.
+   */
+  fatalEnvError?: string | null;
   /** PID of the spawned subagent process (for cleanup) */
   pid: number | null;
   /** Model tier used for this task */
@@ -401,6 +407,28 @@ function wrapPrompt(userPrompt: string, outputFile: string): string {
   ].join("\n");
 }
 
+/**
+ * Detect harness-level failures in a subagent's result text — the agent never got
+ * to do the work, so the "output" is really an error string. Retrying these just
+ * burns more of whatever ran out.
+ *
+ * Returns a short reason code, or null if the text looks like real output.
+ */
+export function detectFatalEnvError(text: string): string | null {
+  if (!text) return null;
+  const head = text.slice(0, 600).toLowerCase();
+  if (/spend limit|usage limit|monthly limit|credit balance is too low/.test(head)) {
+    return "spend_limit";
+  }
+  if (/authentication_error|invalid api key|oauth token has expired|401 \{/.test(head)) {
+    return "auth_error";
+  }
+  if (/\boverloaded_error\b|529 \{/.test(head)) {
+    return "overloaded";
+  }
+  return null;
+}
+
 export async function spawnSubagent(opts: {
   taskId: string;
   prompt: string;
@@ -549,7 +577,17 @@ export async function spawnSubagent(opts: {
               }
             } catch { /* skip non-JSON lines */ }
           }
-          if (resultText.length > 50) {
+          // Never persist a harness-level error (spend limit, auth failure, overload)
+          // as if it were research output — and mark the task so it is not retried.
+          const fatal = detectFatalEnvError(resultText);
+          if (fatal) {
+            const t = store.tasks.find((x) => x.id === opts.taskId);
+            if (t) {
+              t.fatalEnvError = fatal;
+              await saveTasks();
+            }
+            warn("supervisor", `Subagent ${opts.taskId} hit a fatal environment error (${fatal}) — not writing output, retries suppressed.`);
+          } else if (resultText.length > 50) {
             try {
               await writeFile(absOut, resultText, "utf-8");
               info("supervisor", `Stdout fallback: wrote ${resultText.length} chars to ${opts.outputFile} for ${opts.taskId}`);
@@ -773,6 +811,7 @@ export async function registerTask(opts: {
     maxRetries: opts.maxRetries || 1,
     lastCheckedAt: null,
     error: null,
+    fatalEnvError: null,
     pid: null,
     model: selectedModel,
     prompt: opts.prompt || null,
@@ -899,6 +938,13 @@ export async function completeTask(id: string, result?: string): Promise<void> {
   // Output verification (safeguard #3)
   const verification = await verifyTaskOutput(task);
   if (!verification.verified && verification.adjustedStatus === "failed") {
+    // Harness-level failure (spend limit, auth, overload): the agent never ran.
+    // Fail immediately — a retry would only burn more of whatever ran out.
+    if (task.fatalEnvError) {
+      await failTask(id, `subagent blocked by ${task.fatalEnvError} — not retried`);
+      return;
+    }
+
     // Auto-retry for research tasks (safeguard #4), max 1 retry, never code tasks
     if (task.taskType === "research" && task.retries < 1 && task.prompt && task.outputFile) {
       task.retries++;
@@ -1090,7 +1136,7 @@ export async function checkTasks(): Promise<{
           warn("supervisor", `Subagent PID ${task.pid} for ${task.id} died unexpectedly after ${Math.round(durationMs / 1000)}s${exitInfo}`);
           task.pid = null;
 
-          if (task.retries < task.maxRetries && task.prompt && task.outputFile) {
+          if (!task.fatalEnvError && task.retries < task.maxRetries && task.prompt && task.outputFile) {
             task.retries++;
             task.startedAt = new Date().toISOString();
             // Reset stalling state so retry gets a clean slate
@@ -1211,7 +1257,8 @@ export async function checkTasks(): Promise<{
         const verification = await verifyTaskOutput(task);
         if (!verification.verified && verification.adjustedStatus === "failed") {
           // Failed verification. Auto-retry for research tasks (max 1 retry), never for code tasks.
-          if (task.taskType === "research" && task.retries < 1 && task.prompt && task.outputFile) {
+          // Harness-level failures (spend limit, auth, overload) are never retried.
+          if (!task.fatalEnvError && task.taskType === "research" && task.retries < 1 && task.prompt && task.outputFile) {
             task.retries++;
             task.status = "running";
             task.completedAt = null;
@@ -2615,6 +2662,7 @@ export async function registerCodeTask(opts: RegisterCodeTaskOptions): Promise<s
     maxRetries: 1, // retry once via checkTasks on unexpected death
     lastCheckedAt: null,
     error: null,
+    fatalEnvError: null,
     pid: null,
     model: opts.model || CODE_AGENT_DEFAULT_MODEL,
     prompt: opts.prompt,
@@ -3096,6 +3144,7 @@ export async function processIngestIntents(
       outputFile: null,
       lastCheckedAt: null,
       error: null,
+      fatalEnvError: null,
       pid: null,
       model: "sonnet", // not using a model, satisfies the type
       prompt: m.path,
