@@ -251,7 +251,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "joint-deadline-sweeper": 60 * 1000,    //  1 min — quick Supabase sweep
   "dream-sws-nightly": 30 * 60 * 1000, // 30 min — raised from 15min after 3 consecutive timeouts; 3 haiku calls/memory × up to 90s each; processes top-5 salient memories
   "dream-rem-nightly": 10 * 60 * 1000, // 10 min — REM scenario generation via Opus
-  "replay-nightly":    10 * 60 * 1000, // 10 min — replay harness scores up to 20 entries via haiku
+  "replay-nightly":    15 * 60 * 1000, // 15 min — sequential 18×haiku calls avg 594s; 5-min margin for API variance
   "freshness-feed":    10 * 60 * 1000, // 10 min — fetches llms.txt for all fast/real_time hot domains
   "default":           5 * 60 * 1000,  //  5 min catch-all
 };

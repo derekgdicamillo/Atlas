@@ -511,6 +511,9 @@ export async function runEvolutionPipeline(
         `**${label} pipeline started.** Scout: ${scoutReport?.findings.length || 0} findings, Audit: ${audit?.overallScore ?? "N/A"}/100. Architect planned ${architectPlan.changes.length} changes. Implementer spawned.`,
       );
 
+      // Record metrics now (validation=null; implementer runs async and can't backfill this entry)
+      await recordEvolution(phases, totalCostUsd, pipelineStart, scoutReport, audit, null, label);
+
       return {
         ran: true,
         message: `${label} pipeline started. ${findingSummary}. ${architectPlan.changes.length} changes planned.`,
