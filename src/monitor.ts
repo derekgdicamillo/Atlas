@@ -63,18 +63,19 @@ const DATA_DIR = join(PROJECT_DIR, "data");
 const STATE_FILE = join(DATA_DIR, "monitor-state.json");
 const TIMEZONE = process.env.USER_TIMEZONE || "America/Phoenix";
 
-/** Urgent email senders/domains to watch for */
+/**
+ * Senders whose mail is business-critical infrastructure. A subject keyword is
+ * still required — "google.com"/"meta.com"/"bank" alone matched every
+ * marketing blast those domains send (game drops, cash-back offers), which is
+ * what buried Derek and force-escalated to Esther.
+ */
 const URGENT_EMAIL_SENDERS = [
   "quickbooks",
   "intuit",
-  "google.com",
-  "meta.com",
-  "facebook.com",
   "gohighlevel",
   "leadconnector",
   "wpengine",
   "stripe",
-  "bank",
 ];
 
 /** Urgent email subject keywords */
@@ -90,6 +91,28 @@ const URGENT_EMAIL_KEYWORDS = [
   "unauthorized",
   "payment failed",
   "account locked",
+];
+
+/**
+ * Promotional/notification noise that trips the keyword list without being
+ * actionable ("don't miss your chance", "expiring offer", calendar pings).
+ */
+const PROMO_EMAIL_MARKERS = [
+  "unsubscribe",
+  "newsletter",
+  "don't miss",
+  "dont miss",
+  "just dropped",
+  "cash back",
+  "offer",
+  "sale",
+  "deal",
+  "webinar",
+  "recap",
+  "notification:",
+  "invitation:",
+  "e-statement",
+  "may want to hire you",
 ];
 
 // ============================================================
@@ -268,16 +291,26 @@ async function getLatestSnapshot(
 // SEVERITY ESCALATION
 // ============================================================
 
+/** How far back an issue must have been continuously firing to escalate. */
+const ESCALATION_LOOKBACK_MS = 48 * 3600_000;
+
 async function checkEscalation(
   supabase: SupabaseClient,
   dedupKey: string,
   currentSeverity: "info" | "warning" | "critical",
 ): Promise<"info" | "warning" | "critical"> {
   try {
+    // Bounded lookback. Without it, `firstSeen` is the first time this metric
+    // EVER fired, so any recurring check (email.urgent, review counts) is
+    // permanently escalated to critical months later — and critical bypasses
+    // rate limiting, quiet hours, and gets force-escalated to Esther.
+    // Only a genuinely persistent issue inside the window should escalate.
+    const windowStart = new Date(Date.now() - ESCALATION_LOOKBACK_MS).toISOString();
     const { data } = await supabase
       .from("alerts")
       .select("created_at, severity")
       .eq("dedup_key", dedupKey)
+      .gte("created_at", windowStart)
       .order("created_at", { ascending: true })
       .limit(1);
 
@@ -379,9 +412,17 @@ async function checkUrgentEmails(_supabase: SupabaseClient): Promise<MonitorResu
       const fromLower = (e.from || "").toLowerCase();
       const subjectLower = (e.subject || "").toLowerCase();
 
-      const senderMatch = URGENT_EMAIL_SENDERS.some((s) => fromLower.includes(s));
+      // A keyword is now mandatory (sender alone let marketing blasts through),
+      // and anything that reads promotional is dropped even if it matched.
       const keywordMatch = URGENT_EMAIL_KEYWORDS.some((k) => subjectLower.includes(k));
+      if (!keywordMatch) return false;
 
+      const promoMatch = PROMO_EMAIL_MARKERS.some((p) => subjectLower.includes(p));
+      if (promoMatch) return false;
+
+      // Infra senders are a signal boost, not a requirement — a "payment
+      // failed" from an unlisted sender still matters.
+      const senderMatch = URGENT_EMAIL_SENDERS.some((s) => fromLower.includes(s));
       return senderMatch || keywordMatch;
     });
 

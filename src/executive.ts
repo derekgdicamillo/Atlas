@@ -230,7 +230,10 @@ export async function detectAllAnomalies(): Promise<ExecutiveAlert[]> {
       }
       if (ops.pipeline.closeRate < 0.2 && ops.pipeline.open > 10) {
         alerts.push({
-          severity: "critical",
+          // Warning, not critical: a soft close rate is a chronic strategic
+          // condition, not an incident. Critical bypasses rate limiting and
+          // quiet hours and force-escalates to Esther.
+          severity: "warning",
           category: "Pipeline",
           message: `Close rate at ${(ops.pipeline.closeRate * 100).toFixed(1)}% with ${ops.pipeline.open} open. Sales process needs attention.`,
         });

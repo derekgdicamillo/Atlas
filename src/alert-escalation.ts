@@ -23,12 +23,28 @@ const ESCALATION_HOURS = Number(process.env.ALERT_ESCALATION_HOURS || 3);
 const MAX_PENDING = 50;
 /** Drop escalated/stale entries after 7 days so the file can't grow forever. */
 const PRUNE_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Minimum gap between escalation messages to Esther. Without this she gets one
+ * Telegram ping per unacknowledged alert — which read as an alert every hour.
+ * Anything still pending rolls into the next digest instead.
+ */
+const ESCALATION_COOLDOWN_MS =
+  Number(process.env.ALERT_ESCALATION_COOLDOWN_HOURS || 12) * 3_600_000;
+
+/**
+ * Categories worth waking a second owner over. Informational noise (inbox
+ * triage, reputation counts) is Derek's queue, not an escalation path.
+ */
+const ESCALATABLE = /\b(Financial|Pipeline|Ads|Operations|Website)\b/i;
+const NOT_ESCALATABLE = /\b(Email|Calendar|Reputation)\b/i;
 
 interface PendingAlert {
   id: string;
   message: string;
   sentAt: string;
   escalated: boolean;
+  /** When the escalation digest that carried this alert was sent. */
+  escalatedAt?: string;
 }
 
 function load(): PendingAlert[] {
@@ -98,9 +114,21 @@ export async function sweepEscalations(
   const alerts = load();
   if (alerts.length === 0) return 0;
 
+  // Cooldown: at most one digest per window, however many alerts are pending.
+  const lastEscalation = alerts
+    .map((a) => (a.escalatedAt ? new Date(a.escalatedAt).getTime() : 0))
+    .reduce((max, t) => Math.max(max, t), 0);
+  if (lastEscalation && Date.now() - lastEscalation < ESCALATION_COOLDOWN_MS) {
+    return 0;
+  }
+
   const cutoff = Date.now() - ESCALATION_HOURS * 3_600_000;
   const due = alerts.filter(
-    (a) => !a.escalated && new Date(a.sentAt).getTime() < cutoff
+    (a) =>
+      !a.escalated &&
+      new Date(a.sentAt).getTime() < cutoff &&
+      !NOT_ESCALATABLE.test(a.message) &&
+      ESCALATABLE.test(a.message)
   );
   if (due.length === 0) return 0;
 
@@ -112,7 +140,11 @@ export async function sweepEscalations(
 
   try {
     await sendToEsther(`${header}\n\n${body}`);
-    for (const a of due) a.escalated = true;
+    const now = new Date().toISOString();
+    for (const a of due) {
+      a.escalated = true;
+      a.escalatedAt = now;
+    }
     save(alerts);
     info("escalation", `Escalated ${due.length} critical alert(s) to Esther`);
     return due.length;

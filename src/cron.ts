@@ -2787,12 +2787,20 @@ export async function startCronJobs(supabaseClient: SupabaseClient | null): Prom
           try {
             const anomalies = await detectAllAnomalies();
             for (const anomaly of anomalies) {
+              // Stable dedup key: the auto-generated one hashes the message,
+              // which embeds live numbers ("6.6% with 38 open"). Every tick the
+              // count drifted, the hash changed, and the 12h dedup window never
+              // matched — so the same chronic condition alerted all day long.
+              const stableKey = `anomaly:${anomaly.category || "general"}:${anomaly.message
+                .replace(/[\d.,]+%?/g, "#")
+                .slice(0, 120)}`;
               await emitAlert(supabase, {
                 source: "anomaly",
                 severity: anomaly.severity === "critical" ? "critical" : anomaly.severity === "warning" ? "warning" : "info",
                 category: anomaly.category || "general",
                 message: anomaly.message,
                 metadata: { originalSeverity: anomaly.severity },
+                dedupKey: stableKey,
               });
             }
             if (anomalies.length > 0) log("anomaly-scan", `Emitted ${anomalies.length} anomaly alert(s)`);
