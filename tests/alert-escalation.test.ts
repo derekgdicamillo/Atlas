@@ -43,7 +43,8 @@ describe("alert-escalation", () => {
   });
 
   test("sweepEscalations forwards stale alerts once", async () => {
-    recordCriticalDelivery("[!!!] Old alert about GHL automation");
+    // Real deliveries carry the category header from alerts.deliver()
+    recordCriticalDelivery("Alert: Operations\n[!!!] Old alert about GHL automation");
     // Backdate the alert past the escalation window
     const state = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
     state[0].sentAt = new Date(Date.now() - 12 * 3_600_000).toISOString();
@@ -62,7 +63,7 @@ describe("alert-escalation", () => {
   });
 
   test("failed escalation send is retried next sweep", async () => {
-    recordCriticalDelivery("[!!!] Alert that fails to send");
+    recordCriticalDelivery("Alert: Financial\n[!!!] Alert that fails to send");
     const state = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
     state[0].sentAt = new Date(Date.now() - 12 * 3_600_000).toISOString();
     await Bun.write(STATE_FILE, JSON.stringify(state));
@@ -73,6 +74,45 @@ describe("alert-escalation", () => {
     const sent: string[] = [];
     const n2 = await sweepEscalations(async (t) => { sent.push(t); });
     expect(n2).toBe(1);
+    expect(sent).toHaveLength(1);
+  });
+
+  test("inbox noise is never escalated to Esther", async () => {
+    recordCriticalDelivery(
+      'Alert: Email\n[!!!] 1 potentially urgent email: Meta Horizon: "New games just dropped"'
+    );
+    const state = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+    state[0].sentAt = new Date(Date.now() - 12 * 3_600_000).toISOString();
+    await Bun.write(STATE_FILE, JSON.stringify(state));
+
+    const sent: string[] = [];
+    const n = await sweepEscalations(async (t) => { sent.push(t); });
+    expect(n).toBe(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  test("cooldown collapses a burst into a single digest", async () => {
+    recordCriticalDelivery("Alert: Pipeline\n[!!!] First blocker");
+    recordCriticalDelivery("Alert: Financial\n[!!!] Second blocker");
+    const state = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+    const stale = new Date(Date.now() - 12 * 3_600_000).toISOString();
+    for (const a of state) a.sentAt = stale;
+    await Bun.write(STATE_FILE, JSON.stringify(state));
+
+    const sent: string[] = [];
+    // Both stale alerts ride out together in one message
+    const n1 = await sweepEscalations(async (t) => { sent.push(t); });
+    expect(n1).toBe(2);
+    expect(sent).toHaveLength(1);
+
+    // A new critical arriving right after does NOT trigger a second ping
+    recordCriticalDelivery("Alert: Ads\n[!!!] Third blocker");
+    const after = JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+    after[after.length - 1].sentAt = stale;
+    await Bun.write(STATE_FILE, JSON.stringify(after));
+
+    const n2 = await sweepEscalations(async (t) => { sent.push(t); });
+    expect(n2).toBe(0);
     expect(sent).toHaveLength(1);
   });
 });
