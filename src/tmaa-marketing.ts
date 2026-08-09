@@ -149,10 +149,21 @@ export async function runDailyPipeline(supabase: SupabaseClient | null): Promise
   }
   const dirty = await run("git status --porcelain state/");
   if (dirty.out.trim()) {
-    const commit = await run(
-      `git add state/ && git commit -m "state: ${phxToday()} pull (atlas daily)" && git push`,
-    );
-    if (commit.code !== 0) await alert(supabase, "warning", `state commit failed:\n${tail(commit.out, 8)}`);
+    // Sequential argv spawns — cmd /c string interpolation mangles the quoted -m message
+    // (observed: "pathspec '2026-08-09' did not match any file(s)"). No shell, no quoting bugs.
+    const add = await runArgv(["git", "add", "state/"]);
+    if (add.code !== 0) {
+      await alert(supabase, "warning", `state commit failed:\n${tail(add.out, 8)}`);
+    } else {
+      const commitMsg = `state: ${phxToday()} pull (atlas daily)`;
+      const commit = await runArgv(["git", "commit", "-m", commitMsg]);
+      if (commit.code !== 0) {
+        await alert(supabase, "warning", `state commit failed:\n${tail(commit.out, 8)}`);
+      } else {
+        const push = await runArgv(["git", "push"]);
+        if (push.code !== 0) await alert(supabase, "warning", `state commit failed:\n${tail(push.out, 8)}`);
+      }
+    }
   }
   // read_on reminders — a running bet's number is due today
   const due: string[] = [];
