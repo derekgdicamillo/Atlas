@@ -60,6 +60,7 @@ import { captureDaily as captureDailyScorecard } from "./metrics-engine.ts";
 import { isMAABlogReady, publishMAABlog } from "./maa-blog.ts";
 import { isNewsletterReady, draftFreeNewsletter, draftPaidNewsletter, sendFreeNewsletter, sendPaidNewsletter, isPaidWeek } from "./maa-newsletter.ts";
 import { isPVNewsletterReady, buildKickoffMessage, loadState as loadPVNewsletterState } from "./pv-newsletter.ts";
+import { runDailyPipeline as runTmaaDaily, runBoardSession as runTmaaBoard } from "./tmaa-marketing.ts";
 
 // Module-level supabase reference. Set by startCronJobs().
 // Needed by jobs declared at module scope (evolution, appointment-reminders)
@@ -478,6 +479,38 @@ jobs.push(
       } else {
         log("journal", `${date}.md already exists`);
       }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// TMAA marketing — daily pipeline (pull + verify + state commit). Silent when healthy.
+jobs.push(
+  CronJob.from({
+    cronTime: "0 6 * * *",
+    onTick: safeTick("tmaa-daily", async () => {
+      if (isEffectivelyPaused("tmaa_marketing")) {
+        log("tmaa-daily", "paused, skipping");
+        return;
+      }
+      await runTmaaDaily(supabase);
+      markJobRan("tmaa-daily");
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// TMAA marketing — weekly board session, Mondays after the daily pull.
+jobs.push(
+  CronJob.from({
+    cronTime: "30 6 * * 1",
+    onTick: safeTick("tmaa-board", async () => {
+      if (isEffectivelyPaused("tmaa_marketing")) {
+        log("tmaa-board", "paused, skipping");
+        return;
+      }
+      await runTmaaBoard(supabase);
+      markJobRan("tmaa-board");
     }),
     timeZone: TIMEZONE,
   })

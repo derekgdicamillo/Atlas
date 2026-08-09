@@ -437,6 +437,7 @@ export const AUTOMATION_CATEGORIES = [
   "stale_leads",
   "appointment_reminders",
   "noshow_recovery",
+  "tmaa_marketing",
 ] as const;
 export type AutomationCategory = (typeof AUTOMATION_CATEGORIES)[number];
 

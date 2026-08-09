@@ -1198,6 +1198,24 @@ const ALL_CAPABILITIES: CapabilityDeclaration[] = [
     commands: ["/beacon status", "/beacon verify", "/beacon bounty"],
     runs: "beacon-roots-export every hour (top of hour)",
   },
+  {
+    section: "TMAA Marketing Ops",
+    description: "Scheduler/notifier bridge to ~/Projects/tmaa-marketing (deterministic pipeline + board/producer agents)",
+    can: [
+      "daily pull + verify + state commit (6 AM, silent when healthy, alerts on drift/failure)",
+      "weekly board session (Mon 6:30 AM), deliver draft brief as HTML memo to Derek's Telegram",
+      "run approve-brief wall gate when Derek replies 'approve <slug>' (Derek's chat only)",
+      "run producer session after approval, deliver copy to Derek",
+      "remind Derek when a brief's read_on date arrives",
+    ],
+    cannot: [
+      "promote a brief without Derek's explicit per-brief instruction (the wall)",
+      "send member-facing email (Derek sends, always, via Brevo)",
+      "move briefs to done/ or write ## Result (manual)",
+    ],
+    notes: "Pause category: tmaa_marketing. Repo rules in tmaa-marketing/CLAUDE.md are binding (no PII, revenue from paid invoices only).",
+    module: "src/tmaa-marketing.ts",
+  },
 ];
 
 /**
