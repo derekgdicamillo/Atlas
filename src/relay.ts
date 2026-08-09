@@ -1249,13 +1249,20 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
     return true;
   }
 
-  // TMAA brief approval by explicit reply — Derek only. This is the ONLY
-  // automated caller of the tmaa wall gate besides /approve <slug>.
+  // TMAA brief approval by explicit reply — Derek only, atlas persona only. This is
+  // the ONLY automated caller of the tmaa wall gate besides /approve <slug>.
   const briefApproval = text.match(/^approve\s+([\w.-]+)$/i);
   if (briefApproval && userId === (process.env.TELEGRAM_USER_ID || "")) {
-    const { handleBriefApproval } = await import("./tmaa-marketing.ts");
-    await handleBriefApproval(briefApproval[1], (t) => ctx.reply(t));
-    return true;
+    const briefChatId = String(ctx.chat?.id || "");
+    const briefAgent = resolveAgent(userId, briefChatId, botIdFromCtx(ctx));
+    const briefAgentId = briefAgent?.config.id || "atlas";
+    if (briefAgentId === "atlas") {
+      const { handleBriefApproval } = await import("./tmaa-marketing.ts");
+      await handleBriefApproval(briefApproval[1], (t) => ctx.reply(t));
+      return true;
+    }
+    // Not the atlas process — fall through so it routes to the conversation
+    // handler for whichever persona actually owns this chat (e.g. Coach).
   }
 
   if (!lower.startsWith("/")) return false;
@@ -2261,7 +2268,7 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         return true;
       }
       const arg = args.join(" ").trim();
-      if (arg && userId === (process.env.TELEGRAM_USER_ID || "")) {
+      if (arg && agentId === "atlas" && userId === (process.env.TELEGRAM_USER_ID || "")) {
         const { handleBriefApproval } = await import("./tmaa-marketing.ts");
         await handleBriefApproval(arg, (t) => ctx.reply(t));
         return true;
