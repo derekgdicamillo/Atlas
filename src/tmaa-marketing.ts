@@ -53,9 +53,28 @@ function phxToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Phoenix" }).format(new Date());
 }
 
-/** Run a command in TMAA_DIR via cmd /c; capture combined output. */
+/** Run a command in TMAA_DIR via cmd /c; capture combined output. Static strings only — no interpolated user input. */
 async function run(command: string, timeoutMs = 300_000): Promise<{ code: number; out: string }> {
   const proc = spawn(["cmd", "/c", command], {
+    cwd: TMAA_DIR,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const killer = setTimeout(() => proc.kill(), timeoutMs);
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const code = await proc.exited;
+  clearTimeout(killer);
+  return { code, out: `${stdout}\n${stderr}` };
+}
+
+/** Run a command via direct argv — no shell, no cmd.exe expansion. Use for any path carrying
+ *  user- or filesystem-derived input (slugs, filenames), since cmd /c string interpolation is
+ *  vulnerable even after quote/backslash stripping (%VAR% expansion, ^ & | < > are still live). */
+async function runArgv(argv: string[], timeoutMs = 300_000): Promise<{ code: number; out: string }> {
+  const proc = spawn(argv, {
     cwd: TMAA_DIR,
     stdout: "pipe",
     stderr: "pipe",
@@ -98,7 +117,7 @@ async function sendDerekDocument(filePath: string, caption: string): Promise<voi
 
 async function alert(supabase: SupabaseClient | null, severity: "warning" | "critical", message: string) {
   warn("tmaa-marketing", message);
-  await tellDerek(`TMAA marketing: ${message}`);
+  await tellDerek(`TMAA marketing: ${message}`.slice(0, 3500));
   if (supabase) {
     try {
       await emitAlert(supabase, { source: "tmaa-marketing", severity, category: "tmaa", message });
@@ -181,7 +200,7 @@ export async function runBoardSession(supabase: SupabaseClient | null): Promise<
   }
   for (const file of fresh) {
     const mdPath = join(TMAA_DIR, "briefs", "draft", file);
-    const render = await run(`node scripts/render-brief.mjs "briefs/draft/${file}"`);
+    const render = await runArgv(["node", "scripts/render-brief.mjs", `briefs/draft/${file}`]);
     const slug = file.replace(/\.md$/, "");
     const text = readFileSync(mdPath, "utf-8");
     const title = (text.match(/^# Brief:\s*(.+)$/m) || [null, file])[1];
@@ -205,7 +224,11 @@ export async function handleBriefApproval(
   slug: string,
   reply: (text: string) => Promise<unknown>,
 ): Promise<void> {
-  const gate = await run(`node scripts/approve-brief.mjs "${slug.replace(/["\\]/g, "")}"`);
+  if (!/^[\w.-]+$/.test(slug)) {
+    await reply("Invalid slug.");
+    return;
+  }
+  const gate = await runArgv(["node", "scripts/approve-brief.mjs", slug]);
   if (gate.code === 2) {
     await reply(`Not moved. ${tail(gate.out, 3)}`);
     return;
