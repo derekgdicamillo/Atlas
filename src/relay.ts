@@ -1249,6 +1249,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
     return true;
   }
 
+  // TMAA brief approval by explicit reply — Derek only. This is the ONLY
+  // automated caller of the tmaa wall gate besides /approve <slug>.
+  const briefApproval = text.match(/^approve\s+([\w.-]+)$/i);
+  if (briefApproval && userId === (process.env.TELEGRAM_USER_ID || "")) {
+    const { handleBriefApproval } = await import("./tmaa-marketing.ts");
+    await handleBriefApproval(briefApproval[1], (t) => ctx.reply(t));
+    return true;
+  }
+
   if (!lower.startsWith("/")) return false;
 
   const [cmd, ...args] = lower.split(/\s+/);
@@ -2246,12 +2255,18 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
 
     case "/approve": {
       const tier = args[0]?.toLowerCase();
-      if (tier !== "free" && tier !== "paid") {
-        await ctx.reply("Usage: /approve free  or  /approve paid");
+      if (tier === "free" || tier === "paid") {
+        const result = approveNewsletter(tier);
+        await ctx.reply(result.message);
         return true;
       }
-      const result = approveNewsletter(tier);
-      await ctx.reply(result.message);
+      const arg = args.join(" ").trim();
+      if (arg && userId === (process.env.TELEGRAM_USER_ID || "")) {
+        const { handleBriefApproval } = await import("./tmaa-marketing.ts");
+        await handleBriefApproval(arg, (t) => ctx.reply(t));
+        return true;
+      }
+      await ctx.reply("Usage: /approve free | /approve paid | /approve <brief-slug> (Derek only)");
       return true;
     }
 
