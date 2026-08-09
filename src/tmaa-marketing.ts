@@ -44,6 +44,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { info, warn, error as logError } from "./logger.ts";
 import { emit as emitAlert } from "./alerts.ts";
 import { buildClaudeSpawnArgs } from "./claude-binary.ts";
+import { sanitizedEnv } from "./claude.ts";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const DEREK_CHAT_ID = process.env.TELEGRAM_USER_ID || "";
@@ -59,6 +60,7 @@ async function run(command: string, timeoutMs = 300_000): Promise<{ code: number
     cwd: TMAA_DIR,
     stdout: "pipe",
     stderr: "pipe",
+    env: sanitizedEnv(), // don't leak Atlas secrets; let tmaa's own .env resolution win
   });
   const killer = setTimeout(() => proc.kill(), timeoutMs);
   const [stdout, stderr] = await Promise.all([
@@ -78,6 +80,7 @@ async function runArgv(argv: string[], timeoutMs = 300_000): Promise<{ code: num
     cwd: TMAA_DIR,
     stdout: "pipe",
     stderr: "pipe",
+    env: sanitizedEnv(), // don't leak Atlas secrets; let tmaa's own .env resolution win
   });
   const killer = setTimeout(() => proc.kill(), timeoutMs);
   const [stdout, stderr] = await Promise.all([
@@ -180,9 +183,19 @@ export async function runDailyPipeline(supabase: SupabaseClient | null): Promise
   info("tmaa-marketing", "daily pipeline done");
 }
 
+/** Extract the session's text result from `--output-format json` output, falling back to the raw string. */
+function extractSessionText(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return String(parsed.result ?? parsed.text ?? raw).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
 async function runHeadlessSession(prompt: string, timeoutMs: number): Promise<{ code: number; out: string }> {
   const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", prompt, "--output-format", "json"]);
-  const proc = spawn(args, { cwd: TMAA_DIR, stdout: "pipe", stderr: "pipe" });
+  const proc = spawn(args, { cwd: TMAA_DIR, stdout: "pipe", stderr: "pipe", env: sanitizedEnv() });
   const killer = setTimeout(() => proc.kill(), timeoutMs);
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -205,7 +218,7 @@ export async function runBoardSession(supabase: SupabaseClient | null): Promise<
   );
   const fresh = diffNewBriefs(before, listBriefs("draft"));
   if (fresh.length === 0) {
-    const reason = tail(session.out, 15) || "(no output)";
+    const reason = tail(extractSessionText(session.out), 15) || "(no output)";
     await tellDerek(`TMAA board session made no brief this week. Board says:\n${reason.slice(0, 2000)}`);
     return;
   }
@@ -248,8 +261,17 @@ export async function handleBriefApproval(
     await reply(`approve-brief errored:\n${tail(gate.out, 6)}`);
     return;
   }
-  await reply(`Approved on your instruction — brief is through the wall. Producer starting now.`);
-  await runProducerSession(reply);
+  await reply(
+    `Approved on your instruction — brief is through the wall. Producer running in the background (up to 45 min) — I'll deliver the copy here when it's done.`,
+  );
+  // Fire-and-forget: awaiting a 45-min producer session here would stall grammY's
+  // sequential update processing long enough to trip the polling watchdog (relay.ts,
+  // 5-min stale threshold), which would gracefulShutdown + pm2-restart atlas mid-run
+  // and kill the producer. Detach it instead; getUpdates keeps flowing.
+  void runProducerSession(reply).catch(async (err) => {
+    logError("tmaa-marketing", `producer session failed: ${err}`);
+    await reply("Producer session crashed — check logs. The brief remains in approved/.");
+  });
 }
 
 /** Producer session on the (single) approved brief; deliver the copy. */
@@ -270,7 +292,7 @@ export async function runProducerSession(reply: (text: string) => Promise<unknow
   );
   const fresh = diffNewBriefs(before, listAssets()).filter((f) => /\.(md|txt|html)$/.test(f));
   if (fresh.length === 0) {
-    await reply(`Producer made no deliverable. It says:\n${tail(session.out, 15).slice(0, 2000)}`);
+    await reply(`Producer made no deliverable. It says:\n${tail(extractSessionText(session.out), 15).slice(0, 2000)}`);
     return;
   }
   for (const rel of fresh) {

@@ -1254,6 +1254,12 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
   const briefApproval = text.match(/^approve\s+([\w.-]+)$/i);
   if (briefApproval && userId === (process.env.TELEGRAM_USER_ID || "")) {
     const briefChatId = String(ctx.chat?.id || "");
+    // DM-only: a DM's chat id equals the user id. Without this, Derek typing
+    // "approve <slug>" in a group where atlas is the resolved agent would run
+    // the gate and dump producer output into the group.
+    if (briefChatId !== (process.env.TELEGRAM_USER_ID || "")) {
+      return false;
+    }
     const briefAgent = resolveAgent(userId, briefChatId, botIdFromCtx(ctx));
     const briefAgentId = briefAgent?.config.id || "atlas";
     if (briefAgentId === "atlas") {
@@ -2268,7 +2274,15 @@ async function handleCommand(ctx: Context, text: string, userId: string): Promis
         return true;
       }
       const arg = args.join(" ").trim();
-      if (arg && agentId === "atlas" && userId === (process.env.TELEGRAM_USER_ID || "")) {
+      // DM-only: a DM's chat id equals the user id. Without this, Derek typing
+      // "/approve <slug>" in a group where atlas is the resolved agent would run
+      // the gate and dump producer output into the group.
+      if (
+        arg &&
+        agentId === "atlas" &&
+        userId === (process.env.TELEGRAM_USER_ID || "") &&
+        cmdChatId === (process.env.TELEGRAM_USER_ID || "")
+      ) {
         const { handleBriefApproval } = await import("./tmaa-marketing.ts");
         await handleBriefApproval(arg, (t) => ctx.reply(t));
         return true;
