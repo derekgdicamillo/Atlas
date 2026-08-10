@@ -387,3 +387,8 @@ CANNOT: publish without a configured public-repo clone at data/beacon-repo, auto
 COMMANDS: /beacon status,/beacon verify,/beacon bounty
 RUNS: beacon-roots-export every hour (top of hour)
 DEPENDS ON: Sprint 1 ledger.publishRoot, git CLI, public GitHub repo
+
+## TMAA Marketing Ops - Scheduler/notifier bridge to ~/Projects/tmaa-marketing (deterministic pipeline + board/producer agents)
+CAN: daily pull + verify + state commit (6 AM, silent when healthy, alerts on drift/failure), weekly board session (Mon 6:30 AM), deliver draft brief as HTML memo to Derek's Telegram, run approve-brief wall gate when Derek replies 'approve <slug>' (Derek's chat only), run producer session after approval, deliver copy to Derek, remind Derek when a brief's read_on date arrives
+CANNOT: promote a brief without Derek's explicit per-brief instruction (the wall), send member-facing email (Derek sends, always, via Brevo), move briefs to done/ or write ## Result (manual)
+Pause category: tmaa_marketing. Repo rules in tmaa-marketing/CLAUDE.md are binding (no PII, revenue from paid invoices only).
