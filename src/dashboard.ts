@@ -553,14 +553,9 @@ export async function getSpeedToLead(_period = "month"): Promise<SpeedToLeadSnap
 }
 
 export async function getAttribution(_period = "month"): Promise<AttributionSnapshot> {
-  // Attribution by source requires GHL pipeline data not in business_scorecard.
-  // Legacy endpoint was removed. Return empty for now.
-  if (API_TOKEN) {
-    try {
-      return await dashboardFetch<AttributionSnapshot>("/api/metrics/attribution", { period: _period });
-    } catch {}
-  }
-
+  // /api/metrics/attribution was deleted March 8 2026 (commit 8cfe333).
+  // Calling it causes 404 HTML responses that trip the dashboardBreaker,
+  // blocking /finance and /scorecard. Return empty until endpoint is rebuilt.
   return {
     totalOpportunities: 0,
     bySource: [],
