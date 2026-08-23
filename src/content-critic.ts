@@ -129,8 +129,14 @@ export async function critiqueContent(
     const text = await runPrompt(prompt, MODELS[CRITIC_MODEL]);
     if (!text) return fallback;
 
-    // Extract JSON from response (handle possible markdown fences)
-    const jsonStr = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    // Extract JSON from response (handle prose preamble and markdown fences)
+    const stripped = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    const start = stripped.indexOf("{");
+    const end = stripped.lastIndexOf("}");
+    if (start === -1 || end === -1) {
+      throw new Error(`No JSON object found in critic response: ${stripped.slice(0, 100)}`);
+    }
+    const jsonStr = stripped.slice(start, end + 1);
     const parsed = JSON.parse(jsonStr);
 
     const scores = {
