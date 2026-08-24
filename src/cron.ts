@@ -7,7 +7,7 @@
 
 import { CronJob } from "cron";
 import { spawn } from "bun";
-import { existsSync, copyFileSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, appendFileSync, copyFileSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMetrics, getHealthStatus, getTodayClaudeCosts, error as logError, warn, redactObject } from "./logger.ts";
@@ -200,15 +200,16 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "git-backup":      2 * 60 * 1000, //  2 min
   "backup":          1 * 60 * 1000, //  1 min
   "journal":         1 * 60 * 1000, //  1 min
+  "journal-auto-log": 30 * 1000,   // 30 sec — pure TS append, no Claude call
   "cleanup":         2 * 60 * 1000, //  2 min
   "health-dump":    30 * 1000,       // 30 sec
-  "prospective-memory": 30 * 1000,   // 30 sec (just a Supabase RPC, should be <5s; halved to prevent overlap with 1-min cron)
+  "prospective-memory": 55 * 1000,   // 55 sec (Supabase RPC — was 30s but timed out repeatedly; 55s stays under 1-min cron interval)
   "ghl-leads":       2 * 60 * 1000, //  2 min
   "appointment-reminders": 3 * 60 * 1000, // 3 min
   "lead-enrich":     3 * 60 * 1000, //  3 min
   "stale-leads":     3 * 60 * 1000, //  3 min
   "lead-volume":     2 * 60 * 1000, //  2 min
-  "alert-deliver":  30 * 1000,        // 30 sec (just a Supabase query, should be <5s; halved to prevent overlap with 1-min cron)
+  "alert-deliver":  55 * 1000,        // 55 sec (Supabase query — was 30s but timed out repeatedly; 55s stays under 1-min cron interval)
   "scheduled-msgs": 30 * 1000,       // 30 sec (quick check for due messages)
   "anomaly-scan":    2 * 60 * 1000, //  2 min
   "monitor-fast":    3 * 60 * 1000, //  3 min (fast tier: leads, reviews, urgent email)
@@ -229,7 +230,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "pharmacy-invoices": 5 * 60 * 1000, // 5 min — M365 API + PDF parsing + OneDrive save
   "overnight-content": 10 * 60 * 1000, // 10 min — overnight draft generation
   "night-shift-plan": 3 * 60 * 1000, //  3 min — Haiku planner, quick
-  "night-shift-work": 15 * 60 * 1000, // 15 min — processes up to 5 tasks
+  "night-shift-work": 25 * 60 * 1000, // 25 min — processes up to 5 tasks (raised from 15min; hit 900s limit Aug 15)
   "strategic-memo":   5 * 60 * 1000, //  5 min — Sonnet weekly memo
   "codex-decay":     60 * 1000,       //  1 min — prune stale codex entries
   "progress-cleanup": 60 * 1000,      //  1 min — delete old progress notes
@@ -479,6 +480,61 @@ jobs.push(
       } else {
         log("journal", `${date}.md already exists`);
       }
+    }),
+    timeZone: TIMEZONE,
+  })
+);
+
+// 1b. Deterministic journal auto-log — 7:45 AM daily
+//     Writes a system-state entry if the journal is still empty/sparse.
+//     Pure TypeScript, zero Claude calls — immune to behavioral-fixes.md drift.
+//     Runs AFTER morning-brief (6 AM) so skill-written content is preserved.
+//     Root cause of Aug 2026 outage: behavioral-fixes.md "deliver and stop" guidance
+//     suppressed the Claude initiative that was autonomously writing entries.
+jobs.push(
+  CronJob.from({
+    cronTime: "45 7 * * *",
+    onTick: safeTick("journal-auto-log", () => {
+      const date = today();
+      const journalPath = join(MEMORY_DIR, `${date}.md`);
+      if (!existsSync(journalPath)) return; // 12:01 AM cron must run first
+
+      const existing = readFileSync(journalPath, "utf-8");
+      if (existing.trim().length > 200) {
+        log("journal-auto-log", `${date}.md already has content (${existing.length} chars), skipping`);
+        return;
+      }
+
+      const metrics = getMetrics();
+      const health = getHealthStatus();
+      const uptimeHrs = Math.round(
+        (Date.now() - new Date(metrics.startedAt).getTime()) / 3600000
+      );
+
+      const timeStr = new Date().toLocaleTimeString("en-US", {
+        timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit",
+      });
+
+      const lines: string[] = [
+        "",
+        `## System State — Auto-logged ${timeStr}`,
+        `**Uptime:** ${uptimeHrs}h | **Messages:** ${metrics.messageCount} | **Errors:** ${metrics.errorCount} | **Health:** ${health.status}`,
+        `**Claude calls:** ${metrics.claudeCallCount} | **Avg response:** ${metrics.avgResponseMs}ms`,
+      ];
+
+      if (health.issues.length > 0) {
+        lines.push(`**Issues:** ${health.issues.join("; ")}`);
+      }
+      if (metrics.recentErrors.length > 0) {
+        lines.push("**Recent errors:**");
+        metrics.recentErrors.slice(-3).forEach((e) =>
+          lines.push(`- [${e.event}] ${e.message}`)
+        );
+      }
+      lines.push("");
+
+      appendFileSync(journalPath, lines.join("\n"));
+      log("journal-auto-log", `Wrote system state to ${date}.md (${lines.length} lines)`);
     }),
     timeZone: TIMEZONE,
   })
