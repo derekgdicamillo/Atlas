@@ -93,15 +93,23 @@ export async function appendHistory(record: EvolutionRecord): Promise<void> {
   try {
     await mkdir(DATA_DIR, { recursive: true });
     const history = await loadHistory();
-    history.push(record);
 
-    // Trim to max entries (FIFO)
-    while (history.length > MAX_HISTORY_ENTRIES) {
-      history.shift();
+    // Upsert by date: replace existing entry for same date (e.g. onComplete callback
+    // fires after the initial pre-implementer write, adding validator/implementer results)
+    const existingIdx = history.findIndex((h) => h.date === record.date);
+    if (existingIdx !== -1) {
+      history[existingIdx] = record;
+      info("evolution:history", `Updated evolution record for ${record.date} (${history.length} total)`);
+    } else {
+      history.push(record);
+      // Trim to max entries (FIFO)
+      while (history.length > MAX_HISTORY_ENTRIES) {
+        history.shift();
+      }
+      info("evolution:history", `Appended evolution record for ${record.date} (${history.length} total)`);
     }
 
     await writeFile(HISTORY_FILE, JSON.stringify(history, null, 2));
-    info("evolution:history", `Appended evolution record for ${record.date} (${history.length} total)`);
   } catch (err) {
     warn("evolution:history", `Failed to append history: ${err}`);
   }
@@ -125,8 +133,17 @@ export async function appendMetrics(metrics: EvolutionMetrics): Promise<void> {
   try {
     await mkdir(DATA_DIR, { recursive: true });
     const all = await loadMetrics();
-    all.push(metrics);
-    while (all.length > MAX_HISTORY_ENTRIES) all.shift();
+
+    // Upsert by date: replace existing entry so onComplete can update with
+    // implementer/validator results without creating duplicate date rows
+    const existingIdx = all.findIndex((m) => m.date === metrics.date);
+    if (existingIdx !== -1) {
+      all[existingIdx] = metrics;
+    } else {
+      all.push(metrics);
+      while (all.length > MAX_HISTORY_ENTRIES) all.shift();
+    }
+
     await writeFile(METRICS_FILE, JSON.stringify(all, null, 2));
   } catch (err) {
     warn("evolution:history", `Failed to append metrics: ${err}`);

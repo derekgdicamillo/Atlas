@@ -72,6 +72,7 @@ import {
 import { enqueueReply, markDelivered, drainPendingReplies } from "./delivery.ts";
 import { createStreamingSession, splitForTelegram, type StreamingSession } from "./streaming.ts";
 import { sanitizeOutbound, isRepeatErrorForChat } from "./output-sanitizer.ts";
+import { slopCheck, logSlopViolation } from "./slop-gate.ts";
 import { acknowledgeAll } from "./alert-escalation.ts";
 import { detectFeedback, saveFeedback, getLessonsLearned, inferTaskType } from "./feedback.ts";
 import {
@@ -5163,11 +5164,22 @@ async function handleUserMessage(
       const { text: clean, errorKey } = sanitizeOutbound(stripSentinels(response));
       const suppress = errorKey && isRepeatErrorForChat(String(chatId), errorKey);
       if (clean && clean.trim() && !suppress) {
+        // Slop gate: catch style violations before streaming reconcile
+        const slopResult = slopCheck(clean);
+        const finalClean = slopResult.score > 0 ? slopResult.rewritten : clean;
+        if (slopResult.score > 0) {
+          logSlopViolation({
+            timestamp: new Date().toISOString(),
+            violations: slopResult.violations,
+            originalLength: clean.length,
+            rewrittenLength: slopResult.rewritten.length,
+          });
+        }
         // Reconcile ALL streamed messages against the final processed text.
         // The old single-edit `.slice(-4096)` tail-cut lost or duplicated
         // content whenever the response spanned messages or tag processing
         // changed the length (behavioral-fixes.md truncation entries).
-        const chunks = splitForTelegram(clean, 4000);
+        const chunks = splitForTelegram(finalClean, 4000);
         const ids = streaming.messageIds;
         for (let i = 0; i < Math.max(chunks.length, ids.length); i++) {
           try {
@@ -6144,6 +6156,19 @@ async function sendResponse(ctx: Context, response: string, threadId?: number | 
       info("send", `Suppressed repeat ${errorKey} error to chat ${chatKey}`);
       return;
     }
+  }
+
+  // Slop gate: catch trailing questions, preambles, emoji overflow, rule citations, narration.
+  // Runs after sanitizeOutbound so both filters apply; slopCheck handles the remaining cases.
+  const slopResult = slopCheck(response);
+  if (slopResult.score > 0) {
+    logSlopViolation({
+      timestamp: new Date().toISOString(),
+      violations: slopResult.violations,
+      originalLength: response.length,
+      rewrittenLength: slopResult.rewritten.length,
+    });
+    response = slopResult.rewritten;
   }
 
   // Guard against empty responses (Telegram rejects empty message text)

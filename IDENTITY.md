@@ -23,3 +23,5 @@
 
 ## Evolution Log
 (Auto-updated by /reflect)
+
+- 2026-08-26: Formatting rules (em dash, emoji cap, trailing questions) now have structural enforcement via src/slop-gate.ts wired into relay.ts — these are no longer purely advisory (slop gate built Aug 25, violations logged to data/slop-gate-log.jsonl)
