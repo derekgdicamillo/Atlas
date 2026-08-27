@@ -193,7 +193,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "evolution":      20 * 60 * 1000, // 20 min — includes code agent spawn
   "summarize":      15 * 60 * 1000, // 15 min — may process many conversations
   "reflect":        10 * 60 * 1000, // 10 min
-  "content-engine": 10 * 60 * 1000, // 10 min
+  "content-engine": 15 * 60 * 1000, // 15 min (was 10 — waterfall+critic+images needs more headroom)
   "morning-brief":   5 * 60 * 1000, //  5 min
   "weekly-exec":     8 * 60 * 1000, //  8 min
   "todo-review":     3 * 60 * 1000, //  3 min
@@ -212,7 +212,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "alert-deliver":  55 * 1000,        // 55 sec (Supabase query — was 30s but timed out repeatedly; 55s stays under 1-min cron interval)
   "scheduled-msgs": 30 * 1000,       // 30 sec (quick check for due messages)
   "anomaly-scan":    2 * 60 * 1000, //  2 min
-  "monitor-fast":    3 * 60 * 1000, //  3 min (fast tier: leads, reviews, urgent email)
+  "monitor-fast":    5 * 60 * 1000, //  5 min (was 3 — GHL API latency pushing past 3 min)
   "monitor-medium":  5 * 60 * 1000, //  5 min (medium tier: ads, pipeline, speed-to-lead)
   "monitor-slow":   10 * 60 * 1000, // 10 min (slow tier: financials, traffic, conversions)
   "monitor-daily":   5 * 60 * 1000, //  5 min (daily tier: morning calendar pre-load)
