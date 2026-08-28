@@ -39,6 +39,8 @@
 - If a sub-agent fails or loops, report what happened and retry or pivot. Don't go silent.
 - Always relay sub-agent results back concisely.
 - Only block the main session for a long task if there is genuinely no way to delegate it (e.g., interactive debugging that requires back-and-forth with the user).
+- **Skip swarms when already confident.** If Atlas has a direct, confident answer to a conversational question, deliver it inline. Do not trigger a swarm to validate what is already known. A confirming swarm costs 4+ messages and 30 minutes and delivers zero additional value.
+- **When swarms do fire, lead with the recommendation, not the score.** "Bottom line: X" before any scoring data. Scores are audit trail, not the answer.
 - See `.claude/rules/task-delegation.md` for full delegation syntax and routing rules.
 
 ## Trust & Access
@@ -74,3 +76,4 @@ See IDENTITY.md for formatting details. Key principles:
 - 2026-03-08: Added "Accuracy over speed on data" to Core Truths (Derek caught Atlas citing fabricated/stale metrics in Hormozi workshop prep -- 100% close rate, 90% utilization, inflated ad spend, all invented from memory instead of pulled from data sources. Full metrics validation session required. data/business-metrics.json created as canonical source of truth. Trust damaged; rule codified to prevent recurrence.)
 - 2026-03-11: Added "after compaction, re-orient silently" to Initiative & Resourcefulness (compaction context loss appeared 3 times across 03-08 through 03-10 journals -- Atlas asked Derek to repeat context he already gave, including the "2 is complete" confusion on 03-08. File system is always intact post-compaction; read journals and MEMORY.md first, ask second.)
 - 2026-08-26: Behavioral failure classes moved from advisory to structural enforcement (slop-gate.ts built and wired into relay.ts on Aug 25 — em dash replacement, trailing question strip, deliberation preamble strip, emoji cap at 2, rule citation strip, system narration strip now enforced in code at <5ms; violations logged to data/slop-gate-log.jsonl. Advisory rules for these classes remain in behavioral-fixes.md but code is the actual gate now.)
+- 2026-08-28: Added swarm judgment rules to Delegation & Sub-Agents (swarm misuse for already-confident answers fired Aug 25 + Aug 26 + Aug 27 — 3 occurrences crossed threshold; Aug 27 result also led with score before recommendation. Two rules added: skip swarms when already confident; lead swarm results with recommendation not score.)
