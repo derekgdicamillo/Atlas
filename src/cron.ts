@@ -19,7 +19,7 @@ import { runEvolution } from "./evolve.ts";
 import { runEvolutionPipeline } from "./evolution/index.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { runPrompt } from "./prompt-runner.ts";
+import { runPrompt, extractFirstAssistantText } from "./prompt-runner.ts";
 import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, getLocalTaskIds, type CompletedTaskInfo } from "./supervisor.ts";
 import { initTaskPersistence, syncTasksFromSupabase } from "./task-persistence.ts";
 import { runSupervisorWorker, getCodeAgentStatus } from "./supervisor-worker.ts";
@@ -390,7 +390,7 @@ function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promis
 /** Run a Claude Code skill via CLI with optional model selection */
 async function runSkill(skill: string, model?: string): Promise<string> {
   try {
-    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", `/${skill}`, "--output-format", "json"]);
+    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", `/${skill}`, "--output-format", "stream-json", "--verbose"]);
     if (model) args.push("--model", model);
 
     const proc = spawn(args, {
@@ -400,8 +400,10 @@ async function runSkill(skill: string, model?: string): Promise<string> {
       env: sanitizedEnv(), // OpenClaw 2.19: don't leak tokens to spawned CLI
     });
 
-    const output = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
+    const [output, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
     const exitCode = await proc.exited;
 
     if (exitCode !== 0) {
@@ -411,12 +413,7 @@ async function runSkill(skill: string, model?: string): Promise<string> {
 
     if (!output) return "";
 
-    try {
-      const parsed = JSON.parse(output);
-      return (parsed.result ?? parsed.text ?? output).trim();
-    } catch {
-      return output.trim();
-    }
+    return extractFirstAssistantText(output);
   } catch (error) {
     log(skill, `ERROR: ${error}`);
     return "";
