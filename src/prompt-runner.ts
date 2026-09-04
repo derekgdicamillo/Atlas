@@ -106,3 +106,46 @@ export function extractFirstAssistantText(output: string): string {
   }
   return output.trim();
 }
+
+/**
+ * For multi-step skills that use tools before producing output: return the
+ * LAST assistant text that is not the Stop-hook signals payload. Skills may
+ * emit a preamble ("I'll read the rotation state…") before tool use; the
+ * actual content comes in a later assistant message. The Stop hook fires last
+ * and its output starts with `{"signals"` — exclude that turn.
+ *
+ * Falls back to extractFirstAssistantText if no suitable turn is found.
+ */
+export function extractLastMeaningfulAssistantText(output: string): string {
+  const lines = output.split("\n").filter((l) => l.trim().length > 0);
+  let lastText = "";
+
+  for (const line of lines) {
+    let evt: unknown;
+    try { evt = JSON.parse(line); } catch { continue; }
+    if (!evt || typeof evt !== "object") continue;
+    const e = evt as Record<string, unknown>;
+    if (e.type !== "assistant") continue;
+
+    const msg = e.message as Record<string, unknown> | undefined;
+    if (!msg) continue;
+    const content = msg.content;
+    if (!Array.isArray(content)) continue;
+
+    const texts: string[] = [];
+    for (const block of content) {
+      if (block && typeof block === "object" && (block as { type?: string }).type === "text") {
+        const t = (block as { text?: string }).text;
+        if (typeof t === "string") texts.push(t);
+      }
+    }
+    if (texts.length > 0) {
+      const text = texts.join("").trim();
+      if (!text.startsWith('{"signals"')) {
+        lastText = text;
+      }
+    }
+  }
+
+  return lastText || extractFirstAssistantText(output);
+}

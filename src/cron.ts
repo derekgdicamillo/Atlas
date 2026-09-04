@@ -19,7 +19,7 @@ import { runEvolution } from "./evolve.ts";
 import { runEvolutionPipeline } from "./evolution/index.ts";
 import { runHeartbeat } from "./heartbeat.ts";
 import { runSummarization } from "./summarize.ts";
-import { runPrompt, extractFirstAssistantText } from "./prompt-runner.ts";
+import { runPrompt, extractFirstAssistantText, extractLastMeaningfulAssistantText } from "./prompt-runner.ts";
 import { loadTasks, checkTasks, registerTask, markAnnounced, incrementAnnounceRetry, getLocalTaskIds, type CompletedTaskInfo } from "./supervisor.ts";
 import { initTaskPersistence, syncTasksFromSupabase } from "./task-persistence.ts";
 import { runSupervisorWorker, getCodeAgentStatus } from "./supervisor-worker.ts";
@@ -413,7 +413,7 @@ async function runSkill(skill: string, model?: string): Promise<string> {
 
     if (!output) return "";
 
-    return extractFirstAssistantText(output);
+    return extractLastMeaningfulAssistantText(output);
   } catch (error) {
     log(skill, `ERROR: ${error}`);
     return "";
