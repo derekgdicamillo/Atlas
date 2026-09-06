@@ -194,7 +194,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "summarize":      15 * 60 * 1000, // 15 min — may process many conversations
   "reflect":        10 * 60 * 1000, // 10 min
   "content-engine": 15 * 60 * 1000, // 15 min (was 10 — waterfall+critic+images needs more headroom)
-  "morning-brief":   5 * 60 * 1000, //  5 min
+  "morning-brief":  10 * 60 * 1000, // 10 min (raised from 5 min; consistently hitting wall clock)
   "weekly-exec":     8 * 60 * 1000, //  8 min
   "todo-review":     3 * 60 * 1000, //  3 min
   "git-backup":      2 * 60 * 1000, //  2 min
@@ -228,7 +228,7 @@ const JOB_TIMEOUTS_MS: Record<string, number> = {
   "metric-cleanup":  60 * 1000,     //  1 min (single Supabase RPC)
   "ghl-webhook-health": 30 * 1000,  // 30 sec (single Supabase query)
   "pharmacy-invoices": 5 * 60 * 1000, // 5 min — M365 API + PDF parsing + OneDrive save
-  "overnight-content": 10 * 60 * 1000, // 10 min — overnight draft generation
+  "overnight-content": 25 * 60 * 1000, // 25 min — overnight draft generation (raised from 10 min; waterfall skill consistently exceeds 10 min)
   "night-shift-plan": 3 * 60 * 1000, //  3 min — Haiku planner, quick
   "night-shift-work": 25 * 60 * 1000, // 25 min — processes up to 5 tasks (raised from 15min; hit 900s limit Aug 15)
   "strategic-memo":   5 * 60 * 1000, //  5 min — Sonnet weekly memo

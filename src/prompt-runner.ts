@@ -52,7 +52,7 @@ export async function runPrompt(prompt: string, model?: string): Promise<string>
 
     if (exitCode !== 0) return "";
 
-    return extractFirstAssistantText(output);
+    return extractLastMeaningfulAssistantText(output);
   } catch (error) {
     console.error(`[runPrompt] ERROR: ${error}`);
     return "";
