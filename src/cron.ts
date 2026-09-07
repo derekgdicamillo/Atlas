@@ -387,18 +387,35 @@ function safeTick(jobName: string, fn: () => Promise<void> | void): () => Promis
 // CLAUDE CLI HELPERS
 // ============================================================
 
-/** Run a Claude Code skill via CLI with optional model selection */
+/** Run a Claude Code skill via CLI with optional model selection.
+ *  Injects skill content via stdin instead of slash command — slash commands
+ *  are not reliably processed in headless -p mode across Claude Code versions. */
 async function runSkill(skill: string, model?: string): Promise<string> {
   try {
-    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", `/${skill}`, "--output-format", "stream-json", "--verbose"]);
+    // Read skill file and strip YAML frontmatter before passing as prompt
+    const skillPath = join(PROJECT_DIR, ".claude", "skills", skill, "SKILL.md");
+    let promptText: string;
+    if (existsSync(skillPath)) {
+      const raw = readFileSync(skillPath, "utf-8");
+      promptText = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+    } else {
+      warn(skill, `Skill file not found at ${skillPath}, falling back to slash command`);
+      promptText = `/${skill}`;
+    }
+
+    const args = buildClaudeSpawnArgs(CLAUDE_PATH, ["-p", "--output-format", "stream-json", "--verbose"]);
     if (model) args.push("--model", model);
 
     const proc = spawn(args, {
+      stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
       cwd: PROJECT_DIR,
       env: sanitizedEnv(), // OpenClaw 2.19: don't leak tokens to spawned CLI
     });
+
+    proc.stdin.write(promptText);
+    proc.stdin.end();
 
     const [output, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
